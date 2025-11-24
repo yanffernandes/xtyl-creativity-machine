@@ -412,7 +412,7 @@ export default function ProjectPage() {
         try {
             const newDocData = {
                 title: "Nova Criação",
-                content: "<p>Comece a escrever...</p>",
+                content: "",
                 status: "draft"
             }
 
