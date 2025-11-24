@@ -12,6 +12,7 @@ from datetime import timedelta
 
 # MinIO Configuration
 MINIO_ENDPOINT = os.getenv("MINIO_ENDPOINT", "localhost:9000")
+MINIO_PUBLIC_URL = os.getenv("MINIO_PUBLIC_URL", "")  # Public URL for browser access
 MINIO_ACCESS_KEY = os.getenv("MINIO_ACCESS_KEY", "minioadmin")
 MINIO_SECRET_KEY = os.getenv("MINIO_SECRET_KEY", "minioadmin")
 MINIO_BUCKET = os.getenv("MINIO_BUCKET", "xtyl-storage")
@@ -81,12 +82,14 @@ def upload_file(
         )
 
         # Generate public URL
-        # Use localhost for external access instead of container name
-        protocol = "https" if MINIO_SECURE else "http"
-
-        # Replace internal container name with localhost for browser access
-        external_endpoint = MINIO_ENDPOINT.replace("minio:9000", "localhost:9000")
-        url = f"{protocol}://{external_endpoint}/{MINIO_BUCKET}/{object_name}"
+        if MINIO_PUBLIC_URL:
+            # Use configured public URL (for production)
+            url = f"{MINIO_PUBLIC_URL}/{MINIO_BUCKET}/{object_name}"
+        else:
+            # Fallback to localhost for local development
+            protocol = "https" if MINIO_SECURE else "http"
+            external_endpoint = MINIO_ENDPOINT.replace("minio:9000", "localhost:9000")
+            url = f"{protocol}://{external_endpoint}/{MINIO_BUCKET}/{object_name}"
 
         return url
 
