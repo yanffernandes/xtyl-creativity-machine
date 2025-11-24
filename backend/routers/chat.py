@@ -132,14 +132,20 @@ async def respond_to_tool_approval(
     """
     approval_id = response.approval_id
 
+    print(f"📨 Received approval response for: {approval_id}")
+    print(f"📋 Current pending approvals: {list(pending_approvals.keys())}")
+
     if approval_id not in pending_approvals:
+        print(f"❌ Approval ID {approval_id} not found in pending approvals!")
         raise HTTPException(status_code=404, detail="Approval request not found or expired")
 
     # Update the approval status
     pending_approvals[approval_id]["approved"] = response.approved
+    print(f"✅ Approval status updated: {response.approved}")
 
     # Signal the event to unblock the streaming endpoint
     pending_approvals[approval_id]["event"].set()
+    print(f"🔔 Event signaled for approval: {approval_id}")
 
     return {"success": True, "approval_id": approval_id, "approved": response.approved}
 
