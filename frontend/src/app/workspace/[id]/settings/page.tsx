@@ -43,6 +43,9 @@ interface Model {
         prompt: string
         completion: string
     }
+    architecture?: {
+        modality?: string[]
+    }
 }
 
 export default function SettingsPage() {
