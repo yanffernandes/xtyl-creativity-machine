@@ -666,10 +666,11 @@ Retrieved Context:
                         print(f"⏱️ Approval timeout for tool: {tool_name}")
 
                     # Check if approved
-                    approved = pending_approvals[approval_id]["approved"]
+                    approved = pending_approvals[approval_id].get("approved", False)
 
                     # Clean up
-                    del pending_approvals[approval_id]
+                    if approval_id in pending_approvals:
+                        del pending_approvals[approval_id]
 
                     if not approved:
                         # User rejected - stop execution
