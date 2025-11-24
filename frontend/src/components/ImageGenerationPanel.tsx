@@ -56,7 +56,7 @@ interface GeneratedImage {
 interface Document {
   id: string
   title: string
-  content: string
+  content?: string
   media_type?: string
 }
 
