@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import api from "@/lib/api"
@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { CheckCircle2, AlertCircle } from "lucide-react"
 
-export default function ResetPasswordPage() {
+function ResetPasswordForm() {
     const [token, setToken] = useState("")
     const [password, setPassword] = useState("")
     const [confirmPassword, setConfirmPassword] = useState("")
@@ -154,5 +154,22 @@ export default function ResetPasswordPage() {
                 </CardContent>
             </Card>
         </div>
+    )
+}
+
+export default function ResetPasswordPage() {
+    return (
+        <Suspense fallback={
+            <div className="flex items-center justify-center min-h-screen bg-background">
+                <Card className="w-[450px]">
+                    <CardHeader>
+                        <CardTitle>Redefinir Senha</CardTitle>
+                        <CardDescription>Carregando...</CardDescription>
+                    </CardHeader>
+                </Card>
+            </div>
+        }>
+            <ResetPasswordForm />
+        </Suspense>
     )
 }

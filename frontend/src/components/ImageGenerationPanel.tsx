@@ -231,7 +231,7 @@ Retorne APENAS o prompt de geração de imagem, sem explicações adicionais.`
           document_id: documentId,
           refinement_prompt: prompt,
           model: selectedModel,
-          size,
+          aspect_ratio: aspectRatio,
           quality,
           style: style || undefined
         })
@@ -241,7 +241,7 @@ Retorne APENAS o prompt de geração de imagem, sem explicações adicionais.`
           document_id: generatedImage.document_id,
           refinement_prompt: prompt,
           model: selectedModel,
-          size,
+          aspect_ratio: aspectRatio,
           quality,
           style: style || undefined
         })
