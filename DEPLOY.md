@@ -68,13 +68,22 @@ Certifique-se de que as seguintes configurações estão corretas:
 
 ## 🚀 Deploy no Easypanel
 
+> **⚠️ Nota Importante**: O `docker-compose.prod.yml` foi otimizado para Easypanel:
+> - **Não** contém `container_name` (Easypanel gerencia automaticamente)
+> - **Não** expõe `ports` externamente (configure via interface do Easypanel)
+> - O Easypanel cria automaticamente os domínios e routing
+
 ### Método 1: Deploy Automático via Git
 
 1. **No Easypanel**, crie um novo projeto
 2. Conecte seu repositório Git
 3. Configure as variáveis de ambiente (copie de `.env.production`)
 4. Selecione o arquivo `docker-compose.prod.yml`
-5. Clique em "Deploy"
+5. **Configure os domínios**:
+   - Frontend: Adicione domínio público e aponte para porta `3000`
+   - Backend API: Adicione domínio público e aponte para porta `8000`
+   - MinIO Console (opcional): Aponte para porta `9001`
+6. Clique em "Deploy"
 
 ### Método 2: Deploy Manual
 
