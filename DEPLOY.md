@@ -79,11 +79,19 @@ Certifique-se de que as seguintes configurações estão corretas:
 2. Conecte seu repositório Git
 3. Configure as variáveis de ambiente (copie de `.env.production`)
 4. Selecione o arquivo `docker-compose.prod.yml`
-5. **Configure os domínios**:
-   - Frontend: Adicione domínio público e aponte para porta `3000`
-   - Backend API: Adicione domínio público e aponte para porta `8000`
-   - MinIO Console (opcional): Aponte para porta `9001`
-6. Clique em "Deploy"
+5. **Configure os domínios** (Easypanel faz proxy automático):
+
+   | Serviço | Domínio Sugerido | Porta Interna | Serviço Docker |
+   |---------|------------------|---------------|----------------|
+   | Frontend | `app.seudominio.com` | **3000** | `frontend` |
+   | Backend API | `api.seudominio.com` | **8000** | `backend` |
+   | MinIO Console | `minio.seudominio.com` | **9001** | `minio` (opcional) |
+
+6. **Configure as variáveis de ambiente correspondentes**:
+   - `NEXT_PUBLIC_API_URL=https://api.seudominio.com`
+   - `FRONTEND_URL=https://app.seudominio.com`
+
+7. Clique em "Deploy"
 
 ### Método 2: Deploy Manual
 

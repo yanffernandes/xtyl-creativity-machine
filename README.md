@@ -13,11 +13,21 @@ cp .env.example .env
 ```
 *Note: If you have an OpenRouter API Key, add it to the `.env` file. Otherwise, the system will use mock responses.*
 
-### 2. Run with Docker (Recommended)
-This will start all services (Frontend, Backend, DB, Redis, MinIO):
+### 2. Run with Docker
+
+#### Development Mode
+For local development with hot reload:
+```bash
+docker-compose -f docker-compose.dev.yml up --build
+```
+
+#### Production Mode (Recommended for Easypanel/VPS)
+For production deployment:
 ```bash
 docker-compose up --build
 ```
+
+> **Note**: The main `docker-compose.yml` is optimized for production/Easypanel deployment (no `container_name` or `ports` to avoid conflicts).
 
 - **Frontend**: [http://localhost:3000](http://localhost:3000)
 - **Backend API**: [http://localhost:8000/docs](http://localhost:8000/docs)
