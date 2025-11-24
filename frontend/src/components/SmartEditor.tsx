@@ -64,7 +64,7 @@ export default function SmartEditor({
                 setIsDiffMode(true)
                 setShowEditor(true)
             }, 50) // Small delay to ensure cleanup
-        } else if (!suggestedContent && isDiffMode) {
+        } else if (!suggestedContent) {
             // When exiting diff mode, dispose diff editor first
             if (diffEditorRef.current) {
                 try {
@@ -76,14 +76,17 @@ export default function SmartEditor({
                 diffEditorRef.current = null
             }
 
-            // Then unmount diff editor
-            setShowEditor(false)
-            setTimeout(() => {
-                setIsDiffMode(false)
-                setShowEditor(true)
-            }, 50)
+            // Then unmount diff editor if in diff mode
+            if (isDiffMode) {
+                setShowEditor(false)
+                setTimeout(() => {
+                    setIsDiffMode(false)
+                    setShowEditor(true)
+                }, 50)
+            }
         }
-    }, [suggestedContent, isDiffMode])
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [suggestedContent])
 
     // Cleanup on unmount - cancel any pending saves and dispose editors
     useEffect(() => {

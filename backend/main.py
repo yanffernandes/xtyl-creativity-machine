@@ -39,4 +39,51 @@ async def root():
 
 @app.get("/health")
 async def health_check():
-    return {"status": "healthy"}
+    """
+    Health check endpoint for monitoring and load balancers.
+    Verifies connectivity to critical services.
+    """
+    health_status = {
+        "status": "healthy",
+        "services": {}
+    }
+
+    # Check Database
+    try:
+        from database import SessionLocal
+        from sqlalchemy import text
+        db = SessionLocal()
+        db.execute(text("SELECT 1"))
+        db.close()
+        health_status["services"]["database"] = "healthy"
+    except Exception as e:
+        health_status["services"]["database"] = f"unhealthy: {str(e)}"
+        health_status["status"] = "degraded"
+
+    # Check Redis
+    try:
+        import redis
+        import os
+        redis_url = os.getenv("REDIS_URL", "redis://redis:6379/0")
+        r = redis.from_url(redis_url)
+        r.ping()
+        health_status["services"]["redis"] = "healthy"
+    except Exception as e:
+        health_status["services"]["redis"] = f"unhealthy: {str(e)}"
+        health_status["status"] = "degraded"
+
+    # Check MinIO
+    try:
+        from minio_service import minio_client
+        # Simple check: list buckets
+        if minio_client:
+            list(minio_client.list_buckets())
+            health_status["services"]["minio"] = "healthy"
+        else:
+            health_status["services"]["minio"] = "unhealthy: client not initialized"
+            health_status["status"] = "degraded"
+    except Exception as e:
+        health_status["services"]["minio"] = f"unhealthy: {str(e)}"
+        health_status["status"] = "degraded"
+
+    return health_status

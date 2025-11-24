@@ -23,9 +23,19 @@ from image_generation_service import (
 from ai_usage_service import log_ai_usage
 from pricing_config import calculate_image_cost
 from auth import get_current_user
-from models import User
+from models import User, Project
+import time
+import json
 
 router = APIRouter(prefix="/image-generation", tags=["image-generation"])
+
+
+def get_workspace_id_from_project(db: Session, project_id: Optional[str]) -> Optional[str]:
+    """Get workspace_id from project_id."""
+    if not project_id:
+        return None
+    project = db.query(Project).filter(Project.id == project_id).first()
+    return project.workspace_id if project else None
 
 
 class ImageGenerationRequest(BaseModel):
@@ -79,6 +89,7 @@ async def generate_image(
 
     Creates a new document with media_type='image' and stores the generated image
     """
+    start_time = time.time()  # Start timing
     try:
         # Verify project exists
         project = db.query(models.Project).filter(
@@ -175,18 +186,32 @@ async def generate_image(
 
         # Log AI usage
         try:
+            duration_ms = int((time.time() - start_time) * 1000)
             cost = calculate_image_cost(request.model, request.aspect_ratio, request.quality)
+
+            # Create metadata JSON for image generation details
+            image_metadata = {
+                "aspect_ratio": request.aspect_ratio,
+                "quality": request.quality,
+                "style": request.style,
+                "has_references": bool(request.reference_assets),
+                "num_references": len(request.reference_assets) if request.reference_assets else 0
+            }
+
             log_ai_usage(
                 db=db,
                 user_id=current_user.id,
+                workspace_id=get_workspace_id_from_project(db, request.project_id),
+                project_id=request.project_id,
                 model=request.model,
                 provider="openrouter",
                 request_type="image",
                 input_tokens=0,
                 output_tokens=0,
-                project_id=request.project_id,
                 prompt_preview=request.prompt,
                 response_preview=f"Image generated: {document.file_url}",
+                tool_calls=[json.dumps(image_metadata)],
+                duration_ms=duration_ms,
                 cost=cost
             )
         except Exception as e:
@@ -221,6 +246,7 @@ async def refine_image(
     Takes an existing image document and generates a new version based on refinement instructions.
     Creates a new document to preserve the iteration history.
     """
+    start_time = time.time()  # Start timing
     try:
         # Get existing document
         existing_doc = db.query(models.Document).filter(
@@ -285,18 +311,32 @@ async def refine_image(
 
         # Log AI usage
         try:
+            duration_ms = int((time.time() - start_time) * 1000)
             cost = calculate_image_cost(model, aspect_ratio, request.quality)
+
+            # Create metadata JSON for image refinement details
+            image_metadata = {
+                "aspect_ratio": aspect_ratio,
+                "quality": request.quality,
+                "style": request.style,
+                "is_refinement": True,
+                "refined_from": existing_doc.id
+            }
+
             log_ai_usage(
                 db=db,
                 user_id=current_user.id,
+                workspace_id=get_workspace_id_from_project(db, existing_doc.project_id),
+                project_id=existing_doc.project_id,
                 model=model,
                 provider="openrouter",
                 request_type="image",
                 input_tokens=0,
                 output_tokens=0,
-                project_id=existing_doc.project_id,
                 prompt_preview=refinement_prompt,
                 response_preview=f"Image refined: {new_document.file_url}",
+                tool_calls=[json.dumps(image_metadata)],
+                duration_ms=duration_ms,
                 cost=cost
             )
         except Exception as e:
