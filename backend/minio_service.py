@@ -28,15 +28,35 @@ minio_client = Minio(
 
 # Lazy bucket initialization - will be done on first use
 def ensure_bucket():
-    """Ensure bucket exists. Call this before using MinIO."""
+    """Ensure bucket exists and has public read access. Call this before using MinIO."""
     try:
+        # Check if bucket exists, create if not
         if not minio_client.bucket_exists(MINIO_BUCKET):
             minio_client.make_bucket(MINIO_BUCKET)
             print(f"✓ MinIO bucket '{MINIO_BUCKET}' created")
         else:
             print(f"✓ MinIO bucket '{MINIO_BUCKET}' exists")
+
+        # Set bucket policy to allow public read access
+        # This allows anyone to view/download files but not upload or delete
+        policy = {
+            "Version": "2012-10-17",
+            "Statement": [
+                {
+                    "Effect": "Allow",
+                    "Principal": {"AWS": "*"},
+                    "Action": ["s3:GetObject"],
+                    "Resource": [f"arn:aws:s3:::{MINIO_BUCKET}/*"]
+                }
+            ]
+        }
+
+        import json
+        minio_client.set_bucket_policy(MINIO_BUCKET, json.dumps(policy))
+        print(f"✓ MinIO bucket '{MINIO_BUCKET}' policy set to public read")
+
     except Exception as e:
-        print(f"✗ MinIO bucket check/creation failed: {e}")
+        print(f"✗ MinIO bucket setup failed: {e}")
         # Don't crash - let it fail on actual use if needed
 
 
