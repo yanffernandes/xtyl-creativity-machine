@@ -18,24 +18,25 @@ MINIO_BUCKET = os.getenv("MINIO_BUCKET", "xtyl-storage")
 MINIO_SECURE = os.getenv("MINIO_SECURE", "false").lower() == "true"
 
 # Initialize MinIO client
-try:
-    minio_client = Minio(
-        MINIO_ENDPOINT,
-        access_key=MINIO_ACCESS_KEY,
-        secret_key=MINIO_SECRET_KEY,
-        secure=MINIO_SECURE
-    )
+minio_client = Minio(
+    MINIO_ENDPOINT,
+    access_key=MINIO_ACCESS_KEY,
+    secret_key=MINIO_SECRET_KEY,
+    secure=MINIO_SECURE
+)
 
-    # Create bucket if it doesn't exist
-    if not minio_client.bucket_exists(MINIO_BUCKET):
-        minio_client.make_bucket(MINIO_BUCKET)
-        print(f"✓ MinIO bucket '{MINIO_BUCKET}' created")
-    else:
-        print(f"✓ MinIO bucket '{MINIO_BUCKET}' exists")
-
-except Exception as e:
-    print(f"✗ MinIO initialization failed: {e}")
-    minio_client = None
+# Lazy bucket initialization - will be done on first use
+def ensure_bucket():
+    """Ensure bucket exists. Call this before using MinIO."""
+    try:
+        if not minio_client.bucket_exists(MINIO_BUCKET):
+            minio_client.make_bucket(MINIO_BUCKET)
+            print(f"✓ MinIO bucket '{MINIO_BUCKET}' created")
+        else:
+            print(f"✓ MinIO bucket '{MINIO_BUCKET}' exists")
+    except Exception as e:
+        print(f"✗ MinIO bucket check/creation failed: {e}")
+        # Don't crash - let it fail on actual use if needed
 
 
 def upload_file(
@@ -59,8 +60,8 @@ def upload_file(
     Raises:
         Exception: If upload fails
     """
-    if not minio_client:
-        raise Exception("MinIO client not initialized")
+    # Ensure bucket exists before using
+    ensure_bucket()
 
     try:
         # Build object name with folder path

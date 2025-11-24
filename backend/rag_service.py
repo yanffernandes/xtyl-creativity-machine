@@ -24,9 +24,15 @@ minio_client = Minio(
     secure=False
 )
 
-# Ensure bucket exists
-if not minio_client.bucket_exists(MINIO_BUCKET):
-    minio_client.make_bucket(MINIO_BUCKET)
+# Ensure bucket exists (lazy - will be created on first use)
+def ensure_minio_bucket():
+    """Ensure MinIO bucket exists. Call this before using MinIO."""
+    try:
+        if not minio_client.bucket_exists(MINIO_BUCKET):
+            minio_client.make_bucket(MINIO_BUCKET)
+    except Exception as e:
+        print(f"Warning: Could not ensure MinIO bucket: {e}")
+        # Don't crash on import - let it fail on actual use
 
 # Vector Store Configuration
 # Note: We need a real OpenAI key or a compatible local embedding model.
@@ -51,6 +57,9 @@ def process_document(db: Session, document_id: str, file_path: str, original_fil
     4. Generate embeddings
     5. Store in PGVector
     """
+
+    # Ensure MinIO bucket exists before using it
+    ensure_minio_bucket()
 
     # 1. Upload to MinIO
     try:
