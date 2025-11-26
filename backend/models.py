@@ -105,6 +105,7 @@ class Document(Base):
 
     project = relationship("Project", back_populates="documents")
     folder = relationship("Folder", back_populates="documents")
+    attachments = relationship("DocumentAttachment", foreign_keys="[DocumentAttachment.document_id]", back_populates="document")
 
 class ActivityLog(Base):
     __tablename__ = "activity_log"
@@ -189,3 +190,148 @@ class Template(Base):
     # Relationships
     workspace = relationship("Workspace")
     user = relationship("User")
+
+# ============================================================================
+# WORKFLOW SYSTEM MODELS
+# ============================================================================
+
+class WorkflowTemplate(Base):
+    """Reusable workflow definition with nodes and edges"""
+    __tablename__ = "workflow_templates"
+
+    id = Column(String, primary_key=True, default=generate_uuid)
+    workspace_id = Column(String, ForeignKey("workspaces.id"), nullable=True, index=True)  # NULL for system templates
+    name = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+    category = Column(String, nullable=True, index=True)  # social_media, paid_ads, blog, email, seo
+
+    # Workflow definition (ReactFlow format)
+    nodes_json = Column(JSONB, nullable=False, default=list)  # Array of {id, type, data, position}
+    edges_json = Column(JSONB, nullable=False, default=list)  # Array of {id, source, target}
+    default_params_json = Column(JSONB, nullable=True, default=dict)  # Default configuration
+
+    # Template metadata
+    is_system = Column(Boolean, default=False, index=True)  # System template vs custom
+    is_recommended = Column(Boolean, default=False, index=True)  # Featured in template library
+    usage_count = Column(Integer, default=0)
+    version = Column(String, default="1.0")  # Workflow schema version
+    created_by = Column(String, ForeignKey("users.id"), nullable=True)
+
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    # Relationships
+    workspace = relationship("Workspace")
+    creator = relationship("User", foreign_keys=[created_by])
+    executions = relationship("WorkflowExecution", back_populates="template")
+
+class WorkflowExecution(Base):
+    """Running instance of a workflow template"""
+    __tablename__ = "workflow_executions"
+
+    id = Column(String, primary_key=True, default=generate_uuid)
+    template_id = Column(String, ForeignKey("workflow_templates.id"), nullable=False, index=True)
+    project_id = Column(String, ForeignKey("projects.id"), nullable=False, index=True)
+    workspace_id = Column(String, ForeignKey("workspaces.id"), nullable=False, index=True)
+    user_id = Column(String, ForeignKey("users.id"), nullable=False)
+
+    # Execution state
+    status = Column(String, nullable=False, default="pending", index=True)  # pending, running, paused, completed, failed, stopped
+    config_json = Column(JSONB, nullable=True, default=dict)  # User-provided execution parameters
+    execution_context = Column(JSONB, nullable=True, default=dict)  # Current variable values, loop state
+    progress_percent = Column(Integer, default=0)
+    current_node_id = Column(String, nullable=True)  # Current executing node
+    celery_task_id = Column(String, nullable=True, index=True)  # Celery task ID for pause/resume/cancel
+
+    # Results and errors
+    error_message = Column(Text, nullable=True)
+    total_cost = Column(Numeric(10, 6), default=0.0)  # Total USD cost
+    total_tokens_used = Column(Integer, default=0)  # Sum of all AI API tokens
+    generated_document_ids = Column(JSONB, nullable=True, default=list)  # Array of Document IDs created
+
+    # Timing
+    started_at = Column(DateTime(timezone=True), nullable=True)
+    completed_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    # Relationships
+    template = relationship("WorkflowTemplate", back_populates="executions")
+    project = relationship("Project")
+    workspace = relationship("Workspace")
+    user = relationship("User")
+    agent_jobs = relationship("AgentJob", back_populates="execution")
+    node_outputs = relationship("NodeOutput", back_populates="execution")
+
+class AgentJob(Base):
+    """Individual AI task within a workflow execution"""
+    __tablename__ = "agent_jobs"
+
+    id = Column(String, primary_key=True, default=generate_uuid)
+    execution_id = Column(String, ForeignKey("workflow_executions.id"), nullable=False, index=True)
+    node_id = Column(String, nullable=False)  # Node ID from workflow template
+    job_type = Column(String, nullable=False)  # generate_copy, generate_image, attach, review
+
+    # Job state
+    status = Column(String, nullable=False, default="pending", index=True)  # pending, running, completed, failed, skipped
+    input_data_json = Column(JSONB, nullable=True)
+    output_data_json = Column(JSONB, nullable=True)
+    error_message = Column(Text, nullable=True)
+
+    # Usage tracking
+    tokens_used = Column(Integer, default=0)
+
+    # Timing
+    started_at = Column(DateTime(timezone=True), nullable=True)
+    completed_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    # Relationships
+    execution = relationship("WorkflowExecution", back_populates="agent_jobs")
+
+class NodeOutput(Base):
+    """Stores outputs from each node execution for variable resolution and execution history"""
+    __tablename__ = "node_outputs"
+
+    id = Column(String, primary_key=True, default=generate_uuid)
+    execution_id = Column(String, ForeignKey("workflow_executions.id", ondelete="CASCADE"), nullable=False, index=True)
+
+    # Node identification
+    node_id = Column(String, nullable=False, index=True)  # Node ID from workflow definition
+    node_name = Column(String, nullable=False)  # Human-readable node name for debugging
+    node_type = Column(String, nullable=False)  # start, text_generation, image_generation, etc.
+
+    # Output data (supports structured outputs via OutputParser)
+    outputs = Column(JSONB, nullable=False)  # Structured output data with parsed fields
+
+    # Metadata
+    execution_order = Column(Integer, nullable=False)  # Sequence number in execution
+    iteration_number = Column(Integer, default=0)  # Loop iteration (0 if not in loop)
+
+    # Timing
+    started_at = Column(DateTime(timezone=True), nullable=True)
+    completed_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    # Relationships
+    execution = relationship("WorkflowExecution", back_populates="node_outputs")
+
+class DocumentAttachment(Base):
+    """Many-to-many relationship between documents (copies) and images"""
+    __tablename__ = "document_attachments"
+
+    id = Column(String, primary_key=True, default=generate_uuid)
+    document_id = Column(String, ForeignKey("documents.id"), nullable=False, index=True)
+    image_id = Column(String, ForeignKey("documents.id"), nullable=False, index=True)  # Images are also documents
+
+    # Attachment metadata
+    is_primary = Column(Boolean, default=False)  # Only one primary per document
+    attachment_order = Column(Integer, default=0)
+    created_by_workflow_id = Column(String, ForeignKey("workflow_executions.id"), nullable=True)  # Track if created by workflow
+
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    # Relationships
+    document = relationship("Document", foreign_keys=[document_id])
+    image = relationship("Document", foreign_keys=[image_id])

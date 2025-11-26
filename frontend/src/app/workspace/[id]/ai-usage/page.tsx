@@ -110,15 +110,15 @@ export default function AIUsagePage() {
   }
 
   return (
-    <div className="p-8 space-y-6">
+    <div className="p-8 space-y-6 relative">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold">Uso de IA</h1>
-        <p className="text-muted-foreground">Estatísticas de uso e custos do workspace</p>
+      <div className="max-w-7xl mx-auto">
+        <h1 className="text-4xl font-bold tracking-tight mb-2">Uso de IA</h1>
+        <p className="text-text-secondary">Estatísticas de uso e custos do workspace</p>
       </div>
 
       {/* Summary Cards */}
-      <Tabs defaultValue="month" className="space-y-4">
+      <Tabs defaultValue="month" className="space-y-6 max-w-7xl mx-auto">
         <TabsList>
           <TabsTrigger value="today">Hoje</TabsTrigger>
           <TabsTrigger value="week">Esta Semana</TabsTrigger>
@@ -131,9 +131,9 @@ export default function AIUsagePage() {
           const stats = summary[periodKey as keyof AIUsageSummary] as AIUsageStats
 
           return (
-            <TabsContent key={period} value={period} className="space-y-4">
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                <Card>
+            <TabsContent key={period} value={period} className="space-y-6">
+              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+                <Card glass>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium">Total de Requisições</CardTitle>
                     <Activity className="h-4 w-4 text-muted-foreground" />
@@ -144,49 +144,49 @@ export default function AIUsagePage() {
                   </CardContent>
                 </Card>
 
-                <Card>
+                <Card glass>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium">Total de Tokens</CardTitle>
-                    <Zap className="h-4 w-4 text-muted-foreground" />
+                    <Zap className="h-4 w-4 text-accent-primary" />
                   </CardHeader>
                   <CardContent>
                     <div className="text-2xl font-bold">{formatNumber(stats.total_tokens)}</div>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-xs text-text-secondary">
                       {formatNumber(stats.total_input_tokens)} input + {formatNumber(stats.total_output_tokens)} output
                     </p>
                   </CardContent>
                 </Card>
 
-                <Card>
+                <Card glass>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium">Custo Total</CardTitle>
-                    <DollarSign className="h-4 w-4 text-muted-foreground" />
+                    <DollarSign className="h-4 w-4 text-accent-primary" />
                   </CardHeader>
                   <CardContent>
                     <div className="text-2xl font-bold">{formatCost(stats.total_cost)}</div>
-                    <p className="text-xs text-muted-foreground">Em USD</p>
+                    <p className="text-xs text-text-secondary">Em USD</p>
                   </CardContent>
                 </Card>
 
-                <Card>
+                <Card glass>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium">Custo Médio</CardTitle>
-                    <Brain className="h-4 w-4 text-muted-foreground" />
+                    <Brain className="h-4 w-4 text-accent-primary" />
                   </CardHeader>
                   <CardContent>
                     <div className="text-2xl font-bold">
                       {stats.total_requests > 0 ? formatCost(stats.total_cost / stats.total_requests) : "$0.0000"}
                     </div>
-                    <p className="text-xs text-muted-foreground">Por requisição</p>
+                    <p className="text-xs text-text-secondary">Por requisição</p>
                   </CardContent>
                 </Card>
               </div>
 
               {/* Breakdown by Model */}
-              <Card>
+              <Card glass>
                 <CardHeader>
-                  <CardTitle>Uso por Modelo</CardTitle>
-                  <CardDescription>Distribuição de uso entre diferentes modelos de IA</CardDescription>
+                  <CardTitle className="text-lg">Uso por Modelo</CardTitle>
+                  <CardDescription className="text-text-secondary mt-1">Distribuição de uso entre diferentes modelos de IA</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <Table>
@@ -223,10 +223,10 @@ export default function AIUsagePage() {
               </Card>
 
               {/* Breakdown by Request Type */}
-              <Card>
+              <Card glass>
                 <CardHeader>
-                  <CardTitle>Uso por Tipo de Requisição</CardTitle>
-                  <CardDescription>Chat vs. Tool Calls vs. Vision</CardDescription>
+                  <CardTitle className="text-lg">Uso por Tipo de Requisição</CardTitle>
+                  <CardDescription className="text-text-secondary mt-1">Chat vs. Tool Calls vs. Vision</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <Table>
@@ -265,10 +265,10 @@ export default function AIUsagePage() {
       </Tabs>
 
       {/* Recent Logs */}
-      <Card>
+      <Card glass className="max-w-7xl mx-auto">
         <CardHeader>
-          <CardTitle>Requisições Recentes</CardTitle>
-          <CardDescription>Últimas 50 chamadas à IA</CardDescription>
+          <CardTitle className="text-lg">Requisições Recentes</CardTitle>
+          <CardDescription className="text-text-secondary mt-1">Últimas 50 chamadas à IA</CardDescription>
         </CardHeader>
         <CardContent>
           <Table>

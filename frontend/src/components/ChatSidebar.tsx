@@ -614,8 +614,8 @@ export default function ChatSidebar({
         <div className="flex flex-col h-full border-l bg-background w-[400px]">
             <div className="p-4 border-b flex flex-col gap-4">
                 <div className="flex justify-between items-center">
-                    <h2 className="font-semibold flex items-center gap-2">
-                        <Bot className="h-5 w-5" /> Assistente IA
+                    <h2 className="text-sm font-semibold flex items-center gap-2">
+                        <Bot className="h-4 w-4" /> Assistente IA
                     </h2>
                     <div className="flex items-center gap-2">
                         <Button
@@ -1063,28 +1063,48 @@ export default function ChatSidebar({
                     </div>
                 )}
 
-                <form onSubmit={handleSend} className="flex gap-2">
-                    <div className="flex-1 flex gap-2">
-                        <input
-                            ref={fileInputRef}
-                            type="file"
-                            accept="image/*,.pdf"
-                            onChange={handleFileSelect}
-                            className="hidden"
-                        />
+                <form onSubmit={handleSend} className="flex flex-col gap-2">
+                    <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*,.pdf"
+                        onChange={handleFileSelect}
+                        className="hidden"
+                    />
+
+                    {/* Textarea com altura flexível */}
+                    <Textarea
+                        value={input}
+                        onChange={(e) => setInput(e.target.value)}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                                e.preventDefault()
+                                handleSend(e as any)
+                            }
+                        }}
+                        placeholder="Pergunte qualquer coisa... (Enter para enviar, Shift+Enter para nova linha)"
+                        disabled={isLoading}
+                        className="min-h-[80px] max-h-[300px] resize-y w-full"
+                        rows={3}
+                    />
+
+                    {/* Botões abaixo do textarea */}
+                    <div className="flex items-center gap-2">
                         <Popover open={openTemplates} onOpenChange={setOpenTemplates}>
                             <PopoverTrigger asChild>
                                 <Button
                                     type="button"
-                                    size="icon"
+                                    size="sm"
                                     variant="outline"
                                     onClick={() => {
                                         if (templates.length === 0) fetchTemplates()
                                     }}
                                     disabled={isLoading}
                                     title="Usar template"
+                                    className="gap-2"
                                 >
                                     <Sparkles className="h-4 w-4" />
+                                    Templates
                                 </Button>
                             </PopoverTrigger>
                             <PopoverContent className="w-80 p-0" align="start">
@@ -1116,34 +1136,32 @@ export default function ChatSidebar({
                                 </Command>
                             </PopoverContent>
                         </Popover>
+
                         <Button
                             type="button"
-                            size="icon"
+                            size="sm"
                             variant="outline"
                             onClick={handleAttachmentClick}
                             disabled={isLoading || uploadingAttachment}
                             title="Adicionar anexo (imagem ou PDF)"
+                            className="gap-2"
                         >
                             <Paperclip className={cn("h-4 w-4", uploadingAttachment && "animate-spin")} />
+                            Anexar
                         </Button>
-                        <Textarea
-                            value={input}
-                            onChange={(e) => setInput(e.target.value)}
-                            onKeyDown={(e) => {
-                                if (e.key === 'Enter' && !e.shiftKey) {
-                                    e.preventDefault()
-                                    handleSend(e as any)
-                                }
-                            }}
-                            placeholder="Pergunte qualquer coisa... (Enter para enviar, Shift+Enter para nova linha)"
-                            disabled={isLoading}
-                            className="min-h-[60px] max-h-[200px] resize-none"
-                            rows={2}
-                        />
+
+                        <div className="flex-1" />
+
+                        <Button
+                            type="submit"
+                            size="sm"
+                            disabled={isLoading || (!input.trim() && attachments.length === 0)}
+                            className="gap-2"
+                        >
+                            <Send className="h-4 w-4" />
+                            Enviar
+                        </Button>
                     </div>
-                    <Button type="submit" size="icon" disabled={isLoading || (!input.trim() && attachments.length === 0)}>
-                        <Send className="h-4 w-4" />
-                    </Button>
                 </form>
             </div>
         </div >

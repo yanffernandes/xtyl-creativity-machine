@@ -1,0 +1,758 @@
+openapi: 3.0.3
+info:
+  title: Workflow Management API
+  description: |
+    API endpoints for creating, editing, and managing workflow templates in the XTYL Creativity Machine.
+    Workflows are visual automation sequences that combine AI generation, conditional logic, and loops.
+  version: 1.0.0
+  contact:
+    name: XTYL Development Team
+
+servers:
+  - url: http://localhost:8000/api
+    description: Local development server
+  - url: https://api.xtyl.io/api
+    description: Production server
+
+tags:
+  - name: Workflows
+    description: Workflow template CRUD operations
+  - name: Templates
+    description: Pre-built workflow templates library
+
+paths:
+  /workflows:
+    get:
+      tags:
+        - Workflows
+      summary: List workflows
+      description: Retrieve workflows filtered by workspace or project
+      operationId: listWorkflows
+      parameters:
+        - name: workspace_id
+          in: query
+          required: true
+          description: Filter workflows by workspace
+          schema:
+            type: string
+            format: uuid
+        - name: project_id
+          in: query
+          required: false
+          description: Filter workflows by project (optional)
+          schema:
+            type: string
+            format: uuid
+        - name: is_template
+          in: query
+          required: false
+          description: Filter workspace-level templates vs project workflows
+          schema:
+            type: boolean
+        - name: category
+          in: query
+          required: false
+          description: Filter by workflow category
+          schema:
+            type: string
+            enum:
+              - content_generation
+              - image_creation
+              - analysis
+              - custom
+        - name: limit
+          in: query
+          required: false
+          description: Maximum number of results
+          schema:
+            type: integer
+            default: 50
+            maximum: 100
+        - name: offset
+          in: query
+          required: false
+          description: Pagination offset
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: List of workflows
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  workflows:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/WorkflowSummary'
+                  total:
+                    type: integer
+                    description: Total count of workflows matching filters
+                  limit:
+                    type: integer
+                  offset:
+                    type: integer
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+    post:
+      tags:
+        - Workflows
+      summary: Create workflow
+      description: Create a new workflow template or project-specific workflow
+      operationId: createWorkflow
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateWorkflowRequest'
+      responses:
+        '201':
+          description: Workflow created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkflowDetail'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /workflows/{workflow_id}:
+    get:
+      tags:
+        - Workflows
+      summary: Get workflow details
+      description: Retrieve complete workflow definition including nodes and edges
+      operationId: getWorkflow
+      parameters:
+        - name: workflow_id
+          in: path
+          required: true
+          description: Workflow ID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Workflow details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkflowDetail'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      tags:
+        - Workflows
+      summary: Update workflow
+      description: Update workflow definition (nodes, edges, configuration)
+      operationId: updateWorkflow
+      parameters:
+        - name: workflow_id
+          in: path
+          required: true
+          description: Workflow ID
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateWorkflowRequest'
+      responses:
+        '200':
+          description: Workflow updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkflowDetail'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      tags:
+        - Workflows
+      summary: Delete workflow
+      description: Permanently delete a workflow template
+      operationId: deleteWorkflow
+      parameters:
+        - name: workflow_id
+          in: path
+          required: true
+          description: Workflow ID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Workflow deleted successfully
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Conflict - Workflow has active executions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /workflows/{workflow_id}/duplicate:
+    post:
+      tags:
+        - Workflows
+      summary: Duplicate workflow
+      description: Create a copy of an existing workflow with a new name
+      operationId: duplicateWorkflow
+      parameters:
+        - name: workflow_id
+          in: path
+          required: true
+          description: Workflow ID to duplicate
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+                  description: Name for the duplicated workflow
+                  minLength: 1
+                  maxLength: 255
+                description:
+                  type: string
+                  description: Optional description
+                project_id:
+                  type: string
+                  format: uuid
+                  description: Optional project to bind duplicate to
+      responses:
+        '201':
+          description: Workflow duplicated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkflowDetail'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /workflows/{workflow_id}/validate:
+    post:
+      tags:
+        - Workflows
+      summary: Validate workflow
+      description: |
+        Validate workflow definition before saving or executing.
+        Checks for:
+        - Exactly one Start node
+        - All paths lead to Finish node
+        - No circular dependencies
+        - All variable references exist
+        - All required node configurations are complete
+      operationId: validateWorkflow
+      parameters:
+        - name: workflow_id
+          in: path
+          required: true
+          description: Workflow ID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Workflow validation results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  valid:
+                    type: boolean
+                    description: True if workflow is valid
+                  errors:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        node_id:
+                          type: string
+                          description: Node ID causing error (if applicable)
+                        error_type:
+                          type: string
+                          enum:
+                            - missing_start_node
+                            - multiple_start_nodes
+                            - missing_finish_node
+                            - circular_dependency
+                            - invalid_variable_reference
+                            - incomplete_configuration
+                            - disconnected_nodes
+                        message:
+                          type: string
+                          description: Human-readable error message
+                  warnings:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        node_id:
+                          type: string
+                        warning_type:
+                          type: string
+                        message:
+                          type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /workflows/templates:
+    get:
+      tags:
+        - Templates
+      summary: List workflow templates
+      description: Retrieve pre-built system templates and user-created templates
+      operationId: listWorkflowTemplates
+      parameters:
+        - name: workspace_id
+          in: query
+          required: false
+          description: Filter by workspace (omit for system templates)
+          schema:
+            type: string
+            format: uuid
+        - name: category
+          in: query
+          required: false
+          description: Filter by template category
+          schema:
+            type: string
+            enum:
+              - content_generation
+              - image_creation
+              - analysis
+              - custom
+        - name: is_recommended
+          in: query
+          required: false
+          description: Filter recommended templates
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: List of workflow templates
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  templates:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/WorkflowTemplateSummary'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /workflows/models:
+    get:
+      tags:
+        - Workflows
+      summary: Get available AI models
+      description: |
+        Retrieve list of AI models available through OpenRouter, filtered by capability.
+        Results are cached for 1 hour.
+      operationId: getAvailableModels
+      parameters:
+        - name: type
+          in: query
+          required: true
+          description: Model capability type
+          schema:
+            type: string
+            enum:
+              - text
+              - image
+        - name: recommended_only
+          in: query
+          required: false
+          description: Return only recommended models
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: List of available models
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  models:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AIModel'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+components:
+  schemas:
+    WorkflowSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        category:
+          type: string
+          enum:
+            - content_generation
+            - image_creation
+            - analysis
+            - custom
+        workspace_id:
+          type: string
+          format: uuid
+        project_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Null for workspace-level templates
+        is_template:
+          type: boolean
+          description: True for workspace templates, false for project workflows
+        is_recommended:
+          type: boolean
+        usage_count:
+          type: integer
+        node_count:
+          type: integer
+          description: Number of nodes in workflow
+        created_by:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    WorkflowDetail:
+      allOf:
+        - $ref: '#/components/schemas/WorkflowSummary'
+        - type: object
+          properties:
+            nodes:
+              type: array
+              items:
+                $ref: '#/components/schemas/WorkflowNode'
+            edges:
+              type: array
+              items:
+                $ref: '#/components/schemas/WorkflowEdge'
+            default_params:
+              type: object
+              additionalProperties: true
+              description: Default configuration values
+            version:
+              type: string
+              description: Workflow schema version
+
+    WorkflowNode:
+      type: object
+      required:
+        - id
+        - type
+        - position
+        - data
+      properties:
+        id:
+          type: string
+          description: Unique node identifier within workflow
+        type:
+          type: string
+          enum:
+            - start
+            - finish
+            - text_generation
+            - image_generation
+            - conditional
+            - loop
+            - context_retrieval
+            - processing
+        position:
+          type: object
+          properties:
+            x:
+              type: number
+            y:
+              type: number
+        data:
+          type: object
+          description: Node-specific configuration (see node type schemas)
+          additionalProperties: true
+
+    WorkflowEdge:
+      type: object
+      required:
+        - id
+        - source
+        - target
+      properties:
+        id:
+          type: string
+          description: Unique edge identifier
+        source:
+          type: string
+          description: Source node ID
+        target:
+          type: string
+          description: Target node ID
+        sourceHandle:
+          type: string
+          description: Source connection point (e.g., "output", "true", "false")
+          default: output
+        targetHandle:
+          type: string
+          description: Target connection point
+          default: input
+        type:
+          type: string
+          description: Edge rendering type
+          default: smoothstep
+        label:
+          type: string
+          description: Optional edge label
+
+    CreateWorkflowRequest:
+      type: object
+      required:
+        - name
+        - workspace_id
+        - nodes
+        - edges
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        description:
+          type: string
+        category:
+          type: string
+          enum:
+            - content_generation
+            - image_creation
+            - analysis
+            - custom
+        workspace_id:
+          type: string
+          format: uuid
+        project_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Null for workspace-level templates
+        nodes:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkflowNode'
+        edges:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkflowEdge'
+        default_params:
+          type: object
+          additionalProperties: true
+
+    UpdateWorkflowRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        description:
+          type: string
+        category:
+          type: string
+        nodes:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkflowNode'
+        edges:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkflowEdge'
+        default_params:
+          type: object
+          additionalProperties: true
+
+    WorkflowTemplateSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        category:
+          type: string
+        is_system:
+          type: boolean
+          description: True for built-in templates
+        is_recommended:
+          type: boolean
+        usage_count:
+          type: integer
+        node_count:
+          type: integer
+        thumbnail_url:
+          type: string
+          nullable: true
+          description: Preview image URL
+        created_at:
+          type: string
+          format: date-time
+
+    AIModel:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Model identifier (e.g., "openai/gpt-4-turbo")
+        name:
+          type: string
+          description: Display name
+        provider:
+          type: string
+          description: Model provider (openai, anthropic, etc.)
+        capabilities:
+          type: array
+          items:
+            type: string
+          description: Supported modalities (chat, image, etc.)
+        is_recommended:
+          type: boolean
+        pricing:
+          type: object
+          properties:
+            prompt_tokens:
+              type: number
+              description: Cost per 1K prompt tokens (USD)
+            completion_tokens:
+              type: number
+              description: Cost per 1K completion tokens (USD)
+            image:
+              type: number
+              description: Cost per image generation (USD)
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error type
+        message:
+          type: string
+          description: Human-readable error message
+        details:
+          type: object
+          additionalProperties: true
+          description: Additional error context
+
+  responses:
+    Unauthorized:
+      description: Authentication required
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: unauthorized
+            message: Authentication credentials were not provided
+
+    Forbidden:
+      description: Insufficient permissions
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: forbidden
+            message: You do not have permission to access this workflow
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: not_found
+            message: Workflow not found
+
+    BadRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: validation_error
+            message: Invalid workflow definition
+            details:
+              nodes: Workflow must have exactly one Start node
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+security:
+  - BearerAuth: []

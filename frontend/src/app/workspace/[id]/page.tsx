@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Plus, Folder } from "lucide-react"
+import { Plus, Folder, Workflow } from "lucide-react"
 
 interface Project {
     id: string
@@ -62,55 +62,75 @@ export default function WorkspacePage() {
     }
 
     return (
-        <div className="min-h-screen bg-background p-8">
-            <div className="flex justify-between items-center mb-8">
-                <div>
-                    <Button variant="ghost" onClick={() => router.push("/dashboard")} className="mb-2 pl-0 hover:pl-2 transition-all">
-                        &larr; Back to Dashboard
-                    </Button>
-                    <h1 className="text-3xl font-bold">Workspace Projects</h1>
+        <div className="min-h-screen p-8 relative">
+            <div className="max-w-7xl mx-auto">
+                <div className="flex justify-between items-center mb-12">
+                    <div>
+                        <div className="flex gap-2 mb-4">
+                            <Button variant="ghost" onClick={() => router.push("/dashboard")} className="pl-0 hover:pl-2 transition-all">
+                                &larr; Back to Dashboard
+                            </Button>
+                            <Button
+                                onClick={() => router.push(`/workspace/${workspaceId}/workflows`)}
+                                className="gap-2 bg-gradient-to-r from-[#5B8DEF] to-[#4A7AD9] text-white hover:shadow-lg"
+                            >
+                                <Workflow className="w-4 h-4" />
+                                Workflows
+                            </Button>
+                        </div>
+                        <h1 className="text-4xl font-bold tracking-tight mb-2">Workspace Projects</h1>
+                        <p className="text-text-secondary">Select a project to continue or create a new one</p>
+                    </div>
                 </div>
-            </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {projects.map((project) => (
-                    <Card key={project.id} className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => router.push(`/workspace/${workspaceId}/project/${project.id}`)}>
-                        <CardHeader className="flex flex-row items-center gap-4">
-                            <div className="bg-primary/10 p-2 rounded-lg">
-                                <Folder className="h-6 w-6 text-primary" />
-                            </div>
-                            <div>
-                                <CardTitle>{project.name}</CardTitle>
-                                <CardDescription>{project.description}</CardDescription>
-                            </div>
-                        </CardHeader>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {projects.map((project) => (
+                        <Card key={project.id} glass clickable onClick={() => router.push(`/workspace/${workspaceId}/project/${project.id}`)}>
+                            <CardHeader className="flex flex-row items-center gap-4">
+                                <div className="bg-accent-primary/10 p-3 rounded-lg">
+                                    <Folder className="h-6 w-6 text-accent-primary" />
+                                </div>
+                                <div className="flex-1">
+                                    <CardTitle className="text-lg">{project.name}</CardTitle>
+                                    <CardDescription>{project.description}</CardDescription>
+                                </div>
+                            </CardHeader>
+                            <CardContent>
+                                <p className="text-xs text-text-tertiary">
+                                    Created {new Date(project.created_at).toLocaleDateString()}
+                                </p>
+                            </CardContent>
+                        </Card>
+                    ))}
+
+                    <Card glass className="border-dashed border-accent-primary/30 flex flex-col justify-center items-center p-6 min-h-[180px]">
+                        {!isCreating ? (
+                            <Button variant="ghost" className="h-full w-full flex flex-col gap-3" onClick={() => setIsCreating(true)}>
+                                <div className="bg-accent-primary/10 p-3 rounded-lg">
+                                    <Plus className="h-8 w-8 text-accent-primary" />
+                                </div>
+                                <span className="font-medium">Create New Project</span>
+                            </Button>
+                        ) : (
+                            <form onSubmit={handleCreateProject} className="w-full space-y-4">
+                                <div className="space-y-2">
+                                    <Label htmlFor="name" className="text-sm font-medium">Project Name</Label>
+                                    <Input
+                                        id="name"
+                                        placeholder="My Awesome Project"
+                                        value={newProjectName}
+                                        onChange={(e) => setNewProjectName(e.target.value)}
+                                        autoFocus
+                                    />
+                                </div>
+                                <div className="flex gap-2">
+                                    <Button type="submit" size="sm">Create</Button>
+                                    <Button type="button" variant="ghost" size="sm" onClick={() => setIsCreating(false)}>Cancel</Button>
+                                </div>
+                            </form>
+                        )}
                     </Card>
-                ))}
-
-                <Card className="border-dashed flex flex-col justify-center items-center p-6 h-[150px]">
-                    {!isCreating ? (
-                        <Button variant="ghost" className="h-full w-full flex flex-col gap-2" onClick={() => setIsCreating(true)}>
-                            <Plus className="h-8 w-8" />
-                            <span>Create New Project</span>
-                        </Button>
-                    ) : (
-                        <form onSubmit={handleCreateProject} className="w-full space-y-4">
-                            <div className="space-y-2">
-                                <Label htmlFor="name">Project Name</Label>
-                                <Input
-                                    id="name"
-                                    value={newProjectName}
-                                    onChange={(e) => setNewProjectName(e.target.value)}
-                                    autoFocus
-                                />
-                            </div>
-                            <div className="flex gap-2">
-                                <Button type="submit" size="sm">Create</Button>
-                                <Button type="button" variant="ghost" size="sm" onClick={() => setIsCreating(false)}>Cancel</Button>
-                            </div>
-                        </form>
-                    )}
-                </Card>
+                </div>
             </div>
         </div>
     )

@@ -1,0 +1,1151 @@
+openapi: 3.0.3
+info:
+  title: Workflow Executions API
+  description: API for launching, monitoring, and controlling workflow executions
+  version: 1.0.0
+  contact:
+    name: XTYL Creativity Machine
+
+servers:
+  - url: /api/workflows/executions
+    description: Workflow execution operations
+
+tags:
+  - name: Executions
+    description: Workflow execution lifecycle management
+
+paths:
+  /launch:
+    post:
+      summary: Launch workflow execution
+      description: Start a new workflow execution with specified parameters and context
+      operationId: launchWorkflowExecution
+      tags:
+        - Executions
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LaunchWorkflowRequest'
+            examples:
+              simple_launch:
+                value:
+                  template_id: "550e8400-e29b-41d4-a716-446655440000"
+                  workspace_id: "770e8400-e29b-41d4-a716-446655440002"
+                  project_id: "880e8400-e29b-41d4-a716-446655440003"
+                  parameters:
+                    topic: "Summer Sale 2025"
+                    quantity: 10
+                    target_audience: "Fashion-conscious millennials"
+                  context_documents:
+                    mode: "selected"
+                    document_ids:
+                      - "doc-123"
+                      - "doc-456"
+              launch_with_references:
+                value:
+                  template_id: "660e8400-e29b-41d4-a716-446655440001"
+                  workspace_id: "770e8400-e29b-41d4-a716-446655440002"
+                  project_id: "880e8400-e29b-41d4-a716-446655440003"
+                  parameters:
+                    topic: "Product Launch"
+                    brand_voice: "Professional yet friendly"
+                  context_documents:
+                    mode: "all"
+                  reference_files:
+                    - url: "https://example.com/uploads/brand-guidelines.pdf"
+                      type: "brand_guidelines"
+      responses:
+        '202':
+          description: Workflow execution launched successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  execution_id:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+                    enum:
+                      - pending
+                  message:
+                    type: string
+                  estimated_completion_time:
+                    type: string
+                    format: date-time
+                    nullable: true
+              examples:
+                launched:
+                  value:
+                    execution_id: "aa0e8400-e29b-41d4-a716-446655440005"
+                    status: "pending"
+                    message: "Workflow execution queued successfully"
+                    estimated_completion_time: "2025-11-25T15:00:00Z"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Template or context documents not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                template_not_found:
+                  value:
+                    error: "not_found"
+                    message: "Workflow template not found"
+                context_missing:
+                  value:
+                    error: "not_found"
+                    message: "Context documents not found"
+                    details:
+                      missing_document_ids:
+                        - "doc-999"
+        '422':
+          description: Validation error (missing required parameters, invalid configuration)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+              examples:
+                missing_params:
+                  value:
+                    error: "validation_error"
+                    message: "Missing required parameters"
+                    details:
+                      issues:
+                        - code: "missing_parameter"
+                          message: "Required parameter 'topic' not provided"
+                          path: ["parameters", "topic"]
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /{id}:
+    get:
+      summary: Get workflow execution status
+      description: Retrieve detailed status, progress, and results of a workflow execution
+      operationId: getWorkflowExecution
+      tags:
+        - Executions
+      parameters:
+        - name: id
+          in: path
+          description: Execution ID
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: include_logs
+          in: query
+          description: Include node execution logs
+          required: false
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: Successfully retrieved execution details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkflowExecutionDetail'
+              examples:
+                running:
+                  value:
+                    id: "aa0e8400-e29b-41d4-a716-446655440005"
+                    template_id: "550e8400-e29b-41d4-a716-446655440000"
+                    template_name: "Facebook Ads Campaign"
+                    workspace_id: "770e8400-e29b-41d4-a716-446655440002"
+                    project_id: "880e8400-e29b-41d4-a716-446655440003"
+                    status: "running"
+                    progress:
+                      total_nodes: 4
+                      completed_nodes: 2
+                      current_node_id: "node-3"
+                      current_node_label: "Create Ad Images"
+                      completion_percentage: 50
+                      items_generated: 20
+                      items_total: 30
+                    parameters:
+                      topic: "Summer Sale 2025"
+                      quantity: 10
+                    started_at: "2025-11-25T14:45:00Z"
+                    updated_at: "2025-11-25T14:48:30Z"
+                    estimated_completion_time: "2025-11-25T15:00:00Z"
+                    nodes_status:
+                      - node_id: "node-1"
+                        label: "Generate Ad Headlines"
+                        status: "completed"
+                        items_generated: 10
+                        started_at: "2025-11-25T14:45:05Z"
+                        completed_at: "2025-11-25T14:46:20Z"
+                      - node_id: "node-2"
+                        label: "Generate Ad Body Copy"
+                        status: "completed"
+                        items_generated: 10
+                        started_at: "2025-11-25T14:46:25Z"
+                        completed_at: "2025-11-25T14:47:50Z"
+                      - node_id: "node-3"
+                        label: "Create Ad Images"
+                        status: "running"
+                        items_generated: 7
+                        items_total: 10
+                        started_at: "2025-11-25T14:47:55Z"
+                      - node_id: "node-4"
+                        label: "Attach Images to Copies"
+                        status: "pending"
+                    cost:
+                      total_tokens: 15234
+                      estimated_cost_usd: 0.76
+                    result_documents: []
+                completed:
+                  value:
+                    id: "bb0e8400-e29b-41d4-a716-446655440006"
+                    template_id: "550e8400-e29b-41d4-a716-446655440000"
+                    template_name: "Facebook Ads Campaign"
+                    workspace_id: "770e8400-e29b-41d4-a716-446655440002"
+                    project_id: "880e8400-e29b-41d4-a716-446655440003"
+                    status: "completed"
+                    progress:
+                      total_nodes: 4
+                      completed_nodes: 4
+                      completion_percentage: 100
+                      items_generated: 30
+                      items_total: 30
+                    parameters:
+                      topic: "Summer Sale 2025"
+                      quantity: 10
+                    started_at: "2025-11-25T14:45:00Z"
+                    completed_at: "2025-11-25T14:52:15Z"
+                    updated_at: "2025-11-25T14:52:15Z"
+                    nodes_status:
+                      - node_id: "node-1"
+                        label: "Generate Ad Headlines"
+                        status: "completed"
+                        items_generated: 10
+                        started_at: "2025-11-25T14:45:05Z"
+                        completed_at: "2025-11-25T14:46:20Z"
+                      - node_id: "node-2"
+                        label: "Generate Ad Body Copy"
+                        status: "completed"
+                        items_generated: 10
+                        started_at: "2025-11-25T14:46:25Z"
+                        completed_at: "2025-11-25T14:47:50Z"
+                      - node_id: "node-3"
+                        label: "Create Ad Images"
+                        status: "completed"
+                        items_generated: 10
+                        started_at: "2025-11-25T14:47:55Z"
+                        completed_at: "2025-11-25T14:51:10Z"
+                      - node_id: "node-4"
+                        label: "Attach Images to Copies"
+                        status: "completed"
+                        items_generated: 0
+                        started_at: "2025-11-25T14:51:15Z"
+                        completed_at: "2025-11-25T14:52:10Z"
+                    cost:
+                      total_tokens: 28456
+                      estimated_cost_usd: 1.42
+                    result_documents:
+                      - document_id: "doc-new-001"
+                        type: "copy"
+                        title: "Ad Copy - Summer Sale Headlines"
+                        attached_images: ["img-001"]
+                      - document_id: "img-001"
+                        type: "image"
+                        title: "Ad Creative 1"
+                        url: "https://minio.example.com/images/ad-creative-1.png"
+                failed:
+                  value:
+                    id: "cc0e8400-e29b-41d4-a716-446655440007"
+                    template_id: "550e8400-e29b-41d4-a716-446655440000"
+                    template_name: "Facebook Ads Campaign"
+                    workspace_id: "770e8400-e29b-41d4-a716-446655440002"
+                    project_id: "880e8400-e29b-41d4-a716-446655440003"
+                    status: "failed"
+                    progress:
+                      total_nodes: 4
+                      completed_nodes: 2
+                      completion_percentage: 50
+                      items_generated: 20
+                      items_total: 30
+                    parameters:
+                      topic: "Summer Sale 2025"
+                      quantity: 10
+                    started_at: "2025-11-25T14:45:00Z"
+                    failed_at: "2025-11-25T14:48:45Z"
+                    updated_at: "2025-11-25T14:48:45Z"
+                    nodes_status:
+                      - node_id: "node-1"
+                        label: "Generate Ad Headlines"
+                        status: "completed"
+                        items_generated: 10
+                        started_at: "2025-11-25T14:45:05Z"
+                        completed_at: "2025-11-25T14:46:20Z"
+                      - node_id: "node-2"
+                        label: "Generate Ad Body Copy"
+                        status: "completed"
+                        items_generated: 10
+                        started_at: "2025-11-25T14:46:25Z"
+                        completed_at: "2025-11-25T14:47:50Z"
+                      - node_id: "node-3"
+                        label: "Create Ad Images"
+                        status: "failed"
+                        items_generated: 7
+                        items_total: 10
+                        started_at: "2025-11-25T14:47:55Z"
+                        failed_at: "2025-11-25T14:48:45Z"
+                        error:
+                          code: "api_rate_limit"
+                          message: "Image generation API rate limit exceeded"
+                          retry_after: "2025-11-25T15:00:00Z"
+                      - node_id: "node-4"
+                        label: "Attach Images to Copies"
+                        status: "skipped"
+                    error:
+                      code: "node_execution_failed"
+                      message: "Node 'Create Ad Images' failed after 3 retry attempts"
+                      failed_node_id: "node-3"
+                    cost:
+                      total_tokens: 18432
+                      estimated_cost_usd: 0.92
+                    result_documents:
+                      - document_id: "doc-new-001"
+                        type: "copy"
+                        title: "Ad Copy - Summer Sale Headlines (Partial)"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /:
+    get:
+      summary: List workflow executions
+      description: List workflow executions filtered by workspace, status, or date range
+      operationId: listWorkflowExecutions
+      tags:
+        - Executions
+      parameters:
+        - name: workspace_id
+          in: query
+          description: Filter by workspace
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: project_id
+          in: query
+          description: Filter by project
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: status
+          in: query
+          description: Filter by execution status
+          required: false
+          schema:
+            type: string
+            enum:
+              - pending
+              - running
+              - paused
+              - completed
+              - failed
+              - stopped
+        - name: template_id
+          in: query
+          description: Filter by template
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: limit
+          in: query
+          description: Maximum number of results
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: offset
+          in: query
+          description: Pagination offset
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        '200':
+          description: Successfully retrieved executions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  executions:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/WorkflowExecutionSummary'
+                  total:
+                    type: integer
+                  limit:
+                    type: integer
+                  offset:
+                    type: integer
+              examples:
+                success:
+                  value:
+                    executions:
+                      - id: "aa0e8400-e29b-41d4-a716-446655440005"
+                        template_name: "Facebook Ads Campaign"
+                        status: "running"
+                        completion_percentage: 50
+                        items_generated: 20
+                        items_total: 30
+                        started_at: "2025-11-25T14:45:00Z"
+                        updated_at: "2025-11-25T14:48:30Z"
+                      - id: "bb0e8400-e29b-41d4-a716-446655440006"
+                        template_name: "Instagram Carousel Post"
+                        status: "completed"
+                        completion_percentage: 100
+                        items_generated: 15
+                        items_total: 15
+                        started_at: "2025-11-25T13:30:00Z"
+                        completed_at: "2025-11-25T13:42:15Z"
+                        updated_at: "2025-11-25T13:42:15Z"
+                    total: 2
+                    limit: 20
+                    offset: 0
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /{id}/pause:
+    post:
+      summary: Pause workflow execution
+      description: Pause a running workflow execution after the current node completes
+      operationId: pauseWorkflowExecution
+      tags:
+        - Executions
+      parameters:
+        - name: id
+          in: path
+          description: Execution ID
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Workflow paused successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  execution_id:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+                    enum:
+                      - paused
+                  message:
+                    type: string
+                  paused_at:
+                    type: string
+                    format: date-time
+              examples:
+                paused:
+                  value:
+                    execution_id: "aa0e8400-e29b-41d4-a716-446655440005"
+                    status: "paused"
+                    message: "Workflow will pause after current node completes"
+                    paused_at: "2025-11-25T14:50:15Z"
+        '400':
+          description: Cannot pause workflow in current state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                already_completed:
+                  value:
+                    error: "bad_request"
+                    message: "Cannot pause completed workflow"
+                already_paused:
+                  value:
+                    error: "bad_request"
+                    message: "Workflow is already paused"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /{id}/resume:
+    post:
+      summary: Resume workflow execution
+      description: Resume a paused workflow execution from where it left off
+      operationId: resumeWorkflowExecution
+      tags:
+        - Executions
+      parameters:
+        - name: id
+          in: path
+          description: Execution ID
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                updated_parameters:
+                  type: object
+                  description: Optional parameter updates to apply before resuming
+                  additionalProperties: true
+            examples:
+              resume_with_updates:
+                value:
+                  updated_parameters:
+                    quantity: 15
+      responses:
+        '200':
+          description: Workflow resumed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  execution_id:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+                    enum:
+                      - running
+                  message:
+                    type: string
+                  resumed_at:
+                    type: string
+                    format: date-time
+              examples:
+                resumed:
+                  value:
+                    execution_id: "aa0e8400-e29b-41d4-a716-446655440005"
+                    status: "running"
+                    message: "Workflow execution resumed"
+                    resumed_at: "2025-11-25T14:55:00Z"
+        '400':
+          description: Cannot resume workflow in current state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                not_paused:
+                  value:
+                    error: "bad_request"
+                    message: "Cannot resume workflow that is not paused"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /{id}/stop:
+    post:
+      summary: Stop workflow execution
+      description: Permanently stop a running or paused workflow execution
+      operationId: stopWorkflowExecution
+      tags:
+        - Executions
+      parameters:
+        - name: id
+          in: path
+          description: Execution ID
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+                  description: Optional reason for stopping
+                  maxLength: 500
+            examples:
+              with_reason:
+                value:
+                  reason: "User requested stop due to incorrect parameters"
+      responses:
+        '200':
+          description: Workflow stopped successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  execution_id:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+                    enum:
+                      - stopped
+                  message:
+                    type: string
+                  stopped_at:
+                    type: string
+                    format: date-time
+                  partial_results:
+                    type: object
+                    properties:
+                      documents_created:
+                        type: integer
+                      completion_percentage:
+                        type: integer
+              examples:
+                stopped:
+                  value:
+                    execution_id: "aa0e8400-e29b-41d4-a716-446655440005"
+                    status: "stopped"
+                    message: "Workflow execution stopped by user"
+                    stopped_at: "2025-11-25T14:51:30Z"
+                    partial_results:
+                      documents_created: 15
+                      completion_percentage: 60
+        '400':
+          description: Cannot stop workflow in current state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                already_completed:
+                  value:
+                    error: "bad_request"
+                    message: "Cannot stop completed workflow"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /{id}/retry-node:
+    post:
+      summary: Retry failed node
+      description: Retry a specific failed node within a workflow execution
+      operationId: retryFailedNode
+      tags:
+        - Executions
+      parameters:
+        - name: id
+          in: path
+          description: Execution ID
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                node_id:
+                  type: string
+                  description: ID of the failed node to retry
+                retry_config:
+                  type: object
+                  description: Optional retry configuration overrides
+                  properties:
+                    max_retries:
+                      type: integer
+                      minimum: 1
+                      maximum: 5
+                    backoff_seconds:
+                      type: integer
+                      minimum: 1
+                      maximum: 60
+              required:
+                - node_id
+            examples:
+              simple_retry:
+                value:
+                  node_id: "node-3"
+              retry_with_config:
+                value:
+                  node_id: "node-3"
+                  retry_config:
+                    max_retries: 3
+                    backoff_seconds: 30
+      responses:
+        '200':
+          description: Node retry initiated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  execution_id:
+                    type: string
+                    format: uuid
+                  node_id:
+                    type: string
+                  status:
+                    type: string
+                    enum:
+                      - retrying
+                  message:
+                    type: string
+                  retry_attempt:
+                    type: integer
+              examples:
+                retrying:
+                  value:
+                    execution_id: "aa0e8400-e29b-41d4-a716-446655440005"
+                    node_id: "node-3"
+                    status: "retrying"
+                    message: "Node retry initiated"
+                    retry_attempt: 1
+        '400':
+          description: Cannot retry node in current state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                node_not_failed:
+                  value:
+                    error: "bad_request"
+                    message: "Node is not in failed state"
+                max_retries_exceeded:
+                  value:
+                    error: "bad_request"
+                    message: "Maximum retry attempts exceeded for this node"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Execution or node not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                node_not_found:
+                  value:
+                    error: "not_found"
+                    message: "Node not found in workflow execution"
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+components:
+  schemas:
+    LaunchWorkflowRequest:
+      type: object
+      properties:
+        template_id:
+          type: string
+          format: uuid
+          description: Workflow template to execute
+        workspace_id:
+          type: string
+          format: uuid
+          description: Workspace for this execution
+        project_id:
+          type: string
+          format: uuid
+          description: Project to associate generated documents with
+        parameters:
+          type: object
+          description: Template parameter values (keys match template variable names)
+          additionalProperties: true
+        context_documents:
+          type: object
+          properties:
+            mode:
+              type: string
+              enum:
+                - all
+                - selected
+                - none
+              description: Context selection mode
+            document_ids:
+              type: array
+              items:
+                type: string
+                format: uuid
+              description: Specific document IDs (required if mode is 'selected')
+          required:
+            - mode
+        reference_files:
+          type: array
+          description: Additional reference files for this execution
+          items:
+            type: object
+            properties:
+              url:
+                type: string
+                format: uri
+                description: File URL (uploaded to MinIO)
+              type:
+                type: string
+                enum:
+                  - brand_guidelines
+                  - reference_image
+                  - reference_document
+                description: File type/purpose
+            required:
+              - url
+              - type
+      required:
+        - template_id
+        - workspace_id
+        - project_id
+        - parameters
+        - context_documents
+
+    WorkflowExecutionSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        template_id:
+          type: string
+          format: uuid
+        template_name:
+          type: string
+        status:
+          type: string
+          enum:
+            - pending
+            - running
+            - paused
+            - completed
+            - failed
+            - stopped
+        completion_percentage:
+          type: integer
+          minimum: 0
+          maximum: 100
+        items_generated:
+          type: integer
+          description: Number of documents/images created so far
+        items_total:
+          type: integer
+          description: Expected total number of items
+        started_at:
+          type: string
+          format: date-time
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
+        failed_at:
+          type: string
+          format: date-time
+          nullable: true
+        updated_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - template_id
+        - template_name
+        - status
+        - completion_percentage
+        - items_generated
+        - started_at
+        - updated_at
+
+    WorkflowExecutionDetail:
+      allOf:
+        - $ref: '#/components/schemas/WorkflowExecutionSummary'
+        - type: object
+          properties:
+            workspace_id:
+              type: string
+              format: uuid
+            project_id:
+              type: string
+              format: uuid
+            progress:
+              type: object
+              properties:
+                total_nodes:
+                  type: integer
+                completed_nodes:
+                  type: integer
+                current_node_id:
+                  type: string
+                  nullable: true
+                current_node_label:
+                  type: string
+                  nullable: true
+                completion_percentage:
+                  type: integer
+                items_generated:
+                  type: integer
+                items_total:
+                  type: integer
+              required:
+                - total_nodes
+                - completed_nodes
+                - completion_percentage
+                - items_generated
+            parameters:
+              type: object
+              description: Execution parameter values
+              additionalProperties: true
+            nodes_status:
+              type: array
+              description: Status of each node in execution order
+              items:
+                $ref: '#/components/schemas/NodeExecutionStatus'
+            cost:
+              type: object
+              nullable: true
+              properties:
+                total_tokens:
+                  type: integer
+                estimated_cost_usd:
+                  type: number
+                  format: float
+              required:
+                - total_tokens
+                - estimated_cost_usd
+            result_documents:
+              type: array
+              description: Documents created by this execution
+              items:
+                type: object
+                properties:
+                  document_id:
+                    type: string
+                    format: uuid
+                  type:
+                    type: string
+                    enum:
+                      - copy
+                      - image
+                  title:
+                    type: string
+                  url:
+                    type: string
+                    format: uri
+                    nullable: true
+                  attached_images:
+                    type: array
+                    items:
+                      type: string
+                      format: uuid
+                    description: Image IDs attached to this document (if type is 'copy')
+            estimated_completion_time:
+              type: string
+              format: date-time
+              nullable: true
+            error:
+              $ref: '#/components/schemas/ExecutionError'
+              nullable: true
+          required:
+            - workspace_id
+            - project_id
+            - progress
+            - parameters
+            - nodes_status
+            - result_documents
+
+    NodeExecutionStatus:
+      type: object
+      properties:
+        node_id:
+          type: string
+        label:
+          type: string
+        status:
+          type: string
+          enum:
+            - pending
+            - running
+            - completed
+            - failed
+            - skipped
+        items_generated:
+          type: integer
+          description: Number of items this node created
+        items_total:
+          type: integer
+          nullable: true
+          description: Expected number of items (null if not started)
+        started_at:
+          type: string
+          format: date-time
+          nullable: true
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
+        failed_at:
+          type: string
+          format: date-time
+          nullable: true
+        error:
+          $ref: '#/components/schemas/NodeError'
+          nullable: true
+      required:
+        - node_id
+        - label
+        - status
+        - items_generated
+
+    NodeError:
+      type: object
+      properties:
+        code:
+          type: string
+          enum:
+            - api_rate_limit
+            - api_timeout
+            - content_policy_violation
+            - insufficient_credits
+            - context_document_missing
+            - invalid_configuration
+        message:
+          type: string
+        retry_after:
+          type: string
+          format: date-time
+          nullable: true
+          description: Suggested retry time (for rate limits)
+      required:
+        - code
+        - message
+
+    ExecutionError:
+      type: object
+      properties:
+        code:
+          type: string
+          enum:
+            - node_execution_failed
+            - workflow_timeout
+            - user_stopped
+            - system_error
+        message:
+          type: string
+        failed_node_id:
+          type: string
+          nullable: true
+          description: Node that caused the failure (if applicable)
+      required:
+        - code
+        - message
+
+    ValidationError:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "validation_error"
+        message:
+          type: string
+        details:
+          type: object
+          properties:
+            issues:
+              type: array
+              items:
+                type: object
+                properties:
+                  code:
+                    type: string
+                  message:
+                    type: string
+                  path:
+                    type: array
+                    items:
+                      type: string
+      required:
+        - error
+        - message
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+        details:
+          type: object
+          nullable: true
+      required:
+        - error
+        - message
+
+  responses:
+    BadRequest:
+      description: Bad request - invalid input
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    Unauthorized:
+      description: Unauthorized - authentication required
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+security:
+  - BearerAuth: []

@@ -1,0 +1,951 @@
+openapi: 3.0.3
+info:
+  title: Workflow Nodes API
+  description: API for validating workflow nodes and document attachments
+  version: 1.0.0
+  contact:
+    name: XTYL Creativity Machine
+
+servers:
+  - url: /api/workflows
+    description: Workflow node operations
+
+tags:
+  - name: Node Validation
+    description: Node configuration and connection validation
+  - name: Document Attachments
+    description: Image attachment operations for documents
+
+paths:
+  /nodes/validate:
+    post:
+      summary: Validate node configuration
+      description: Validate a single node's configuration based on its type
+      operationId: validateNodeConfiguration
+      tags:
+        - Node Validation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ValidateNodeRequest'
+            examples:
+              generate_copy_valid:
+                value:
+                  node:
+                    id: "node-1"
+                    type: "generate_copy"
+                    label: "Generate Headlines"
+                    config:
+                      prompt_template: "Create {{quantity}} headlines about {{topic}}"
+                      quantity: 10
+                      temperature: 0.9
+                      output_status: "draft"
+              generate_image_valid:
+                value:
+                  node:
+                    id: "node-2"
+                    type: "generate_image"
+                    label: "Create Images"
+                    config:
+                      prompt_template: "Professional marketing image for: {{topic}}"
+                      quantity: 5
+                      style: "professional_marketing"
+                      dimensions: "1080x1080"
+              invalid_temperature:
+                value:
+                  node:
+                    id: "node-3"
+                    type: "generate_copy"
+                    label: "Generate Copy"
+                    config:
+                      prompt_template: "Write about {{topic}}"
+                      quantity: 10
+                      temperature: 2.5
+                      output_status: "draft"
+      responses:
+        '200':
+          description: Node configuration is valid
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  valid:
+                    type: boolean
+                  message:
+                    type: string
+              examples:
+                valid:
+                  value:
+                    valid: true
+                    message: "Node configuration is valid"
+        '422':
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NodeValidationError'
+              examples:
+                invalid_config:
+                  value:
+                    valid: false
+                    message: "Node configuration validation failed"
+                    errors:
+                      - field: "config.temperature"
+                        code: "value_out_of_range"
+                        message: "Temperature must be between 0 and 2"
+                      - field: "config.prompt_template"
+                        code: "missing_required_variable"
+                        message: "Template references undefined variable: {{undefined_var}}"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /nodes/validate-connections:
+    post:
+      summary: Validate workflow connections
+      description: Validate all node connections, check for cycles, and verify dependency rules
+      operationId: validateNodeConnections
+      tags:
+        - Node Validation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ValidateConnectionsRequest'
+            examples:
+              valid_workflow:
+                value:
+                  nodes:
+                    - id: "node-1"
+                      type: "generate_copy"
+                    - id: "node-2"
+                      type: "generate_image"
+                    - id: "node-3"
+                      type: "attach_to_document"
+                  edges:
+                    - id: "edge-1"
+                      source: "node-1"
+                      target: "node-2"
+                    - id: "edge-2"
+                      source: "node-1"
+                      target: "node-3"
+                    - id: "edge-3"
+                      source: "node-2"
+                      target: "node-3"
+              cyclic_workflow:
+                value:
+                  nodes:
+                    - id: "node-1"
+                      type: "generate_copy"
+                    - id: "node-2"
+                      type: "generate_image"
+                  edges:
+                    - id: "edge-1"
+                      source: "node-1"
+                      target: "node-2"
+                    - id: "edge-2"
+                      source: "node-2"
+                      target: "node-1"
+              invalid_dependency:
+                value:
+                  nodes:
+                    - id: "node-1"
+                      type: "generate_image"
+                    - id: "node-2"
+                      type: "attach_to_document"
+                  edges:
+                    - id: "edge-1"
+                      source: "node-1"
+                      target: "node-2"
+      responses:
+        '200':
+          description: Connections are valid
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  valid:
+                    type: boolean
+                  message:
+                    type: string
+                  execution_order:
+                    type: array
+                    description: Suggested node execution order (topological sort)
+                    items:
+                      type: string
+              examples:
+                valid:
+                  value:
+                    valid: true
+                    message: "Workflow connections are valid"
+                    execution_order:
+                      - "node-1"
+                      - "node-2"
+                      - "node-3"
+        '422':
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConnectionValidationError'
+              examples:
+                cycle_detected:
+                  value:
+                    valid: false
+                    message: "Workflow validation failed"
+                    errors:
+                      - code: "cycle_detected"
+                        message: "Workflow contains a cycle: node-1 → node-2 → node-1"
+                        nodes_in_cycle:
+                          - "node-1"
+                          - "node-2"
+                invalid_dependency:
+                  value:
+                    valid: false
+                    message: "Workflow validation failed"
+                    errors:
+                      - code: "invalid_connection"
+                        message: "AttachToDocument node requires both copy and image inputs"
+                        node_id: "node-2"
+                        details: "Node has only 1 incoming edge, requires at least 2"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /documents/{docId}/attachments:
+    post:
+      summary: Attach images to document
+      description: Attach one or more images to a copy document
+      operationId: attachImagesToDocument
+      tags:
+        - Document Attachments
+      parameters:
+        - name: docId
+          in: path
+          description: Document ID (must be a copy/text document)
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                image_ids:
+                  type: array
+                  items:
+                    type: string
+                    format: uuid
+                  minItems: 1
+                  maxItems: 20
+                  description: Array of image document IDs to attach
+                set_first_as_primary:
+                  type: boolean
+                  default: false
+                  description: Automatically set first image as primary
+              required:
+                - image_ids
+            examples:
+              single_image:
+                value:
+                  image_ids:
+                    - "img-001"
+                  set_first_as_primary: true
+              multiple_images:
+                value:
+                  image_ids:
+                    - "img-001"
+                    - "img-002"
+                    - "img-003"
+                  set_first_as_primary: true
+      responses:
+        '200':
+          description: Images attached successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  document_id:
+                    type: string
+                    format: uuid
+                  attachments:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/DocumentAttachment'
+                  message:
+                    type: string
+              examples:
+                success:
+                  value:
+                    document_id: "doc-123"
+                    attachments:
+                      - image_id: "img-001"
+                        attachment_order: 1
+                        is_primary: true
+                        attached_at: "2025-11-25T15:00:00Z"
+                      - image_id: "img-002"
+                        attachment_order: 2
+                        is_primary: false
+                        attached_at: "2025-11-25T15:00:00Z"
+                    message: "2 images attached successfully"
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                not_copy_document:
+                  value:
+                    error: "bad_request"
+                    message: "Can only attach images to copy/text documents"
+                max_attachments_exceeded:
+                  value:
+                    error: "bad_request"
+                    message: "Maximum 20 images can be attached to a document"
+                    details:
+                      current_attachments: 18
+                      requested: 5
+                      max_allowed: 20
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Document or images not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                images_not_found:
+                  value:
+                    error: "not_found"
+                    message: "One or more images not found"
+                    details:
+                      missing_image_ids:
+                        - "img-999"
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    get:
+      summary: Get document attachments
+      description: Retrieve all images attached to a document
+      operationId: getDocumentAttachments
+      tags:
+        - Document Attachments
+      parameters:
+        - name: docId
+          in: path
+          description: Document ID
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Successfully retrieved attachments
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  document_id:
+                    type: string
+                    format: uuid
+                  attachments:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/DocumentAttachmentDetail'
+                  total_count:
+                    type: integer
+              examples:
+                with_attachments:
+                  value:
+                    document_id: "doc-123"
+                    attachments:
+                      - image_id: "img-001"
+                        image_url: "https://minio.example.com/images/ad-creative-1.png"
+                        thumbnail_url: "https://minio.example.com/thumbnails/ad-creative-1.png"
+                        filename: "ad-creative-1.png"
+                        size_bytes: 245678
+                        dimensions: "1080x1080"
+                        attachment_order: 1
+                        is_primary: true
+                        attached_at: "2025-11-25T15:00:00Z"
+                      - image_id: "img-002"
+                        image_url: "https://minio.example.com/images/ad-creative-2.png"
+                        thumbnail_url: "https://minio.example.com/thumbnails/ad-creative-2.png"
+                        filename: "ad-creative-2.png"
+                        size_bytes: 198234
+                        dimensions: "1080x1080"
+                        attachment_order: 2
+                        is_primary: false
+                        attached_at: "2025-11-25T15:00:01Z"
+                    total_count: 2
+                no_attachments:
+                  value:
+                    document_id: "doc-456"
+                    attachments: []
+                    total_count: 0
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /documents/{docId}/attachments/{imageId}:
+    delete:
+      summary: Detach image from document
+      description: Remove an image attachment from a document (does not delete the image)
+      operationId: detachImageFromDocument
+      tags:
+        - Document Attachments
+      parameters:
+        - name: docId
+          in: path
+          description: Document ID
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: imageId
+          in: path
+          description: Image ID to detach
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Image detached successfully
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Document, image, or attachment not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                attachment_not_found:
+                  value:
+                    error: "not_found"
+                    message: "Image is not attached to this document"
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /documents/{docId}/attachments/{imageId}/primary:
+    put:
+      summary: Set primary image
+      description: Mark an attached image as the primary image for the document
+      operationId: setPrimaryImage
+      tags:
+        - Document Attachments
+      parameters:
+        - name: docId
+          in: path
+          description: Document ID
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: imageId
+          in: path
+          description: Image ID to set as primary
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Primary image updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  document_id:
+                    type: string
+                    format: uuid
+                  primary_image_id:
+                    type: string
+                    format: uuid
+                  message:
+                    type: string
+              examples:
+                success:
+                  value:
+                    document_id: "doc-123"
+                    primary_image_id: "img-002"
+                    message: "Primary image updated successfully"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Document, image, or attachment not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                attachment_not_found:
+                  value:
+                    error: "not_found"
+                    message: "Image is not attached to this document"
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+components:
+  schemas:
+    ValidateNodeRequest:
+      type: object
+      properties:
+        node:
+          type: object
+          properties:
+            id:
+              type: string
+            type:
+              type: string
+              enum:
+                - generate_copy
+                - generate_image
+                - attach_to_document
+                - review
+                - conditional
+                - parallel
+            label:
+              type: string
+            config:
+              type: object
+              description: Node-specific configuration
+              additionalProperties: true
+          required:
+            - id
+            - type
+            - config
+      required:
+        - node
+
+    ValidateConnectionsRequest:
+      type: object
+      properties:
+        nodes:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              type:
+                type: string
+            required:
+              - id
+              - type
+        edges:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              source:
+                type: string
+              target:
+                type: string
+            required:
+              - id
+              - source
+              - target
+      required:
+        - nodes
+        - edges
+
+    NodeValidationError:
+      type: object
+      properties:
+        valid:
+          type: boolean
+          enum:
+            - false
+        message:
+          type: string
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+                description: Field path (e.g., "config.temperature")
+              code:
+                type: string
+                enum:
+                  - required_field_missing
+                  - value_out_of_range
+                  - invalid_type
+                  - missing_required_variable
+                  - invalid_enum_value
+              message:
+                type: string
+            required:
+              - field
+              - code
+              - message
+      required:
+        - valid
+        - message
+        - errors
+
+    ConnectionValidationError:
+      type: object
+      properties:
+        valid:
+          type: boolean
+          enum:
+            - false
+        message:
+          type: string
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              code:
+                type: string
+                enum:
+                  - cycle_detected
+                  - invalid_connection
+                  - orphaned_node
+                  - missing_required_input
+              message:
+                type: string
+              node_id:
+                type: string
+                nullable: true
+              nodes_in_cycle:
+                type: array
+                items:
+                  type: string
+                nullable: true
+              details:
+                type: string
+                nullable: true
+            required:
+              - code
+              - message
+      required:
+        - valid
+        - message
+        - errors
+
+    DocumentAttachment:
+      type: object
+      properties:
+        image_id:
+          type: string
+          format: uuid
+        attachment_order:
+          type: integer
+          description: Display order (1-based)
+        is_primary:
+          type: boolean
+        attached_at:
+          type: string
+          format: date-time
+      required:
+        - image_id
+        - attachment_order
+        - is_primary
+        - attached_at
+
+    DocumentAttachmentDetail:
+      allOf:
+        - $ref: '#/components/schemas/DocumentAttachment'
+        - type: object
+          properties:
+            image_url:
+              type: string
+              format: uri
+              description: Full-size image URL
+            thumbnail_url:
+              type: string
+              format: uri
+              description: Thumbnail image URL
+            filename:
+              type: string
+            size_bytes:
+              type: integer
+            dimensions:
+              type: string
+              description: Image dimensions (e.g., "1080x1080")
+          required:
+            - image_url
+            - thumbnail_url
+            - filename
+            - size_bytes
+            - dimensions
+
+    # Node Configuration Schemas
+    GenerateCopyNodeConfig:
+      type: object
+      description: Configuration for Generate Copy node type
+      properties:
+        prompt_template:
+          type: string
+          description: Template with variables like {{topic}}, {{quantity}}
+          minLength: 1
+        quantity:
+          type: integer
+          minimum: 1
+          maximum: 100
+          description: Number of copies to generate
+        temperature:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 2
+          default: 0.7
+          description: AI creativity level
+        max_tokens:
+          type: integer
+          minimum: 50
+          maximum: 4000
+          nullable: true
+          description: Maximum length per copy
+        output_status:
+          type: string
+          enum:
+            - draft
+            - review
+            - published
+          default: draft
+          description: Status for generated documents
+        context_mode:
+          type: string
+          enum:
+            - inherit
+            - none
+            - custom
+          default: inherit
+          description: How to use project context
+      required:
+        - prompt_template
+        - quantity
+        - output_status
+
+    GenerateImageNodeConfig:
+      type: object
+      description: Configuration for Generate Image node type
+      properties:
+        prompt_template:
+          type: string
+          description: Image description template
+          minLength: 1
+        quantity:
+          type: integer
+          minimum: 1
+          maximum: 50
+          description: Number of images to generate
+        style:
+          type: string
+          enum:
+            - professional_marketing
+            - minimalist
+            - vibrant
+            - realistic
+            - artistic
+          default: professional_marketing
+          description: Visual style preset
+        dimensions:
+          type: string
+          enum:
+            - "1024x1024"
+            - "1080x1080"
+            - "1920x1080"
+            - "1080x1920"
+          default: "1024x1024"
+          description: Image dimensions
+        use_previous_copy:
+          type: boolean
+          default: false
+          description: Use previous node's copy output as context
+      required:
+        - prompt_template
+        - quantity
+        - style
+        - dimensions
+
+    AttachToDocumentNodeConfig:
+      type: object
+      description: Configuration for Attach to Document node type
+      properties:
+        attachment_strategy:
+          type: string
+          enum:
+            - one_to_one
+            - many_to_one
+            - one_to_many
+          description: How to pair images with copies
+        match_by:
+          type: string
+          enum:
+            - position
+            - content_similarity
+            - manual
+          default: position
+          description: Matching algorithm
+        set_as_primary:
+          type: boolean
+          default: true
+          description: Set first attached image as primary
+      required:
+        - attachment_strategy
+        - match_by
+
+    ReviewNodeConfig:
+      type: object
+      description: Configuration for human-in-the-loop Review node type
+      properties:
+        review_type:
+          type: string
+          enum:
+            - approval
+            - selection
+            - edit
+          description: Type of human review required
+        instructions:
+          type: string
+          description: Instructions for the reviewer
+        auto_approve_after_minutes:
+          type: integer
+          minimum: 0
+          nullable: true
+          description: Auto-approve if no response (null = never auto-approve)
+      required:
+        - review_type
+        - instructions
+
+    ConditionalNodeConfig:
+      type: object
+      description: Configuration for Conditional branching node type
+      properties:
+        condition_type:
+          type: string
+          enum:
+            - content_length
+            - quality_score
+            - custom_rule
+          description: Type of condition to evaluate
+        rule:
+          type: object
+          properties:
+            operator:
+              type: string
+              enum:
+                - greater_than
+                - less_than
+                - equals
+                - contains
+            value:
+              oneOf:
+                - type: string
+                - type: number
+            field:
+              type: string
+              description: Field to evaluate (e.g., "word_count", "score")
+          required:
+            - operator
+            - value
+        true_label:
+          type: string
+          description: Label for true branch edge
+        false_label:
+          type: string
+          description: Label for false branch edge
+      required:
+        - condition_type
+        - rule
+
+    ParallelNodeConfig:
+      type: object
+      description: Configuration for Parallel execution node type
+      properties:
+        max_concurrent:
+          type: integer
+          minimum: 1
+          maximum: 20
+          default: 5
+          description: Maximum parallel operations
+        wait_for_all:
+          type: boolean
+          default: true
+          description: Wait for all parallel branches to complete
+      required:
+        - max_concurrent
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+        details:
+          type: object
+          nullable: true
+      required:
+        - error
+        - message
+
+  responses:
+    BadRequest:
+      description: Bad request - invalid input
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    Unauthorized:
+      description: Unauthorized - authentication required
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+security:
+  - BearerAuth: []

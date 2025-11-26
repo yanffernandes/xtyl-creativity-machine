@@ -17,16 +17,25 @@ MINIO_ACCESS_KEY = os.getenv("MINIO_ACCESS_KEY", "minioadmin")
 MINIO_SECRET_KEY = os.getenv("MINIO_SECRET_KEY", "minioadmin")
 MINIO_BUCKET = "xtyl-documents"
 
-minio_client = Minio(
-    MINIO_ENDPOINT.replace("http://", ""),
-    access_key=MINIO_ACCESS_KEY,
-    secret_key=MINIO_SECRET_KEY,
-    secure=False
-)
+# Initialize MinIO client (MinIO 7.2+ API)
+try:
+    minio_client = Minio(
+        endpoint=MINIO_ENDPOINT.replace("http://", "").replace("https://", ""),
+        access_key=MINIO_ACCESS_KEY,
+        secret_key=MINIO_SECRET_KEY,
+        secure=False
+    )
+    print(f"MinIO client initialized successfully: {MINIO_ENDPOINT}")
+except Exception as e:
+    minio_client = None
+    print(f"Warning: MinIO client initialization failed: {e}")
 
 # Ensure bucket exists (lazy - will be created on first use)
 def ensure_minio_bucket():
     """Ensure MinIO bucket exists. Call this before using MinIO."""
+    if minio_client is None:
+        print("Warning: MinIO client not initialized")
+        return
     try:
         if not minio_client.bucket_exists(MINIO_BUCKET):
             minio_client.make_bucket(MINIO_BUCKET)

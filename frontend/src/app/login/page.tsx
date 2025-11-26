@@ -38,39 +38,46 @@ export default function LoginPage() {
     }
 
     return (
-        <div className="flex items-center justify-center min-h-screen bg-background">
-            <Card className="w-[350px]">
+        <div className="flex items-center justify-center min-h-screen relative">
+            <Card glass className="w-[420px]">
                 <CardHeader>
-                    <CardTitle>Login to XTYL</CardTitle>
+                    <CardTitle className="text-3xl text-center">Login to XTYL</CardTitle>
+                    <p className="text-center text-text-secondary mt-2">Welcome back! Please enter your details.</p>
                 </CardHeader>
                 <CardContent>
-                    <form onSubmit={handleSubmit} className="space-y-4">
+                    <form onSubmit={handleSubmit} className="space-y-6">
                         <div className="space-y-2">
-                            <Label htmlFor="email">Email</Label>
+                            <Label htmlFor="email" className="text-sm font-medium">Email</Label>
                             <Input
                                 id="email"
                                 type="email"
+                                placeholder="you@example.com"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                                 required
                             />
                         </div>
                         <div className="space-y-2">
-                            <Label htmlFor="password">Password</Label>
+                            <Label htmlFor="password" className="text-sm font-medium">Password</Label>
                             <Input
                                 id="password"
                                 type="password"
+                                placeholder="••••••••"
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
                                 required
                             />
                         </div>
-                        {error && <p className="text-red-500 text-sm">{error}</p>}
-                        <Button type="submit" className="w-full">Login</Button>
+                        {error && (
+                            <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20">
+                                <p className="text-red-500 text-sm">{error}</p>
+                            </div>
+                        )}
+                        <Button type="submit" className="w-full" size="lg">Login</Button>
                         <div className="text-center">
                             <Link
                                 href="/forgot-password"
-                                className="text-sm text-muted-foreground hover:text-primary transition-colors"
+                                className="text-sm text-accent-primary hover:text-accent-primary/80 transition-colors font-medium"
                             >
                                 Esqueci minha senha
                             </Link>

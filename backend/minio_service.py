@@ -18,21 +18,26 @@ MINIO_SECRET_KEY = os.getenv("MINIO_SECRET_KEY", "minioadmin")
 MINIO_BUCKET = os.getenv("MINIO_BUCKET", "xtyl-storage")
 MINIO_SECURE = os.getenv("MINIO_SECURE", "false").lower() == "true"
 
-# Initialize MinIO client
-minio_client = Minio(
-    MINIO_ENDPOINT,
-    access_key=MINIO_ACCESS_KEY,
-    secret_key=MINIO_SECRET_KEY,
-    secure=MINIO_SECURE
-)
+# Initialize MinIO client (MinIO 7.2+ API)
+try:
+    minio_client = Minio(
+        endpoint=MINIO_ENDPOINT.replace("http://", "").replace("https://", ""),
+        access_key=MINIO_ACCESS_KEY,
+        secret_key=MINIO_SECRET_KEY,
+        secure=MINIO_SECURE
+    )
+    print(f"MinIO service initialized successfully: {MINIO_ENDPOINT}")
+except Exception as e:
+    minio_client = None
+    print(f"Warning: MinIO service initialization failed: {e}")
 
 # Lazy bucket initialization - will be done on first use
 def ensure_bucket():
     """Ensure bucket exists and has public read access. Call this before using MinIO."""
     try:
-        # Check if bucket exists, create if not
-        if not minio_client.bucket_exists(MINIO_BUCKET):
-            minio_client.make_bucket(MINIO_BUCKET)
+        # Check if bucket exists, create if not (MinIO 7.2+ requires keyword arguments)
+        if not minio_client.bucket_exists(bucket_name=MINIO_BUCKET):
+            minio_client.make_bucket(bucket_name=MINIO_BUCKET)
             print(f"✓ MinIO bucket '{MINIO_BUCKET}' created")
         else:
             print(f"✓ MinIO bucket '{MINIO_BUCKET}' exists")
@@ -52,7 +57,7 @@ def ensure_bucket():
         }
 
         import json
-        minio_client.set_bucket_policy(MINIO_BUCKET, json.dumps(policy))
+        minio_client.set_bucket_policy(bucket_name=MINIO_BUCKET, policy=json.dumps(policy))
         print(f"✓ MinIO bucket '{MINIO_BUCKET}' policy set to public read")
 
     except Exception as e:
@@ -92,24 +97,20 @@ def upload_file(
         file_stream = io.BytesIO(file_data)
         file_size = len(file_data)
 
-        # Upload to MinIO
+        # Upload to MinIO (v7.2+ requires all keyword arguments)
         minio_client.put_object(
-            MINIO_BUCKET,
-            object_name,
-            file_stream,
-            file_size,
+            bucket_name=MINIO_BUCKET,
+            object_name=object_name,
+            data=file_stream,
+            length=file_size,
             content_type=content_type
         )
 
-        # Generate public URL
-        if MINIO_PUBLIC_URL:
-            # Use configured public URL (for production)
-            url = f"{MINIO_PUBLIC_URL}/{MINIO_BUCKET}/{object_name}"
-        else:
-            # Fallback to localhost for local development
-            protocol = "https" if MINIO_SECURE else "http"
-            external_endpoint = MINIO_ENDPOINT.replace("minio:9000", "localhost:9000")
-            url = f"{protocol}://{external_endpoint}/{MINIO_BUCKET}/{object_name}"
+        # Generate public URL through backend proxy
+        # This allows files to be accessed without exposing MinIO directly
+        # Format: http://localhost:8000/storage/bucket-name/path/to/file
+        backend_url = os.getenv("BACKEND_PUBLIC_URL", "http://localhost:8000")
+        url = f"{backend_url}/storage/{MINIO_BUCKET}/{object_name}"
 
         return url
 

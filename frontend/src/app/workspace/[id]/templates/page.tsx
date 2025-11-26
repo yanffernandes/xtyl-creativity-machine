@@ -96,12 +96,12 @@ export default function TemplatesPage() {
   }
 
   return (
-    <div className="p-8 space-y-6">
+    <div className="p-8 space-y-6 relative">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between max-w-7xl mx-auto">
         <div>
-          <h1 className="text-3xl font-bold">Templates de Marketing</h1>
-          <p className="text-muted-foreground">Templates profissionais para tráfego pago e marketing digital</p>
+          <h1 className="text-4xl font-bold tracking-tight mb-2">Templates de Marketing</h1>
+          <p className="text-text-secondary">Templates profissionais para tráfego pago e marketing digital</p>
         </div>
         <Button>
           <Plus className="h-4 w-4 mr-2" />
@@ -110,8 +110,8 @@ export default function TemplatesPage() {
       </div>
 
       {/* Search */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+      <div className="relative max-w-7xl mx-auto">
+        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-text-secondary" />
         <Input
           placeholder="Buscar templates por nome, descrição ou tags..."
           value={searchQuery}
@@ -121,7 +121,7 @@ export default function TemplatesPage() {
       </div>
 
       {/* Categories */}
-      <Tabs value={selectedCategory} onValueChange={setSelectedCategory}>
+      <Tabs value={selectedCategory} onValueChange={setSelectedCategory} className="max-w-7xl mx-auto">
         <TabsList className="grid grid-cols-7 w-full">
           {categories.map(cat => (
             <TabsTrigger key={cat.id} value={cat.id} className="text-xs">
@@ -135,15 +135,15 @@ export default function TemplatesPage() {
           {loading ? (
             <div>Carregando...</div>
           ) : filteredTemplates.length === 0 ? (
-            <Card>
-              <CardContent className="p-12 text-center text-muted-foreground">
+            <Card glass>
+              <CardContent className="p-12 text-center text-text-secondary">
                 Nenhum template encontrado
               </CardContent>
             </Card>
           ) : (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
               {filteredTemplates.map(template => (
-                <Card key={template.id} className="hover:shadow-lg transition-shadow cursor-pointer">
+                <Card key={template.id} glass clickable>
                   <CardHeader>
                     <div className="flex items-start justify-between">
                       <div className="flex items-center gap-2">

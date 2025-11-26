@@ -11,8 +11,9 @@ import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useToast } from "@/components/ui/use-toast"
-import { Settings, Users, Sparkles, Eye, ArrowLeft, Trash2, UserPlus } from "lucide-react"
+import { Settings, Users, Sparkles, Eye, ArrowLeft, Trash2, UserPlus, Palette, Moon, Sun } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { useTheme } from "next-themes"
 import { Combobox, ComboboxOption } from "@/components/ui/combobox"
 import { Checkbox } from "@/components/ui/checkbox"
 import WorkspaceSidebar from "@/components/WorkspaceSidebar"
@@ -54,6 +55,7 @@ export default function SettingsPage() {
     const router = useRouter()
     const { token } = useAuthStore()
     const { toast } = useToast()
+    const { theme, setTheme } = useTheme()
 
     const [workspace, setWorkspace] = useState<Workspace | null>(null)
     const [members, setMembers] = useState<WorkspaceMember[]>([])
@@ -214,17 +216,17 @@ export default function SettingsPage() {
     }
 
     return (
-        <div className="flex h-screen overflow-hidden bg-background">
+        <div className="flex h-screen overflow-hidden relative">
             <WorkspaceSidebar />
 
             <div className="flex-1 flex flex-col overflow-hidden">
                 {/* Header */}
-                <div className="px-6 py-4 border-b bg-gradient-to-r from-background to-muted/20">
-                    <Breadcrumbs items={breadcrumbItems} className="mb-2" />
+                <div className="px-6 py-6 border-b border-white/10">
+                    <Breadcrumbs items={breadcrumbItems} className="mb-3" />
                     <div className="flex items-center justify-between">
                         <div>
-                            <h1 className="text-2xl font-bold tracking-tight">Configurações do Workspace</h1>
-                            <p className="text-sm text-muted-foreground mt-1">
+                            <h1 className="text-3xl font-bold tracking-tight">Configurações do Workspace</h1>
+                            <p className="text-sm text-text-secondary mt-2">
                                 Gerencie as configurações e membros do seu workspace
                             </p>
                         </div>
@@ -246,6 +248,10 @@ export default function SettingsPage() {
                                 <Settings className="h-4 w-4" />
                                 Geral
                             </TabsTrigger>
+                            <TabsTrigger value="appearance" className="gap-2">
+                                <Palette className="h-4 w-4" />
+                                Aparência
+                            </TabsTrigger>
                             <TabsTrigger value="ai-models" className="gap-2">
                                 <Sparkles className="h-4 w-4" />
                                 Modelos de IA
@@ -258,16 +264,16 @@ export default function SettingsPage() {
 
                         {/* General Tab */}
                         <TabsContent value="general" className="space-y-6">
-                            <Card>
+                            <Card glass>
                                 <CardHeader>
-                                    <CardTitle>Informações do Workspace</CardTitle>
-                                    <CardDescription>
+                                    <CardTitle className="text-xl">Informações do Workspace</CardTitle>
+                                    <CardDescription className="text-text-secondary mt-2">
                                         Configure as informações básicas do seu workspace
                                     </CardDescription>
                                 </CardHeader>
-                                <CardContent className="space-y-4">
+                                <CardContent className="space-y-6">
                                     <div className="space-y-2">
-                                        <Label htmlFor="name">Nome do Workspace</Label>
+                                        <Label htmlFor="name" className="text-sm font-medium">Nome do Workspace</Label>
                                         <Input
                                             id="name"
                                             value={name}
@@ -277,7 +283,7 @@ export default function SettingsPage() {
                                     </div>
 
                                     <div className="space-y-2">
-                                        <Label htmlFor="description">Descrição</Label>
+                                        <Label htmlFor="description" className="text-sm font-medium">Descrição</Label>
                                         <Textarea
                                             id="description"
                                             value={description}
@@ -294,19 +300,68 @@ export default function SettingsPage() {
                             </Card>
                         </TabsContent>
 
+                        {/* Appearance Tab */}
+                        <TabsContent value="appearance" className="space-y-6">
+                            <Card glass>
+                                <CardHeader>
+                                    <CardTitle className="text-xl">Tema</CardTitle>
+                                    <CardDescription className="text-text-secondary mt-2">
+                                        Escolha entre modo claro, escuro ou automático baseado nas preferências do sistema
+                                    </CardDescription>
+                                </CardHeader>
+                                <CardContent className="space-y-4">
+                                    <div className="grid grid-cols-3 gap-4">
+                                        <button
+                                            onClick={() => setTheme("light")}
+                                            className={`flex flex-col items-center gap-3 p-4 rounded-lg border-2 transition-all hover:border-accent-primary ${
+                                                theme === "light" ? "border-accent-primary bg-accent-primary/5" : "border-border-primary"
+                                            }`}
+                                        >
+                                            <Sun className="h-6 w-6" />
+                                            <span className="text-sm font-medium">Claro</span>
+                                        </button>
+
+                                        <button
+                                            onClick={() => setTheme("dark")}
+                                            className={`flex flex-col items-center gap-3 p-4 rounded-lg border-2 transition-all hover:border-accent-primary ${
+                                                theme === "dark" ? "border-accent-primary bg-accent-primary/5" : "border-border-primary"
+                                            }`}
+                                        >
+                                            <Moon className="h-6 w-6" />
+                                            <span className="text-sm font-medium">Escuro</span>
+                                        </button>
+
+                                        <button
+                                            onClick={() => setTheme("system")}
+                                            className={`flex flex-col items-center gap-3 p-4 rounded-lg border-2 transition-all hover:border-accent-primary ${
+                                                theme === "system" ? "border-accent-primary bg-accent-primary/5" : "border-border-primary"
+                                            }`}
+                                        >
+                                            <Settings className="h-6 w-6" />
+                                            <span className="text-sm font-medium">Sistema</span>
+                                        </button>
+                                    </div>
+
+                                    <p className="text-xs text-muted-foreground">
+                                        O modo sistema ajusta automaticamente com base nas preferências do seu dispositivo
+                                    </p>
+                                </CardContent>
+                            </Card>
+                        </TabsContent>
+
                         {/* AI Models Tab */}
                         <TabsContent value="ai-models" className="space-y-6">
-                            <Card>
+                            <Card glass>
                                 <CardHeader>
-                                    <CardTitle>Modelos de IA Disponíveis</CardTitle>
-                                    <CardDescription>
+                                    <CardTitle className="text-xl">Modelos de IA Disponíveis</CardTitle>
+                                    <CardDescription className="text-text-secondary mt-2">
                                         Selecione quais modelos estarão disponíveis no workspace e defina os padrões
                                     </CardDescription>
                                 </CardHeader>
                                 <CardContent className="space-y-6">
                                     {/* Default Text Model */}
                                     <div className="space-y-2">
-                                        <Label htmlFor="text-model">Modelo de Texto Padrão</Label>
+                                        <Label htmlFor="text-model" className="text-sm font-medium">Modelo de Texto Padrão</Label>
                                         <Combobox
                                             options={textModels
                                                 .filter(m => availableModels.length === 0 || availableModels.includes(m.id))
@@ -321,8 +376,8 @@ export default function SettingsPage() {
 
                                     {/* Attachment Analysis Model */}
                                     <div className="space-y-2">
-                                        <Label htmlFor="attachment-model">Modelo para Análise de Anexos</Label>
-                                        <p className="text-xs text-muted-foreground">
+                                        <Label htmlFor="attachment-model" className="text-sm font-medium">Modelo para Análise de Anexos</Label>
+                                        <p className="text-xs text-text-secondary">
                                             Modelo usado para analisar imagens e PDFs enviados no chat (📎)
                                         </p>
                                         <Combobox
@@ -350,8 +405,8 @@ export default function SettingsPage() {
 
                                     {/* Recommended Models List */}
                                     <div className="space-y-3">
-                                        <Label>Modelos Recomendados</Label>
-                                        <p className="text-xs text-muted-foreground">
+                                        <Label className="text-sm font-medium">Modelos Recomendados</Label>
+                                        <p className="text-xs text-text-secondary">
                                             Selecione quais modelos aparecerão como sugestões rápidas para sua equipe
                                         </p>
                                         <Input
@@ -410,10 +465,10 @@ export default function SettingsPage() {
 
                         {/* Members Tab */}
                         <TabsContent value="members" className="space-y-6">
-                            <Card>
+                            <Card glass>
                                 <CardHeader>
-                                    <CardTitle>Gerenciar Membros</CardTitle>
-                                    <CardDescription>
+                                    <CardTitle className="text-xl">Gerenciar Membros</CardTitle>
+                                    <CardDescription className="text-text-secondary mt-2">
                                         Adicione ou remova membros do seu workspace
                                     </CardDescription>
                                 </CardHeader>

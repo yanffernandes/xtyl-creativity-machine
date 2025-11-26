@@ -71,35 +71,35 @@ function ResetPasswordForm() {
     }
 
     return (
-        <div className="flex items-center justify-center min-h-screen bg-background">
-            <Card className="w-[450px]">
+        <div className="flex items-center justify-center min-h-screen relative">
+            <Card glass className="w-[450px]">
                 <CardHeader>
-                    <CardTitle>Redefinir Senha</CardTitle>
-                    <CardDescription>
+                    <CardTitle className="text-2xl">Redefinir Senha</CardTitle>
+                    <CardDescription className="text-text-secondary mt-2">
                         Digite sua nova senha
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
                     {success ? (
-                        <Alert className="border-green-500 bg-green-50 dark:bg-green-950">
+                        <Alert className="border-green-500/20 bg-green-500/10">
                             <CheckCircle2 className="h-4 w-4 text-green-600" />
-                            <AlertDescription className="text-green-800 dark:text-green-200">
+                            <AlertDescription className="text-green-700 dark:text-green-300">
                                 Senha redefinida com sucesso! Redirecionando para o login...
                             </AlertDescription>
                         </Alert>
                     ) : (
-                        <form onSubmit={handleSubmit} className="space-y-4">
+                        <form onSubmit={handleSubmit} className="space-y-6">
                             {!token && (
-                                <Alert variant="destructive">
-                                    <AlertCircle className="h-4 w-4" />
-                                    <AlertDescription>
+                                <Alert className="border-red-500/20 bg-red-500/10">
+                                    <AlertCircle className="h-4 w-4 text-red-600" />
+                                    <AlertDescription className="text-red-700 dark:text-red-300">
                                         Token não encontrado. Use o link enviado por email.
                                     </AlertDescription>
                                 </Alert>
                             )}
 
                             <div className="space-y-2">
-                                <Label htmlFor="password">Nova Senha</Label>
+                                <Label htmlFor="password" className="text-sm font-medium">Nova Senha</Label>
                                 <Input
                                     id="password"
                                     type="password"
@@ -113,7 +113,7 @@ function ResetPasswordForm() {
                             </div>
 
                             <div className="space-y-2">
-                                <Label htmlFor="confirmPassword">Confirmar Senha</Label>
+                                <Label htmlFor="confirmPassword" className="text-sm font-medium">Confirmar Senha</Label>
                                 <Input
                                     id="confirmPassword"
                                     type="password"
@@ -127,15 +127,16 @@ function ResetPasswordForm() {
                             </div>
 
                             {error && (
-                                <Alert variant="destructive">
-                                    <AlertCircle className="h-4 w-4" />
-                                    <AlertDescription>{error}</AlertDescription>
+                                <Alert className="border-red-500/20 bg-red-500/10">
+                                    <AlertCircle className="h-4 w-4 text-red-600" />
+                                    <AlertDescription className="text-red-700 dark:text-red-300">{error}</AlertDescription>
                                 </Alert>
                             )}
 
                             <Button
                                 type="submit"
                                 className="w-full"
+                                size="lg"
                                 disabled={loading || !token}
                             >
                                 {loading ? "Redefinindo..." : "Redefinir Senha"}
@@ -144,7 +145,7 @@ function ResetPasswordForm() {
                             <div className="text-center">
                                 <Link
                                     href="/login"
-                                    className="text-sm text-muted-foreground hover:text-primary transition-colors"
+                                    className="text-sm text-accent-primary hover:text-accent-primary/80 transition-colors font-medium"
                                 >
                                     Voltar para o login
                                 </Link>
@@ -160,11 +161,11 @@ function ResetPasswordForm() {
 export default function ResetPasswordPage() {
     return (
         <Suspense fallback={
-            <div className="flex items-center justify-center min-h-screen bg-background">
-                <Card className="w-[450px]">
+            <div className="flex items-center justify-center min-h-screen relative">
+                <Card glass className="w-[450px]">
                     <CardHeader>
-                        <CardTitle>Redefinir Senha</CardTitle>
-                        <CardDescription>Carregando...</CardDescription>
+                        <CardTitle className="text-2xl">Redefinir Senha</CardTitle>
+                        <CardDescription className="text-text-secondary mt-2">Carregando...</CardDescription>
                     </CardHeader>
                 </Card>
             </div>

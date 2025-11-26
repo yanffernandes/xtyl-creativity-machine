@@ -11,7 +11,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Card } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { useToast } from "@/components/ui/use-toast"
-import { Loader2, Plus, Upload, FileText, MoreHorizontal, Trash, X, Star, FolderOpen, Home, Sparkles, ImageIcon, Download, FileType, Share2 } from "lucide-react"
+import { Loader2, Plus, Upload, FileText, MoreHorizontal, Trash, X, Star, FolderOpen, Home, Sparkles, ImageIcon, Download, FileType, Share2, Workflow } from "lucide-react"
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -45,6 +45,8 @@ import ImageGenerationPanel from "@/components/ImageGenerationPanel"
 import ImageViewer from "@/components/ImageViewer"
 import ShareDialog from "@/components/ShareDialog"
 import VisualAssetsLibrary from "@/components/VisualAssetsLibrary"
+import DocumentAttachments from "@/components/document/DocumentAttachments"
+import AttachImageModal from "@/components/document/AttachImageModal"
 
 interface Document {
     id: string
@@ -91,6 +93,8 @@ export default function ProjectPage() {
     const [viewingImage, setViewingImage] = useState<Document | null>(null)
     const [shareDialogOpen, setShareDialogOpen] = useState(false)
     const [sharingDocument, setSharingDocument] = useState<Document | null>(null)
+    const [showAttachImageModal, setShowAttachImageModal] = useState(false)
+    const [attachmentsRefreshKey, setAttachmentsRefreshKey] = useState(0)
 
     const { token } = useAuthStore()
     const router = useRouter()
@@ -544,7 +548,7 @@ export default function ProjectPage() {
     }
 
     return (
-        <div className="flex h-screen overflow-hidden bg-background">
+        <div className="flex h-screen overflow-hidden relative">
             {/* Command Palette */}
             <CommandPalette
                 projects={allProjects}
@@ -557,8 +561,8 @@ export default function ProjectPage() {
             <WorkspaceSidebar onDocumentNavigate={handleNavigateToDocument} />
             <div className="flex-1 flex flex-col overflow-hidden">
                 {/* Header with Breadcrumbs */}
-                <div className="px-6 py-4 border-b bg-gradient-to-r from-background to-muted/20">
-                    <Breadcrumbs items={breadcrumbItems} className="mb-2" />
+                <div className="px-6 py-6 border-b border-white/10">
+                    <Breadcrumbs items={breadcrumbItems} className="mb-3" />
                     <div className="flex items-center justify-between">
                         <h1 className="flex-1 min-w-0 text-2xl font-bold tracking-tight truncate">
                             {projectName || "Conteúdo do Projeto"}
@@ -597,23 +601,23 @@ export default function ProjectPage() {
                 </div>
 
                 {!selectedDoc && (
-                    <div className="border-b bg-background px-6">
+                    <div className="border-b border-white/10 px-6">
                         <div className="flex gap-4">
                             <button
                                 onClick={() => setTab("creations")}
-                                className={`flex-1 py-3 text-sm font-medium border-b-2 transition-colors ${tab === "creations" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}
+                                className={`flex-1 py-3 text-sm font-medium border-b-2 transition-colors ${tab === "creations" ? "border-accent-primary text-accent-primary" : "border-transparent text-text-secondary hover:text-text-primary"}`}
                             >
                                 Criações
                             </button>
                             <button
                                 onClick={() => setTab("context")}
-                                className={`flex-1 py-3 text-sm font-medium border-b-2 transition-colors ${tab === "context" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}
+                                className={`flex-1 py-3 text-sm font-medium border-b-2 transition-colors ${tab === "context" ? "border-accent-primary text-accent-primary" : "border-transparent text-text-secondary hover:text-text-primary"}`}
                             >
                                 Arquivos de Contexto
                             </button>
                             <button
                                 onClick={() => setTab("assets")}
-                                className={`flex-1 py-3 text-sm font-medium border-b-2 transition-colors ${tab === "assets" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}
+                                className={`flex-1 py-3 text-sm font-medium border-b-2 transition-colors ${tab === "assets" ? "border-accent-primary text-accent-primary" : "border-transparent text-text-secondary hover:text-text-primary"}`}
                             >
                                 Assets Visuais
                             </button>
@@ -699,21 +703,34 @@ export default function ProjectPage() {
                                     </DropdownMenu>
                                 </div>
                             </div>
-                            <div className="flex-1 border rounded-lg overflow-hidden">
-                                <SmartEditor
-                                    key={selectedDoc.id}
-                                    initialContent={selectedDoc.content || ""}
-                                    onSave={createSaveHandler(selectedDoc.id)}
-                                    suggestedContent={suggestedContent}
-                                    onAcceptSuggestion={() => {
-                                        if (suggestedContent && selectedDoc) {
-                                            handleSaveDocument(suggestedContent)
-                                            setSuggestedContent(null)
-                                        }
-                                    }}
-                                    onRejectSuggestion={() => setSuggestedContent(null)}
-                                    onChange={setCurrentContent}
-                                />
+                            <div className="flex-1 border rounded-lg overflow-auto flex flex-col">
+                                <div className="flex-1 min-h-0">
+                                    <SmartEditor
+                                        key={selectedDoc.id}
+                                        initialContent={selectedDoc.content || ""}
+                                        onSave={createSaveHandler(selectedDoc.id)}
+                                        suggestedContent={suggestedContent}
+                                        onAcceptSuggestion={() => {
+                                            if (suggestedContent && selectedDoc) {
+                                                handleSaveDocument(suggestedContent)
+                                                setSuggestedContent(null)
+                                            }
+                                        }}
+                                        onRejectSuggestion={() => setSuggestedContent(null)}
+                                        onChange={setCurrentContent}
+                                    />
+                                </div>
+
+                                {/* Document Attachments - Only show for text documents */}
+                                {selectedDoc.media_type !== 'image' && (
+                                    <div className="flex-shrink-0 p-6 border-t bg-gray-50 dark:bg-gray-900/50">
+                                        <DocumentAttachments
+                                            key={attachmentsRefreshKey}
+                                            documentId={selectedDoc.id}
+                                            onAttachImage={() => setShowAttachImageModal(true)}
+                                        />
+                                    </div>
+                                )}
                             </div>
                         </div>
                     ) : (
@@ -757,7 +774,7 @@ export default function ProjectPage() {
                                         ) : (
                                             <div className="grid grid-cols-1 gap-4">
                                                 {creations.map(doc => (
-                                                    <Card key={doc.id} className="p-4 cursor-pointer hover:bg-muted/50" onClick={() => handleSelectDocument(doc)}>
+                                                    <Card key={doc.id} glass className="p-4 cursor-pointer" onClick={() => handleSelectDocument(doc)}>
                                                         <div className="flex justify-between items-start">
                                                             <div className="flex-1" onDoubleClick={(e) => { e.stopPropagation(); handleStartEditTitle(doc); }}>
                                                                 {editingTitle === doc.id ? (
@@ -933,6 +950,20 @@ export default function ProjectPage() {
                 documentId={sharingDocument?.id || null}
                 documentTitle={sharingDocument?.title || ""}
             />
+
+            {/* Attach Image Modal */}
+            {selectedDoc && (
+                <AttachImageModal
+                    isOpen={showAttachImageModal}
+                    onClose={() => setShowAttachImageModal(false)}
+                    documentId={selectedDoc.id}
+                    projectId={projectId}
+                    onSuccess={() => {
+                        // Increment key to force DocumentAttachments to re-mount and fetch fresh data
+                        setAttachmentsRefreshKey(prev => prev + 1)
+                    }}
+                />
+            )}
         </div>
     )
 }

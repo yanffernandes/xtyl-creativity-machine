@@ -1,11 +1,14 @@
 from fastapi import APIRouter, Depends, UploadFile, File, BackgroundTasks, HTTPException
 from fastapi.responses import Response
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
 from datetime import datetime, timedelta
 from database import get_db
-from models import Document, User
-from schemas import DocumentCreate, DocumentUpdate, Document as DocumentSchema
+from models import Document, User, DocumentAttachment
+from schemas import (
+    DocumentCreate, DocumentUpdate, Document as DocumentSchema,
+    DocumentAttachmentCreate, DocumentAttachment as DocumentAttachmentSchema
+)
 from auth import get_current_user
 from rag_service import process_document
 from crud import (
@@ -62,7 +65,14 @@ def list_project_documents(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    return get_project_documents(db, project_id)
+    # Get documents with eager loading of attachments and their images
+    documents = db.query(Document).options(
+        joinedload(Document.attachments).joinedload(DocumentAttachment.image)
+    ).filter(
+        Document.project_id == project_id,
+        Document.deleted_at == None
+    ).all()
+    return documents
 
 @router.post("/projects/{project_id}/documents", response_model=DocumentSchema)
 def create_new_document(
@@ -360,3 +370,153 @@ async def get_shared_document(
         "is_shared": True,
         "read_only": True
     }
+
+
+# ===== DOCUMENT ATTACHMENT ENDPOINTS =====
+
+@router.get("/{document_id}/attachments", response_model=List[DocumentAttachmentSchema])
+async def get_document_attachments(
+    document_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get all image attachments for a document"""
+    # Verify document exists and user has access
+    doc = get_document(db, document_id)
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    # Get all attachments for this document with eager loading of image data
+    attachments = db.query(DocumentAttachment).options(
+        joinedload(DocumentAttachment.image)
+    ).filter(
+        DocumentAttachment.document_id == document_id
+    ).order_by(DocumentAttachment.attachment_order).all()
+
+    return attachments
+
+
+@router.post("/{document_id}/attachments", response_model=DocumentAttachmentSchema)
+async def attach_image_to_document(
+    document_id: str,
+    attachment: DocumentAttachmentCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Attach an image to a document"""
+    # Verify document exists
+    doc = get_document(db, document_id)
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    # Verify image exists and is actually an image
+    image = get_document(db, attachment.image_id)
+    if not image:
+        raise HTTPException(status_code=404, detail="Image not found")
+
+    if image.media_type != "image":
+        raise HTTPException(status_code=400, detail="Attached document must be an image")
+
+    # Check if attachment already exists
+    existing = db.query(DocumentAttachment).filter(
+        DocumentAttachment.document_id == document_id,
+        DocumentAttachment.image_id == attachment.image_id
+    ).first()
+
+    if existing:
+        raise HTTPException(status_code=400, detail="Image already attached to this document")
+
+    # If this is marked as primary, unmark other primary attachments
+    if attachment.is_primary:
+        db.query(DocumentAttachment).filter(
+            DocumentAttachment.document_id == document_id,
+            DocumentAttachment.is_primary == True
+        ).update({"is_primary": False})
+
+    # Create attachment
+    db_attachment = DocumentAttachment(
+        id=str(uuid.uuid4()),
+        document_id=document_id,
+        image_id=attachment.image_id,
+        is_primary=attachment.is_primary,
+        attachment_order=attachment.attachment_order
+    )
+
+    db.add(db_attachment)
+    db.commit()
+    db.refresh(db_attachment)
+
+    return db_attachment
+
+
+@router.delete("/{document_id}/attachments/{attachment_id}")
+async def remove_image_attachment(
+    document_id: str,
+    attachment_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Remove an image attachment from a document"""
+    # Verify document exists
+    doc = get_document(db, document_id)
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    # Find and delete attachment
+    attachment = db.query(DocumentAttachment).filter(
+        DocumentAttachment.id == attachment_id,
+        DocumentAttachment.document_id == document_id
+    ).first()
+
+    if not attachment:
+        raise HTTPException(status_code=404, detail="Attachment not found")
+
+    db.delete(attachment)
+    db.commit()
+
+    return {"message": "Attachment removed successfully", "id": attachment_id}
+
+
+@router.put("/{document_id}/attachments/{attachment_id}", response_model=DocumentAttachmentSchema)
+async def update_image_attachment(
+    document_id: str,
+    attachment_id: str,
+    is_primary: Optional[bool] = None,
+    attachment_order: Optional[int] = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Update an image attachment (e.g., set as primary, change order)"""
+    # Verify document exists
+    doc = get_document(db, document_id)
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    # Find attachment
+    attachment = db.query(DocumentAttachment).filter(
+        DocumentAttachment.id == attachment_id,
+        DocumentAttachment.document_id == document_id
+    ).first()
+
+    if not attachment:
+        raise HTTPException(status_code=404, detail="Attachment not found")
+
+    # Update fields
+    if is_primary is not None:
+        # If setting as primary, unmark other primary attachments
+        if is_primary:
+            db.query(DocumentAttachment).filter(
+                DocumentAttachment.document_id == document_id,
+                DocumentAttachment.is_primary == True,
+                DocumentAttachment.id != attachment_id
+            ).update({"is_primary": False})
+
+        attachment.is_primary = is_primary
+
+    if attachment_order is not None:
+        attachment.attachment_order = attachment_order
+
+    db.commit()
+    db.refresh(attachment)
+
+    return attachment

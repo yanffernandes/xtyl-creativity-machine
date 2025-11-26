@@ -35,32 +35,32 @@ export default function ForgotPasswordPage() {
     }
 
     return (
-        <div className="flex items-center justify-center min-h-screen bg-background">
-            <Card className="w-[450px]">
+        <div className="flex items-center justify-center min-h-screen relative">
+            <Card glass className="w-[450px]">
                 <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                        <Link href="/login" className="hover:text-primary transition-colors">
+                    <CardTitle className="flex items-center gap-3 text-2xl">
+                        <Link href="/login" className="hover:text-accent-primary transition-colors">
                             <ArrowLeft className="h-5 w-5" />
                         </Link>
                         Recuperar Senha
                     </CardTitle>
-                    <CardDescription>
+                    <CardDescription className="text-text-secondary mt-2">
                         Digite seu email para receber o link de recuperação
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
                     {success ? (
-                        <Alert className="border-green-500 bg-green-50 dark:bg-green-950">
+                        <Alert className="border-green-500/20 bg-green-500/10">
                             <CheckCircle2 className="h-4 w-4 text-green-600" />
-                            <AlertDescription className="text-green-800 dark:text-green-200">
+                            <AlertDescription className="text-green-700 dark:text-green-300">
                                 Se o email estiver cadastrado, você receberá um link de recuperação em instantes.
                                 Verifique sua caixa de entrada e spam.
                             </AlertDescription>
                         </Alert>
                     ) : (
-                        <form onSubmit={handleSubmit} className="space-y-4">
+                        <form onSubmit={handleSubmit} className="space-y-6">
                             <div className="space-y-2">
-                                <Label htmlFor="email">Email</Label>
+                                <Label htmlFor="email" className="text-sm font-medium">Email</Label>
                                 <Input
                                     id="email"
                                     type="email"
@@ -71,14 +71,18 @@ export default function ForgotPasswordPage() {
                                     disabled={loading}
                                 />
                             </div>
-                            {error && <p className="text-red-500 text-sm">{error}</p>}
-                            <Button type="submit" className="w-full" disabled={loading}>
+                            {error && (
+                                <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20">
+                                    <p className="text-red-500 text-sm">{error}</p>
+                                </div>
+                            )}
+                            <Button type="submit" className="w-full" size="lg" disabled={loading}>
                                 {loading ? "Enviando..." : "Enviar Link de Recuperação"}
                             </Button>
                             <div className="text-center">
                                 <Link
                                     href="/login"
-                                    className="text-sm text-muted-foreground hover:text-primary transition-colors"
+                                    className="text-sm text-accent-primary hover:text-accent-primary/80 transition-colors font-medium"
                                 >
                                     Voltar para o login
                                 </Link>

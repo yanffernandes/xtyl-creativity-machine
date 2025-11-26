@@ -1,0 +1,711 @@
+openapi: 3.0.3
+info:
+  title: Workflow Execution API
+  description: |
+    API endpoints for executing workflows and monitoring their progress in real-time.
+    Supports starting, pausing, resuming, and cancelling workflow executions.
+  version: 1.0.0
+  contact:
+    name: XTYL Development Team
+
+servers:
+  - url: http://localhost:8000/api
+    description: Local development server
+  - url: https://api.xtyl.io/api
+    description: Production server
+
+tags:
+  - name: Executions
+    description: Workflow execution control operations
+  - name: Monitoring
+    description: Real-time execution monitoring
+
+paths:
+  /workflows/{workflow_id}/execute:
+    post:
+      tags:
+        - Executions
+      summary: Start workflow execution
+      description: |
+        Execute a workflow with provided input variables.
+        Creates a new execution record and starts asynchronous processing via Celery.
+      operationId: executeWorkflow
+      parameters:
+        - name: workflow_id
+          in: path
+          required: true
+          description: Workflow template ID to execute
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - project_id
+              properties:
+                project_id:
+                  type: string
+                  format: uuid
+                  description: Project to save outputs to
+                input_variables:
+                  type: object
+                  additionalProperties: true
+                  description: |
+                    User-provided values for Start node input variables.
+                    Keys must match Start node variable names.
+                  example:
+                    campaign_theme: "Summer Sale 2025"
+                    target_audience: "millennials"
+                notify_on_completion:
+                  type: boolean
+                  default: true
+                  description: Send notification when execution completes
+      responses:
+        '202':
+          description: Execution started successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExecutionStarted'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Workflow not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /workflows/executions/{execution_id}:
+    get:
+      tags:
+        - Executions
+      summary: Get execution status
+      description: Retrieve current status and progress of a workflow execution
+      operationId: getExecutionStatus
+      parameters:
+        - name: execution_id
+          in: path
+          required: true
+          description: Execution ID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Execution status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExecutionStatus'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /workflows/executions/{execution_id}/pause:
+    post:
+      tags:
+        - Executions
+      summary: Pause execution
+      description: |
+        Pause a running workflow execution after the current node completes.
+        Execution can be resumed later from the same point.
+      operationId: pauseExecution
+      parameters:
+        - name: execution_id
+          in: path
+          required: true
+          description: Execution ID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Execution pause requested
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExecutionControlResponse'
+        '400':
+          description: Cannot pause (e.g., already completed)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /workflows/executions/{execution_id}/resume:
+    post:
+      tags:
+        - Executions
+      summary: Resume execution
+      description: |
+        Resume a paused workflow execution from the last completed node.
+        Restores execution context and continues processing.
+      operationId: resumeExecution
+      parameters:
+        - name: execution_id
+          in: path
+          required: true
+          description: Execution ID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Execution resumed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExecutionControlResponse'
+        '400':
+          description: Cannot resume (e.g., not paused)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /workflows/executions/{execution_id}/stop:
+    post:
+      tags:
+        - Executions
+      summary: Stop execution
+      description: |
+        Cancel a running or paused workflow execution.
+        Partial results are preserved but execution cannot be resumed.
+      operationId: stopExecution
+      parameters:
+        - name: execution_id
+          in: path
+          required: true
+          description: Execution ID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Execution stopped successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExecutionControlResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /workflows/executions/{execution_id}/logs:
+    get:
+      tags:
+        - Monitoring
+      summary: Get execution logs
+      description: |
+        Retrieve detailed logs for each node execution, including inputs, outputs, and errors.
+      operationId: getExecutionLogs
+      parameters:
+        - name: execution_id
+          in: path
+          required: true
+          description: Execution ID
+          schema:
+            type: string
+            format: uuid
+        - name: node_id
+          in: query
+          required: false
+          description: Filter logs by specific node
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          description: Maximum number of log entries
+          schema:
+            type: integer
+            default: 100
+            maximum: 1000
+      responses:
+        '200':
+          description: Execution logs
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  execution_id:
+                    type: string
+                    format: uuid
+                  logs:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/NodeExecutionLog'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /workflows/executions/{execution_id}/stream:
+    get:
+      tags:
+        - Monitoring
+      summary: Stream execution progress (SSE)
+      description: |
+        Server-Sent Events endpoint for real-time execution progress updates.
+        Streams events when nodes start, complete, or fail.
+      operationId: streamExecutionProgress
+      parameters:
+        - name: execution_id
+          in: path
+          required: true
+          description: Execution ID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: SSE event stream
+          content:
+            text/event-stream:
+              schema:
+                type: string
+              examples:
+                node_started:
+                  value: |
+                    event: node_started
+                    data: {"node_id": "textgen-2", "node_name": "Generate Headline", "timestamp": "2025-11-25T18:45:23Z"}
+
+                node_completed:
+                  value: |
+                    event: node_completed
+                    data: {"node_id": "textgen-2", "outputs": {"content": "Amazing Summer Sale!"}, "execution_order": 2, "timestamp": "2025-11-25T18:45:30Z"}
+
+                node_failed:
+                  value: |
+                    event: node_failed
+                    data: {"node_id": "imagegen-3", "error": "API timeout", "timestamp": "2025-11-25T18:46:00Z"}
+
+                execution_completed:
+                  value: |
+                    event: execution_completed
+                    data: {"status": "completed", "total_cost": 0.05, "generated_documents": ["doc-123", "doc-456"], "timestamp": "2025-11-25T18:47:00Z"}
+
+                execution_failed:
+                  value: |
+                    event: execution_failed
+                    data: {"status": "failed", "error": "Node textgen-2 failed: OpenAI API error", "timestamp": "2025-11-25T18:46:30Z"}
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /workflows/executions:
+    get:
+      tags:
+        - Executions
+      summary: List executions
+      description: Retrieve execution history filtered by workspace, project, or workflow
+      operationId: listExecutions
+      parameters:
+        - name: workspace_id
+          in: query
+          required: false
+          description: Filter by workspace
+          schema:
+            type: string
+            format: uuid
+        - name: project_id
+          in: query
+          required: false
+          description: Filter by project
+          schema:
+            type: string
+            format: uuid
+        - name: workflow_id
+          in: query
+          required: false
+          description: Filter by workflow template
+          schema:
+            type: string
+            format: uuid
+        - name: status
+          in: query
+          required: false
+          description: Filter by execution status
+          schema:
+            type: string
+            enum:
+              - pending
+              - running
+              - paused
+              - completed
+              - failed
+              - cancelled
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 50
+            maximum: 100
+        - name: offset
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: List of executions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  executions:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ExecutionSummary'
+                  total:
+                    type: integer
+                  limit:
+                    type: integer
+                  offset:
+                    type: integer
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /workflows/executions/{execution_id}/retry:
+    post:
+      tags:
+        - Executions
+      summary: Retry failed execution
+      description: |
+        Retry a failed execution from the failed node or restart from the beginning.
+      operationId: retryExecution
+      parameters:
+        - name: execution_id
+          in: path
+          required: true
+          description: Execution ID
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                from_beginning:
+                  type: boolean
+                  default: false
+                  description: If true, restart from Start node; if false, resume from failed node
+      responses:
+        '202':
+          description: Retry started
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExecutionStarted'
+        '400':
+          description: Cannot retry (e.g., not failed)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+components:
+  schemas:
+    ExecutionStarted:
+      type: object
+      properties:
+        execution_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum:
+            - pending
+            - running
+        workflow_id:
+          type: string
+          format: uuid
+        project_id:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+        stream_url:
+          type: string
+          description: SSE endpoint for real-time progress
+          example: /api/workflows/executions/123e4567-e89b-12d3-a456-426614174000/stream
+
+    ExecutionStatus:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        workflow_id:
+          type: string
+          format: uuid
+        workflow_name:
+          type: string
+        project_id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum:
+            - pending
+            - running
+            - paused
+            - completed
+            - failed
+            - cancelled
+        progress_percent:
+          type: integer
+          minimum: 0
+          maximum: 100
+        current_node_id:
+          type: string
+          nullable: true
+          description: Node currently executing
+        current_node_name:
+          type: string
+          nullable: true
+        total_cost:
+          type: number
+          format: double
+          description: Total cost in USD
+        total_tokens_used:
+          type: integer
+        generated_documents:
+          type: array
+          items:
+            type: string
+            format: uuid
+          description: Document IDs created during execution
+        error_message:
+          type: string
+          nullable: true
+        started_at:
+          type: string
+          format: date-time
+          nullable: true
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+
+    ExecutionSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        workflow_id:
+          type: string
+          format: uuid
+        workflow_name:
+          type: string
+        project_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+        progress_percent:
+          type: integer
+        total_cost:
+          type: number
+          format: double
+        documents_generated:
+          type: integer
+          description: Count of documents created
+        started_at:
+          type: string
+          format: date-time
+          nullable: true
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+
+    ExecutionControlResponse:
+      type: object
+      properties:
+        execution_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum:
+            - pending
+            - running
+            - paused
+            - completed
+            - failed
+            - cancelled
+        message:
+          type: string
+          example: Execution paused successfully
+
+    NodeExecutionLog:
+      type: object
+      properties:
+        node_id:
+          type: string
+          description: Node ID from workflow definition
+        node_name:
+          type: string
+          description: Human-readable node name
+        node_type:
+          type: string
+          description: Node type (start, text_generation, etc.)
+        status:
+          type: string
+          enum:
+            - pending
+            - running
+            - completed
+            - failed
+        execution_order:
+          type: integer
+          description: Sequence number in execution
+        iteration_number:
+          type: integer
+          description: Loop iteration (0 if not in loop)
+        inputs:
+          type: object
+          additionalProperties: true
+          description: Resolved input values (variables replaced)
+        outputs:
+          type: object
+          additionalProperties: true
+          description: Node output data
+        error_message:
+          type: string
+          nullable: true
+        started_at:
+          type: string
+          format: date-time
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
+        duration_ms:
+          type: integer
+          description: Execution duration in milliseconds
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error type
+        message:
+          type: string
+          description: Human-readable error message
+        details:
+          type: object
+          additionalProperties: true
+          description: Additional error context
+
+  responses:
+    Unauthorized:
+      description: Authentication required
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: unauthorized
+            message: Authentication credentials were not provided
+
+    Forbidden:
+      description: Insufficient permissions
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: forbidden
+            message: You do not have permission to access this execution
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: not_found
+            message: Execution not found
+
+    BadRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: validation_error
+            message: Invalid input variables
+            details:
+              campaign_theme: This field is required
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+security:
+  - BearerAuth: []

@@ -48,19 +48,19 @@ export default function ProfilePage() {
     }
 
     return (
-        <div className="flex-1 h-full p-8 flex items-center justify-center bg-background">
-            <Card className="w-full max-w-md">
+        <div className="flex-1 h-full p-8 flex items-center justify-center relative">
+            <Card glass className="w-full max-w-md">
                 <CardHeader>
-                    <CardTitle>Meu Perfil</CardTitle>
-                    <CardDescription>Gerencie suas informações pessoais.</CardDescription>
+                    <CardTitle className="text-2xl">Meu Perfil</CardTitle>
+                    <CardDescription className="text-text-secondary mt-2">Gerencie suas informações pessoais.</CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-4">
+                <CardContent className="space-y-6">
                     <div className="space-y-2">
-                        <Label htmlFor="email">Email</Label>
+                        <Label htmlFor="email" className="text-sm font-medium">Email</Label>
                         <Input id="email" value={user?.email || ""} disabled />
                     </div>
                     <div className="space-y-2">
-                        <Label htmlFor="fullName">Nome Completo</Label>
+                        <Label htmlFor="fullName" className="text-sm font-medium">Nome Completo</Label>
                         <Input
                             id="fullName"
                             value={fullName}
@@ -69,7 +69,7 @@ export default function ProfilePage() {
                         />
                     </div>
                     <div className="space-y-2">
-                        <Label htmlFor="password">Nova Senha</Label>
+                        <Label htmlFor="password" className="text-sm font-medium">Nova Senha</Label>
                         <Input
                             id="password"
                             type="password"
@@ -79,7 +79,7 @@ export default function ProfilePage() {
                         />
                     </div>
                 </CardContent>
-                <CardFooter className="flex justify-between">
+                <CardFooter className="flex justify-between pt-2">
                     <Button variant="outline" onClick={() => router.back()}>Voltar</Button>
                     <Button onClick={handleSave} disabled={isLoading}>
                         {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

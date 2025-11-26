@@ -98,6 +98,7 @@ class Document(DocumentBase):
     asset_metadata: Optional[Dict[str, Any]] = None
     created_at: datetime
     updated_at: Optional[datetime] = None
+    attachments: Optional[List['DocumentAttachment']] = None  # Include attached images
 
     class Config:
         from_attributes = True
@@ -197,3 +198,273 @@ class Template(TemplateBase):
 
     class Config:
         from_attributes = True
+
+
+# ============================================================================
+# WORKFLOW SYSTEM SCHEMAS
+# ============================================================================
+
+# Workflow Templates
+class WorkflowTemplateBase(BaseModel):
+    name: str
+    description: Optional[str] = None
+    category: Optional[str] = None  # social_media, paid_ads, blog, email, seo
+    nodes_json: List[Dict[str, Any]] = []
+    edges_json: List[Dict[str, Any]] = []
+    default_params_json: Optional[Dict[str, Any]] = {}
+
+class WorkflowTemplateCreate(WorkflowTemplateBase):
+    workspace_id: str
+
+class WorkflowTemplateUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    category: Optional[str] = None
+    nodes_json: Optional[List[Dict[str, Any]]] = None
+    edges_json: Optional[List[Dict[str, Any]]] = None
+    default_params_json: Optional[Dict[str, Any]] = None
+
+class WorkflowTemplate(WorkflowTemplateBase):
+    id: str
+    workspace_id: Optional[str] = None  # NULL for system templates
+    is_system: bool
+    usage_count: int
+    created_by: Optional[str] = None
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+# Workflow Executions
+class WorkflowExecutionBase(BaseModel):
+    config_json: Optional[Dict[str, Any]] = {}
+
+class WorkflowExecutionCreate(WorkflowExecutionBase):
+    template_id: str
+    project_id: str
+
+class WorkflowExecution(WorkflowExecutionBase):
+    id: str
+    template_id: str
+    project_id: str
+    workspace_id: str
+    user_id: str
+    status: str  # pending, running, paused, completed, failed, stopped
+    progress_percent: int
+    current_node_id: Optional[str] = None
+    error_message: Optional[str] = None
+    total_cost: float
+    started_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+# Agent Jobs
+class AgentJobBase(BaseModel):
+    node_id: str
+    job_type: str  # generate_copy, generate_image, attach, review
+    input_data_json: Optional[Dict[str, Any]] = None
+
+class AgentJobCreate(AgentJobBase):
+    execution_id: str
+
+class AgentJob(AgentJobBase):
+    id: str
+    execution_id: str
+    status: str  # pending, running, completed, failed, skipped
+    output_data_json: Optional[Dict[str, Any]] = None
+    error_message: Optional[str] = None
+    tokens_used: int
+    started_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+# Document Attachments
+class DocumentAttachmentBase(BaseModel):
+    document_id: str
+    image_id: str
+    is_primary: Optional[bool] = False
+    attachment_order: Optional[int] = 0
+
+class DocumentAttachmentCreate(DocumentAttachmentBase):
+    pass
+
+class DocumentAttachment(DocumentAttachmentBase):
+    id: str
+    created_by_workflow_id: Optional[str] = None
+    created_at: datetime
+    image: Optional['Document'] = None  # Include the related image document
+
+    class Config:
+        from_attributes = True
+
+# ============================================================================
+# WORKFLOW SCHEMAS
+# ============================================================================
+
+# Node position schema
+class NodePosition(BaseModel):
+    x: float
+    y: float
+
+# Base node data schemas for different node types
+class StartNodeData(BaseModel):
+    label: str
+    inputVariables: Optional[List[Dict[str, Any]]] = []
+
+class FinishNodeData(BaseModel):
+    label: str
+    saveToProject: bool = True
+    documentTitle: Optional[str] = None
+    notifyUser: bool = False
+
+class TextGenerationNodeData(BaseModel):
+    label: str
+    prompt: str
+    model: str
+    maxTokens: Optional[int] = 1000
+    temperature: Optional[float] = 0.7
+    outputFormat: Optional[str] = "text"  # text, json, markdown
+
+class ImageGenerationNodeData(BaseModel):
+    label: str
+    prompt: str
+    model: str
+    size: Optional[str] = "1024x1024"
+    style: Optional[str] = None
+
+class ConditionalNodeData(BaseModel):
+    label: str
+    condition: str
+
+class LoopNodeData(BaseModel):
+    label: str
+    iterations: Optional[int] = None
+    condition: Optional[str] = None
+    maxIterations: Optional[int] = 100
+
+class ContextRetrievalNodeData(BaseModel):
+    label: str
+    filters: Optional[Dict[str, Any]] = {}
+    maxResults: Optional[int] = 10
+
+class ProcessingNodeData(BaseModel):
+    label: str
+    prompt: str
+    model: str
+    outputFormat: Optional[str] = "text"  # text, json, markdown
+
+# Workflow node schema
+class WorkflowNode(BaseModel):
+    id: str
+    type: str  # start, finish, text_generation, image_generation, conditional, loop, context_retrieval, processing
+    position: NodePosition
+    data: Dict[str, Any]  # Union of all node data types
+
+# Workflow edge schema
+class WorkflowEdge(BaseModel):
+    id: str
+    source: str
+    target: str
+    sourceHandle: Optional[str] = None
+    targetHandle: Optional[str] = None
+    label: Optional[str] = None
+    type: Optional[str] = "smoothstep"
+
+# Workflow template schemas
+class WorkflowTemplateBase(BaseModel):
+    name: str
+    description: Optional[str] = None
+    category: Optional[str] = None
+
+class WorkflowTemplateCreate(WorkflowTemplateBase):
+    workspace_id: str
+    nodes: List[WorkflowNode]
+    edges: List[WorkflowEdge]
+    default_params: Optional[Dict[str, Any]] = {}
+    is_system: bool = False
+    is_recommended: bool = False
+    version: str = "1.0"
+
+class WorkflowTemplateUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    category: Optional[str] = None
+    nodes: Optional[List[WorkflowNode]] = None
+    edges: Optional[List[WorkflowEdge]] = None
+    default_params: Optional[Dict[str, Any]] = None
+    is_recommended: Optional[bool] = None
+
+class WorkflowTemplateDetail(WorkflowTemplateBase):
+    id: str
+    workspace_id: str
+    nodes: List[WorkflowNode]
+    edges: List[WorkflowEdge]
+    default_params: Dict[str, Any]
+    is_system: bool
+    is_recommended: bool
+    usage_count: int
+    version: str
+    created_by: Optional[str] = None
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+# Execution schemas
+class ExecutionStartRequest(BaseModel):
+    workflow_id: str
+    project_id: str
+    input_variables: Optional[Dict[str, Any]] = {}
+
+class NodeExecutionLog(BaseModel):
+    node_id: str
+    node_name: str
+    node_type: str
+    status: str  # pending, running, completed, failed
+    outputs: Optional[Dict[str, Any]] = None
+    error_message: Optional[str] = None
+    execution_order: int
+    started_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+
+class ExecutionStatus(BaseModel):
+    id: str
+    workflow_id: str
+    project_id: str
+    workspace_id: str
+    user_id: str
+    status: str  # pending, running, paused, completed, failed, cancelled
+    progress_percent: int
+    current_node_id: Optional[str] = None
+    error_message: Optional[str] = None
+    total_cost: Optional[Decimal] = None
+    total_tokens_used: Optional[int] = None
+    started_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class ExecutionSummary(BaseModel):
+    id: str
+    workflow_id: str
+    workflow_name: str
+    status: str
+    progress_percent: int
+    total_cost: Optional[Decimal] = None
+    created_at: datetime
+    completed_at: Optional[datetime] = None
+
+class ExecutionControlResponse(BaseModel):
+    execution_id: str
+    status: str
+    message: str

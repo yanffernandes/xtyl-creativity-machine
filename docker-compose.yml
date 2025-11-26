@@ -5,8 +5,8 @@ services:
       context: ./backend
       dockerfile: Dockerfile.prod
     restart: always
-    expose:
-      - "8000"
+    ports:
+      - "8000:8000"
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
       interval: 10s
@@ -30,6 +30,10 @@ services:
 
       # Redis
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+
+      # Celery
+      CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/0}
+      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://redis:6379/1}
 
       # MinIO / S3
       MINIO_ENDPOINT: minio:9000
@@ -145,6 +149,62 @@ services:
         reservations:
           cpus: '0.25'
           memory: 256M
+
+  # Celery Worker: Async task execution
+  celery-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.prod
+    restart: always
+    command: celery -A celery_app worker --loglevel=info --concurrency=4
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A celery_app inspect ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      # Python Path
+      PYTHONPATH: /app
+
+      # Database
+      DATABASE_URL: ${DATABASE_URL:-postgresql://xtyl:xtylpassword@db:5432/xtyl_db}
+
+      # Redis
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+
+      # Celery
+      CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/0}
+      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://redis:6379/1}
+
+      # MinIO / S3
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin}
+      MINIO_BUCKET: ${MINIO_BUCKET:-xtyl-storage}
+
+      # AI APIs
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
+      TAVILY_API_KEY: ${TAVILY_API_KEY}
+    networks:
+      - xtyl-network
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '1'
+          memory: 1G
 
   # Object Storage: MinIO (S3 Compatible)
   minio:
