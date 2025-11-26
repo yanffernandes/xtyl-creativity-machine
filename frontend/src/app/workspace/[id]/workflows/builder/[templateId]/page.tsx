@@ -92,7 +92,7 @@ export default function WorkflowBuilderPage() {
 
   const loadTemplate = async () => {
     try {
-      const response = await api.get(`/workflows/templates/${templateId}`);
+      const response = await api.get(`/workflows/${templateId}`);
       const data = response.data;
       setTemplate(data);
 
@@ -166,13 +166,13 @@ export default function WorkflowBuilderPage() {
 
       if (templateId === "new") {
         // Create new template
-        await api.post("/workflows/templates", payload);
+        await api.post("/workflows/", payload);
         alert("Template created successfully!");
         router.push(`/workspace/${workspaceId}/workflows`);
       } else if (template.is_system) {
         // Clone system template instead of updating
         const cloneResponse = await api.post(
-          `/workflows/templates/${templateId}/clone`,
+          `/workflows/${templateId}/clone`,
           {}, // Empty body
           {
             params: {
@@ -185,13 +185,13 @@ export default function WorkflowBuilderPage() {
         const clonedTemplateId = cloneResponse.data.id;
 
         // Update the cloned template with changes
-        await api.put(`/workflows/templates/${clonedTemplateId}`, payload);
+        await api.put(`/workflows/${clonedTemplateId}`, payload);
 
         alert("System template cloned and saved successfully!");
         router.push(`/workspace/${workspaceId}/workflows`);
       } else {
         // Update existing custom template
-        await api.put(`/workflows/templates/${templateId}`, payload);
+        await api.put(`/workflows/${templateId}`, payload);
         alert("Template updated successfully!");
         router.push(`/workspace/${workspaceId}/workflows`);
       }

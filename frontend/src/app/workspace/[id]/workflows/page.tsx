@@ -75,10 +75,9 @@ export default function WorkflowsPage() {
   const fetchTemplates = async () => {
     try {
       setLoading(true);
-      const response = await api.get("/workflows/templates/", {
+      const response = await api.get("/workflows/", {
         params: {
           workspace_id: workspaceId,
-          include_system: true,
         },
       });
       setTemplates(response.data);
