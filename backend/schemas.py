@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 from decimal import Decimal
@@ -403,10 +403,10 @@ class WorkflowTemplateUpdate(BaseModel):
 
 class WorkflowTemplateDetail(WorkflowTemplateBase):
     id: str
-    workspace_id: str
-    nodes: List[WorkflowNode]
-    edges: List[WorkflowEdge]
-    default_params: Dict[str, Any]
+    workspace_id: Optional[str] = None  # NULL for system templates
+    nodes: List[WorkflowNode] = Field(alias="nodes_json")
+    edges: List[WorkflowEdge] = Field(alias="edges_json")
+    default_params: Dict[str, Any] = Field(alias="default_params_json")
     is_system: bool
     is_recommended: bool
     usage_count: int
@@ -417,6 +417,7 @@ class WorkflowTemplateDetail(WorkflowTemplateBase):
 
     class Config:
         from_attributes = True
+        populate_by_name = True  # Allow both names and aliases
 
 # Execution schemas
 class ExecutionStartRequest(BaseModel):
