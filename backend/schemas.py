@@ -404,9 +404,9 @@ class WorkflowTemplateUpdate(BaseModel):
 class WorkflowTemplateDetail(WorkflowTemplateBase):
     id: str
     workspace_id: Optional[str] = None  # NULL for system templates
-    nodes: List[WorkflowNode] = Field(alias="nodes_json")
-    edges: List[WorkflowEdge] = Field(alias="edges_json")
-    default_params: Dict[str, Any] = Field(alias="default_params_json")
+    nodes_json: List[WorkflowNode] = Field(serialization_alias="nodes")
+    edges_json: List[WorkflowEdge] = Field(serialization_alias="edges")
+    default_params_json: Dict[str, Any] = Field(serialization_alias="default_params")
     is_system: bool
     is_recommended: bool
     usage_count: int
