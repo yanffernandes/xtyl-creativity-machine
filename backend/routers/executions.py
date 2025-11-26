@@ -10,6 +10,7 @@ Endpoints for managing workflow executions:
 """
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from database import get_db
@@ -21,7 +22,10 @@ from schemas import (
 )
 from auth import get_current_user
 from tasks.workflow_tasks import execute_workflow, pause_workflow, resume_workflow, stop_workflow
+from services.workflow_executor import WorkflowExecutor
 import uuid
+import json
+import asyncio
 from datetime import datetime
 
 router = APIRouter(
@@ -320,3 +324,68 @@ async def get_execution_status(
             "started_at": current_job.started_at.isoformat() if current_job.started_at else None
         } if current_job else None
     }
+
+
+@router.get("/{execution_id}/stream")
+async def stream_execution_progress(
+    execution_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Stream real-time execution progress via Server-Sent Events (SSE)
+
+    Returns an event stream with progress updates as the workflow executes
+    """
+    # Verify execution exists and user has access
+    execution = db.query(WorkflowExecution).filter(
+        WorkflowExecution.id == execution_id
+    ).first()
+
+    if not execution:
+        raise HTTPException(status_code=404, detail="Workflow execution not found")
+
+    if execution.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    async def event_generator():
+        """Generate SSE events from workflow execution"""
+        try:
+            # Create workflow executor
+            executor = WorkflowExecutor(db)
+
+            # Execute workflow and yield progress
+            async for progress_update in executor.execute_workflow(
+                execution_id=execution_id,
+                user_id=current_user.id,
+                yield_progress=True
+            ):
+                # Format as SSE event
+                event_data = json.dumps(progress_update)
+                yield f"data: {event_data}\n\n"
+
+                # Small delay to prevent overwhelming the client
+                await asyncio.sleep(0.1)
+
+        except Exception as e:
+            # Send error event
+            error_event = {
+                "type": "error",
+                "message": str(e),
+                "progress": 0
+            }
+            yield f"data: {json.dumps(error_event)}\n\n"
+
+        finally:
+            # Send completion signal
+            yield "data: {\"type\": \"done\"}\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",  # Disable buffering in nginx
+            "Connection": "keep-alive"
+        }
+    )

@@ -2,7 +2,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from database import engine, Base
-from routers import auth, workspaces, documents, chat, folders, activity, ai_usage, templates, image_generation, visual_assets, workflows, executions
+from routers import auth, workspaces, documents, chat, folders, activity, ai_usage, templates, image_generation, visual_assets, workflows, executions, validation, models, project_workflows
 import io
 
 # Create tables
@@ -36,6 +36,9 @@ app.include_router(image_generation.router)
 app.include_router(visual_assets.router)
 app.include_router(workflows.router)
 app.include_router(executions.router)
+app.include_router(validation.router)
+app.include_router(models.router)
+app.include_router(project_workflows.router)
 
 @app.get("/")
 async def root():
