@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
-from models import User, Workspace, Project, WorkspaceUser, Document, Folder, ActivityLog
-from schemas import UserCreate, WorkspaceCreate, ProjectCreate, DocumentCreate, DocumentUpdate, UserUpdate, WorkspaceUpdate
+from models import User, Workspace, Project, WorkspaceUser, Document, Folder, ActivityLog, UserPreferences
+from schemas import UserCreate, WorkspaceCreate, ProjectCreate, DocumentCreate, DocumentUpdate, UserUpdate, WorkspaceUpdate, UserPreferencesUpdate
 from passlib.context import CryptContext
 from datetime import datetime
 from typing import Optional, List
@@ -560,3 +560,36 @@ def restore_folder(db: Session, folder_id: str, restore_contents: bool = False, 
     db.commit()
     db.refresh(db_folder)
     return db_folder
+
+
+# ========== USER PREFERENCES CRUD FUNCTIONS ==========
+
+def get_user_preferences(db: Session, user_id: str) -> Optional[UserPreferences]:
+    """Get user preferences by user_id"""
+    return db.query(UserPreferences).filter(UserPreferences.user_id == user_id).first()
+
+
+def get_or_create_user_preferences(db: Session, user_id: str) -> UserPreferences:
+    """Get user preferences or create with defaults if not exist"""
+    prefs = get_user_preferences(db, user_id)
+    if not prefs:
+        prefs = UserPreferences(user_id=user_id)
+        db.add(prefs)
+        db.commit()
+        db.refresh(prefs)
+    return prefs
+
+
+def update_user_preferences(db: Session, user_id: str, prefs_update: UserPreferencesUpdate) -> UserPreferences:
+    """Update user preferences (creates if not exist)"""
+    prefs = get_or_create_user_preferences(db, user_id)
+
+    update_data = prefs_update.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        if value is not None:
+            setattr(prefs, field, value)
+
+    prefs.updated_at = datetime.now()
+    db.commit()
+    db.refresh(prefs)
+    return prefs

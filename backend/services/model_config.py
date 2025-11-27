@@ -247,8 +247,58 @@ class ModelConfig:
         return input_cost + output_cost
 
     @classmethod
-    def get_all_text_models(cls) -> List[Dict[str, Any]]:
+    async def fetch_openrouter_models(cls) -> List[ModelCapability]:
+        """Fetch models from OpenRouter and convert to ModelCapability"""
+        from llm_service import list_models
+        
+        try:
+            openrouter_models = await list_models()
+            capabilities = []
+            
+            for m in openrouter_models:
+                # Skip if already in static list
+                if any(static.model_id == m["id"] for static in cls.TEXT_MODELS):
+                    continue
+                    
+                # Determine provider from ID prefix
+                provider = ModelProvider.OPENAI
+                if m["id"].startswith("anthropic"):
+                    provider = ModelProvider.ANTHROPIC
+                elif m["id"].startswith("stability"):
+                    provider = ModelProvider.STABILITYAI
+                
+                # Parse pricing
+                pricing = m.get("pricing", {})
+                input_cost = float(pricing.get("prompt", 0)) * 1000
+                output_cost = float(pricing.get("completion", 0)) * 1000
+                
+                capabilities.append(ModelCapability(
+                    model_id=m["id"],
+                    model_name=m["name"],
+                    provider=provider,
+                    task_types=[TaskType.TEXT_GENERATION], # Assume text for now
+                    max_tokens=int(m.get("context_length", 4096)), # Fallback
+                    supports_streaming=True,
+                    supports_json_mode=False,
+                    supports_vision="vision" in m["id"].lower(),
+                    cost_per_1k_input_tokens=input_cost,
+                    cost_per_1k_output_tokens=output_cost,
+                    context_window=int(m.get("context_length", 4096)),
+                    description=m.get("description", f"Model from {provider.value}"),
+                    recommended_for=[]
+                ))
+            return capabilities
+        except Exception as e:
+            print(f"Error fetching OpenRouter models: {e}")
+            return []
+
+    @classmethod
+    async def get_all_text_models(cls) -> List[Dict[str, Any]]:
         """Get all text models as serializable dicts"""
+        # Fetch dynamic models
+        dynamic_models = await cls.fetch_openrouter_models()
+        all_models = cls.TEXT_MODELS + dynamic_models
+        
         return [
             {
                 "id": m.model_id,
@@ -266,7 +316,7 @@ class ModelConfig:
                     "output": m.cost_per_1k_output_tokens
                 }
             }
-            for m in cls.TEXT_MODELS
+            for m in all_models
         ]
 
     @classmethod

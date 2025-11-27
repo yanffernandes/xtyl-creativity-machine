@@ -2,8 +2,22 @@
 
 import { motion } from "framer-motion";
 import { Loader2, CheckCircle2, XCircle, PauseCircle, StopCircle, Clock, Sparkles } from "lucide-react";
-import { WorkflowExecution } from "@/hooks/useWorkflowExecution";
 import { useEffect, useRef } from "react";
+
+// Local interface for execution data (matches API response format)
+interface WorkflowExecution {
+  id: string;
+  status: "idle" | "pending" | "running" | "paused" | "completed" | "failed" | "stopped";
+  progress: number;
+  current_node_id: string | null;
+  outputs: Record<string, any>;
+  config_json: Record<string, any>;
+  logs: string[];
+  total_cost?: number;
+  error_message?: string;
+  started_at?: string;
+  completed_at?: string;
+}
 
 interface ExecutionProgressProps {
   execution: WorkflowExecution;
@@ -11,6 +25,7 @@ interface ExecutionProgressProps {
 
 const getStatusIcon = (status: WorkflowExecution["status"]) => {
   switch (status) {
+    case "idle":
     case "pending":
       return <Clock className="w-5 h-5 text-gray-500" />;
     case "running":
@@ -30,6 +45,7 @@ const getStatusIcon = (status: WorkflowExecution["status"]) => {
 
 const getStatusColor = (status: WorkflowExecution["status"]) => {
   switch (status) {
+    case "idle":
     case "pending":
       return "text-gray-600 bg-gray-100 dark:bg-gray-800";
     case "running":
@@ -57,13 +73,16 @@ const getProgressBarColor = (status: WorkflowExecution["status"]) => {
       return "from-red-500 to-red-600";
     case "paused":
       return "from-orange-500 to-orange-600";
+    case "idle":
+    case "pending":
+    case "stopped":
     default:
       return "from-gray-400 to-gray-500";
   }
 };
 
 export default function ExecutionProgress({ execution }: ExecutionProgressProps) {
-  const progress = execution.progress_percent || 0;
+  const progress = execution.progress || 0;
   const isActive = execution.status === "running" || execution.status === "pending";
   const hasShownConfetti = useRef(false);
 
@@ -117,11 +136,11 @@ export default function ExecutionProgress({ execution }: ExecutionProgressProps)
         </div>
 
         {/* Cost */}
-        {execution.total_cost > 0 && (
+        {(execution.total_cost || 0) > 0 && (
           <div className="text-right">
             <p className="text-sm text-gray-600 dark:text-gray-400">Total Cost</p>
             <p className="text-lg font-semibold text-gray-900 dark:text-white">
-              ${execution.total_cost.toFixed(4)}
+              ${(execution.total_cost || 0).toFixed(4)}
             </p>
           </div>
         )}

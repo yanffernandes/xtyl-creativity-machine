@@ -78,7 +78,13 @@ const config: Config = {
                 'accent-error': 'var(--accent-error)',
             },
             boxShadow: {
-                ...shadows,
+                // Standard shadows from design tokens
+                sm: shadows.sm,
+                base: shadows.base,
+                md: shadows.md,
+                lg: shadows.lg,
+                xl: shadows.xl,
+                '2xl': shadows['2xl'],
                 // Glass shadows
                 'glass-sm': '0 8px 32px rgba(0, 0, 0, 0.04)',
                 'glass-md': '0 8px 32px rgba(31, 38, 135, 0.15)',

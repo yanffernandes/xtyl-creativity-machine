@@ -59,6 +59,7 @@ class ImageRefinementRequest(BaseModel):
     aspect_ratio: Optional[str] = None
     quality: str = "standard"
     style: Optional[str] = None
+    reference_assets: Optional[List[ReferenceAsset]] = None  # Additional reference assets for refinement
 
 
 class ImageGenerationResponse(BaseModel):
@@ -267,9 +268,41 @@ async def refine_image(
         # Get the base image URL for refinement
         base_image_url = existing_doc.file_url
 
-        # Use refinement prompt directly (not combined with original)
-        # The model will see the image and the new instructions
+        # Process reference assets if provided
+        reference_image_urls = []
+        asset_usage_instructions = []
+
+        if request.reference_assets:
+            # Limit to 5 references
+            ref_assets = request.reference_assets[:5]
+
+            for ref_asset in ref_assets:
+                asset = db.query(models.Document).filter(
+                    models.Document.id == ref_asset.id,
+                    models.Document.project_id == existing_doc.project_id,
+                    models.Document.is_reference_asset == True,
+                    models.Document.deleted_at == None
+                ).first()
+
+                if asset and asset.file_url:
+                    reference_image_urls.append(asset.file_url)
+
+                    # Build instruction for this specific asset
+                    asset_title = asset.title or "reference image"
+                    if ref_asset.usage_mode == "style":
+                        asset_usage_instructions.append(f"use the visual style from '{asset_title}'")
+                    elif ref_asset.usage_mode == "compose":
+                        asset_usage_instructions.append(f"incorporate elements from '{asset_title}'")
+                    elif ref_asset.usage_mode == "base":
+                        asset_usage_instructions.append(f"use '{asset_title}' as the base")
+                else:
+                    print(f"Warning: Asset {ref_asset.id} not found or invalid")
+
+        # Build enhanced prompt with individual asset instructions
         refinement_prompt = request.refinement_prompt
+        if asset_usage_instructions:
+            instructions = ", ".join(asset_usage_instructions)
+            refinement_prompt = f"{request.refinement_prompt}. Reference instructions: {instructions}"
 
         # Use same model and aspect_ratio if not specified
         model = request.model or existing_doc.generation_metadata.get("model", DEFAULT_MODEL) if existing_doc.generation_metadata else DEFAULT_MODEL
@@ -285,24 +318,32 @@ async def refine_image(
             aspect_ratio=aspect_ratio,
             quality=request.quality,
             style=request.style,
-            base_image_url=base_image_url  # Pass the previous image!
+            base_image_url=base_image_url,  # Pass the previous image!
+            reference_image_urls=reference_image_urls if reference_image_urls else None
         )
 
         # Create new document for the refined version
+        generation_metadata = {
+            **result["generation_metadata"],
+            "refined_from": existing_doc.id,
+            "refinement_prompt": request.refinement_prompt
+        }
+        if request.reference_assets:
+            generation_metadata["reference_assets"] = [
+                {"id": ra.id, "usage_mode": ra.usage_mode}
+                for ra in request.reference_assets
+            ]
+
         new_document = models.Document(
             title=f"{existing_doc.title} (Refined)",
-            content=refinement_prompt,  # Save only the refinement instructions
+            content=request.refinement_prompt,  # Save only the original refinement instructions (not enhanced)
             media_type="image",
             status="approved",
             project_id=existing_doc.project_id,
             folder_id=existing_doc.folder_id,
             file_url=result["file_url"],
             thumbnail_url=result["thumbnail_url"],
-            generation_metadata={
-                **result["generation_metadata"],
-                "refined_from": existing_doc.id,
-                "refinement_prompt": request.refinement_prompt
-            }
+            generation_metadata=generation_metadata
         )
 
         db.add(new_document)

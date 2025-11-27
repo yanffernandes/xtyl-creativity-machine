@@ -113,12 +113,21 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   },
 
   updateNodeData: (nodeId, data) => {
+    const nodes = get().nodes.map((node) =>
+      node.id === nodeId
+        ? { ...node, data: { ...node.data, ...data } }
+        : node
+    );
+
+    // Also update selectedNode if it's the one being modified
+    const selectedNode = get().selectedNode;
+    const newSelectedNode = selectedNode?.id === nodeId
+      ? nodes.find(n => n.id === nodeId) || null
+      : selectedNode;
+
     set({
-      nodes: get().nodes.map((node) =>
-        node.id === nodeId
-          ? { ...node, data: { ...node.data, ...data } }
-          : node
-      ),
+      nodes,
+      selectedNode: newSelectedNode,
       isDirty: true,
     });
   },

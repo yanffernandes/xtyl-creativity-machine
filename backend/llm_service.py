@@ -157,6 +157,16 @@ async def chat_completion_stream(
     if tools:
         payload["tools"] = tools
 
+    # Debug: Log payload for troubleshooting
+    import json as json_module
+    print(f"🔍 LLM Request Payload (messages count: {len(messages)}):")
+    for i, msg in enumerate(messages):
+        role = msg.get('role', 'unknown')
+        content_preview = str(msg.get('content', ''))[:100]
+        has_tool_calls = 'tool_calls' in msg
+        tool_call_id = msg.get('tool_call_id', None)
+        print(f"  [{i}] role={role}, tool_call_id={tool_call_id}, has_tool_calls={has_tool_calls}, content={content_preview}...")
+
     async with httpx.AsyncClient(timeout=300.0) as client:
         try:
             async with client.stream(
@@ -188,9 +198,22 @@ async def chat_completion_stream(
                             continue
 
         except httpx.HTTPStatusError as e:
-            print(f"OpenRouter API Error: {e.response.text if hasattr(e.response, 'text') else e}")
-            raise HTTPException(status_code=e.response.status_code if hasattr(e.response, 'status_code') else 500,
-                              detail=f"OpenRouter API Error")
+            # For streaming responses, we need to read the content before accessing it
+            error_detail = "OpenRouter API Error"
+            status_code = 500
+            try:
+                if hasattr(e, 'response') and e.response:
+                    status_code = e.response.status_code
+                    # Try to read the response body for error details
+                    try:
+                        await e.response.aread()
+                        error_detail = e.response.text
+                    except Exception:
+                        error_detail = str(e)
+            except Exception:
+                pass
+            print(f"OpenRouter API Error: {error_detail}")
+            raise HTTPException(status_code=status_code, detail=error_detail)
         except Exception as e:
             print(f"Error calling OpenRouter: {e}")
             raise HTTPException(status_code=500, detail=str(e))

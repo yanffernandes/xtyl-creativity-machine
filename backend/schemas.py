@@ -385,6 +385,7 @@ class WorkflowTemplateBase(BaseModel):
 
 class WorkflowTemplateCreate(WorkflowTemplateBase):
     workspace_id: str
+    project_id: Optional[str] = None
     nodes: List[WorkflowNode]
     edges: List[WorkflowEdge]
     default_params: Optional[Dict[str, Any]] = {}
@@ -404,6 +405,7 @@ class WorkflowTemplateUpdate(BaseModel):
 class WorkflowTemplateDetail(WorkflowTemplateBase):
     id: str
     workspace_id: Optional[str] = None  # NULL for system templates
+    project_id: Optional[str] = None
     nodes_json: List[WorkflowNode] = Field(serialization_alias="nodes")
     edges_json: List[WorkflowEdge] = Field(serialization_alias="edges")
     default_params_json: Dict[str, Any] = Field(serialization_alias="default_params")
@@ -469,3 +471,37 @@ class ExecutionControlResponse(BaseModel):
     execution_id: str
     status: str
     message: str
+
+
+# ============================================================================
+# USER PREFERENCES SCHEMAS
+# ============================================================================
+
+class UserPreferencesBase(BaseModel):
+    autonomous_mode: bool = False
+    max_iterations: int = Field(default=15, ge=1, le=50)
+    default_model: Optional[str] = None
+    use_rag_by_default: bool = True
+    settings: Optional[Dict[str, Any]] = {}
+
+
+class UserPreferencesCreate(UserPreferencesBase):
+    pass
+
+
+class UserPreferencesUpdate(BaseModel):
+    autonomous_mode: Optional[bool] = None
+    max_iterations: Optional[int] = Field(default=None, ge=1, le=50)
+    default_model: Optional[str] = None
+    use_rag_by_default: Optional[bool] = None
+    settings: Optional[Dict[str, Any]] = None
+
+
+class UserPreferencesRead(UserPreferencesBase):
+    id: str
+    user_id: str
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True

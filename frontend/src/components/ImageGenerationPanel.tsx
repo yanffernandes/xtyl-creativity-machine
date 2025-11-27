@@ -108,11 +108,15 @@ export default function ImageGenerationPanel({
     if (open) {
       loadModels()
       loadTextModels()
-      if (existingPrompt) {
+      // In refinement mode, start with empty prompt for new instructions
+      // In normal mode, use existingPrompt if provided
+      if (!isRefinementMode && existingPrompt) {
         setPrompt(existingPrompt)
+      } else if (isRefinementMode) {
+        setPrompt("") // Clear prompt for refinement instructions
       }
     }
-  }, [open, existingPrompt])
+  }, [open, existingPrompt, isRefinementMode])
 
   const loadModels = async () => {
     try {
@@ -233,7 +237,10 @@ Retorne APENAS o prompt de geração de imagem, sem explicações adicionais.`
           model: selectedModel,
           aspect_ratio: aspectRatio,
           quality,
-          style: style || undefined
+          style: style || undefined,
+          reference_assets: selectedReferenceAssets.length > 0
+            ? selectedReferenceAssets.map(a => ({ id: a.id, usage_mode: a.usage_mode }))
+            : undefined
         })
       } else if (generatedImage) {
         // Refine the currently generated image
@@ -243,7 +250,10 @@ Retorne APENAS o prompt de geração de imagem, sem explicações adicionais.`
           model: selectedModel,
           aspect_ratio: aspectRatio,
           quality,
-          style: style || undefined
+          style: style || undefined,
+          reference_assets: selectedReferenceAssets.length > 0
+            ? selectedReferenceAssets.map(a => ({ id: a.id, usage_mode: a.usage_mode }))
+            : undefined
         })
       } else {
         // Generate new image
@@ -411,6 +421,14 @@ Retorne APENAS o prompt de geração de imagem, sem explicações adicionais.`
               </Button>
             )}
 
+            {/* Show original prompt as reference in refinement mode */}
+            {isRefinementMode && existingPrompt && (
+              <div className="p-3 bg-secondary/30 rounded-lg border">
+                <Label className="text-xs text-muted-foreground mb-1 block">Prompt Original (referência)</Label>
+                <p className="text-sm text-muted-foreground line-clamp-3">{existingPrompt}</p>
+              </div>
+            )}
+
             <div>
               <Label htmlFor="prompt">
                 {isRefinementMode ? "Instruções de Refinamento" : "Descrição da Imagem"}
@@ -444,9 +462,8 @@ Retorne APENAS o prompt de geração de imagem, sem explicações adicionais.`
               </div>
             )}
 
-            {/* Reference Assets Section */}
-            {!isRefinementMode && (
-              <div className="space-y-3">
+            {/* Reference Assets Section - Available in both creation and refinement modes */}
+            <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <Label>Imagens de Referência (opcional)</Label>
                   <Button
@@ -545,8 +562,7 @@ Retorne APENAS o prompt de geração de imagem, sem explicações adicionais.`
                     </div>
                   </>
                 )}
-              </div>
-            )}
+            </div>
 
             <div>
               <Label htmlFor="model">Modelo de IA</Label>

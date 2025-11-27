@@ -10,8 +10,8 @@ from typing import Dict, Any, Optional
 from datetime import datetime
 import redis
 from sqlalchemy.orm import Session
-from ..models import WorkflowExecution, NodeOutput
-from ..database import SessionLocal
+from models import WorkflowExecution, NodeOutput
+from database import SessionLocal
 
 
 class ExecutionStateManager:

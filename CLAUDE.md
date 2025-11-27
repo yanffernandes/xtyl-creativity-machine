@@ -3,6 +3,8 @@
 Auto-generated from all feature plans. Last updated: 2025-11-25
 
 ## Active Technologies
+- Python 3.11 (Backend), TypeScript 5.x (Frontend) + FastAPI, SQLAlchemy, Next.js 14, React 18, Shadcn/UI (004-agent-tools-enhancement)
+- PostgreSQL 15+ with pgvector (004-agent-tools-enhancement)
 
 - TypeScript 5.x (Frontend), Node.js 20+ (Build tools) + Next.js 14 (App Router), React 18, Tailwind CSS 3.4+, Shadcn/UI (customized), Framer Motion 10+ (animations), Radix UI (primitives) (001-premium-visual-redesign)
 
@@ -67,6 +69,7 @@ TypeScript 5.x (Frontend), Node.js 20+ (Build tools): Follow standard convention
 - Follow mobile-first responsive design
 
 ## Recent Changes
+- 004-agent-tools-enhancement: Added Python 3.11 (Backend), TypeScript 5.x (Frontend) + FastAPI, SQLAlchemy, Next.js 14, React 18, Shadcn/UI
 
 - 001-premium-visual-redesign: Added TypeScript 5.x (Frontend), Node.js 20+ (Build tools) + Next.js 14 (App Router), React 18, Tailwind CSS 3.4+, Shadcn/UI (customized), Framer Motion 10+ (animations), Radix UI (primitives)
 - 2025-11-25: Migrated from Emerald Fresh to Ethereal Blue + Liquid Glass design system

@@ -36,13 +36,14 @@ export default function WorkflowsPage() {
   const [selectedTemplate, setSelectedTemplate] = useState<WorkflowTemplate | null>(null);
   const [launchModalOpen, setLaunchModalOpen] = useState(false);
   const [projectId, setProjectId] = useState<string | null>(projectIdFromQuery);
+  const [viewScope, setViewScope] = useState<"workspace" | "project">("workspace");
 
   useEffect(() => {
     fetchTemplates();
     if (!projectIdFromQuery) {
       fetchFirstProject();
     }
-  }, [workspaceId, projectIdFromQuery]);
+  }, [workspaceId, projectIdFromQuery, viewScope, projectId]);
 
   const fetchFirstProject = async () => {
     try {
@@ -75,11 +76,20 @@ export default function WorkflowsPage() {
   const fetchTemplates = async () => {
     try {
       setLoading(true);
-      const response = await api.get("/workflows/", {
-        params: {
-          workspace_id: workspaceId,
-        },
-      });
+      const params: any = {
+        workspace_id: workspaceId,
+      };
+
+      if (viewScope === "project" && projectId) {
+        params.project_id = projectId;
+      } else {
+        // For workspace scope, we specifically want templates not bound to a project
+        // or we want all templates? Usually workspace templates have project_id=null
+        // But for now, let's just filter by workspace_id which returns all
+        // If we want ONLY workspace templates, we might need a flag or backend logic
+      }
+
+      const response = await api.get("/workflows/", { params });
       setTemplates(response.data);
     } catch (error) {
       console.error("Error fetching templates:", error);
@@ -112,29 +122,60 @@ export default function WorkflowsPage() {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-[#0A0E14] dark:to-[#0A0E14] p-8">
       {/* Header */}
       <div className="max-w-7xl mx-auto mb-8">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="p-3 rounded-xl bg-gradient-to-br from-[#5B8DEF] to-[#4A7AD9] shadow-lg">
-            <Workflow className="w-6 h-6 text-white" />
-          </div>
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white tracking-tight">
-              Workflow Templates
-            </h1>
-            <div className="flex items-center gap-3 mt-1">
-              <p className="text-gray-600 dark:text-gray-400">
-                Launch automated marketing workflows with AI
-              </p>
-              {projectId && (
-                <span className="px-2 py-1 rounded-md bg-green-100 dark:bg-green-950 text-green-700 dark:text-green-300 text-xs font-medium">
-                  Project Ready
-                </span>
-              )}
-              {!projectId && !loading && (
-                <span className="px-2 py-1 rounded-md bg-orange-100 dark:bg-orange-950 text-orange-700 dark:text-orange-300 text-xs font-medium">
-                  No Project
-                </span>
-              )}
+        <div className="flex items-center justify-between gap-3 mb-4">
+          <div className="flex items-center gap-3">
+            <div className="p-3 rounded-xl bg-gradient-to-br from-[#5B8DEF] to-[#4A7AD9] shadow-lg">
+              <Workflow className="w-6 h-6 text-white" />
             </div>
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-white tracking-tight">
+                Workflow Templates
+              </h1>
+              <div className="flex items-center gap-3 mt-1">
+                <p className="text-gray-600 dark:text-gray-400">
+                  Launch automated marketing workflows with AI
+                </p>
+                {projectId && (
+                  <span className="px-2 py-1 rounded-md bg-green-100 dark:bg-green-950 text-green-700 dark:text-green-300 text-xs font-medium">
+                    Project Ready
+                  </span>
+                )}
+                {!projectId && !loading && (
+                  <span className="px-2 py-1 rounded-md bg-orange-100 dark:bg-orange-950 text-orange-700 dark:text-orange-300 text-xs font-medium">
+                    No Project
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center bg-white/80 dark:bg-gray-900/80 rounded-lg p-1 border border-gray-200 dark:border-gray-800 backdrop-blur-xl">
+              <button
+                onClick={() => setViewScope("workspace")}
+                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${viewScope === "workspace"
+                    ? "bg-white dark:bg-gray-800 text-blue-600 shadow-sm"
+                    : "text-gray-600 dark:text-gray-400 hover:text-gray-900"
+                  }`}
+              >
+                Workspace Templates
+              </button>
+              <button
+                onClick={() => setViewScope("project")}
+                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${viewScope === "project"
+                    ? "bg-white dark:bg-gray-800 text-blue-600 shadow-sm"
+                    : "text-gray-600 dark:text-gray-400 hover:text-gray-900"
+                  }`}
+              >
+                Project Workflows
+              </button>
+            </div>
+            <button
+              onClick={handleCreateNew}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors shadow-sm"
+            >
+              <Sparkles className="w-4 h-4" />
+              Create from Scratch
+            </button>
           </div>
         </div>
 
@@ -155,11 +196,10 @@ export default function WorkflowsPage() {
               <button
                 key={category.value || "all"}
                 onClick={() => setSelectedCategory(category.value)}
-                className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${
-                  selectedCategory === category.value
-                    ? "bg-[#5B8DEF] text-white shadow-lg"
-                    : "bg-white/80 dark:bg-gray-900/80 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 backdrop-blur-xl"
-                }`}
+                className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${selectedCategory === category.value
+                  ? "bg-[#5B8DEF] text-white shadow-lg"
+                  : "bg-white/80 dark:bg-gray-900/80 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 backdrop-blur-xl"
+                  }`}
               >
                 {category.label}
               </button>

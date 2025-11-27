@@ -6,7 +6,7 @@ Provides endpoints for listing available AI models and their capabilities
 
 from fastapi import APIRouter, HTTPException
 from typing import List, Dict, Any
-from backend.services.model_config import ModelConfig, TaskType
+from services.model_config import ModelConfig, TaskType
 
 router = APIRouter(prefix="/models", tags=["models"])
 
@@ -23,7 +23,7 @@ async def list_text_models():
     - Pricing information
     - Recommended use cases
     """
-    return ModelConfig.get_all_text_models()
+    return await ModelConfig.get_all_text_models()
 
 @router.get("/image", response_model=List[Dict[str, Any]])
 async def list_image_models():

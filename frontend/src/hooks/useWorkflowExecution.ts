@@ -1,130 +1,41 @@
-"use client";
+import { useState, useCallback, useEffect, useRef } from 'react';
+import api from '@/lib/api';
+import { useToast } from '@/components/ui/use-toast';
 
-import { useState, useEffect, useCallback, useRef } from "react";
-import api from "@/lib/api";
+export type ExecutionStatus = 'idle' | 'running' | 'paused' | 'completed' | 'failed' | 'stopped';
 
-export interface WorkflowExecution {
-  id: string;
-  template_id: string;
-  project_id: string;
-  workspace_id: string;
-  user_id: string;
-  status: "pending" | "running" | "paused" | "completed" | "failed" | "stopped";
-  config_json: Record<string, any>;
-  progress_percent: number;
-  current_node_id: string | null;
-  error_message: string | null;
-  total_cost: number;
-  started_at: string | null;
-  completed_at: string | null;
-  created_at: string;
-}
-
-interface UseWorkflowExecutionResult {
-  execution: WorkflowExecution | null;
-  loading: boolean;
+interface ExecutionState {
+  status: ExecutionStatus;
+  currentNodeId: string | null;
+  progress: number;
+  logs: string[];
+  outputs: Record<string, any>;
   error: string | null;
-  refetch: () => Promise<void>;
+  executionId: string | null;
 }
 
-export function useWorkflowExecution(
-  executionId: string,
-  { polling = true, interval = 2000 }: { polling?: boolean; interval?: number } = {}
-): UseWorkflowExecutionResult {
-  const [execution, setExecution] = useState<WorkflowExecution | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const fetchExecution = useCallback(async () => {
-    try {
-      const response = await api.get(`/workflows/executions/${executionId}`);
-      setExecution(response.data);
-      setError(null);
-    } catch (err: any) {
-      console.error("Error fetching execution:", err);
-      setError(err.message || "Failed to fetch execution");
-    } finally {
-      setLoading(false);
-    }
-  }, [executionId]);
-
-  useEffect(() => {
-    fetchExecution();
-  }, [fetchExecution]);
-
-  useEffect(() => {
-    if (!polling) return;
-
-    // Stop polling if execution is in terminal state
-    if (
-      execution?.status === "completed" ||
-      execution?.status === "failed" ||
-      execution?.status === "stopped"
-    ) {
-      return;
-    }
-
-    const intervalId = setInterval(fetchExecution, interval);
-
-    return () => clearInterval(intervalId);
-  }, [polling, interval, fetchExecution, execution?.status]);
-
-  return {
-    execution,
-    loading,
-    error,
-    refetch: fetchExecution,
-  };
-}
-
-// ============================================================================
-// SSE-based Execution Hook (for real-time progress streaming)
-// ============================================================================
-
-export interface ExecutionProgress {
+interface ProgressUpdate {
   type: 'progress' | 'node_complete' | 'error' | 'complete' | 'done';
   node_id?: string;
-  message: string;
-  progress: number;
+  message?: string;
+  progress?: number;
   data?: any;
 }
 
-export interface ExecutionState {
-  id: string | null;
-  status: 'idle' | 'launching' | 'running' | 'completed' | 'failed';
-  progress: number;
-  message: string;
-  currentNodeId: string | null;
-  outputs: Record<string, any>;
-  error: string | null;
-  logs: ExecutionProgress[];
-}
-
-export interface UseWorkflowExecutionStreamReturn {
-  state: ExecutionState;
-  launchExecution: (templateId: string, projectId: string, inputs?: any) => Promise<void>;
-  cancelExecution: () => void;
-  clearLogs: () => void;
-}
-
-/**
- * Hook for executing workflows with SSE progress streaming
- */
-export function useWorkflowExecutionStream(): UseWorkflowExecutionStreamReturn {
-  const [state, setState] = useState<ExecutionState>({
-    id: null,
+export function useWorkflowExecution(workflowId: string) {
+  const [executionState, setExecutionState] = useState<ExecutionState>({
     status: 'idle',
-    progress: 0,
-    message: '',
     currentNodeId: null,
+    progress: 0,
+    logs: [],
     outputs: {},
     error: null,
-    logs: []
+    executionId: null,
   });
-
+  const { toast } = useToast();
   const eventSourceRef = useRef<EventSource | null>(null);
 
-  // Clean up SSE connection on unmount
+  // Cleanup SSE connection on unmount
   useEffect(() => {
     return () => {
       if (eventSourceRef.current) {
@@ -134,157 +45,229 @@ export function useWorkflowExecutionStream(): UseWorkflowExecutionStreamReturn {
     };
   }, []);
 
-  const launchExecution = useCallback(async (
-    templateId: string,
-    projectId: string,
-    inputs?: any
-  ) => {
-    try {
-      setState(prev => ({
+  const connectSSE = useCallback((executionId: string) => {
+    // Close existing connection if any
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close();
+    }
+
+    // Create new EventSource connection
+    const eventSource = new EventSource(
+      `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/workflows/executions/${executionId}/stream`
+    );
+
+    eventSource.onmessage = (event) => {
+      try {
+        const update: ProgressUpdate = JSON.parse(event.data);
+
+        setExecutionState(prev => {
+          const newLogs = update.message ? [...prev.logs, update.message] : prev.logs;
+
+          switch (update.type) {
+            case 'progress':
+              return {
+                ...prev,
+                status: 'running',
+                currentNodeId: update.node_id || prev.currentNodeId,
+                progress: update.progress || prev.progress,
+                logs: newLogs,
+              };
+
+            case 'node_complete':
+              return {
+                ...prev,
+                status: 'running',
+                currentNodeId: update.node_id || prev.currentNodeId,
+                progress: update.progress || prev.progress,
+                outputs: {
+                  ...prev.outputs,
+                  [update.node_id || 'unknown']: update.data?.outputs || {}
+                },
+                logs: newLogs,
+              };
+
+            case 'complete':
+              return {
+                ...prev,
+                status: 'completed',
+                progress: 100,
+                outputs: update.data?.outputs || prev.outputs,
+                logs: newLogs,
+              };
+
+            case 'error':
+              return {
+                ...prev,
+                status: 'failed',
+                error: update.message || 'Unknown error',
+                logs: newLogs,
+              };
+
+            case 'done':
+              // Stream ended
+              return prev;
+
+            default:
+              return prev;
+          }
+        });
+
+        // Close connection when done
+        if (update.type === 'done' || update.type === 'complete' || update.type === 'error') {
+          eventSource.close();
+          eventSourceRef.current = null;
+        }
+      } catch (error) {
+        console.error('Failed to parse SSE message:', error);
+      }
+    };
+
+    eventSource.onerror = (error) => {
+      console.error('SSE connection error:', error);
+      setExecutionState(prev => ({
         ...prev,
-        status: 'launching',
-        message: 'Launching workflow...',
-        progress: 0,
+        status: 'failed',
+        error: 'Connection to execution stream lost',
+        logs: [...prev.logs, 'Error: Lost connection to execution stream'],
+      }));
+      eventSource.close();
+      eventSourceRef.current = null;
+    };
+
+    eventSourceRef.current = eventSource;
+  }, []);
+
+  const startExecution = useCallback(async (projectId: string, inputVariables: Record<string, any> = {}) => {
+    try {
+      setExecutionState(prev => ({
+        ...prev,
+        status: 'running',
         error: null,
-        logs: []
+        progress: 0,
+        logs: ['Starting execution...'],
+        outputs: {},
       }));
 
-      // Create execution
-      const response = await api.post('/workflows/executions', {
-        template_id: templateId,
+      const response = await api.post('/workflows/executions/', {
+        template_id: workflowId,
         project_id: projectId,
-        inputs: inputs || {}
+        config_json: inputVariables
       });
 
       const executionId = response.data.id;
 
-      setState(prev => ({
-        ...prev,
-        id: executionId,
-        status: 'running',
-        message: 'Connecting to execution stream...'
-      }));
+      setExecutionState(prev => ({ ...prev, executionId }));
 
-      // Connect to SSE stream
-      const token = localStorage.getItem('token');
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-      const streamUrl = `${apiUrl}/workflows/executions/${executionId}/stream`;
+      // Connect to SSE stream for real-time updates
+      connectSSE(executionId);
 
-      const eventSource = new EventSource(streamUrl);
+      toast({
+        title: "Execution Started",
+        description: "Workflow is running. Watch the progress below.",
+      });
 
-      eventSourceRef.current = eventSource;
-
-      eventSource.onmessage = (event) => {
-        try {
-          const progress: ExecutionProgress = JSON.parse(event.data);
-
-          // Handle different event types
-          if (progress.type === 'done') {
-            eventSource.close();
-            eventSourceRef.current = null;
-            return;
-          }
-
-          if (progress.type === 'error') {
-            setState(prev => ({
-              ...prev,
-              status: 'failed',
-              error: progress.message,
-              message: progress.message,
-              logs: [...prev.logs, progress]
-            }));
-            eventSource.close();
-            eventSourceRef.current = null;
-            return;
-          }
-
-          if (progress.type === 'complete') {
-            setState(prev => ({
-              ...prev,
-              status: 'completed',
-              progress: 100,
-              message: progress.message,
-              outputs: progress.data?.outputs || prev.outputs,
-              logs: [...prev.logs, progress]
-            }));
-            eventSource.close();
-            eventSourceRef.current = null;
-            return;
-          }
-
-          // Update state with progress
-          setState(prev => ({
-            ...prev,
-            progress: progress.progress,
-            message: progress.message,
-            currentNodeId: progress.node_id || prev.currentNodeId,
-            logs: [...prev.logs, progress]
-          }));
-
-          // Store node outputs
-          if (progress.type === 'node_complete' && progress.data?.outputs) {
-            setState(prev => ({
-              ...prev,
-              outputs: {
-                ...prev.outputs,
-                [progress.node_id!]: progress.data.outputs
-              }
-            }));
-          }
-
-        } catch (error) {
-          console.error('Error parsing SSE message:', error);
-        }
-      };
-
-      eventSource.onerror = (error) => {
-        console.error('SSE connection error:', error);
-        setState(prev => ({
-          ...prev,
-          status: 'failed',
-          error: 'Connection to execution stream failed',
-          message: 'Connection error'
-        }));
-        eventSource.close();
-        eventSourceRef.current = null;
-      };
+      return executionId;
 
     } catch (error: any) {
-      console.error('Failed to launch workflow:', error);
-      setState(prev => ({
+      console.error('Execution failed:', error);
+      setExecutionState(prev => ({
         ...prev,
         status: 'failed',
-        error: error.response?.data?.detail || error.message || 'Failed to launch workflow',
-        message: 'Launch failed'
+        error: error.message || 'Failed to start execution',
+        logs: [...prev.logs, `Error: ${error.message}`]
       }));
+
+      toast({
+        title: "Execution Failed",
+        description: error.message || "Could not start workflow execution.",
+        variant: "destructive",
+      });
     }
-  }, []);
+  }, [workflowId, toast, connectSSE]);
 
-  const cancelExecution = useCallback(() => {
-    if (eventSourceRef.current) {
-      eventSourceRef.current.close();
-      eventSourceRef.current = null;
+  const pauseExecution = useCallback(async (executionId: string) => {
+    try {
+      await api.post(`/workflows/executions/${executionId}/pause`);
+      setExecutionState(prev => ({
+        ...prev,
+        status: 'paused',
+        logs: [...prev.logs, 'Execution paused by user.']
+      }));
+      toast({
+        title: "Execution Paused",
+        description: "Workflow execution has been paused.",
+      });
+    } catch (error) {
+      console.error('Failed to pause execution:', error);
+      toast({
+        title: "Pause Failed",
+        description: "Could not pause workflow execution.",
+        variant: "destructive",
+      });
     }
+  }, [toast]);
 
-    setState(prev => ({
-      ...prev,
-      status: 'idle',
-      message: 'Execution cancelled',
-      progress: 0
-    }));
-  }, []);
+  const resumeExecution = useCallback(async (executionId: string) => {
+    try {
+      await api.post(`/workflows/executions/${executionId}/resume`);
+      setExecutionState(prev => ({
+        ...prev,
+        status: 'running',
+        logs: [...prev.logs, 'Execution resumed.']
+      }));
 
-  const clearLogs = useCallback(() => {
-    setState(prev => ({
-      ...prev,
-      logs: []
-    }));
-  }, []);
+      // Reconnect to SSE stream
+      connectSSE(executionId);
+
+      toast({
+        title: "Execution Resumed",
+        description: "Workflow execution has been resumed.",
+      });
+    } catch (error) {
+      console.error('Failed to resume execution:', error);
+      toast({
+        title: "Resume Failed",
+        description: "Could not resume workflow execution.",
+        variant: "destructive",
+      });
+    }
+  }, [toast, connectSSE]);
+
+  const stopExecution = useCallback(async (executionId: string) => {
+    try {
+      await api.post(`/workflows/executions/${executionId}/stop`);
+      setExecutionState(prev => ({
+        ...prev,
+        status: 'stopped',
+        logs: [...prev.logs, 'Execution stopped by user.']
+      }));
+
+      // Close SSE connection
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+        eventSourceRef.current = null;
+      }
+
+      toast({
+        title: "Execution Stopped",
+        description: "Workflow execution has been cancelled.",
+      });
+    } catch (error) {
+      console.error('Failed to stop execution:', error);
+      toast({
+        title: "Stop Failed",
+        description: "Could not stop workflow execution.",
+        variant: "destructive",
+      });
+    }
+  }, [toast]);
 
   return {
-    state,
-    launchExecution,
-    cancelExecution,
-    clearLogs
+    executionState,
+    startExecution,
+    pauseExecution,
+    resumeExecution,
+    stopExecution
   };
 }
+

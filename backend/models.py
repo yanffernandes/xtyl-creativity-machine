@@ -201,6 +201,7 @@ class WorkflowTemplate(Base):
 
     id = Column(String, primary_key=True, default=generate_uuid)
     workspace_id = Column(String, ForeignKey("workspaces.id"), nullable=True, index=True)  # NULL for system templates
+    project_id = Column(String, ForeignKey("projects.id"), nullable=True, index=True)  # NULL for workspace/system templates
     name = Column(String, nullable=False)
     description = Column(Text, nullable=True)
     category = Column(String, nullable=True, index=True)  # social_media, paid_ads, blog, email, seo
@@ -223,6 +224,7 @@ class WorkflowTemplate(Base):
 
     # Relationships
     workspace = relationship("Workspace")
+    project = relationship("Project")
     creator = relationship("User", foreign_keys=[created_by])
     executions = relationship("WorkflowExecution", back_populates="template")
 
@@ -315,6 +317,24 @@ class NodeOutput(Base):
 
     # Relationships
     execution = relationship("WorkflowExecution", back_populates="node_outputs")
+
+class UserPreferences(Base):
+    """Stores AI assistant preferences per user"""
+    __tablename__ = "user_preferences"
+
+    id = Column(String, primary_key=True, default=generate_uuid)
+    user_id = Column(String, ForeignKey("users.id"), unique=True, nullable=False, index=True)
+    autonomous_mode = Column(Boolean, default=False, nullable=False)
+    max_iterations = Column(Integer, default=15, nullable=False)
+    default_model = Column(String(100), nullable=True)
+    use_rag_by_default = Column(Boolean, default=True, nullable=False)
+    settings = Column(JSONB, default=dict, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    # Relationships
+    user = relationship("User")
+
 
 class DocumentAttachment(Base):
     """Many-to-many relationship between documents (copies) and images"""

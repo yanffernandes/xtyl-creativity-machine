@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Star, Trash2, Image as ImageIcon, Plus } from "lucide-react";
+import { Star, Trash2, Image as ImageIcon, Plus, Expand, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import api from "@/lib/api";
@@ -25,14 +25,17 @@ interface ImageAttachment {
 interface DocumentAttachmentsProps {
   documentId: string;
   onAttachImage: () => void;
+  onViewImage?: (imageId: string) => void;
 }
 
 export default function DocumentAttachments({
   documentId,
   onAttachImage,
+  onViewImage,
 }: DocumentAttachmentsProps) {
   const [attachments, setAttachments] = useState<ImageAttachment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [viewingImage, setViewingImage] = useState<ImageAttachment | null>(null);
 
   const fetchAttachments = async () => {
     try {
@@ -152,6 +155,21 @@ export default function DocumentAttachments({
 
                     {/* Hover Actions */}
                     <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => {
+                          if (onViewImage && attachment.image_id) {
+                            onViewImage(attachment.image_id);
+                          } else {
+                            setViewingImage(attachment);
+                          }
+                        }}
+                        className="gap-1"
+                      >
+                        <Expand className="w-3 h-3" />
+                        View
+                      </Button>
                       {!attachment.is_primary && (
                         <Button
                           size="sm"
@@ -160,7 +178,7 @@ export default function DocumentAttachments({
                           className="gap-1"
                         >
                           <Star className="w-3 h-3" />
-                          Set Primary
+                          Primary
                         </Button>
                       )}
                       <Button
@@ -184,6 +202,47 @@ export default function DocumentAttachments({
           </AnimatePresence>
         </div>
       )}
+
+      {/* Fullscreen Image Viewer */}
+      <AnimatePresence>
+        {viewingImage && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center"
+            onClick={() => setViewingImage(null)}
+          >
+            {/* Close Button */}
+            <Button
+              size="icon"
+              variant="ghost"
+              className="absolute top-4 right-4 text-white hover:bg-white/20 z-10"
+              onClick={() => setViewingImage(null)}
+            >
+              <X className="w-6 h-6" />
+            </Button>
+
+            {/* Image Title */}
+            <div className="absolute top-4 left-4 text-white z-10">
+              <h3 className="text-lg font-semibold">
+                {viewingImage.image?.title || "Untitled"}
+              </h3>
+            </div>
+
+            {/* Image */}
+            <motion.img
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              src={viewingImage.image?.file_url || viewingImage.image?.image_url || viewingImage.image?.thumbnail_url || "/placeholder.png"}
+              alt={viewingImage.image?.title || "Attachment"}
+              className="max-w-[90vw] max-h-[90vh] object-contain rounded-lg shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

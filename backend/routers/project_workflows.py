@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 from database import get_db
 from models import WorkflowExecution, WorkflowTemplate, User, Project, Document
-from schemas import WorkflowExecutionDetail
+from schemas import WorkflowExecution as WorkflowExecutionSchema
 from auth import get_current_user
 from datetime import datetime
 
@@ -72,7 +72,7 @@ async def list_available_workflows(
     ]
 
 
-@router.get("/history", response_model=List[WorkflowExecutionDetail])
+@router.get("/history", response_model=List[WorkflowExecutionSchema])
 async def list_project_workflow_history(
     project_id: str,
     limit: int = 50,

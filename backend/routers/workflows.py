@@ -14,7 +14,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from database import get_db
-from models import WorkflowTemplate, User, Workspace
+from models import WorkflowTemplate, User, Workspace, Project, WorkflowExecution
 from schemas import (
     WorkflowTemplateCreate,
     WorkflowTemplateUpdate,
@@ -60,6 +60,13 @@ async def list_workflow_templates(
         query = query.filter(
             (WorkflowTemplate.workspace_id == workspace_id) |
             (WorkflowTemplate.is_system == True)
+        )
+
+    # Filter by project_id if provided (include project-specific + workspace + system)
+    if project_id:
+        query = query.filter(
+            (WorkflowTemplate.project_id == project_id) |
+            (WorkflowTemplate.project_id.is_(None))
         )
 
     # Filter by category if provided
@@ -117,6 +124,12 @@ async def create_workflow_template(
     if not workspace:
         raise HTTPException(status_code=404, detail="Workspace not found")
 
+    # Validate project exists if provided
+    if template.project_id:
+        project = db.query(Project).filter(Project.id == template.project_id).first()
+        if not project:
+            raise HTTPException(status_code=404, detail="Project not found")
+
     # Validate workflow structure
     validator = WorkflowValidator()
     workflow_definition = {
@@ -135,6 +148,7 @@ async def create_workflow_template(
     db_template = WorkflowTemplate(
         id=str(uuid.uuid4()),
         workspace_id=template.workspace_id,
+        project_id=template.project_id,
         name=template.name,
         description=template.description,
         category=template.category,
@@ -253,6 +267,15 @@ async def delete_workflow_template(
     if template.created_by != current_user.id:
         raise HTTPException(status_code=403, detail="Only template creator can delete it")
 
+    # Check for active executions
+    active_executions = db.query(WorkflowExecution).filter(
+        WorkflowExecution.template_id == template_id,
+        WorkflowExecution.status.in_(["running", "pending", "queued"])
+    ).count()
+
+    if active_executions > 0:
+        raise HTTPException(status_code=400, detail="Cannot delete workflow with active executions")
+
     db.delete(template)
     db.commit()
 
@@ -263,6 +286,7 @@ async def delete_workflow_template(
 async def duplicate_workflow_template(
     template_id: str,
     workspace_id: str,
+    project_id: Optional[str] = None,
     name: Optional[str] = None,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -297,6 +321,7 @@ async def duplicate_workflow_template(
     duplicated_template = WorkflowTemplate(
         id=str(uuid.uuid4()),
         workspace_id=workspace_id,
+        project_id=project_id,
         name=duplicated_name,
         description=source_template.description,
         category=source_template.category,

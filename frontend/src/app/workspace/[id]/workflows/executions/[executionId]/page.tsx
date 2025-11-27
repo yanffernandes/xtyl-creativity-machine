@@ -13,47 +13,35 @@ export default function ExecutionDetailPage() {
   const workspaceId = params.id as string;
   const executionId = params.executionId as string;
 
-  const { execution, loading, error } = useWorkflowExecution(executionId, {
-    polling: true,
-    interval: 2000,
-  });
+  const { executionState, pauseExecution, resumeExecution, stopExecution } = useWorkflowExecution(executionId);
 
   const handlePause = async () => {
-    try {
-      await fetch(`http://localhost:8000/workflows/executions/${executionId}/pause`, {
-        method: "POST",
-        credentials: "include",
-      });
-    } catch (err) {
-      console.error("Error pausing execution:", err);
-    }
+    await pauseExecution(executionId);
   };
 
   const handleResume = async () => {
-    try {
-      await fetch(`http://localhost:8000/workflows/executions/${executionId}/resume`, {
-        method: "POST",
-        credentials: "include",
-      });
-    } catch (err) {
-      console.error("Error resuming execution:", err);
-    }
+    await resumeExecution(executionId);
   };
 
   const handleStop = async () => {
     if (!confirm("Are you sure you want to stop this workflow? This action cannot be undone.")) {
       return;
     }
-
-    try {
-      await fetch(`http://localhost:8000/workflows/executions/${executionId}/stop`, {
-        method: "POST",
-        credentials: "include",
-      });
-    } catch (err) {
-      console.error("Error stopping execution:", err);
-    }
+    await stopExecution(executionId);
   };
+
+  // Map executionState to the expected format
+  const loading = executionState.status === 'idle' && !executionState.executionId;
+  const error = executionState.error;
+  const execution = executionState.executionId ? {
+    id: executionState.executionId,
+    status: executionState.status,
+    progress: executionState.progress,
+    current_node_id: executionState.currentNodeId,
+    outputs: executionState.outputs,
+    config_json: {},
+    logs: executionState.logs,
+  } : null;
 
   if (loading) {
     return (

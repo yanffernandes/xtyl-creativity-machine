@@ -17,11 +17,15 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Switch } from "@/components/ui/switch"
 import { cn } from "@/lib/utils"
 import ToolExecutionCard from "@/components/ToolExecutionCard"
+import TaskListCard, { TaskItem } from "@/components/TaskListCard"
+import { useUserPreferences } from "@/hooks/useUserPreferences"
 
 interface Message {
     role: "user" | "assistant" | "system"
     content: string
     isStreaming?: boolean
+    toolExecutions?: ToolExecution[]
+    taskList?: TaskItem[]
 }
 
 interface StreamingStatus {
@@ -114,11 +118,16 @@ export default function ChatSidebar({
     const [folders, setFolders] = useState<Folder[]>([])
     const [currentStreamingContent, setCurrentStreamingContent] = useState("")
     const [toolExecutions, setToolExecutions] = useState<ToolExecution[]>([])
+    const [taskList, setTaskList] = useState<TaskItem[]>([])
+    const [iterationInfo, setIterationInfo] = useState<{ current: number; max: number } | null>(null)
 
     const messagesEndRef = useRef<HTMLDivElement>(null)
     const fileInputRef = useRef<HTMLInputElement>(null)
     const { token } = useAuthStore()
     const { toast } = useToast()
+
+    // User preferences for autonomous mode
+    const { preferences, updatePreference, isLoading: preferencesLoading } = useUserPreferences(token)
 
     // Fetch models only on client side with token
     useEffect(() => {
@@ -341,6 +350,8 @@ export default function ChatSidebar({
         setStreamingStatus({ status: "Iniciando..." })
         setCurrentStreamingContent("")  // Clear previous streaming content
         setToolExecutions([])  // Clear previous tool executions
+        setTaskList([])  // Clear previous task list
+        setIterationInfo(null)  // Clear iteration info
 
         try {
             // Prepare messages with attachments
@@ -362,7 +373,8 @@ export default function ChatSidebar({
                 project_id: projectId,
                 use_rag: useRag,
                 document_ids: useRag ? selectedContextIds : [],
-                folder_ids: useRag ? selectedFolderIds : []
+                folder_ids: useRag ? selectedFolderIds : [],
+                autonomous_mode: preferences?.autonomous_mode ?? false
             }
 
             // Clear attachments after adding to message
@@ -402,6 +414,8 @@ export default function ChatSidebar({
             const reader = response.body?.getReader()
             const decoder = new TextDecoder()
             let currentContent = ""
+            let localToolExecutions: ToolExecution[] = []
+            let localTaskList: TaskItem[] = []
 
             if (!reader) throw new Error("No reader available")
 
@@ -429,6 +443,41 @@ export default function ChatSidebar({
                             switch (event.type) {
                                 case 'status':
                                     setStreamingStatus({ status: event.message })
+                                    break
+
+                                case 'iteration':
+                                    setIterationInfo({ current: event.current, max: event.max })
+                                    break
+
+                                case 'iteration_limit':
+                                    setIterationInfo({ current: event.current, max: event.max })
+                                    toast({
+                                        title: "Limite de iterações atingido",
+                                        description: event.message,
+                                        variant: "default"
+                                    })
+                                    break
+
+                                case 'task_list':
+                                    // Receive planned task list
+                                    const newTaskList = event.tasks.map((task: any) => ({
+                                        id: task.id,
+                                        description: task.description,
+                                        tool_name: task.tool_name,
+                                        status: task.status
+                                    }))
+                                    localTaskList = newTaskList
+                                    setTaskList(newTaskList)
+                                    break
+
+                                case 'task_update':
+                                    // Update individual task status
+                                    localTaskList = localTaskList.map(task =>
+                                        task.id === event.task_id
+                                            ? { ...task, status: event.status }
+                                            : task
+                                    )
+                                    setTaskList(localTaskList)
                                     break
 
                                 case 'tool_approval_request':
@@ -463,29 +512,45 @@ export default function ChatSidebar({
                                         index: event.index,
                                         total: event.total
                                     }
-                                    setToolExecutions(prev => [...prev, pendingExecution])
+                                    localToolExecutions = [...localToolExecutions, pendingExecution]
+                                    setToolExecutions(localToolExecutions)
                                     break
 
                                 case 'tool_approved':
                                     setStreamingStatus({ status: `Ferramenta aprovada: ${event.tool}` })
                                     // Update pending tool execution to executing
-                                    setToolExecutions(prev => prev.map(exec => {
+                                    localToolExecutions = localToolExecutions.map(exec => {
                                         if (exec.tool === event.tool && exec.status === "pending") {
                                             return { ...exec, status: "executing" }
                                         }
                                         return exec
-                                    }))
+                                    })
+                                    setToolExecutions(localToolExecutions)
+                                    break
+
+                                case 'tool_auto_approved':
+                                    setStreamingStatus({ status: `Auto-executando: ${event.tool}` })
+                                    // In autonomous mode, add tool execution card directly as executing
+                                    const autoExecution: ToolExecution = {
+                                        id: `${event.tool}-${Date.now()}-auto`,
+                                        tool: event.tool,
+                                        status: "executing",
+                                        timestamp: new Date().toISOString()
+                                    }
+                                    localToolExecutions = [...localToolExecutions, autoExecution]
+                                    setToolExecutions(localToolExecutions)
                                     break
 
                                 case 'tool_rejected':
                                     setStreamingStatus({ status: `Ferramenta recusada: ${event.tool}` })
                                     // Update pending tool execution to error
-                                    setToolExecutions(prev => prev.map(exec => {
+                                    localToolExecutions = localToolExecutions.map(exec => {
                                         if (exec.tool === event.tool && exec.status === "pending") {
                                             return { ...exec, status: "error", result: "Rejected by user" }
                                         }
                                         return exec
-                                    }))
+                                    })
+                                    setToolExecutions(localToolExecutions)
                                     break
 
                                 case 'tool_start':
@@ -498,8 +563,8 @@ export default function ChatSidebar({
                                     })
 
                                     // Add tool execution card only if one doesn't already exist (from approval)
-                                    setToolExecutions(prev => {
-                                        const exists = prev.some(exec =>
+                                    {
+                                        const exists = localToolExecutions.some(exec =>
                                             exec.tool === event.tool && exec.status === "executing"
                                         )
                                         if (!exists) {
@@ -512,10 +577,10 @@ export default function ChatSidebar({
                                                 index: event.index,
                                                 total: event.total
                                             }
-                                            return [...prev, newExecution]
+                                            localToolExecutions = [...localToolExecutions, newExecution]
+                                            setToolExecutions(localToolExecutions)
                                         }
-                                        return prev
-                                    })
+                                    }
                                     break
 
                                 case 'tool_complete':
@@ -526,7 +591,7 @@ export default function ChatSidebar({
                                     })
 
                                     // Update tool execution card
-                                    setToolExecutions(prev => prev.map(exec => {
+                                    localToolExecutions = localToolExecutions.map(exec => {
                                         // Match by tool name and executing status (to update the most recent one)
                                         if (exec.tool === event.tool && exec.status === "executing") {
                                             return {
@@ -537,17 +602,18 @@ export default function ChatSidebar({
                                             }
                                         }
                                         return exec
-                                    }))
+                                    })
+                                    setToolExecutions(localToolExecutions)
 
-                                    // Trigger refresh for file/folder creation tools
-                                    if (onToolExecuted && ['create_document', 'create_folder'].includes(event.tool)) {
+                                    // Trigger refresh for file/folder creation and image attachment tools
+                                    if (onToolExecuted && ['create_document', 'create_folder', 'generate_image', 'attach_image_to_document'].includes(event.tool)) {
                                         await onToolExecuted(event.tool)
                                     }
                                     break
 
                                 case 'tool_error':
                                     // Update tool execution card with error
-                                    setToolExecutions(prev => prev.map(exec => {
+                                    localToolExecutions = localToolExecutions.map(exec => {
                                         if (exec.tool === event.tool && exec.status === "executing") {
                                             return {
                                                 ...exec,
@@ -556,7 +622,8 @@ export default function ChatSidebar({
                                             }
                                         }
                                         return exec
-                                    }))
+                                    })
+                                    setToolExecutions(localToolExecutions)
                                     break
 
                                 case 'message_chunk':
@@ -566,16 +633,20 @@ export default function ChatSidebar({
                                     break
 
                                 case 'done':
-                                    // Add final message to history if there's content
-                                    if (currentContent.trim()) {
+                                    // Add final message to history with tool executions and task list
+                                    if (currentContent.trim() || localToolExecutions.length > 0) {
                                         setMessages((prev) => [...prev, {
                                             role: "assistant",
-                                            content: currentContent,
-                                            isStreaming: false
+                                            content: currentContent || "",
+                                            isStreaming: false,
+                                            toolExecutions: localToolExecutions.length > 0 ? [...localToolExecutions] : undefined,
+                                            taskList: localTaskList.length > 0 ? [...localTaskList] : undefined
                                         }])
                                     }
                                     setStreamingStatus(null)
                                     setCurrentStreamingContent("")  // Clear streaming content
+                                    setToolExecutions([])  // Clear tool executions (now stored in message)
+                                    setTaskList([])  // Clear task list (now stored in message)
                                     setIsLoading(false)
 
                                     // Trigger document update if needed
@@ -706,19 +777,23 @@ export default function ChatSidebar({
                     </div>
                 </div>
 
-                {/* Auto-apply Toggle */}
-                {
-                    onAutoApplyChange && (
-                        <div className="flex items-center justify-between px-1">
-                            <span className="text-xs font-medium text-muted-foreground">Aplicar edições automaticamente</span>
-                            <Switch
-                                checked={autoApplyEdits}
-                                onCheckedChange={onAutoApplyChange}
-                                className="scale-75"
-                            />
-                        </div>
-                    )
-                }
+                {/* Modo Autônomo Toggle */}
+                <div className="flex items-center justify-between px-1">
+                    <div className="flex items-center gap-2">
+                        <span className="text-xs font-medium text-muted-foreground">Modo Autônomo</span>
+                        {preferences?.autonomous_mode && (
+                            <Badge variant="secondary" className="text-[10px] h-4 px-1.5 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                                Ativo
+                            </Badge>
+                        )}
+                    </div>
+                    <Switch
+                        checked={preferences?.autonomous_mode ?? false}
+                        onCheckedChange={(checked) => updatePreference('autonomous_mode', checked)}
+                        disabled={preferencesLoading || isLoading}
+                        className="scale-75"
+                    />
+                </div>
 
                 {/* Context Selection */}
                 <div className="border rounded-lg p-2 bg-muted/30">
@@ -847,15 +922,45 @@ export default function ChatSidebar({
                             : "bg-muted"
                             }`}>
                             {msg.role === "assistant" ? (
-                                <div className="prose prose-sm dark:prose-invert max-w-none">
-                                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                                        {msg.content}
-                                    </ReactMarkdown>
+                                <div className="space-y-3">
+                                    {/* Task List from completed message */}
+                                    {msg.taskList && msg.taskList.length > 0 && (
+                                        <TaskListCard tasks={msg.taskList} />
+                                    )}
+
+                                    {/* Tool Execution Cards from completed message */}
+                                    {msg.toolExecutions && msg.toolExecutions.length > 0 && (
+                                        <div className="space-y-2">
+                                            {msg.toolExecutions.map(execution => (
+                                                <ToolExecutionCard
+                                                    key={execution.id}
+                                                    id={execution.id}
+                                                    tool={execution.tool}
+                                                    args={execution.args}
+                                                    result={execution.result}
+                                                    status={execution.status}
+                                                    duration={execution.duration}
+                                                    timestamp={execution.timestamp}
+                                                    index={execution.index}
+                                                    total={execution.total}
+                                                />
+                                            ))}
+                                        </div>
+                                    )}
+
+                                    {/* Message content */}
+                                    {msg.content && (
+                                        <div className="prose prose-sm dark:prose-invert max-w-none">
+                                            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                                {msg.content}
+                                            </ReactMarkdown>
+                                        </div>
+                                    )}
                                 </div>
                             ) : (
                                 msg.content
                             )}
-                            {msg.role === "assistant" && onAiSuggestion && (
+                            {msg.role === "assistant" && onAiSuggestion && msg.content && (
                                 <div className="mt-2 pt-2 border-t border-border/50 flex justify-end">
                                     <Button
                                         variant="ghost"
@@ -888,6 +993,12 @@ export default function ChatSidebar({
                                         ? `Executando: ${streamingStatus.tool}`
                                         : streamingStatus?.status || "Gerando resposta..."}
                                 </span>
+                                {/* Iteration counter */}
+                                {iterationInfo && (
+                                    <Badge variant="outline" className="ml-auto text-[10px] px-1.5 py-0.5">
+                                        {iterationInfo.current}/{iterationInfo.max}
+                                    </Badge>
+                                )}
                             </div>
 
                             {/* Streaming text content */}
@@ -901,12 +1012,20 @@ export default function ChatSidebar({
                                 </div>
                             )}
 
+                            {/* Task List Card - Visual plan of execution */}
+                            {taskList.length > 0 && (
+                                <div className="ml-6">
+                                    <TaskListCard tasks={taskList} />
+                                </div>
+                            )}
+
                             {/* Tool Execution Cards */}
                             {toolExecutions.length > 0 && (
                                 <div className="ml-6 space-y-2">
                                     {toolExecutions.map(execution => (
                                         <ToolExecutionCard
                                             key={execution.id}
+                                            id={execution.id}
                                             tool={execution.tool}
                                             args={execution.args}
                                             result={execution.result}

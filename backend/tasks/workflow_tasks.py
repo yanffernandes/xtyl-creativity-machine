@@ -48,7 +48,7 @@ def execute_workflow(self, execution_id: str):
 
     try:
         # Import here to avoid circular dependency
-        from services.workflow_engine import execute_workflow as execute_workflow_engine
+        from services.workflow_executor import WorkflowExecutor
         import asyncio
 
         # Get database session
@@ -62,14 +62,25 @@ def execute_workflow(self, execution_id: str):
         if not execution:
             raise ValueError(f"Workflow execution {execution_id} not found")
 
-        # Execute workflow using engine
-        result = asyncio.run(execute_workflow_engine(execution_id, db))
+        # Execute workflow using executor
+        executor = WorkflowExecutor(db)
+        
+        async def run_executor():
+            # Run execution (updates are saved to DB internally)
+            # We iterate to drive the generator
+            async for _ in executor.execute_workflow(execution_id, execution.user_id, yield_progress=False):
+                pass
 
-        logger.info(f"Workflow execution {execution_id} completed successfully")
+        asyncio.run(run_executor())
+
+        # Refresh execution to get final status
+        db.refresh(execution)
+
+        logger.info(f"Workflow execution {execution_id} completed with status: {execution.status}")
         return {
             "execution_id": execution_id,
-            "status": result.status,
-            "progress": result.progress_percent
+            "status": execution.status,
+            "progress": execution.progress_percent
         }
 
     except Exception as e:

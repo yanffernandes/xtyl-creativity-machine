@@ -90,6 +90,7 @@ export default function ProjectPage() {
     const [availableModels, setAvailableModels] = useState<string[]>([])
     const [defaultTextModel, setDefaultTextModel] = useState<string>("")
     const [showImageGenerator, setShowImageGenerator] = useState(false)
+    const [refiningImage, setRefiningImage] = useState<Document | null>(null)
     const [viewingImage, setViewingImage] = useState<Document | null>(null)
     const [shareDialogOpen, setShareDialogOpen] = useState(false)
     const [sharingDocument, setSharingDocument] = useState<Document | null>(null)
@@ -128,13 +129,19 @@ export default function ProjectPage() {
         }
     }
 
-    // Handle tool execution (for file/folder creation)
+    // Handle tool execution (for file/folder creation and image attachment)
     const handleToolExecuted = async (toolName: string) => {
         console.log(`Tool executed: ${toolName}`)
         // Refresh the document list when files/folders are created
         if (['create_document', 'create_folder'].includes(toolName)) {
             await fetchDocuments()
             toast({ title: "Atualizado", description: "Lista de arquivos atualizada." })
+        }
+        // Refresh attachments when images are generated or attached
+        if (['generate_image', 'attach_image_to_document'].includes(toolName)) {
+            await fetchDocuments()
+            setAttachmentsRefreshKey(prev => prev + 1)
+            toast({ title: "Imagem anexada", description: "A imagem foi anexada ao documento." })
         }
     }
 
@@ -728,6 +735,14 @@ export default function ProjectPage() {
                                             key={attachmentsRefreshKey}
                                             documentId={selectedDoc.id}
                                             onAttachImage={() => setShowAttachImageModal(true)}
+                                            onViewImage={(imageId) => {
+                                                // Find the image document and open in ImageViewer
+                                                const allImages = [...creations, ...contextFiles].filter(doc => doc.media_type === 'image')
+                                                const imageDoc = allImages.find(img => img.id === imageId)
+                                                if (imageDoc) {
+                                                    setViewingImage(imageDoc)
+                                                }
+                                            }}
                                         />
                                     </div>
                                 )}
@@ -917,14 +932,25 @@ export default function ProjectPage() {
             {/* Image Generation Panel */}
             <ImageGenerationPanel
                 open={showImageGenerator}
-                onOpenChange={setShowImageGenerator}
+                onOpenChange={(open) => {
+                    setShowImageGenerator(open)
+                    if (!open) {
+                        // Clear refining image when closing
+                        setRefiningImage(null)
+                    }
+                }}
                 projectId={projectId}
                 documents={[...creations, ...contextFiles]}
+                documentId={refiningImage?.id}
+                existingPrompt={refiningImage?.content || ""}
                 onImageGenerated={() => {
                     fetchDocuments()
+                    setRefiningImage(null)
                     toast({
-                        title: "Imagem criada!",
-                        description: "A imagem foi gerada e adicionada ao projeto"
+                        title: refiningImage ? "Imagem refinada!" : "Imagem criada!",
+                        description: refiningImage
+                            ? "A imagem foi refinada com sucesso"
+                            : "A imagem foi gerada e adicionada ao projeto"
                     })
                 }}
             />
@@ -934,6 +960,8 @@ export default function ProjectPage() {
                 image={viewingImage}
                 onClose={() => setViewingImage(null)}
                 onRefine={(imageId) => {
+                    // Store the image being refined
+                    setRefiningImage(viewingImage)
                     setViewingImage(null)
                     setShowImageGenerator(true)
                 }}

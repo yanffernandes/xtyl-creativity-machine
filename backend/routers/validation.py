@@ -6,8 +6,8 @@ Provides endpoints for validating variable references and dependencies
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
-from backend.services.variable_resolver import VariableResolver
-from backend.services.workflow_validator import WorkflowValidator
+from services.variable_resolver import VariableResolver
+from services.workflow_validator import WorkflowValidator
 
 router = APIRouter(prefix="/validation", tags=["validation"])
 

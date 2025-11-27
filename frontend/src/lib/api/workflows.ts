@@ -151,7 +151,8 @@ export async function deleteWorkflow(
 export async function duplicateWorkflow(
   workflowId: string,
   token: string,
-  newName?: string
+  newName?: string,
+  projectId?: string
 ): Promise<WorkflowTemplateDetail> {
   const response = await fetch(
     `${API_BASE_URL}/workflows/${workflowId}/duplicate`,
@@ -161,7 +162,7 @@ export async function duplicateWorkflow(
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`,
       },
-      body: JSON.stringify({ name: newName }),
+      body: JSON.stringify({ name: newName, project_id: projectId }),
     }
   );
 

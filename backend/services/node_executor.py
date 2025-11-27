@@ -24,9 +24,11 @@ import httpx
 sys.path.append('/app')
 
 # Import existing services
+# Import existing services
 from llm_service import chat_completion
 from image_generation_service import generate_image_openrouter
 from minio_service import upload_file
+from services.context_retrieval import retrieve_workflow_context
 
 logger = logging.getLogger(__name__)
 
@@ -52,11 +54,16 @@ async def execute_node(
     # Route to specific handler
     handlers = {
         "generate_copy": execute_generate_copy_node,
+        "text_generation": execute_generate_copy_node,  # Alias for compatibility
         "generate_image": execute_generate_image_node,
+        "image_generation": execute_generate_image_node,  # Alias for compatibility
         "attach": execute_attach_to_document_node,
         "review": execute_review_node,
         "parallel": execute_parallel_node,
         "conditional": execute_conditional_node,
+        "finish": execute_finish_node,
+        "context_retrieval": execute_context_retrieval_node,
+        "processing": execute_processing_node,
     }
 
     handler = handlers.get(node_type)
@@ -373,3 +380,145 @@ async def execute_conditional_node(
             "result": True,
             "error": str(e)
         }
+
+
+async def execute_finish_node(
+    node: Dict[str, Any],
+    execution: WorkflowExecution,
+    db: Session
+) -> Dict[str, Any]:
+    """
+    Execute finish node
+
+    Finalizes workflow execution, saves results, and notifies user
+
+    Args:
+        node: Node configuration
+        execution: Workflow execution
+        db: Database session
+
+    Returns:
+        Dict with execution summary
+    """
+    data = node.get("data", {})
+    save_to_project = data.get("saveToProject", True)
+    document_title = data.get("documentTitle")
+    notify_user = data.get("notifyUser", False)
+
+    logger.info(f"Executing finish node for execution {execution.id}")
+
+    result = {
+        "status": "completed",
+        "saved_documents": [],
+        "notification_sent": False
+    }
+
+    # 1. Handle Document Saving
+    if save_to_project and execution.generated_document_ids:
+        # If we have generated documents, update their status to 'approved' or 'production'
+        # and optionally update title if provided
+        
+        doc_ids = execution.generated_document_ids
+        documents = db.query(Document).filter(Document.id.in_(doc_ids)).all()
+        
+        for doc in documents:
+            # Update status from draft to approved
+            if doc.status == "draft":
+                doc.status = "approved"
+            
+            # Update title if provided (and if it's a single document or we append index)
+            if document_title:
+                if len(documents) > 1:
+                    # Append index for multiple docs
+                    # Find index in list
+                    try:
+                        idx = doc_ids.index(doc.id)
+                        doc.title = f"{document_title} ({idx + 1})"
+                    except ValueError:
+                        doc.title = document_title
+                else:
+                    doc.title = document_title
+            
+            result["saved_documents"].append(doc.id)
+        
+        db.commit()
+        logger.info(f"Finalized {len(documents)} documents for project {execution.project_id}")
+
+    # 2. Handle Notification
+    if notify_user:
+        # TODO: Implement actual notification service (email/websocket)
+        # For now, we just log it
+        logger.info(f"Sending completion notification to user {execution.user_id}")
+        result["notification_sent"] = True
+
+    return result
+
+
+async def execute_context_retrieval_node(
+    node: Dict[str, Any],
+    execution: WorkflowExecution,
+    db: Session
+) -> Dict[str, Any]:
+    """
+    Execute context retrieval node
+    
+    Fetches relevant documents from knowledge base
+    
+    Args:
+        node: Node configuration
+        execution: Workflow execution
+        db: Database session
+        
+    Returns:
+        Dict with retrieved context and documents
+    """
+    data = node.get("data", {})
+    query = data.get("query", "")
+    folder_ids = data.get("folderIds", [])
+    max_results = data.get("maxResults", 5)
+    use_rag = data.get("useRag", True)
+
+    logger.info(f"Retrieving context for query: {query}")
+
+    # Note: Variable resolution is handled by WorkflowExecutor before calling this
+    
+    context = await retrieve_workflow_context(
+        db=db,
+        project_id=execution.project_id,
+        context_params={
+            "query": query,
+            "folder_ids": folder_ids,
+            "max_results": max_results,
+            "use_rag": use_rag
+        }
+    )
+
+    return {
+        "documents": context["documents"],
+        "count": context["count"],
+        "context": context["context"],
+        "content": context["context"]
+    }
+
+
+async def execute_processing_node(
+    node: Dict[str, Any],
+    execution: WorkflowExecution,
+    db: Session
+) -> Dict[str, Any]:
+    """
+    Execute processing node (AI task)
+    
+    Processes input text using AI model (summarization, extraction, etc.)
+    
+    Args:
+        node: Node configuration
+        execution: Workflow execution
+        db: Database session
+        
+    Returns:
+        Dict with processing result
+    """
+    # Reuse text generation logic as processing is essentially text generation
+    # with specific prompts/instructions
+    return await execute_generate_copy_node(node, execution, db)

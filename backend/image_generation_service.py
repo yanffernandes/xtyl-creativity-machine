@@ -12,7 +12,7 @@ from datetime import datetime
 import uuid
 from minio_service import upload_file
 
-DEFAULT_MODEL = "google/gemini-2.5-flash-image-preview"
+DEFAULT_MODEL = "google/gemini-3-pro-image-preview"
 
 # Cache for models (updated periodically)
 _models_cache = None

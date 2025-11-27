@@ -13,7 +13,7 @@ from typing import List, Dict, Any, Optional
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, and_
 from models import Document, Project, Folder
-from rag_service import rag_service
+import rag_service
 import logging
 
 logger = logging.getLogger(__name__)
@@ -124,17 +124,20 @@ class ContextRetrievalService:
         Retrieve documents using RAG semantic search
         """
         # Use RAG service to find relevant document IDs
-        rag_results = await rag_service.search_documents(
+        # Use RAG service to find relevant document IDs
+        # Note: rag_service.query_knowledge_base is synchronous, but we can call it directly
+        # or wrap in run_in_executor if needed. For now assuming it's fast enough or we accept blocking.
+        rag_docs = rag_service.query_knowledge_base(
             project_id=project_id,
             query=query,
-            top_k=max_results
+            k=max_results
         )
 
-        if not rag_results:
+        if not rag_docs:
             return []
 
-        # Extract document IDs from RAG results
-        doc_ids = [result["document_id"] for result in rag_results]
+        # Extract document IDs from RAG results (Langchain Documents)
+        doc_ids = [doc.metadata.get("document_id") for doc in rag_docs if doc.metadata.get("document_id")]
 
         # Fetch full documents
         query_builder = self.db.query(Document).filter(
@@ -151,9 +154,11 @@ class ContextRetrievalService:
         # Sort by RAG relevance score
         doc_map = {doc.id: doc for doc in documents}
         sorted_docs = []
-        for result in rag_results:
-            doc_id = result["document_id"]
-            if doc_id in doc_map:
+        doc_map = {doc.id: doc for doc in documents}
+        sorted_docs = []
+        for rag_doc in rag_docs:
+            doc_id = rag_doc.metadata.get("document_id")
+            if doc_id and doc_id in doc_map:
                 sorted_docs.append(doc_map[doc_id])
 
         return sorted_docs[:max_results]
