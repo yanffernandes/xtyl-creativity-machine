@@ -7,18 +7,40 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Send, Bot, User as UserIcon, Settings, FileText, ChevronDown, ChevronUp, Trash2, Check, ChevronsUpDown, Paperclip, RotateCcw, Sparkles, Folder, Search, X } from "lucide-react"
+import { Send, Bot, User as UserIcon, Settings, FileText, ChevronDown, ChevronUp, Trash2, Check, ChevronsUpDown, Paperclip, RotateCcw, Sparkles, Folder, Search, X, History, ExternalLink, Image, MoreVertical, Plus } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/components/ui/use-toast"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator } from "@/components/ui/command"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from "@/components/ui/tooltip"
 import { Switch } from "@/components/ui/switch"
 import { cn } from "@/lib/utils"
+import { motion } from "framer-motion"
 import ToolExecutionCard from "@/components/ToolExecutionCard"
 import TaskListCard, { TaskItem } from "@/components/TaskListCard"
 import { useUserPreferences } from "@/hooks/useUserPreferences"
+import ConversationsList from "@/components/ConversationsList"
+import {
+    createConversation,
+    updateConversation,
+    getConversation,
+    addCreatedDocument,
+    ChatMessage,
+} from "@/lib/api/conversations"
 
 interface Message {
     role: "user" | "assistant" | "system"
@@ -73,7 +95,14 @@ interface ToolExecution {
     total?: number
 }
 
+interface CreatedDocument {
+    id: string
+    title: string
+    type: "text" | "image"
+}
+
 interface ChatSidebarProps {
+    workspaceId: string
     projectId?: string
     currentDocument?: { id: string; title: string; content?: string } | null
     onAiSuggestion?: (content: string) => void
@@ -82,11 +111,13 @@ interface ChatSidebarProps {
     onAutoApplyChange?: (value: boolean) => void
     onDocumentUpdate?: (documentId: string) => Promise<void>
     onToolExecuted?: (toolName: string) => Promise<void>  // New callback for any tool execution
+    onNavigateToDocument?: (documentId: string) => void  // Navigate to a document
     availableModels?: string[]
     defaultModel?: string
 }
 
 export default function ChatSidebar({
+    workspaceId,
     projectId,
     currentDocument,
     onAiSuggestion,
@@ -95,6 +126,7 @@ export default function ChatSidebar({
     onAutoApplyChange,
     onDocumentUpdate,
     onToolExecuted,
+    onNavigateToDocument,
     availableModels = [],
     defaultModel
 }: ChatSidebarProps) {
@@ -121,8 +153,14 @@ export default function ChatSidebar({
     const [taskList, setTaskList] = useState<TaskItem[]>([])
     const [iterationInfo, setIterationInfo] = useState<{ current: number; max: number } | null>(null)
 
+    // Conversation history states
+    const [showConversationsList, setShowConversationsList] = useState(false)
+    const [currentConversationId, setCurrentConversationId] = useState<string | null>(null)
+    const [createdDocuments, setCreatedDocuments] = useState<CreatedDocument[]>([])
+
     const messagesEndRef = useRef<HTMLDivElement>(null)
     const fileInputRef = useRef<HTMLInputElement>(null)
+    const contextRef = useRef<HTMLDivElement>(null)
     const { token } = useAuthStore()
     const { toast } = useToast()
 
@@ -161,6 +199,23 @@ export default function ChatSidebar({
             setSelectedModel(defaultModel)
         }
     }, [defaultModel])
+
+    // Close context dropdown when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (contextRef.current && !contextRef.current.contains(event.target as Node)) {
+                setIsContextExpanded(false)
+            }
+        }
+
+        if (isContextExpanded) {
+            document.addEventListener('mousedown', handleClickOutside)
+        }
+
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside)
+        }
+    }, [isContextExpanded])
 
     const fetchModels = async () => {
         try {
@@ -205,9 +260,74 @@ export default function ChatSidebar({
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
     }
 
-    const handleClearChat = () => {
+    const handleClearChat = async () => {
+        // Save current conversation before clearing if there are messages
+        if (messages.length > 0 && workspaceId) {
+            try {
+                const chatMessages: ChatMessage[] = messages.map(m => ({
+                    role: m.role,
+                    content: m.content,
+                    toolExecutions: m.toolExecutions,
+                    taskList: m.taskList
+                }))
+
+                if (currentConversationId) {
+                    // Update existing conversation
+                    await updateConversation(currentConversationId, {
+                        messages: chatMessages,
+                        created_document_ids: createdDocuments.map(d => d.id)
+                    })
+                } else {
+                    // Create new conversation
+                    await createConversation({
+                        workspace_id: workspaceId,
+                        project_id: projectId,
+                        messages: chatMessages,
+                        model_used: selectedModel,
+                        document_ids_context: selectedContextIds,
+                        folder_ids_context: selectedFolderIds
+                    })
+                }
+            } catch (error) {
+                console.error("Failed to save conversation:", error)
+            }
+        }
+
         setMessages([])
-        toast({ title: "Chat cleared", description: "Conversation history has been cleared." })
+        setCurrentConversationId(null)
+        setCreatedDocuments([])
+        toast({ title: "Nova conversa", description: "Conversa anterior salva no histórico." })
+    }
+
+    const handleLoadConversation = async (conversationId: string) => {
+        try {
+            const conversation = await getConversation(conversationId)
+            setMessages(conversation.messages.map(m => ({
+                role: m.role as "user" | "assistant" | "system",
+                content: m.content,
+                toolExecutions: m.toolExecutions,
+                taskList: m.taskList
+            })))
+            setCurrentConversationId(conversationId)
+            setSelectedModel(conversation.model_used || selectedModel)
+            setSelectedContextIds(conversation.document_ids_context || [])
+            setSelectedFolderIds(conversation.folder_ids_context || [])
+            setCreatedDocuments([]) // Clear created documents for loaded conversation
+            setShowConversationsList(false)
+            toast({ title: "Conversa carregada", description: "Continuando conversa anterior" })
+        } catch (error) {
+            console.error("Failed to load conversation:", error)
+            toast({ title: "Erro", description: "Falha ao carregar conversa", variant: "destructive" })
+        }
+    }
+
+    const handleDocumentCreated = (docId: string, docTitle: string, docType: "text" | "image") => {
+        setCreatedDocuments(prev => [...prev, { id: docId, title: docTitle, type: docType }])
+
+        // Also track in current conversation
+        if (currentConversationId) {
+            addCreatedDocument(currentConversationId, docId).catch(console.error)
+        }
     }
 
     const toggleContextId = (id: string) => {
@@ -605,9 +725,31 @@ export default function ChatSidebar({
                                     })
                                     setToolExecutions(localToolExecutions)
 
-                                    // Trigger refresh for file/folder creation and image attachment tools
-                                    if (onToolExecuted && ['create_document', 'create_folder', 'generate_image', 'attach_image_to_document'].includes(event.tool)) {
+                                    // Trigger refresh for tools that modify the file system
+                                    const fileSystemTools = [
+                                        'create_document', 'create_folder',
+                                        'move_file', 'move_folder',
+                                        'delete_file', 'delete_folder',
+                                        'rename_document', 'rename_folder',
+                                        'generate_image', 'attach_image_to_document'
+                                    ]
+                                    if (onToolExecuted && fileSystemTools.includes(event.tool)) {
                                         await onToolExecuted(event.tool)
+                                    }
+
+                                    // Track created documents for navigation links
+                                    if (event.tool === 'create_document' && event.result?.id) {
+                                        setCreatedDocuments(prev => [...prev, {
+                                            id: event.result.id,
+                                            title: event.result.title || "Novo documento",
+                                            type: "text"
+                                        }])
+                                    } else if (event.tool === 'generate_image' && event.result?.image_document_id) {
+                                        setCreatedDocuments(prev => [...prev, {
+                                            id: event.result.image_document_id,
+                                            title: event.result.title || "Nova imagem",
+                                            type: "image"
+                                        }])
                                     }
                                     break
 
@@ -649,8 +791,13 @@ export default function ChatSidebar({
                                     setTaskList([])  // Clear task list (now stored in message)
                                     setIsLoading(false)
 
-                                    // Trigger document update if needed
-                                    if (currentDocument?.id && onDocumentUpdate) {
+                                    // Trigger document update only if edit_document was used on the current document
+                                    const editedCurrentDoc = localToolExecutions.some(
+                                        exec => exec.tool === 'edit_document' &&
+                                               exec.status === 'completed' &&
+                                               exec.args?.document_id === currentDocument?.id
+                                    )
+                                    if (editedCurrentDoc && currentDocument?.id && onDocumentUpdate) {
                                         await onDocumentUpdate(currentDocument.id)
                                     }
                                     break
@@ -681,38 +828,46 @@ export default function ChatSidebar({
         }
     }
 
+    // Show conversations list when active
+    if (showConversationsList) {
+        return (
+            <div className="flex flex-col h-full border-l border-white/[0.08] bg-background/80 backdrop-blur-xl w-[400px]">
+                <ConversationsList
+                    workspaceId={workspaceId}
+                    projectId={projectId}
+                    onSelectConversation={handleLoadConversation}
+                    onClose={() => setShowConversationsList(false)}
+                />
+            </div>
+        )
+    }
+
     return (
-        <div className="flex flex-col h-full border-l bg-background w-[400px]">
-            <div className="p-4 border-b flex flex-col gap-4">
+        <div className="flex flex-col h-full border-l border-white/[0.08] bg-background/80 backdrop-blur-xl w-[400px]">
+            <div className="p-4 border-b border-white/[0.06] flex flex-col gap-4 bg-gradient-to-b from-white/[0.02] to-transparent">
                 <div className="flex justify-between items-center">
                     <h2 className="text-sm font-semibold flex items-center gap-2">
                         <Bot className="h-4 w-4" /> Assistente IA
                     </h2>
-                    <div className="flex items-center gap-2">
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={handleClearChat}
-                            title="Nova conversa"
-                            className="h-8 w-8"
-                        >
-                            <RotateCcw className="h-4 w-4" />
-                        </Button>
+                    <div className="flex items-center gap-1">
                         <Popover open={openModelSelect} onOpenChange={setOpenModelSelect}>
                             <PopoverTrigger asChild>
                                 <Button
                                     variant="outline"
                                     role="combobox"
                                     aria-expanded={openModelSelect}
-                                    className="w-[200px] justify-between text-xs h-8"
+                                    className="w-[180px] justify-between text-xs h-8"
+                                    title={models.find((model) => model.id === selectedModel)?.name || selectedModel}
                                 >
-                                    {selectedModel
-                                        ? models.find((model) => model.id === selectedModel)?.name
-                                        : "Selecionar Modelo..."}
-                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                    <span className="truncate">
+                                        {selectedModel
+                                            ? models.find((model) => model.id === selectedModel)?.name || selectedModel.split('/').pop()
+                                            : "Modelo..."}
+                                    </span>
+                                    <ChevronsUpDown className="ml-1 h-3 w-3 shrink-0 opacity-50" />
                                 </Button>
                             </PopoverTrigger>
-                            <PopoverContent className="w-[200px] p-0">
+                            <PopoverContent className="w-[220px] p-0" align="end">
                                 <Command>
                                     <CommandInput placeholder="Buscar modelos..." />
                                     <CommandList>
@@ -773,7 +928,30 @@ export default function ChatSidebar({
                                     </CommandList>
                                 </Command>
                             </PopoverContent>
-                        </Popover>
+                            </Popover>
+
+                            {/* Menu dropdown */}
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-8 w-8"
+                                    >
+                                        <MoreVertical className="h-4 w-4" />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                    <DropdownMenuItem onClick={handleClearChat}>
+                                        <Plus className="h-4 w-4 mr-2" />
+                                        Nova conversa
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => setShowConversationsList(true)}>
+                                        <History className="h-4 w-4 mr-2" />
+                                        Histórico de conversas
+                                    </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
                     </div>
                 </div>
 
@@ -796,7 +974,7 @@ export default function ChatSidebar({
                 </div>
 
                 {/* Context Selection */}
-                <div className="border rounded-lg p-2 bg-muted/30">
+                <div ref={contextRef} className="border rounded-lg p-2 bg-muted/30">
                     <div
                         className="flex items-center justify-between cursor-pointer"
                         onClick={() => setIsContextExpanded(!isContextExpanded)}
@@ -1154,10 +1332,53 @@ export default function ChatSidebar({
                     </div>
                 )}
 
+                {/* Created Documents Navigation */}
+                {createdDocuments.length > 0 && !isLoading && (
+                    <div className="flex flex-col gap-2 px-2">
+                        <div className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">
+                            Documentos criados nesta conversa
+                        </div>
+                        {createdDocuments.map((doc, index) => (
+                            <motion.div
+                                key={doc.id}
+                                initial={{ opacity: 0, y: 5 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: index * 0.1 }}
+                                className="flex items-center gap-2 bg-gradient-to-r from-primary/5 to-primary/10 border border-primary/20 rounded-lg px-3 py-2"
+                            >
+                                {doc.type === "image" ? (
+                                    <Image className="h-4 w-4 text-purple-500 flex-shrink-0" />
+                                ) : (
+                                    <FileText className="h-4 w-4 text-blue-500 flex-shrink-0" />
+                                )}
+                                <div className="flex flex-col min-w-0 flex-1">
+                                    <span className="text-[10px] text-muted-foreground">
+                                        {doc.type === "image" ? "Imagem criada" : "Documento criado"}
+                                    </span>
+                                    <span className="text-xs font-medium truncate">
+                                        {doc.title}
+                                    </span>
+                                </div>
+                                {onNavigateToDocument && (
+                                    <Button
+                                        variant="secondary"
+                                        size="sm"
+                                        onClick={() => onNavigateToDocument(doc.id)}
+                                        className="gap-1 h-6 text-[10px] px-2"
+                                    >
+                                        <ExternalLink className="h-3 w-3" />
+                                        Ver
+                                    </Button>
+                                )}
+                            </motion.div>
+                        ))}
+                    </div>
+                )}
+
                 <div ref={messagesEndRef} />
             </div>
 
-            <div className="p-4 border-t">
+            <div className="p-4 border-t border-white/[0.06] bg-gradient-to-t from-white/[0.02] to-transparent">
                 {/* Attachments preview */}
                 {attachments.length > 0 && (
                     <div className="mb-2 flex flex-wrap gap-2">

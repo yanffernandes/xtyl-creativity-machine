@@ -505,3 +505,69 @@ class UserPreferencesRead(UserPreferencesBase):
 
     class Config:
         from_attributes = True
+
+
+# ============================================================================
+# CHAT CONVERSATION SCHEMAS
+# ============================================================================
+
+class ChatMessageSchema(BaseModel):
+    role: str  # user, assistant, system
+    content: str
+    toolExecutions: Optional[List[Dict[str, Any]]] = None
+    taskList: Optional[List[Dict[str, Any]]] = None
+
+
+class ChatConversationBase(BaseModel):
+    title: Optional[str] = None
+    project_id: Optional[str] = None
+
+
+class ChatConversationCreate(ChatConversationBase):
+    workspace_id: str
+    messages: List[ChatMessageSchema] = []
+    model_used: Optional[str] = None
+    document_ids_context: Optional[List[str]] = []
+    folder_ids_context: Optional[List[str]] = []
+
+
+class ChatConversationUpdate(BaseModel):
+    title: Optional[str] = None
+    messages: Optional[List[ChatMessageSchema]] = None
+    is_archived: Optional[bool] = None
+    created_document_ids: Optional[List[str]] = None
+
+
+class ChatConversationSummary(BaseModel):
+    id: str
+    title: Optional[str] = None
+    summary: Optional[str] = None
+    message_count: int
+    model_used: Optional[str] = None
+    is_archived: bool
+    last_message_at: Optional[datetime] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class ChatConversationDetail(ChatConversationSummary):
+    project_id: Optional[str] = None
+    workspace_id: str
+    messages_json: List[ChatMessageSchema] = Field(serialization_alias="messages")
+    document_ids_context: Optional[List[str]] = []
+    folder_ids_context: Optional[List[str]] = []
+    created_document_ids: Optional[List[str]] = []
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+        populate_by_name = True
+
+
+class ChatConversationList(BaseModel):
+    conversations: List[ChatConversationSummary]
+    total: int
+    page: int
+    page_size: int

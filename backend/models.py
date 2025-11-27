@@ -336,6 +336,43 @@ class UserPreferences(Base):
     user = relationship("User")
 
 
+class ChatConversation(Base):
+    """Stores chat conversation history for users"""
+    __tablename__ = "chat_conversations"
+
+    id = Column(String, primary_key=True, default=generate_uuid)
+    user_id = Column(String, ForeignKey("users.id"), nullable=False, index=True)
+    project_id = Column(String, ForeignKey("projects.id"), nullable=True, index=True)
+    workspace_id = Column(String, ForeignKey("workspaces.id"), nullable=False, index=True)
+
+    # Conversation metadata
+    title = Column(String, nullable=True)  # Auto-generated from first message or user-defined
+    summary = Column(Text, nullable=True)  # Brief summary of conversation
+    messages_json = Column(JSONB, nullable=False, default=list)  # Array of {role, content, toolExecutions?, taskList?}
+
+    # Context used in conversation
+    model_used = Column(String, nullable=True)
+    document_ids_context = Column(JSONB, nullable=True, default=list)  # IDs of documents used as context
+    folder_ids_context = Column(JSONB, nullable=True, default=list)  # IDs of folders used as context
+
+    # Documents created during conversation
+    created_document_ids = Column(JSONB, nullable=True, default=list)  # IDs of documents created by AI
+
+    # Status
+    is_archived = Column(Boolean, default=False)
+    message_count = Column(Integer, default=0)
+
+    # Timestamps
+    last_message_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    # Relationships
+    user = relationship("User")
+    project = relationship("Project")
+    workspace = relationship("Workspace")
+
+
 class DocumentAttachment(Base):
     """Many-to-many relationship between documents (copies) and images"""
     __tablename__ = "document_attachments"

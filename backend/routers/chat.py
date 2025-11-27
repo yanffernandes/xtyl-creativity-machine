@@ -284,6 +284,20 @@ IMAGE GENERATION RULES (CRITICAL):
 
 Only provide explanatory text when tools cannot accomplish the task or when the user specifically asks for suggestions."""]
 
+    # Add project context - CRITICAL: This tells the AI which project to use for tools
+    if request.project_id:
+        from models import Project as DBProject
+        project = db.query(DBProject).filter(DBProject.id == request.project_id).first()
+        project_name = project.name if project else "Unknown"
+        system_parts.append(f"""
+CURRENT PROJECT CONTEXT:
+- Project ID: {request.project_id}
+- Project Name: {project_name}
+
+IMPORTANT: You are working within this project. When using tools that require project_id (like create_document, generate_image, etc.),
+you MUST use project_id="{request.project_id}". Do NOT ask the user for the project ID - you already have it.
+""")
+
     # Add current document context if available
     if request.current_document and request.use_rag:
         system_parts.append(f"""
@@ -533,6 +547,20 @@ IMAGE GENERATION RULES (CRITICAL):
 - If you need to attach an existing image, use attach_image_to_document tool
 
 Only provide explanatory text when tools cannot accomplish the task or when the user specifically asks for suggestions."""]
+
+            # Add project context - CRITICAL: This tells the AI which project to use for tools
+            if request.project_id:
+                from models import Project as DBProject
+                project = db.query(DBProject).filter(DBProject.id == request.project_id).first()
+                project_name = project.name if project else "Unknown"
+                system_parts.append(f"""
+CURRENT PROJECT CONTEXT:
+- Project ID: {request.project_id}
+- Project Name: {project_name}
+
+IMPORTANT: You are working within this project. When using tools that require project_id (like create_document, generate_image, etc.),
+you MUST use project_id="{request.project_id}". Do NOT ask the user for the project ID - you already have it.
+""")
 
             # Add current document context
             if request.current_document and request.use_rag:

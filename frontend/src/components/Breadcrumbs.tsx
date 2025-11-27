@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils"
 interface BreadcrumbItem {
   label: string
   href?: string
+  onClick?: () => void
   icon?: React.ReactNode
 }
 
@@ -24,13 +25,23 @@ export default function Breadcrumbs({ items, className }: BreadcrumbsProps) {
       {items.map((item, index) => {
         const isLast = index === items.length - 1
 
+        const handleClick = () => {
+          if (item.onClick) {
+            item.onClick()
+          } else if (item.href) {
+            router.push(item.href)
+          }
+        }
+
+        const isClickable = item.href || item.onClick
+
         return (
           <div key={index} className="flex items-center gap-2">
-            {item.href ? (
+            {isClickable ? (
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => router.push(item.href!)}
+                onClick={handleClick}
                 className="h-7 px-2 font-medium text-muted-foreground hover:text-foreground transition-colors"
               >
                 {item.icon && <span className="mr-1.5">{item.icon}</span>}

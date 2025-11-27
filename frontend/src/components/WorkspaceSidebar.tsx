@@ -194,7 +194,7 @@ export default function WorkspaceSidebar({ className, onDocumentNavigate }: Work
 
   if (isCollapsed) {
     return (
-      <div className={cn("w-16 border-r bg-card/50 backdrop-blur-sm flex flex-col items-center py-4 transition-smooth", className)}>
+      <div className={cn("w-16 border-r border-white/[0.08] bg-background/60 backdrop-blur-xl flex flex-col items-center py-4 transition-smooth", className)}>
         <Button
           variant="ghost"
           size="icon"
@@ -233,9 +233,9 @@ export default function WorkspaceSidebar({ className, onDocumentNavigate }: Work
   }
 
   return (
-    <div className={cn("flex flex-col border-r bg-card/50 backdrop-blur-sm transition-smooth overflow-x-hidden", className)} style={{ width: "var(--sidebar-width)" }}>
+    <div className={cn("flex flex-col border-r border-white/[0.08] bg-background/60 backdrop-blur-xl transition-smooth overflow-x-hidden", className)} style={{ width: "var(--sidebar-width)" }}>
       {/* Header */}
-      <div className="p-4 flex justify-between items-center border-b bg-gradient-to-br from-primary/5 to-transparent">
+      <div className="p-4 flex justify-between items-center border-b border-white/[0.06] bg-gradient-to-b from-white/[0.03] to-transparent">
         <div className="flex-1 min-w-0">
           <h2 className="font-bold text-base truncate">{workspace?.name || "Workspace"}</h2>
           {workspace?.description && (
@@ -253,7 +253,7 @@ export default function WorkspaceSidebar({ className, onDocumentNavigate }: Work
       </div>
 
       {/* Search */}
-      <div className="p-3 border-b space-y-2">
+      <div className="p-3 border-b border-white/[0.06] space-y-2">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -351,7 +351,7 @@ export default function WorkspaceSidebar({ className, onDocumentNavigate }: Work
       </ScrollArea>
 
       {/* User Menu */}
-      <div className="p-3 border-t mt-auto bg-gradient-to-t from-primary/5 to-transparent">
+      <div className="p-3 border-t border-white/[0.06] mt-auto bg-gradient-to-t from-white/[0.02] to-transparent">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button

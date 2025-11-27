@@ -284,10 +284,20 @@ export default function ProjectPage() {
         }
     }
 
+    // Handle breadcrumb click for current project - should close document and return to kanban
+    const handleProjectBreadcrumbClick = () => {
+        if (selectedDoc || viewingImage) {
+            setSelectedDoc(null)
+            setViewingImage(null)
+            setSavedContent("")
+            setCurrentContent("")
+        }
+    }
+
     const breadcrumbItems = [
         { label: "Home", href: `/workspace/${workspaceId}`, icon: <Home className="h-3.5 w-3.5" /> },
         { label: workspaceName || "Workspace", href: `/workspace/${workspaceId}`, icon: <FolderOpen className="h-3.5 w-3.5" /> },
-        { label: projectName || "Projeto", href: `/workspace/${workspaceId}/project/${projectId}`, icon: <FolderOpen className="h-3.5 w-3.5" /> },
+        { label: projectName || "Projeto", onClick: handleProjectBreadcrumbClick, icon: <FolderOpen className="h-3.5 w-3.5" /> },
     ]
 
     const handleSaveDocument = async (content: string, documentId?: string) => {
@@ -894,6 +904,7 @@ export default function ProjectPage() {
             </div>
 
             <ChatSidebar
+                workspaceId={workspaceId}
                 projectId={projectId}
                 currentDocument={selectedDoc}
                 onAiSuggestion={setSuggestedContent}
@@ -902,6 +913,21 @@ export default function ProjectPage() {
                 onAutoApplyChange={setAutoApplyEdits}
                 onDocumentUpdate={handleDocumentUpdate}
                 onToolExecuted={handleToolExecuted}
+                onNavigateToDocument={(docId) => {
+                    // Find the document and select it
+                    const doc = creations.find(d => d.id === docId) || contextFiles.find(f => f.id === docId)
+                    if (doc) {
+                        handleSelectDocument(doc)
+                    } else {
+                        // If not found in current list, refresh and try again
+                        fetchDocuments().then(() => {
+                            const updatedDoc = creations.find(d => d.id === docId) || contextFiles.find(f => f.id === docId)
+                            if (updatedDoc) {
+                                handleSelectDocument(updatedDoc)
+                            }
+                        })
+                    }
+                }}
                 availableModels={availableModels}
                 defaultModel={defaultTextModel}
             />
@@ -943,8 +969,11 @@ export default function ProjectPage() {
                 documents={[...creations, ...contextFiles]}
                 documentId={refiningImage?.id}
                 existingPrompt={refiningImage?.content || ""}
+                attachToDocumentId={selectedDoc?.media_type !== 'image' ? selectedDoc?.id : undefined}
+                attachToDocumentTitle={selectedDoc?.media_type !== 'image' ? selectedDoc?.title : undefined}
                 onImageGenerated={() => {
                     fetchDocuments()
+                    setAttachmentsRefreshKey(prev => prev + 1)
                     setRefiningImage(null)
                     toast({
                         title: refiningImage ? "Imagem refinada!" : "Imagem criada!",

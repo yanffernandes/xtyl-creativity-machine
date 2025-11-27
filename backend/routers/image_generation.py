@@ -20,6 +20,7 @@ from image_generation_service import (
     get_available_models,
     DEFAULT_MODEL
 )
+from image_naming_service import generate_image_title
 from ai_usage_service import log_ai_usage
 from pricing_config import calculate_image_cost
 from auth import get_current_user
@@ -169,8 +170,14 @@ async def generate_image(
                 for ra in request.reference_assets
             ]
 
+        # Generate title using AI if not provided
+        if request.title:
+            image_title = request.title
+        else:
+            image_title = await generate_image_title(request.prompt)
+
         document = models.Document(
-            title=request.title or f"Generated Image - {request.model}",
+            title=image_title,
             content=request.prompt,  # Store the ORIGINAL prompt as content
             media_type="image",
             status="approved",

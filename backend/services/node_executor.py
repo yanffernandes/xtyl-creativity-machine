@@ -27,6 +27,7 @@ sys.path.append('/app')
 # Import existing services
 from llm_service import chat_completion
 from image_generation_service import generate_image_openrouter
+from image_naming_service import generate_image_title
 from minio_service import upload_file
 from services.context_retrieval import retrieve_workflow_context
 
@@ -212,10 +213,17 @@ async def execute_generate_image_node(
     )
 
     # Create document record for the image
+    # Generate AI title if not provided in node config
+    if data.get("title"):
+        image_title = data.get("title")
+    else:
+        image_title = await generate_image_title(prompt)
+        logger.info(f"Generated AI title: {image_title}")
+
     document = Document(
         id=str(uuid.uuid4()),
         project_id=execution.project_id,
-        title=data.get("title", f"Generated Image - {node['id']}"),
+        title=image_title,
         content=prompt,  # Store prompt as content
         media_type="image",
         status="approved",

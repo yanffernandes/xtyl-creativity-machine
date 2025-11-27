@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/dialog"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Loader2, Sparkles, Image as ImageIcon, Download, Plus, X } from "lucide-react"
+import { Loader2, Sparkles, Image as ImageIcon, Download, Plus, X, Check, Link } from "lucide-react"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import api from "@/lib/api"
 import { useToast } from "@/components/ui/use-toast"
@@ -66,9 +66,11 @@ interface ImageGenerationPanelProps {
   projectId: string
   folderId?: string
   onImageGenerated?: () => void
-  documentId?: string // For refinement mode
+  documentId?: string // For refinement mode (the image being refined)
   existingPrompt?: string
   documents?: Document[] // Available documents to choose from
+  attachToDocumentId?: string // Document to attach the generated image to (text document)
+  attachToDocumentTitle?: string // Title of the document for display
 }
 
 export default function ImageGenerationPanel({
@@ -79,7 +81,9 @@ export default function ImageGenerationPanel({
   onImageGenerated,
   documentId,
   existingPrompt,
-  documents = []
+  documents = [],
+  attachToDocumentId,
+  attachToDocumentTitle
 }: ImageGenerationPanelProps) {
   const [models, setModels] = useState<ImageModel[]>([])
   const [textModels, setTextModels] = useState<TextModel[]>([])
@@ -97,6 +101,8 @@ export default function ImageGenerationPanel({
   const [useAgent, setUseAgent] = useState(false)
   const [selectedReferenceAssets, setSelectedReferenceAssets] = useState<Array<{id: string, usage_mode: string, [key: string]: any}>>([])
   const [showAssetSelector, setShowAssetSelector] = useState(false)
+  const [isAttaching, setIsAttaching] = useState(false)
+  const [isAttached, setIsAttached] = useState(false)
   const { toast } = useToast()
 
   const isRefinementMode = !!documentId
@@ -274,6 +280,9 @@ Retorne APENAS o prompt de geração de imagem, sem explicações adicionais.`
 
       setGeneratedImage(response.data)
 
+      // Reset attached state when a new image is generated (including refinements)
+      setIsAttached(false)
+
       // Add to conversation history
       setConversationHistory(prev => [
         ...prev,
@@ -318,7 +327,54 @@ Retorne APENAS o prompt de geração de imagem, sem explicações adicionais.`
     setConversationHistory([])
     setSelectedDocument("")
     setUseAgent(false)
+    setIsAttached(false)
     onOpenChange(false)
+  }
+
+  const handleAttachToDocument = async () => {
+    if (!generatedImage || !attachToDocumentId) return
+
+    setIsAttaching(true)
+    try {
+      await api.post(`/documents/${attachToDocumentId}/attachments`, {
+        document_id: attachToDocumentId,
+        image_id: generatedImage.document_id,
+        is_primary: false,
+        attachment_order: 0
+      })
+
+      setIsAttached(true)
+      toast({
+        title: "Imagem anexada!",
+        description: `Imagem anexada ao documento "${attachToDocumentTitle || 'selecionado'}"`
+      })
+
+      // Notify parent to refresh
+      if (onImageGenerated) {
+        onImageGenerated()
+      }
+    } catch (error: any) {
+      console.error("Failed to attach image:", error)
+      // Handle error detail which might be an object or string
+      let errorMessage = "Não foi possível anexar a imagem"
+      if (error.response?.data?.detail) {
+        const detail = error.response.data.detail
+        if (typeof detail === 'string') {
+          errorMessage = detail
+        } else if (Array.isArray(detail)) {
+          errorMessage = detail.map((d: any) => d.msg || d.message || String(d)).join(', ')
+        } else if (typeof detail === 'object') {
+          errorMessage = detail.msg || detail.message || JSON.stringify(detail)
+        }
+      }
+      toast({
+        title: "Erro ao anexar",
+        description: errorMessage,
+        variant: "destructive"
+      })
+    } finally {
+      setIsAttaching(false)
+    }
   }
 
   const handleRefine = () => {
@@ -757,15 +813,51 @@ Retorne APENAS o prompt de geração de imagem, sem explicações adicionais.`
                         </div>
                       </div>
 
-                      <div className="flex gap-2 justify-end">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => window.open(generatedImage.file_url, '_blank')}
-                        >
-                          <Download className="h-4 w-4 mr-2" />
-                          Download
-                        </Button>
+                      {/* Action Buttons */}
+                      <div className="flex flex-col gap-2 p-3 bg-secondary/30 rounded-lg border">
+                        <div className="flex flex-wrap gap-2 items-center">
+                          {/* Attach to document button - primary action when document is selected */}
+                          {attachToDocumentId && (
+                            <Button
+                              size="sm"
+                              variant={isAttached ? "outline" : "default"}
+                              onClick={handleAttachToDocument}
+                              disabled={isAttaching || isAttached}
+                            >
+                              {isAttaching ? (
+                                <>
+                                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                  Anexando...
+                                </>
+                              ) : isAttached ? (
+                                <>
+                                  <Check className="h-4 w-4 mr-2 text-green-600" />
+                                  Anexado ao documento
+                                </>
+                              ) : (
+                                <>
+                                  <Link className="h-4 w-4 mr-2" />
+                                  Anexar ao documento
+                                </>
+                              )}
+                            </Button>
+                          )}
+
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => window.open(generatedImage.file_url, '_blank')}
+                          >
+                            <Download className="h-4 w-4 mr-2" />
+                            Download
+                          </Button>
+                        </div>
+
+                        <p className="text-xs text-muted-foreground">
+                          💡 A imagem já foi salva no projeto automaticamente.
+                          {attachToDocumentId && !isAttached && ` Use "Anexar" para vinculá-la ao documento "${attachToDocumentTitle}".`}
+                          {isAttached && " Você pode continuar refinando - cada versão é uma nova imagem."}
+                        </p>
                       </div>
                     </div>
                   ) : conversationHistory.length === 0 ? (

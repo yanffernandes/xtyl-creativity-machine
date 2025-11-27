@@ -12,6 +12,7 @@ from crud import (
 from schemas import DocumentUpdate, DocumentCreate
 import asyncio
 from image_generation_service import generate_and_store_image
+from image_naming_service import generate_image_title
 
 
 def read_document_tool(db: Session, document_id: str) -> Dict[str, Any]:
@@ -615,7 +616,9 @@ async def generate_image_tool(
 
         # Create a Document record for the generated image
         # Images are stored as documents with media_type='image'
-        image_title = f"Generated Image - {prompt[:50]}..." if len(prompt) > 50 else f"Generated Image - {prompt}"
+        # Generate AI title for the image
+        image_title = await generate_image_title(prompt)
+        print(f"📝 Generated title: {image_title}")
         image_doc_id = str(uuid.uuid4())
         print(f"📄 Creating image document with ID: {image_doc_id}")
 
