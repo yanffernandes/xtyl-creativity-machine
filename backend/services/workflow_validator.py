@@ -15,7 +15,8 @@ class WorkflowValidator:
     # Valid node types (updated for complete workflow system)
     VALID_NODE_TYPES = {
         'start', 'finish', 'text_generation', 'image_generation',
-        'conditional', 'loop', 'context_retrieval', 'processing'
+        'conditional', 'loop', 'context_retrieval',
+        'attach_creative'  # Combines document + image
     }
 
     # Required fields per node type
@@ -27,7 +28,7 @@ class WorkflowValidator:
         'conditional': {'label', 'condition'},
         'loop': {'label'},  # Must have either 'iterations' or 'condition'
         'context_retrieval': {'label'},
-        'processing': {'label', 'prompt', 'model'}
+        'attach_creative': {'label'}  # Combines document + image inputs
     }
 
     def __init__(self):

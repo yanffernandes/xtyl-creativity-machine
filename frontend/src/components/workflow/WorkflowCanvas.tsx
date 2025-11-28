@@ -15,6 +15,9 @@ import ReactFlow, {
 import "reactflow/dist/style.css";
 import { useWorkflowStore } from "@/lib/stores/workflowStore";
 import { useTheme } from "next-themes";
+import { useValidateConnection } from "@/hooks/useValidateConnection";
+import { useToast } from "@/components/ui/use-toast";
+import { cn } from "@/lib/utils";
 
 import StartNode from "./nodes/StartNode";
 import FinishNode from "./nodes/FinishNode";
@@ -23,7 +26,6 @@ import ImageGenerationNode from "./nodes/ImageGenerationNode";
 import ConditionalNode from "./nodes/ConditionalNode";
 import LoopNode from "./nodes/LoopNode";
 import ContextRetrievalNode from "./nodes/ContextRetrievalNode";
-import ProcessingNode from "./nodes/ProcessingNode";
 import AttachNode from "./nodes/AttachNode";
 
 const nodeTypes: NodeTypes = {
@@ -34,7 +36,6 @@ const nodeTypes: NodeTypes = {
     conditional: ConditionalNode,
     loop: LoopNode,
     context_retrieval: ContextRetrievalNode,
-    processing: ProcessingNode,
     attach_creative: AttachNode,
 };
 
@@ -52,6 +53,7 @@ function WorkflowCanvasContent({ className, executionState }: WorkflowCanvasProp
     const reactFlowWrapper = useRef<HTMLDivElement>(null);
     const { theme } = useTheme();
     const [reactFlowInstance, setReactFlowInstance] = useState<any>(null);
+    const { toast } = useToast();
 
     const {
         nodes,
@@ -63,6 +65,9 @@ function WorkflowCanvasContent({ className, executionState }: WorkflowCanvasProp
         selectNode,
         deselectAll,
     } = useWorkflowStore();
+
+    // Connection validation hook
+    const { isValidConnection: validateTypeConnection, connectionError } = useValidateConnection();
 
     const onDragOver = useCallback((event: React.DragEvent) => {
         event.preventDefault();
@@ -118,14 +123,21 @@ function WorkflowCanvasContent({ className, executionState }: WorkflowCanvasProp
             // Prevent self-connections
             if (connection.source === connection.target) return false;
 
-            // Prevent connecting Loop output back to Start (example rule)
-            // We can add more complex rules here based on node types
-            // const sourceNode = nodes.find((n) => n.id === connection.source);
-            // const targetNode = nodes.find((n) => n.id === connection.target);
+            // Validate type compatibility using the hook
+            const isTypeValid = validateTypeConnection(connection);
 
-            return true;
+            if (!isTypeValid && connectionError) {
+                // Show error toast for invalid connections
+                toast({
+                    title: "Conexão inválida",
+                    description: connectionError,
+                    variant: "destructive",
+                });
+            }
+
+            return isTypeValid;
         },
-        [nodes]
+        [validateTypeConnection, connectionError, toast]
     );
 
     // Effect to highlight active node
@@ -163,17 +175,43 @@ function WorkflowCanvasContent({ className, executionState }: WorkflowCanvasProp
                 snapGrid={[15, 15]}
                 defaultEdgeOptions={{ type: "smoothstep", animated: true }}
                 deleteKeyCode={["Backspace", "Delete"]}
-                className="bg-gray-50 dark:bg-gray-950"
+                className="!bg-transparent"
             >
-                <Background color={theme === "dark" ? "#333" : "#ddd"} gap={15} />
-                <Controls className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 fill-gray-600 dark:fill-gray-400" />
-                <MiniMap
-                    className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700"
-                    nodeColor={theme === "dark" ? "#4b5563" : "#e5e7eb"}
-                    maskColor={theme === "dark" ? "rgba(0,0,0,0.3)" : "rgba(255,255,255,0.6)"}
+                <Background
+                    color={theme === "dark" ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.04)"}
+                    gap={20}
+                    size={1}
                 />
-                <Panel position="top-right" className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-md p-2 rounded-lg border border-gray-200 dark:border-gray-800 text-xs text-gray-500">
-                    {nodes.length} nodes • {edges.length} edges
+                <Controls
+                    className={cn(
+                        "!bg-white/[0.03] !backdrop-blur-2xl !backdrop-saturate-150",
+                        "!border !border-white/[0.1] !rounded-xl",
+                        "!shadow-[0_8px_32px_-8px_rgba(0,0,0,0.3),0_0_0_1px_rgba(255,255,255,0.03)_inset]",
+                        "[&>button]:!bg-transparent [&>button]:!border-0 [&>button]:!border-b [&>button]:!border-white/[0.06]",
+                        "[&>button]:!rounded-none [&>button:first-child]:!rounded-t-xl [&>button:last-child]:!rounded-b-xl [&>button:last-child]:!border-b-0",
+                        "[&>button]:!fill-white/60 [&>button:hover]:!bg-white/[0.08] [&>button:hover]:!fill-white/90",
+                        "[&>button]:!transition-all [&>button]:!duration-200"
+                    )}
+                />
+                <MiniMap
+                    className={cn(
+                        "!bg-white/[0.03] !backdrop-blur-2xl !backdrop-saturate-150",
+                        "!border !border-white/[0.1] !rounded-xl",
+                        "!shadow-[0_8px_32px_-8px_rgba(0,0,0,0.3),0_0_0_1px_rgba(255,255,255,0.03)_inset]"
+                    )}
+                    nodeColor="rgba(91,141,239,0.4)"
+                    maskColor="rgba(0,0,0,0.6)"
+                />
+                <Panel
+                    position="top-right"
+                    className={cn(
+                        "!bg-white/[0.03] !backdrop-blur-2xl !backdrop-saturate-150",
+                        "!border !border-white/[0.1] !rounded-xl !p-2.5 !px-3",
+                        "!shadow-[0_8px_32px_-8px_rgba(0,0,0,0.3),0_0_0_1px_rgba(255,255,255,0.03)_inset]",
+                        "!text-xs !text-white/60"
+                    )}
+                >
+                    {nodes.length} nós • {edges.length} conexões
                 </Panel>
             </ReactFlow>
         </div>

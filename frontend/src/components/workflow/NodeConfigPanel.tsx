@@ -6,13 +6,24 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { X } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { glassPanelHeaderClasses } from "@/lib/glass-utils";
 import VariableAutocomplete from "./VariableAutocomplete";
-import { ModelSelectorCompact } from "./ModelSelector";
+import { Node } from "reactflow";
+import ModelSelector from "./ModelSelector";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 
-export default function NodeConfigPanel() {
-    const { selectedNode, updateNodeData, selectNode } = useWorkflowStore();
+interface NodeConfigPanelProps {
+    selectedNode?: Node | null;
+    className?: string;
+}
+
+export function NodeConfigPanel({ selectedNode: propSelectedNode, className }: NodeConfigPanelProps) {
+    const { selectedNode: storeSelectedNode, updateNodeData, selectNode } = useWorkflowStore();
+
+    // Use prop if provided, otherwise use store
+    const selectedNode = propSelectedNode !== undefined ? propSelectedNode : storeSelectedNode;
 
     if (!selectedNode) return null;
 
@@ -50,10 +61,10 @@ export default function NodeConfigPanel() {
                         </div>
                         <div className="space-y-2">
                             <Label>Model</Label>
-                            <ModelSelectorCompact
-                                value={selectedNode.data.model || "gpt-4-turbo-preview"}
+                            <ModelSelector
+                                value={selectedNode.data.model || ""}
                                 onChange={(value) => handleUpdate("model", value)}
-                                taskType="text"
+                                type="text"
                             />
                         </div>
                         <div className="space-y-2">
@@ -78,6 +89,28 @@ export default function NodeConfigPanel() {
                                 onChange={(e) => handleUpdate("temperature", parseFloat(e.target.value))}
                             />
                         </div>
+                        <div className="pt-2 border-t border-white/[0.08]">
+                            <div className="flex items-center gap-2">
+                                <Switch
+                                    checked={selectedNode.data.save_as_document !== false}
+                                    onCheckedChange={(checked) => handleUpdate("save_as_document", checked)}
+                                />
+                                <Label>Salvar como Documento</Label>
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-1">
+                                Se desativado, o conteúdo só será passado para o próximo nó
+                            </p>
+                        </div>
+                        {selectedNode.data.save_as_document !== false && (
+                            <div className="space-y-2">
+                                <Label>Título do Documento</Label>
+                                <Input
+                                    value={selectedNode.data.title || ""}
+                                    onChange={(e) => handleUpdate("title", e.target.value)}
+                                    placeholder="Deixe vazio para título automático"
+                                />
+                            </div>
+                        )}
                     </div>
                 );
 
@@ -93,10 +126,10 @@ export default function NodeConfigPanel() {
                         </div>
                         <div className="space-y-2">
                             <Label>Model</Label>
-                            <ModelSelectorCompact
-                                value={selectedNode.data.model || "dall-e-3"}
+                            <ModelSelector
+                                value={selectedNode.data.model || ""}
                                 onChange={(value) => handleUpdate("model", value)}
-                                taskType="image"
+                                type="image"
                             />
                         </div>
                         <div className="space-y-2">
@@ -220,54 +253,6 @@ export default function NodeConfigPanel() {
                     </div>
                 );
 
-            case "processing":
-                return (
-                    <div className="space-y-4">
-                        <div className="space-y-2">
-                            <Label>Label</Label>
-                            <Input
-                                value={selectedNode.data.label || ""}
-                                onChange={(e) => handleUpdate("label", e.target.value)}
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <Label>Model</Label>
-                            <ModelSelectorCompact
-                                value={selectedNode.data.model || "gpt-4-turbo-preview"}
-                                onChange={(value) => handleUpdate("model", value)}
-                                taskType="text"
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <Label>Instructions</Label>
-                            <VariableAutocomplete
-                                nodeId={selectedNode.id}
-                                value={selectedNode.data.prompt || ""}
-                                onChange={(value) => handleUpdate("prompt", value)}
-                                placeholder="Processing instructions..."
-                                multiline
-                                className="min-h-[100px]"
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <Label>Output Format</Label>
-                            <Select
-                                value={selectedNode.data.outputFormat || "text"}
-                                onValueChange={(value) => handleUpdate("outputFormat", value)}
-                            >
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Select format" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="text">Text</SelectItem>
-                                    <SelectItem value="json">JSON</SelectItem>
-                                    <SelectItem value="markdown">Markdown</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-                    </div>
-                );
-
             case "attach_creative":
                 return (
                     <div className="space-y-4">
@@ -278,9 +263,72 @@ export default function NodeConfigPanel() {
                                 onChange={(e) => handleUpdate("label", e.target.value)}
                             />
                         </div>
-                        <div className="text-sm text-gray-500">
-                            This node combines a document from the "Document" input with an image from the "Image" input.
-                            The output is the updated document with the image attached.
+
+                        {/* Document Source */}
+                        <div className="space-y-2">
+                            <Label>Fonte do Documento</Label>
+                            <Select
+                                value={selectedNode.data.documentSource || "from_node"}
+                                onValueChange={(value) => handleUpdate("documentSource", value)}
+                            >
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Selecione a fonte" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="from_node">De um nó conectado</SelectItem>
+                                    <SelectItem value="from_project">Do projeto (existente)</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        {selectedNode.data.documentSource === "from_project" && (
+                            <div className="space-y-2">
+                                <Label>ID do Documento</Label>
+                                <Input
+                                    value={selectedNode.data.documentId || ""}
+                                    onChange={(e) => handleUpdate("documentId", e.target.value)}
+                                    placeholder="UUID do documento existente"
+                                />
+                                <p className="text-xs text-muted-foreground">
+                                    Cole o ID de um documento existente no projeto
+                                </p>
+                            </div>
+                        )}
+
+                        {/* Image Source */}
+                        <div className="space-y-2">
+                            <Label>Fonte da Imagem</Label>
+                            <Select
+                                value={selectedNode.data.imageSource || "from_node"}
+                                onValueChange={(value) => handleUpdate("imageSource", value)}
+                            >
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Selecione a fonte" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="from_node">De um nó conectado</SelectItem>
+                                    <SelectItem value="from_project">Do projeto (existente)</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        {selectedNode.data.imageSource === "from_project" && (
+                            <div className="space-y-2">
+                                <Label>ID da Imagem</Label>
+                                <Input
+                                    value={selectedNode.data.imageId || ""}
+                                    onChange={(e) => handleUpdate("imageId", e.target.value)}
+                                    placeholder="UUID da imagem existente"
+                                />
+                                <p className="text-xs text-muted-foreground">
+                                    Cole o ID de uma imagem existente no projeto
+                                </p>
+                            </div>
+                        )}
+
+                        <div className="text-xs text-muted-foreground p-3 bg-white/[0.03] rounded-lg border border-white/[0.08]">
+                            <p className="font-medium mb-1">Como funciona:</p>
+                            <p>Este nó combina um documento de texto com uma imagem para criar um "creative" completo.</p>
                         </div>
                     </div>
                 );
@@ -318,16 +366,27 @@ export default function NodeConfigPanel() {
     };
 
     return (
-        <div className="w-80 border-l border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 flex flex-col h-full">
-            <div className="p-4 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between">
-                <h2 className="font-semibold text-gray-900 dark:text-white">Configuration</h2>
-                <Button variant="ghost" size="icon" onClick={() => selectNode(null)}>
-                    <X className="w-4 h-4" />
+        <div className={cn(
+            "flex flex-col h-full overflow-hidden",
+            className
+        )}>
+            <div className={cn("p-3 flex items-center justify-between", glassPanelHeaderClasses)}>
+                <h2 className="text-sm font-semibold text-foreground">Configuração</h2>
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => selectNode(null)}
+                    className="h-7 w-7 hover:bg-white/[0.08] rounded-lg"
+                >
+                    <X className="w-3.5 h-3.5" />
                 </Button>
             </div>
-            <ScrollArea className="flex-1 p-4">
-                {renderConfig()}
+            <ScrollArea className="flex-1">
+                <div className="p-4">{renderConfig()}</div>
             </ScrollArea>
         </div>
     );
 }
+
+// Default export for backwards compatibility
+export default NodeConfigPanel;

@@ -180,7 +180,7 @@ async def generate_image(
             title=image_title,
             content=request.prompt,  # Store the ORIGINAL prompt as content
             media_type="image",
-            status="approved",
+            status="art_ok",
             project_id=request.project_id,
             folder_id=request.folder_id,
             file_url=result["file_url"],
@@ -345,7 +345,7 @@ async def refine_image(
             title=f"{existing_doc.title} (Refined)",
             content=request.refinement_prompt,  # Save only the original refinement instructions (not enhanced)
             media_type="image",
-            status="approved",
+            status="art_ok",
             project_id=existing_doc.project_id,
             folder_id=existing_doc.folder_id,
             file_url=result["file_url"],

@@ -1,3 +1,11 @@
+# Load environment variables FIRST before any other imports
+# This ensures env vars are available when modules like llm_service are imported
+import os
+from pathlib import Path
+from dotenv import load_dotenv
+env_path = Path(__file__).parent.parent / '.env'
+load_dotenv(dotenv_path=env_path)
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
@@ -22,7 +30,26 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
+
+# Global exception handler to ensure CORS headers on errors
+from fastapi.responses import JSONResponse
+from fastapi import Request
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    """Ensure all exceptions return proper CORS headers"""
+    import traceback
+    traceback.print_exc()  # Log the error
+    return JSONResponse(
+        status_code=500,
+        content={"detail": str(exc)},
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Credentials": "true",
+        }
+    )
 
 app.include_router(auth.router)
 app.include_router(workspaces.router)

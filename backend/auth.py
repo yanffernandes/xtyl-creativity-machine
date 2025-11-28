@@ -74,13 +74,39 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = De
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         email: str = payload.get("sub")
         token_type: str = payload.get("type", "access")
-        
+
         if email is None or token_type != "access":
             raise credentials_exception
     except JWTError:
         raise credentials_exception
-    
+
     # Import here to avoid circular dependency
+    from crud import get_user_by_email
+    user = get_user_by_email(db, email=email)
+    if user is None:
+        raise credentials_exception
+    return user
+
+
+async def get_current_user_from_token(token: str, db: Session) -> User:
+    """
+    Get current authenticated user from JWT token string.
+    Used for SSE endpoints where token is passed via query parameter.
+    """
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+    )
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        email: str = payload.get("sub")
+        token_type: str = payload.get("type", "access")
+
+        if email is None or token_type != "access":
+            raise credentials_exception
+    except JWTError:
+        raise credentials_exception
+
     from crud import get_user_by_email
     user = get_user_by_email(db, email=email)
     if user is None:

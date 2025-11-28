@@ -54,17 +54,19 @@ async def execute_node(
 
     # Route to specific handler
     handlers = {
+        "start": execute_start_node,
         "generate_copy": execute_generate_copy_node,
         "text_generation": execute_generate_copy_node,  # Alias for compatibility
         "generate_image": execute_generate_image_node,
         "image_generation": execute_generate_image_node,  # Alias for compatibility
         "attach": execute_attach_to_document_node,
+        "attach_creative": execute_attach_to_document_node,  # Alias for compatibility
         "review": execute_review_node,
         "parallel": execute_parallel_node,
         "conditional": execute_conditional_node,
+        "loop": execute_loop_node,
         "finish": execute_finish_node,
         "context_retrieval": execute_context_retrieval_node,
-        "processing": execute_processing_node,
     }
 
     handler = handlers.get(node_type)
@@ -109,6 +111,80 @@ async def execute_node(
         raise
 
 
+async def execute_start_node(
+    node: Dict[str, Any],
+    execution: WorkflowExecution,
+    db: Session
+) -> Dict[str, Any]:
+    """
+    Execute start node
+
+    Initializes the workflow execution with input variables.
+    This is typically the entry point of a workflow.
+
+    Args:
+        node: Node configuration
+        execution: Workflow execution
+        db: Database session
+
+    Returns:
+        Dict with input variables passed through
+    """
+    data = node.get("data", {})
+    input_variables = data.get("inputVariables", [])
+
+    logger.info(f"Starting workflow execution {execution.id}")
+
+    # Pass through any input variables defined in the start node
+    result = {
+        "status": "started",
+        "input_variables": {}
+    }
+
+    # Extract input variable values from execution config
+    for var in input_variables:
+        var_name = var.get("name")
+        if var_name and execution.config_json:
+            result["input_variables"][var_name] = execution.config_json.get(
+                var_name, var.get("defaultValue", "")
+            )
+
+    return result
+
+
+async def execute_loop_node(
+    node: Dict[str, Any],
+    execution: WorkflowExecution,
+    db: Session
+) -> Dict[str, Any]:
+    """
+    Execute loop node
+
+    Manages iteration over a set of items or a fixed number of iterations.
+    Note: Actual loop logic is handled by LoopExecutor in workflow_executor.
+
+    Args:
+        node: Node configuration
+        execution: Workflow execution
+        db: Database session
+
+    Returns:
+        Dict with loop status
+    """
+    data = node.get("data", {})
+    iterations = data.get("iterations")
+    condition = data.get("condition")
+
+    logger.info(f"Loop node: iterations={iterations}, condition={condition}")
+
+    return {
+        "status": "loop_initialized",
+        "iterations": iterations,
+        "condition": condition,
+        "current_iteration": 0
+    }
+
+
 async def execute_generate_copy_node(
     node: Dict[str, Any],
     execution: WorkflowExecution,
@@ -117,7 +193,10 @@ async def execute_generate_copy_node(
     """
     Execute generate_copy node
 
-    Creates draft documents with AI-generated text
+    Creates draft documents with AI-generated text.
+
+    If save_as_document is False, only returns the generated content without
+    persisting to the database. This is useful for intermediate processing steps.
 
     Args:
         node: Node configuration
@@ -125,12 +204,13 @@ async def execute_generate_copy_node(
         db: Database session
 
     Returns:
-        Dict with document_ids
+        Dict with content (and document_ids if save_as_document is True)
     """
     data = node.get("data", {})
     prompt_template = data.get("prompt", "")
     model = data.get("model", "openai/gpt-5.1")
     temperature = data.get("temperature", 0.7)
+    save_as_document = data.get("save_as_document", True)  # Default to True for backwards compatibility
 
     # Replace template variables with config values
     prompt = prompt_template
@@ -149,6 +229,16 @@ async def execute_generate_copy_node(
     # Extract content from response
     content = response.get("choices", [{}])[0].get("message", {}).get("content", "")
 
+    # If save_as_document is False, just return the content without persisting
+    if not save_as_document:
+        logger.info(f"Generated content (not saved as document): {len(content)} chars")
+        return {
+            "content": content,
+            "content_length": len(content),
+            "document_ids": [],  # Empty list since no document was created
+            "title": data.get("title", f"Generated Copy - {node['id']}")
+        }
+
     # Create draft document
     document = Document(
         id=str(uuid.uuid4()),
@@ -166,7 +256,9 @@ async def execute_generate_copy_node(
 
     return {
         "document_ids": [document.id],
-        "content_length": len(content)
+        "content_length": len(content),
+        "content": content,  # Include content for variable resolution in downstream nodes
+        "title": document.title
     }
 
 
@@ -178,28 +270,31 @@ async def execute_generate_image_node(
     """
     Execute generate_image node
 
-    Creates image documents with AI-generated images
+    Creates image documents with AI-generated images.
+    Note: Variable resolution ({{node.field}}) is handled by WorkflowExecutor
+    before this function is called.
 
     Args:
-        node: Node configuration
+        node: Node configuration (with variables already resolved)
         execution: Workflow execution
         db: Database session
 
     Returns:
-        Dict with image_ids
+        Dict with image_ids and file_url
     """
     from image_generation_service import generate_and_store_image
 
     data = node.get("data", {})
-    prompt_template = data.get("prompt", "")
+    # Prompt should already have {{node.field}} variables resolved by WorkflowExecutor
+    prompt = data.get("prompt", "")
     model = data.get("model", "google/gemini-3-pro-image-preview")
     aspect_ratio = data.get("aspect_ratio", "1:1")
     quality = data.get("quality", "standard")
 
-    # Replace template variables
-    prompt = prompt_template
-    for key, value in execution.config_json.items():
-        prompt = prompt.replace(f"{{{key}}}", str(value))
+    # Also support legacy {key} syntax for execution config (backwards compatibility)
+    if execution.config_json:
+        for key, value in execution.config_json.items():
+            prompt = prompt.replace(f"{{{key}}}", str(value))
 
     logger.info(f"Generating image with prompt: {prompt[:100]}...")
 
@@ -226,7 +321,7 @@ async def execute_generate_image_node(
         title=image_title,
         content=prompt,  # Store prompt as content
         media_type="image",
-        status="approved",
+        status="art_ok",
         file_url=result["file_url"],
         thumbnail_url=result["thumbnail_url"],
         generation_metadata=result["generation_metadata"],
@@ -239,7 +334,10 @@ async def execute_generate_image_node(
 
     return {
         "image_ids": [document.id],
-        "file_url": result["file_url"]
+        "file_url": result["file_url"],
+        "thumbnail_url": result.get("thumbnail_url"),
+        "title": image_title,
+        "prompt": prompt  # Include resolved prompt for reference
     }
 
 
@@ -251,7 +349,9 @@ async def execute_attach_to_document_node(
     """
     Execute attach node
 
-    Attaches images to copy documents
+    Attaches images to copy documents. Supports two source modes:
+    - from_node: Get document/image from connected node outputs
+    - from_project: Use existing document/image from project by ID
 
     Args:
         node: Node configuration
@@ -259,23 +359,66 @@ async def execute_attach_to_document_node(
         db: Database session
 
     Returns:
-        Dict with attachment info
+        Dict with attachment info including document and image IDs
     """
     data = node.get("data", {})
-    document_ref = data.get("document_ref")
-    image_ref = data.get("image_ref")
-    is_primary = data.get("is_primary", False)
 
-    # TODO: Implement document attachment logic
-    # Need to track node outputs in execution context
-    # For now, just log
+    # Source configuration
+    document_source = data.get("documentSource", "from_node")
+    image_source = data.get("imageSource", "from_node")
 
-    logger.info(f"Attaching image {image_ref} to document {document_ref}")
+    # Get document ID based on source
+    document_id = None
+    if document_source == "from_project":
+        # Use explicit document ID from project
+        document_id = data.get("documentId")
+        if not document_id:
+            logger.warning("AttachNode: documentSource is 'from_project' but no documentId provided")
+    else:
+        # from_node: document comes from connected node (resolved by workflow executor)
+        document_ref = data.get("document_ref")
+        if document_ref:
+            # document_ref could be a document ID or a reference like "{{node.document_ids[0]}}"
+            document_id = document_ref
+
+    # Get image ID based on source
+    image_id = None
+    if image_source == "from_project":
+        # Use explicit image ID from project
+        image_id = data.get("imageId")
+        if not image_id:
+            logger.warning("AttachNode: imageSource is 'from_project' but no imageId provided")
+    else:
+        # from_node: image comes from connected node (resolved by workflow executor)
+        image_ref = data.get("image_ref")
+        if image_ref:
+            image_id = image_ref
+
+    logger.info(f"AttachNode: document_id={document_id}, image_id={image_id}")
+    logger.info(f"AttachNode: document_source={document_source}, image_source={image_source}")
+
+    # If we have both IDs, we can update the document with the image reference
+    if document_id and image_id:
+        try:
+            document = db.query(Document).filter(Document.id == document_id).first()
+            if document:
+                # Store image reference in document metadata or as thumbnail
+                if not document.thumbnail_url:
+                    # Get image document to get its URL
+                    image_doc = db.query(Document).filter(Document.id == image_id).first()
+                    if image_doc and image_doc.file_url:
+                        document.thumbnail_url = image_doc.thumbnail_url or image_doc.file_url
+                        db.commit()
+                        logger.info(f"Updated document {document_id} with image from {image_id}")
+        except Exception as e:
+            logger.error(f"Failed to attach image to document: {e}")
 
     return {
         "attached": True,
-        "document_ref": document_ref,
-        "image_ref": image_ref
+        "document_id": document_id,
+        "image_id": image_id,
+        "document_source": document_source,
+        "image_source": image_source
     }
 
 
@@ -430,9 +573,9 @@ async def execute_finish_node(
         documents = db.query(Document).filter(Document.id.in_(doc_ids)).all()
         
         for doc in documents:
-            # Update status from draft to approved
+            # Update status from draft to done
             if doc.status == "draft":
-                doc.status = "approved"
+                doc.status = "done"
             
             # Update title if provided (and if it's a single document or we append index)
             if document_title:
@@ -509,24 +652,3 @@ async def execute_context_retrieval_node(
     }
 
 
-async def execute_processing_node(
-    node: Dict[str, Any],
-    execution: WorkflowExecution,
-    db: Session
-) -> Dict[str, Any]:
-    """
-    Execute processing node (AI task)
-    
-    Processes input text using AI model (summarization, extraction, etc.)
-    
-    Args:
-        node: Node configuration
-        execution: Workflow execution
-        db: Database session
-        
-    Returns:
-        Dict with processing result
-    """
-    # Reuse text generation logic as processing is essentially text generation
-    # with specific prompts/instructions
-    return await execute_generate_copy_node(node, execution, db)

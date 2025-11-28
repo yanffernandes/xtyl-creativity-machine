@@ -1,7 +1,10 @@
 "use client";
 
+import { memo } from "react";
 import { Handle, Position, NodeProps } from "reactflow";
 import { Workflow, Zap } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { glassNodeClasses, handleDefaultClasses } from "@/lib/glass-utils";
 
 interface ParallelNodeData {
   label?: string;
@@ -9,80 +12,81 @@ interface ParallelNodeData {
   description?: string;
 }
 
-export default function ParallelNode({ data, selected }: NodeProps<ParallelNodeData>) {
+function ParallelNode({ data, selected }: NodeProps<ParallelNodeData>) {
   const branches = data.branches || 3;
 
   return (
-    <div className="min-w-[280px] max-w-[320px]">
+    <div
+      className={cn(
+        "w-[280px] transition-all duration-200",
+        glassNodeClasses,
+        selected && "ring-2 ring-indigo-500 ring-offset-2 shadow-[0_0_20px_rgba(99,102,241,0.3)]"
+      )}
+    >
       {/* Input Handle */}
       <Handle
         type="target"
-        position={Position.Top}
-        className="w-3 h-3 !bg-[#5B8DEF] border-2 border-white"
+        position={Position.Left}
+        className={cn(handleDefaultClasses, "!bg-indigo-500")}
       />
 
-      <div
-        className={`bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-950/50 dark:to-purple-950/50 backdrop-blur-xl border-2 ${
-          selected
-            ? "border-[#5B8DEF] shadow-2xl shadow-[#5B8DEF]/30"
-            : "border-indigo-200/50 dark:border-indigo-800/50"
-        } rounded-2xl transition-all duration-300 hover:shadow-xl hover:scale-105`}
-      >
-        {/* Header */}
-        <div className="px-4 py-3 border-b border-indigo-200/50 dark:border-indigo-800/50 flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-500">
-            <Workflow className="w-4 h-4 text-white" />
-          </div>
-          <div className="flex-1">
-            <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
-              {data.label || "Parallel Execution"}
-            </h3>
-            <p className="text-xs text-gray-600 dark:text-gray-400">
-              Run {branches} branches simultaneously
-            </p>
-          </div>
-          <Zap className="w-4 h-4 text-yellow-500" />
+      {/* Header */}
+      <div className="flex items-center gap-2 p-3 border-b border-white/[0.08] bg-gradient-to-b from-white/[0.04] to-transparent rounded-t-xl">
+        <div className="p-1.5 rounded-lg shrink-0 bg-white/[0.08] dark:bg-white/[0.04] text-indigo-500">
+          <Workflow className="w-4 h-4" />
+        </div>
+        <span className="font-medium text-sm text-foreground truncate">
+          {data.label || "Parallel Execution"}
+        </span>
+        <Zap className="w-4 h-4 text-yellow-500 shrink-0 ml-auto" />
+      </div>
+
+      {/* Content - Fixed max height with overflow */}
+      <div className="p-3 space-y-2 max-h-[150px] overflow-y-auto">
+        {/* Branch Count */}
+        <div className="text-xs text-muted-foreground">
+          Run <span className="font-medium text-foreground">{branches}</span> branches simultaneously
         </div>
 
-        {/* Content - Visual representation of parallel lanes */}
-        <div className="px-4 py-3">
-          <div className="flex items-center gap-2 mb-3">
-            {Array.from({ length: Math.min(branches, 4) }).map((_, i) => (
-              <div
-                key={i}
-                className="flex-1 h-12 rounded-lg bg-gradient-to-b from-indigo-100 to-purple-100 dark:from-indigo-900/30 dark:to-purple-900/30 border border-indigo-200 dark:border-indigo-800 flex items-center justify-center"
-              >
-                <div className="text-xs font-mono text-indigo-600 dark:text-indigo-400">
-                  #{i + 1}
-                </div>
+        {/* Visual representation of parallel lanes */}
+        <div className="flex items-center gap-1">
+          {Array.from({ length: Math.min(branches, 4) }).map((_, i) => (
+            <div
+              key={i}
+              className="flex-1 h-8 rounded bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center"
+            >
+              <div className="text-[10px] font-mono text-indigo-500">
+                #{i + 1}
               </div>
-            ))}
-            {branches > 4 && (
-              <div className="text-xs text-gray-500 dark:text-gray-500">
-                +{branches - 4}
-              </div>
-            )}
-          </div>
-
-          {data.description && (
-            <p className="text-xs text-gray-600 dark:text-gray-400 mt-2">
-              {data.description}
-            </p>
+            </div>
+          ))}
+          {branches > 4 && (
+            <div className="text-xs text-muted-foreground px-1">
+              +{branches - 4}
+            </div>
           )}
+        </div>
 
-          <div className="mt-3 flex items-center gap-2 text-xs text-indigo-600 dark:text-indigo-400">
-            <div className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></div>
-            <span>All branches execute concurrently</span>
+        {data.description && (
+          <div className="text-xs text-muted-foreground line-clamp-2">
+            {data.description}
           </div>
+        )}
+
+        <div className="flex items-center gap-2 text-xs text-indigo-500 pt-1">
+          <div className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></div>
+          <span>Concurrent execution</span>
         </div>
       </div>
 
       {/* Output Handle */}
       <Handle
         type="source"
-        position={Position.Bottom}
-        className="w-3 h-3 !bg-[#5B8DEF] border-2 border-white"
+        position={Position.Right}
+        className={cn(handleDefaultClasses, "!bg-indigo-500")}
       />
     </div>
   );
 }
+
+export default memo(ParallelNode);

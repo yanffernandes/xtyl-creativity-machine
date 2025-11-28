@@ -3,15 +3,19 @@ import httpx
 from typing import List, Dict, Any
 from fastapi import HTTPException
 
-OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
+
+def get_api_key():
+    """Get API key dynamically to ensure .env is loaded"""
+    return os.getenv("OPENROUTER_API_KEY")
 
 async def list_models():
     """
     Fetch available models from OpenRouter with pricing information.
     Returns models with id, name, and pricing data.
     """
-    if not OPENROUTER_API_KEY:
+    api_key = get_api_key()
+    if not api_key:
         # Return a default list if no key is present (for dev/testing without key)
         return [
             {
@@ -41,7 +45,7 @@ async def list_models():
             response = await client.get(
                 f"{OPENROUTER_BASE_URL}/models",
                 headers={
-                    "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+                    "Authorization": f"Bearer {api_key}",
                     "HTTP-Referer": "https://xtyl.com", # Required by OpenRouter
                     "X-Title": "XTYL Creativity Machine"
                 }
@@ -75,7 +79,8 @@ async def chat_completion(
     """
     Send a chat completion request to OpenRouter.
     """
-    if not OPENROUTER_API_KEY:
+    api_key = get_api_key()
+    if not api_key:
         # Mock response
         return {
             "choices": [{
@@ -100,7 +105,7 @@ async def chat_completion(
             response = await client.post(
                 f"{OPENROUTER_BASE_URL}/chat/completions",
                 headers={
-                    "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+                    "Authorization": f"Bearer {api_key}",
                     "HTTP-Referer": "https://xtyl.com",
                     "X-Title": "XTYL Creativity Machine",
                     "Content-Type": "application/json"
@@ -128,7 +133,8 @@ async def chat_completion_stream(
     Send a streaming chat completion request to OpenRouter.
     Yields chunks of text as they arrive from the model.
     """
-    if not OPENROUTER_API_KEY:
+    api_key = get_api_key()
+    if not api_key:
         # Mock streaming response
         yield {
             "choices": [{
@@ -173,7 +179,7 @@ async def chat_completion_stream(
                 "POST",
                 f"{OPENROUTER_BASE_URL}/chat/completions",
                 headers={
-                    "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+                    "Authorization": f"Bearer {api_key}",
                     "HTTP-Referer": "https://xtyl.com",
                     "X-Title": "XTYL Creativity Machine",
                     "Content-Type": "application/json"

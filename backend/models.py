@@ -79,7 +79,7 @@ class Document(Base):
     id = Column(String, primary_key=True, default=generate_uuid)
     title = Column(String)
     content = Column(Text) # Markdown content
-    status = Column(String, default="draft") # draft, review, approved, production
+    status = Column(String, default="draft") # draft, text_ok, art_ok, done, published
     project_id = Column(String, ForeignKey("projects.id"))
     folder_id = Column(String, ForeignKey("folders.id"), nullable=True)
 

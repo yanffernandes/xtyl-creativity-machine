@@ -187,7 +187,7 @@ async def upload_visual_asset(
             id=asset_id,
             title=asset_name,
             content="",  # No markdown content for images
-            status="approved",  # Assets are immediately approved
+            status="art_ok",  # Assets are immediately ready
             media_type="image",
             project_id=project_id,
             folder_id=folder_id,

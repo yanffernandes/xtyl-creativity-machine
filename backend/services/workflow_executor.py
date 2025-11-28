@@ -91,10 +91,17 @@ class WorkflowExecutor:
                     "progress": 0
                 }
 
-            # Get workflow definition
+            # Get workflow definition from template
+            template = self.db.query(WorkflowTemplate).filter(
+                WorkflowTemplate.id == execution.template_id
+            ).first()
+
+            if not template:
+                raise ValueError(f"Workflow template not found: {execution.template_id}")
+
             workflow_def = {
-                "nodes": execution.workflow_definition.get("nodes", []),
-                "edges": execution.workflow_definition.get("edges", [])
+                "nodes": template.nodes_json or [],
+                "edges": template.edges_json or []
             }
 
             # Validate workflow
@@ -118,8 +125,8 @@ class WorkflowExecutor:
                 "user_id": user_id,
                 "project_id": execution.project_id,
                 "workspace_id": execution.workspace_id,
-                "inputs": execution.inputs or {},
-                "node_outputs": execution.outputs or {},  # Load existing outputs for resume
+                "inputs": execution.config_json or {},
+                "node_outputs": execution.execution_context or {},  # Load existing outputs for resume
                 "total_tokens": execution.total_tokens_used or 0
             }
 
@@ -220,7 +227,7 @@ class WorkflowExecutor:
             # Workflow completed successfully
             execution.status = "completed"
             execution.completed_at = datetime.utcnow()
-            execution.outputs = state["node_outputs"]
+            execution.execution_context = state["node_outputs"]
             execution.total_tokens_used = state["total_tokens"]
             self.db.commit()
 
@@ -252,21 +259,27 @@ class WorkflowExecutor:
 
     def _resolve_node_variables(self, node: Dict[str, Any], state: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Resolve variables in node configuration
+        Resolve variables in node configuration.
+
+        Transforms {{node_id.field}} references into actual values from previous node outputs.
+        For example: "Generate an image based on {{text_gen.content}}"
+        becomes "Generate an image based on The actual text content..."
         """
         import copy
         resolved_node = copy.deepcopy(node)
         node_data = resolved_node.get("data", {})
-        
+
         # Iterate over all string fields in data and try to resolve variables
         for key, value in node_data.items():
             if isinstance(value, str) and "{{" in value and "}}" in value:
                 try:
-                    resolved_value = self.resolver.resolve_text(value, state["node_outputs"])
+                    # Use resolve_variables method (correct method name)
+                    resolved_value = self.resolver.resolve_variables(value, state["node_outputs"])
                     node_data[key] = resolved_value
+                    logger.debug(f"Resolved variable in {key}: {value[:50]}... -> {resolved_value[:50]}...")
                 except Exception as e:
                     logger.warning(f"Failed to resolve variable in {key}: {e}")
-        
+
         resolved_node["data"] = node_data
         return resolved_node
 

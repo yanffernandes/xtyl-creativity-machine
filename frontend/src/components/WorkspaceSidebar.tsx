@@ -26,7 +26,8 @@ import {
   FileImage,
   List,
   Image as ImageIcon,
-  Palette
+  Palette,
+  Workflow
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import {
@@ -194,7 +195,17 @@ export default function WorkspaceSidebar({ className, onDocumentNavigate }: Work
 
   if (isCollapsed) {
     return (
-      <div className={cn("w-16 border-r border-white/[0.08] bg-background/60 backdrop-blur-xl flex flex-col items-center py-4 transition-smooth", className)}>
+      <div className={cn(
+        "w-16 flex flex-col items-center py-4 transition-smooth",
+        // Floating glass effect - Apple style
+        "bg-white/[0.03] dark:bg-white/[0.02]",
+        "backdrop-blur-2xl backdrop-saturate-150",
+        "border border-white/[0.1]",
+        "rounded-2xl",
+        "shadow-[0_8px_32px_-8px_rgba(0,0,0,0.15),0_0_0_1px_rgba(255,255,255,0.05)_inset]",
+        "dark:shadow-[0_8px_32px_-8px_rgba(0,0,0,0.4),0_0_0_1px_rgba(255,255,255,0.03)_inset]",
+        className
+      )}>
         <Button
           variant="ghost"
           size="icon"
@@ -233,7 +244,20 @@ export default function WorkspaceSidebar({ className, onDocumentNavigate }: Work
   }
 
   return (
-    <div className={cn("flex flex-col border-r border-white/[0.08] bg-background/60 backdrop-blur-xl transition-smooth overflow-x-hidden", className)} style={{ width: "var(--sidebar-width)" }}>
+    <div
+      className={cn(
+        "flex flex-col transition-smooth overflow-hidden",
+        // Floating glass effect - Apple style
+        "bg-white/[0.03] dark:bg-white/[0.02]",
+        "backdrop-blur-2xl backdrop-saturate-150",
+        "border border-white/[0.1]",
+        "rounded-2xl",
+        "shadow-[0_8px_32px_-8px_rgba(0,0,0,0.15),0_0_0_1px_rgba(255,255,255,0.05)_inset]",
+        "dark:shadow-[0_8px_32px_-8px_rgba(0,0,0,0.4),0_0_0_1px_rgba(255,255,255,0.03)_inset]",
+        className
+      )}
+      style={{ width: "var(--sidebar-width)" }}
+    >
       {/* Header */}
       <div className="p-4 flex justify-between items-center border-b border-white/[0.06] bg-gradient-to-b from-white/[0.03] to-transparent">
         <div className="flex-1 min-w-0">
@@ -280,29 +304,41 @@ export default function WorkspaceSidebar({ className, onDocumentNavigate }: Work
           <Button
             variant={mediaFilter === "all" ? "default" : "ghost"}
             size="sm"
-            className="h-7 px-2 text-xs"
+            className={cn(
+              "h-7 text-xs transition-all",
+              mediaFilter === "all" ? "px-2.5" : "px-2 w-8"
+            )}
             onClick={() => setMediaFilter("all")}
+            title="Todos"
           >
-            <List className="h-3 w-3 mr-1" />
-            Todos
+            <List className={cn("h-3.5 w-3.5", mediaFilter === "all" && "mr-1.5")} />
+            {mediaFilter === "all" && "Todos"}
           </Button>
           <Button
             variant={mediaFilter === "text" ? "default" : "ghost"}
             size="sm"
-            className="h-7 px-2 text-xs"
+            className={cn(
+              "h-7 text-xs transition-all",
+              mediaFilter === "text" ? "px-2.5" : "px-2 w-8"
+            )}
             onClick={() => setMediaFilter("text")}
+            title="Textos"
           >
-            <FileText className="h-3 w-3 mr-1" />
-            Textos
+            <FileText className={cn("h-3.5 w-3.5", mediaFilter === "text" && "mr-1.5")} />
+            {mediaFilter === "text" && "Textos"}
           </Button>
           <Button
             variant={mediaFilter === "image" ? "default" : "ghost"}
             size="sm"
-            className="h-7 px-2 text-xs"
+            className={cn(
+              "h-7 text-xs transition-all",
+              mediaFilter === "image" ? "px-2.5" : "px-2 w-8"
+            )}
             onClick={() => setMediaFilter("image")}
+            title="Imagens"
           >
-            <FileImage className="h-3 w-3 mr-1" />
-            Imagens
+            <FileImage className={cn("h-3.5 w-3.5", mediaFilter === "image" && "mr-1.5")} />
+            {mediaFilter === "image" && "Imagens"}
           </Button>
         </div>
       </div>
@@ -389,6 +425,10 @@ export default function WorkspaceSidebar({ className, onDocumentNavigate }: Work
             <DropdownMenuItem onClick={() => router.push(`/workspace/${workspaceId}/templates`)}>
               <Sparkles className="mr-2 h-4 w-4" />
               <span>Templates</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => router.push(`/workspace/${workspaceId}/workflows`)}>
+              <Workflow className="mr-2 h-4 w-4" />
+              <span>Workflow Templates</span>
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => router.push(`/workspace/${workspaceId}/ai-usage`)}>
               <Activity className="mr-2 h-4 w-4" />

@@ -5,6 +5,7 @@
  *
  * Sidebar panel for editing selected node properties.
  * Uses VariableInput for prompt fields to support variable references.
+ * Updated with Apple Liquid Glass design pattern.
  */
 
 import { Node, Edge } from "reactflow";
@@ -13,7 +14,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { cn } from "@/lib/utils";
+import { glassPanelHeaderClasses } from "@/lib/glass-utils";
 import VariableInput from "./VariableInput";
+import ModelSelector from "./ModelSelector";
 import { useWorkflowVariables } from "@/hooks/useWorkflowVariables";
 
 interface NodePropertiesPanelProps {
@@ -22,6 +27,7 @@ interface NodePropertiesPanelProps {
   edges: Edge[];
   onClose: () => void;
   onUpdate: (nodeId: string, data: any) => void;
+  className?: string;
 }
 
 export default function NodePropertiesPanel({
@@ -30,6 +36,7 @@ export default function NodePropertiesPanel({
   edges,
   onClose,
   onUpdate,
+  className,
 }: NodePropertiesPanelProps) {
   if (!node) return null;
 
@@ -52,8 +59,6 @@ export default function NodePropertiesPanel({
         return renderTextGenerationProperties();
       case "image_generation":
         return renderImageGenerationProperties();
-      case "processing":
-        return renderProcessingProperties();
       case "conditional":
         return renderConditionalProperties();
       case "loop":
@@ -120,55 +125,47 @@ export default function NodePropertiesPanel({
   const renderTextGenerationProperties = () => (
     <div className="space-y-4">
       <div>
-        <Label>Node Label</Label>
+        <Label className="text-foreground/80">Nome do Nó</Label>
         <Input
           value={node.data.label || ""}
           onChange={(e) => handleUpdate("label", e.target.value)}
-          placeholder="Generate Text"
+          placeholder="Gerar Texto"
+          className="bg-white/[0.04] border-white/[0.1] focus:border-primary/50"
         />
       </div>
 
       <div>
-        <Label>Model</Label>
-        <Select
+        <Label className="text-foreground/80">Modelo</Label>
+        <ModelSelector
           value={node.data.model || "anthropic/claude-3.5-sonnet"}
-          onValueChange={(value) => handleUpdate("model", value)}
-        >
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="anthropic/claude-3.5-sonnet">Claude 3.5 Sonnet</SelectItem>
-            <SelectItem value="anthropic/claude-3-haiku">Claude 3 Haiku</SelectItem>
-            <SelectItem value="openai/gpt-4o">GPT-4o</SelectItem>
-            <SelectItem value="openai/gpt-4o-mini">GPT-4o Mini</SelectItem>
-          </SelectContent>
-        </Select>
+          onChange={(value) => handleUpdate("model", value)}
+          type="text"
+        />
       </div>
 
       <div>
-        <Label>Prompt</Label>
+        <Label className="text-foreground/80">Prompt</Label>
         <VariableInput
           value={node.data.prompt || ""}
           onChange={(value) => handleUpdate("prompt", value)}
           availableVariables={availableVariables}
-          placeholder="Write your prompt here... Use {{node.field}} for variables"
+          placeholder="Escreva seu prompt aqui... Use {{node.field}} para variáveis"
           rows={8}
         />
       </div>
 
       <div>
-        <Label>Output Format</Label>
+        <Label className="text-foreground/80">Formato de Saída</Label>
         <Select
           value={node.data.outputFormat || "text"}
           onValueChange={(value) => handleUpdate("outputFormat", value)}
         >
-          <SelectTrigger>
+          <SelectTrigger className="bg-white/[0.04] border-white/[0.1]">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="text">Plain Text</SelectItem>
-            <SelectItem value="json">JSON (Structured)</SelectItem>
+            <SelectItem value="text">Texto Simples</SelectItem>
+            <SelectItem value="json">JSON (Estruturado)</SelectItem>
             <SelectItem value="markdown">Markdown</SelectItem>
           </SelectContent>
         </Select>
@@ -176,17 +173,18 @@ export default function NodePropertiesPanel({
 
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <Label>Max Tokens</Label>
+          <Label className="text-foreground/80">Max Tokens</Label>
           <Input
             type="number"
             value={node.data.maxTokens || 1000}
             onChange={(e) => handleUpdate("maxTokens", parseInt(e.target.value))}
             min={100}
             max={4000}
+            className="bg-white/[0.04] border-white/[0.1]"
           />
         </div>
         <div>
-          <Label>Temperature</Label>
+          <Label className="text-foreground/80">Temperatura</Label>
           <Input
             type="number"
             value={node.data.temperature || 0.7}
@@ -194,105 +192,89 @@ export default function NodePropertiesPanel({
             min={0}
             max={2}
             step={0.1}
+            className="bg-white/[0.04] border-white/[0.1]"
           />
         </div>
       </div>
+
+      {/* Save as Document Toggle */}
+      <div className="pt-2 border-t border-white/[0.08]">
+        <div className="flex items-center justify-between">
+          <div>
+            <Label className="text-foreground/80">Salvar como Documento</Label>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Se desativado, o conteúdo só será passado para o próximo nó
+            </p>
+          </div>
+          <input
+            type="checkbox"
+            checked={node.data.save_as_document !== false}
+            onChange={(e) => handleUpdate("save_as_document", e.target.checked)}
+            className="h-4 w-4 rounded border-white/20 bg-white/[0.04] text-primary focus:ring-primary/50"
+          />
+        </div>
+      </div>
+
+      {/* Document Title - only show if save_as_document is true */}
+      {node.data.save_as_document !== false && (
+        <div>
+          <Label className="text-foreground/80">Título do Documento</Label>
+          <Input
+            value={node.data.title || ""}
+            onChange={(e) => handleUpdate("title", e.target.value)}
+            placeholder="Deixe vazio para título automático"
+            className="bg-white/[0.04] border-white/[0.1] focus:border-primary/50"
+          />
+        </div>
+      )}
     </div>
   );
 
   const renderImageGenerationProperties = () => (
     <div className="space-y-4">
       <div>
-        <Label>Node Label</Label>
+        <Label className="text-foreground/80">Nome do Nó</Label>
         <Input
           value={node.data.label || ""}
           onChange={(e) => handleUpdate("label", e.target.value)}
-          placeholder="Generate Image"
+          placeholder="Gerar Imagem"
+          className="bg-white/[0.04] border-white/[0.1] focus:border-primary/50"
         />
       </div>
 
       <div>
-        <Label>Model</Label>
-        <Select
+        <Label className="text-foreground/80">Modelo</Label>
+        <ModelSelector
           value={node.data.model || "black-forest-labs/flux-1.1-pro"}
-          onValueChange={(value) => handleUpdate("model", value)}
-        >
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="black-forest-labs/flux-1.1-pro">FLUX 1.1 Pro</SelectItem>
-            <SelectItem value="black-forest-labs/flux-pro">FLUX Pro</SelectItem>
-            <SelectItem value="stability-ai/stable-diffusion-3">Stable Diffusion 3</SelectItem>
-          </SelectContent>
-        </Select>
+          onChange={(value) => handleUpdate("model", value)}
+          type="image"
+        />
       </div>
 
       <div>
-        <Label>Image Prompt</Label>
+        <Label className="text-foreground/80">Prompt da Imagem</Label>
         <VariableInput
           value={node.data.prompt || ""}
           onChange={(value) => handleUpdate("prompt", value)}
           availableVariables={availableVariables}
-          placeholder="Describe the image... Use {{node.field}} for variables"
+          placeholder="Descreva a imagem... Use {{node.field}} para variáveis"
           rows={6}
         />
       </div>
 
       <div>
-        <Label>Size</Label>
+        <Label className="text-foreground/80">Tamanho</Label>
         <Select
           value={node.data.size || "1024x1024"}
           onValueChange={(value) => handleUpdate("size", value)}
         >
-          <SelectTrigger>
+          <SelectTrigger className="bg-white/[0.04] border-white/[0.1]">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="1024x1024">Square (1024x1024)</SelectItem>
-            <SelectItem value="1024x1792">Portrait (1024x1792)</SelectItem>
-            <SelectItem value="1792x1024">Landscape (1792x1024)</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-    </div>
-  );
-
-  const renderProcessingProperties = () => (
-    <div className="space-y-4">
-      <div>
-        <Label>Node Label</Label>
-        <Input
-          value={node.data.label || ""}
-          onChange={(e) => handleUpdate("label", e.target.value)}
-          placeholder="Processing"
-        />
-      </div>
-
-      <div>
-        <Label>Processing Prompt</Label>
-        <VariableInput
-          value={node.data.prompt || ""}
-          onChange={(value) => handleUpdate("prompt", value)}
-          availableVariables={availableVariables}
-          placeholder="How should the content be processed?"
-          rows={6}
-        />
-      </div>
-
-      <div>
-        <Label>Model</Label>
-        <Select
-          value={node.data.model || "anthropic/claude-3-haiku"}
-          onValueChange={(value) => handleUpdate("model", value)}
-        >
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="anthropic/claude-3-haiku">Claude 3 Haiku (Fast)</SelectItem>
-            <SelectItem value="anthropic/claude-3.5-sonnet">Claude 3.5 Sonnet</SelectItem>
-            <SelectItem value="openai/gpt-4o-mini">GPT-4o Mini</SelectItem>
+            <SelectItem value="1024x1024">Quadrado (1024x1024)</SelectItem>
+            <SelectItem value="1024x1792">Retrato (1024x1792)</SelectItem>
+            <SelectItem value="1792x1024">Paisagem (1792x1024)</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -409,27 +391,37 @@ export default function NodePropertiesPanel({
           }}
           className="w-full font-mono text-xs p-2 border rounded-md"
           rows={5}
-          placeholder='{"status": "approved", "type": "document"}'
+          placeholder='{"status": "art_ok", "type": "document"}'
         />
       </div>
     </div>
   );
 
   return (
-    <div className="w-96 h-full bg-white dark:bg-gray-900 border-l border-gray-200 dark:border-gray-800 flex flex-col">
-      {/* Header */}
-      <div className="p-4 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between">
+    <div className={cn(
+      "h-full flex flex-col overflow-hidden",
+      className
+    )}>
+      {/* Header with gradient */}
+      <div className={cn("p-4 flex items-center justify-between", glassPanelHeaderClasses)}>
         <div>
-          <h3 className="font-semibold text-gray-900 dark:text-white">Node Properties</h3>
-          <p className="text-xs text-gray-500 mt-0.5">{node.type?.replace("_", " ")}</p>
+          <h3 className="font-semibold text-foreground">Propriedades</h3>
+          <p className="text-xs text-muted-foreground mt-0.5 capitalize">{node.type?.replace("_", " ")}</p>
         </div>
-        <Button variant="ghost" size="sm" onClick={onClose} className="h-8 w-8 p-0">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onClose}
+          className="h-8 w-8 p-0 hover:bg-white/[0.08] rounded-lg"
+        >
           <X className="w-4 h-4" />
         </Button>
       </div>
 
-      {/* Properties */}
-      <div className="flex-1 overflow-y-auto p-4">{renderPropertiesForType()}</div>
+      {/* Properties with scroll */}
+      <ScrollArea className="flex-1">
+        <div className="p-4">{renderPropertiesForType()}</div>
+      </ScrollArea>
     </div>
   );
 }

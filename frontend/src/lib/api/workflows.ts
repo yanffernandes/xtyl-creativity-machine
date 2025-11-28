@@ -146,23 +146,37 @@ export async function deleteWorkflow(
 }
 
 /**
- * Duplicate an existing workflow
+ * Duplicate an existing workflow (template to project)
+ *
+ * @param workflowId - ID of the workflow/template to duplicate
+ * @param token - Auth token
+ * @param workspaceId - Target workspace ID (required)
+ * @param projectId - Target project ID (optional)
+ * @param newName - Custom name for the duplicated workflow (optional)
  */
 export async function duplicateWorkflow(
   workflowId: string,
   token: string,
-  newName?: string,
-  projectId?: string
+  workspaceId: string,
+  projectId?: string,
+  newName?: string
 ): Promise<WorkflowTemplateDetail> {
+  const params = new URLSearchParams();
+  params.append('workspace_id', workspaceId);
+  if (projectId) {
+    params.append('project_id', projectId);
+  }
+  if (newName) {
+    params.append('name', newName);
+  }
+
   const response = await fetch(
-    `${API_BASE_URL}/workflows/${workflowId}/duplicate`,
+    `${API_BASE_URL}/workflows/${workflowId}/duplicate?${params.toString()}`,
     {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`,
       },
-      body: JSON.stringify({ name: newName, project_id: projectId }),
     }
   );
 
@@ -172,6 +186,20 @@ export async function duplicateWorkflow(
   }
 
   return response.json();
+}
+
+/**
+ * Duplicate a system template to a project
+ * Convenience wrapper around duplicateWorkflow for template-to-project duplication
+ */
+export async function duplicateTemplateToProject(
+  templateId: string,
+  token: string,
+  workspaceId: string,
+  projectId: string,
+  newName?: string
+): Promise<WorkflowTemplateDetail> {
+  return duplicateWorkflow(templateId, token, workspaceId, projectId, newName);
 }
 
 /**

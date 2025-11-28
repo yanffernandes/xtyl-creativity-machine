@@ -72,10 +72,11 @@ export default function WorkspacePage() {
                             </Button>
                             <Button
                                 onClick={() => router.push(`/workspace/${workspaceId}/workflows`)}
-                                className="gap-2 bg-gradient-to-r from-[#5B8DEF] to-[#4A7AD9] text-white hover:shadow-lg"
+                                variant="outline"
+                                className="gap-2"
                             >
                                 <Workflow className="w-4 h-4" />
-                                Workflows
+                                Workflow Templates
                             </Button>
                         </div>
                         <h1 className="text-4xl font-bold tracking-tight mb-2">Workspace Projects</h1>

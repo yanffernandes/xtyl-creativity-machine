@@ -8,11 +8,12 @@ import {
     GitBranch,
     Repeat,
     Database,
-    Cpu,
     GripVertical,
     Paperclip,
 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { cn } from "@/lib/utils";
+import { glassPanelHeaderClasses, glassItemClasses } from "@/lib/glass-utils";
 
 const nodeTypes = [
     {
@@ -32,16 +33,19 @@ const nodeTypes = [
         ],
     },
     {
-        category: "Data & Processing",
+        category: "Data",
         items: [
             { type: "context_retrieval", label: "Context", icon: Database, color: "text-yellow-500" },
-            { type: "processing", label: "Process", icon: Cpu, color: "text-cyan-500" },
             { type: "attach_creative", label: "Attach", icon: Paperclip, color: "text-indigo-500" },
         ],
     },
 ];
 
-export default function NodePalette() {
+interface NodePaletteProps {
+    className?: string;
+}
+
+export function NodePalette({ className }: NodePaletteProps) {
     const onDragStart = (event: React.DragEvent, nodeType: string, label: string) => {
         event.dataTransfer.setData("application/reactflow", nodeType);
         event.dataTransfer.setData("application/reactflow/label", label);
@@ -49,17 +53,21 @@ export default function NodePalette() {
     };
 
     return (
-        <div className="w-64 h-full bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 flex flex-col">
-            <div className="p-4 border-b border-gray-200 dark:border-gray-800">
-                <h2 className="font-semibold text-gray-900 dark:text-white">Components</h2>
-                <p className="text-xs text-gray-500 mt-1">Drag nodes to the canvas</p>
+        <div className={cn(
+            "h-full flex flex-col overflow-hidden",
+            className
+        )}>
+            {/* Header with gradient */}
+            <div className={cn("p-3", glassPanelHeaderClasses)}>
+                <h2 className="text-sm font-semibold text-foreground">Componentes</h2>
+                <p className="text-[10px] text-muted-foreground mt-0.5">Arraste para o canvas</p>
             </div>
 
             <ScrollArea className="flex-1">
                 <div className="p-4 space-y-6">
                     {nodeTypes.map((category) => (
                         <div key={category.category}>
-                            <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-3">
+                            <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3">
                                 {category.category}
                             </h3>
                             <div className="space-y-2">
@@ -68,15 +76,26 @@ export default function NodePalette() {
                                         key={node.type}
                                         draggable
                                         onDragStart={(e) => onDragStart(e, node.type, node.label)}
-                                        className="flex items-center gap-3 p-3 rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 hover:border-blue-500 dark:hover:border-blue-500 hover:shadow-sm cursor-grab active:cursor-grabbing transition-all group"
+                                        className={cn(
+                                            "flex items-center gap-3 p-3 rounded-xl",
+                                            glassItemClasses,
+                                            "cursor-grab active:cursor-grabbing",
+                                            "group"
+                                        )}
                                     >
-                                        <div className={`p-1.5 rounded-md bg-gray-50 dark:bg-gray-800 group-hover:bg-blue-50 dark:group-hover:bg-blue-900/20 ${node.color}`}>
+                                        <div className={cn(
+                                            "p-1.5 rounded-lg",
+                                            "bg-white/[0.06] dark:bg-white/[0.04]",
+                                            "group-hover:bg-primary/10",
+                                            "transition-colors",
+                                            node.color
+                                        )}>
                                             <node.icon className="w-4 h-4" />
                                         </div>
-                                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                        <span className="text-sm font-medium text-foreground/80 group-hover:text-foreground">
                                             {node.label}
                                         </span>
-                                        <GripVertical className="w-4 h-4 text-gray-300 ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />
+                                        <GripVertical className="w-4 h-4 text-muted-foreground/40 ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />
                                     </div>
                                 ))}
                             </div>
@@ -87,3 +106,6 @@ export default function NodePalette() {
         </div>
     );
 }
+
+// Default export for backwards compatibility
+export default NodePalette;

@@ -81,15 +81,12 @@ interface ProjectTreeItemProps {
   onRefresh?: () => void
 }
 
-const statusColors = {
+const statusColors: Record<string, string> = {
   draft: "text-slate-500",
-  review: "text-blue-500",
-  approved: "text-green-500",
-  production: "text-purple-500",
-  rascunho: "text-slate-500",
-  "em revisão": "text-blue-500",
-  aprovado: "text-green-500",
-  "em produção": "text-purple-500"
+  text_ok: "text-blue-500",
+  art_ok: "text-green-500",
+  done: "text-purple-500",
+  published: "text-amber-500",
 }
 
 type TreeNode =
@@ -390,7 +387,7 @@ export default function ProjectTreeItem({
                 onDrop={(e) => handleDrop(e, folder.id)}
                 style={{ paddingLeft: depth * 12 + 'px' }}
                 className={cn(
-                  "flex items-center gap-2 py-1 px-2 hover:bg-secondary/60 rounded-md cursor-pointer transition-colors min-w-0",
+                  "flex items-center gap-2 py-1 px-2 hover:bg-secondary/60 rounded-md cursor-pointer transition-colors w-full overflow-hidden",
                   isDragOver && "bg-blue-100 dark:bg-blue-900/30 border-2 border-blue-500",
                   isDragging && "opacity-50"
                 )}
@@ -415,7 +412,7 @@ export default function ProjectTreeItem({
                 ) : (
                   <Folder className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
                 )}
-                <span className="text-sm truncate flex-1 min-w-0">{folder.name}</span>
+                <span className="text-sm truncate w-0 flex-1" title={folder.name}>{folder.name}</span>
               </div>
             </ContextMenuTrigger>
             <ContextMenuContent>
@@ -476,16 +473,16 @@ export default function ProjectTreeItem({
           onDragStart={(e) => handleDragStart(e, 'document', doc.id)}
           style={{ paddingLeft: (depth * 12 + 24) + 'px' }}
           className={cn(
-            "flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer transition-smooth text-sm min-w-0 overflow-hidden",
+            "flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer transition-smooth text-sm w-full overflow-hidden",
             "hover:bg-secondary/60",
             isDocActive && "bg-primary/10 text-primary font-medium",
             isDragging && "opacity-50"
           )}
           onClick={() => handleDocumentClick(doc.id)}
         >
-          <DocIcon className={cn("h-3.5 w-3.5 shrink-0", isDocActive ? "text-primary" : (iconColor || "text-muted-foreground"))} />
-          <span className="truncate flex-1 min-w-0">{doc.title}</span>
-          <Circle className={cn("h-2 w-2 fill-current shrink-0", statusColor)} />
+          <DocIcon className={cn("h-3.5 w-3.5 flex-shrink-0", isDocActive ? "text-primary" : (iconColor || "text-muted-foreground"))} />
+          <span className="truncate w-0 flex-1" title={doc.title}>{doc.title}</span>
+          <Circle className={cn("h-2 w-2 fill-current flex-shrink-0", statusColor)} />
         </div>
       )
     }
@@ -498,7 +495,7 @@ export default function ProjectTreeItem({
       <div className="select-none overflow-hidden">
         <div
           className={cn(
-            "group flex items-center gap-2 px-2 py-2 rounded-lg cursor-pointer transition-smooth min-w-0",
+            "group flex items-center gap-2 px-2 py-2 rounded-lg cursor-pointer transition-smooth w-full overflow-hidden",
             "hover:bg-secondary/80",
             isActive && "bg-secondary"
           )}
@@ -526,14 +523,17 @@ export default function ProjectTreeItem({
             onDrop={(e) => handleDrop(e, null)}
           >
             {isActive || isExpanded ? (
-              <FolderOpen className="h-4 w-4 text-primary shrink-0" />
+              <FolderOpen className="h-4 w-4 text-primary flex-shrink-0" />
             ) : (
-              <Folder className="h-4 w-4 text-muted-foreground shrink-0" />
+              <Folder className="h-4 w-4 text-muted-foreground flex-shrink-0" />
             )}
-            <span className={cn(
-              "text-sm truncate transition-smooth flex-1 min-w-0",
-              isActive ? "font-semibold text-foreground" : "font-medium text-muted-foreground"
-            )}>
+            <span
+              className={cn(
+                "text-sm truncate transition-smooth w-0 flex-1",
+                isActive ? "font-semibold text-foreground" : "font-medium text-muted-foreground"
+              )}
+              title={project.name}
+            >
               {project.name}
             </span>
           </div>
@@ -584,26 +584,26 @@ export default function ProjectTreeItem({
               {/* Visual Assets Section */}
               {visualAssets.length > 0 && (
                 <div className="ml-3 mt-2 border-t pt-2 overflow-hidden">
-                  <div className="flex items-center gap-2 px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                    <ImageIcon className="h-3.5 w-3.5" />
-                    <span className="flex-1 min-w-0 truncate">Assets Visuais</span>
+                  <div className="flex items-center gap-2 px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider w-full overflow-hidden">
+                    <ImageIcon className="h-3.5 w-3.5 flex-shrink-0" />
+                    <span className="truncate w-0 flex-1">Assets Visuais</span>
                     <span className="flex-shrink-0 bg-secondary px-1.5 py-0.5 rounded text-xs">
                       {visualAssets.length}
                     </span>
                   </div>
 
-                  <div className="space-y-0.5 mt-1">
+                  <div className="space-y-0.5 mt-1 overflow-hidden">
                     {Object.entries(groupedAssets).map(([assetType, assets]) => {
                       const typeInfo = assetTypeInfo[assetType] || assetTypeInfo['outros']
                       const Icon = typeInfo.icon
                       const isExpanded = expandedAssetTypes.has(assetType)
 
                       return (
-                        <div key={assetType}>
+                        <div key={assetType} className="overflow-hidden">
                           {/* Asset Type Folder */}
                           <div
                             className={cn(
-                              "flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer transition-smooth text-sm min-w-0",
+                              "flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer transition-smooth text-sm w-full overflow-hidden",
                               "hover:bg-secondary/60"
                             )}
                             onClick={() => toggleAssetType(assetType)}
@@ -613,7 +613,7 @@ export default function ProjectTreeItem({
                               isExpanded && "rotate-90"
                             )} />
                             <Icon className="h-3.5 w-3.5 text-purple-500 flex-shrink-0" />
-                            <span className="flex-1 min-w-0 truncate text-sm">{typeInfo.label}</span>
+                            <span className="truncate w-0 flex-1 text-sm" title={typeInfo.label}>{typeInfo.label}</span>
                             <span className="flex-shrink-0 text-xs text-muted-foreground bg-secondary px-1.5 py-0.5 rounded">
                               {assets.length}
                             </span>
@@ -621,18 +621,18 @@ export default function ProjectTreeItem({
 
                           {/* Asset Items */}
                           {isExpanded && (
-                            <div className="ml-6 mt-0.5 space-y-0.5">
+                            <div className="ml-6 mt-0.5 space-y-0.5 overflow-hidden">
                               {assets.map(asset => (
                                 <div
                                   key={asset.id}
                                   className={cn(
-                                    "flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer transition-smooth text-sm min-w-0",
+                                    "flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer transition-smooth text-sm w-full overflow-hidden",
                                     "hover:bg-secondary/60"
                                   )}
                                   onClick={() => handleAssetClick(asset.id)}
                                 >
                                   <ImageIcon className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                                  <span className="flex-1 min-w-0 truncate">{asset.title}</span>
+                                  <span className="truncate w-0 flex-1" title={asset.title}>{asset.title}</span>
                                 </div>
                               ))}
                             </div>

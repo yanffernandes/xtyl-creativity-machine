@@ -20,8 +20,7 @@ from schemas import (
     WorkflowExecution as WorkflowExecutionSchema,
     AgentJob as AgentJobSchema
 )
-from auth import get_current_user
-from tasks.workflow_tasks import execute_workflow, pause_workflow, resume_workflow, stop_workflow
+from auth import get_current_user, get_current_user_from_token
 from services.workflow_executor import WorkflowExecutor
 import uuid
 import json
@@ -82,8 +81,14 @@ async def launch_workflow_execution(
     template.usage_count += 1
     db.commit()
 
-    # Launch async execution via Celery
-    execute_workflow.delay(execution.id)
+    # Try to launch async execution via Celery
+    # If Celery is not available, execution will happen via SSE stream instead
+    try:
+        from tasks.workflow_tasks import execute_workflow
+        execute_workflow.delay(execution.id)
+    except Exception as e:
+        print(f"Warning: Could not queue Celery task: {e}")
+        # Execution will proceed via SSE streaming endpoint instead
 
     return execution
 
@@ -197,7 +202,14 @@ async def pause_execution(
         raise HTTPException(status_code=400, detail="Can only pause running executions")
 
     # Trigger pause via Celery
-    pause_workflow.delay(execution_id)
+    try:
+        from tasks.workflow_tasks import pause_workflow
+        pause_workflow.delay(execution_id)
+    except Exception as e:
+        print(f"Warning: Could not queue Celery task: {e}")
+        # Fallback: update directly
+        execution.status = "paused"
+        db.commit()
 
     return {"message": "Workflow execution pause requested", "execution_id": execution_id}
 
@@ -223,7 +235,14 @@ async def resume_execution(
         raise HTTPException(status_code=400, detail="Can only resume paused executions")
 
     # Trigger resume via Celery
-    resume_workflow.delay(execution_id)
+    try:
+        from tasks.workflow_tasks import resume_workflow
+        resume_workflow.delay(execution_id)
+    except Exception as e:
+        print(f"Warning: Could not queue Celery task: {e}")
+        # Fallback: update directly and execution will proceed via SSE
+        execution.status = "running"
+        db.commit()
 
     return {"message": "Workflow execution resume requested", "execution_id": execution_id}
 
@@ -249,7 +268,15 @@ async def stop_execution(
         raise HTTPException(status_code=400, detail="Can only stop running or paused executions")
 
     # Trigger stop via Celery
-    stop_workflow.delay(execution_id)
+    try:
+        from tasks.workflow_tasks import stop_workflow
+        stop_workflow.delay(execution_id)
+    except Exception as e:
+        print(f"Warning: Could not queue Celery task: {e}")
+        # Fallback: update directly
+        execution.status = "stopped"
+        execution.completed_at = datetime.utcnow()
+        db.commit()
 
     return {"message": "Workflow execution stop requested", "execution_id": execution_id}
 
@@ -329,14 +356,21 @@ async def get_execution_status(
 @router.get("/{execution_id}/stream")
 async def stream_execution_progress(
     execution_id: str,
-    current_user: User = Depends(get_current_user),
+    token: Optional[str] = None,
     db: Session = Depends(get_db)
 ):
     """
     Stream real-time execution progress via Server-Sent Events (SSE)
 
-    Returns an event stream with progress updates as the workflow executes
+    Returns an event stream with progress updates as the workflow executes.
+    Token is passed via query parameter since EventSource doesn't support headers.
     """
+    # Authenticate via query parameter token (SSE doesn't support headers)
+    if not token:
+        raise HTTPException(status_code=401, detail="Token required")
+
+    current_user = await get_current_user_from_token(token, db)
+
     # Verify execution exists and user has access
     execution = db.query(WorkflowExecution).filter(
         WorkflowExecution.id == execution_id
@@ -386,6 +420,8 @@ async def stream_execution_progress(
         headers={
             "Cache-Control": "no-cache",
             "X-Accel-Buffering": "no",  # Disable buffering in nginx
-            "Connection": "keep-alive"
+            "Connection": "keep-alive",
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Credentials": "true",
         }
     )

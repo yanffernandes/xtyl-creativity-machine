@@ -631,7 +631,7 @@ async def generate_image_tool(
             file_url=image_url,
             thumbnail_url=thumbnail_url,
             generation_metadata=result.get("generation_metadata", {}),
-            status="approved"
+            status="art_ok"
         )
         db.add(image_doc)
         db.commit()
@@ -887,7 +887,7 @@ TOOL_DEFINITIONS = [
                     },
                     "status": {
                         "type": "string",
-                        "enum": ["draft", "review", "approved", "production"],
+                        "enum": ["draft", "text_ok", "art_ok", "done", "published"],
                         "description": "Initial status of the document (default: draft)"
                     }
                 },

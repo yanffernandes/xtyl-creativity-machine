@@ -5,6 +5,7 @@ Auto-generated from all feature plans. Last updated: 2025-11-25
 ## Active Technologies
 - Python 3.11 (Backend), TypeScript 5.x (Frontend) + FastAPI, SQLAlchemy, Next.js 14, React 18, Shadcn/UI (004-agent-tools-enhancement)
 - PostgreSQL 15+ with pgvector (004-agent-tools-enhancement)
+- Python 3.11 (Backend), TypeScript 5.x (Frontend) + FastAPI, SQLAlchemy, Next.js 14, React 18, ReactFlow, Shadcn/UI, Tailwind CSS (005-workflow-visual-redesign)
 
 - TypeScript 5.x (Frontend), Node.js 20+ (Build tools) + Next.js 14 (App Router), React 18, Tailwind CSS 3.4+, Shadcn/UI (customized), Framer Motion 10+ (animations), Radix UI (primitives) (001-premium-visual-redesign)
 
@@ -69,10 +70,108 @@ TypeScript 5.x (Frontend), Node.js 20+ (Build tools): Follow standard convention
 - Follow mobile-first responsive design
 
 ## Recent Changes
+- 005-workflow-visual-redesign: Added Python 3.11 (Backend), TypeScript 5.x (Frontend) + FastAPI, SQLAlchemy, Next.js 14, React 18, ReactFlow, Shadcn/UI, Tailwind CSS
 - 004-agent-tools-enhancement: Added Python 3.11 (Backend), TypeScript 5.x (Frontend) + FastAPI, SQLAlchemy, Next.js 14, React 18, Shadcn/UI
 
 - 001-premium-visual-redesign: Added TypeScript 5.x (Frontend), Node.js 20+ (Build tools) + Next.js 14 (App Router), React 18, Tailwind CSS 3.4+, Shadcn/UI (customized), Framer Motion 10+ (animations), Radix UI (primitives)
-- 2025-11-25: Migrated from Emerald Fresh to Ethereal Blue + Liquid Glass design system
 
 <!-- MANUAL ADDITIONS START -->
+
+## Core Principles
+
+### No Hardcoded Data
+**CRITICAL**: Never hardcode lists of models, providers, or similar dynamic data. Always fetch from the appropriate API:
+- **Text models**: Use `/chat/models` endpoint
+- **Image models**: Use `/image-generation/models` endpoint
+- The backend filters models by capability (e.g., `output_modalities` contains "image")
+- Display exactly what the API returns - no client-side filtering or hardcoded fallbacks
+
+### API Integration (OpenRouter)
+- All LLM/Image generation goes through OpenRouter API
+- API key: `OPENROUTER_API_KEY` in `.env` file
+- Backend must load dotenv FIRST before any imports in `main.py`
+- Use dynamic `get_api_key()` functions, not module-level variables
+- Required headers: `Authorization`, `HTTP-Referer`, `X-Title`
+
+## Workflow System Architecture
+
+### Node Types
+| Type | Purpose | Outputs |
+|------|---------|---------|
+| `start` | Entry point | `input_variables` |
+| `text_generation` | LLM text generation | `content`, `title` |
+| `image_generation` | Image generation | `file_url`, `thumbnail_url`, `title`, `prompt` |
+| `processing` | Text processing/transformation | `content`, `title` |
+| `context_retrieval` | RAG/document search | `context`, `content`, `documents`, `count` |
+| `conditional` | Branching logic | `result`, `branch` |
+| `loop` | Iteration | `item`, `current_iteration`, `iterations` |
+| `finish` | Workflow end | - |
+
+### Variable System
+- Syntax: `{{nodeId.field}}` (e.g., `{{node_abc123.content}}`)
+- Variables reference upstream node outputs
+- `useVariableAutocomplete` hook provides suggestions based on connected nodes
+- Backend resolves variables during execution via `resolve_variable_references()`
+
+### Execution Flow
+1. Frontend saves workflow → `POST /workflows/{id}`
+2. Execute workflow → `POST /workflows/{id}/execute`
+3. Backend streams progress via SSE (Server-Sent Events)
+4. Frontend receives updates via `useWorkflowExecution` hook
+5. Outputs stored in `execution.execution_context`
+
+### Key Files
+- **Frontend**:
+  - `components/workflow/WorkflowCanvas.tsx` - ReactFlow canvas
+  - `components/workflow/NodeConfigPanel.tsx` - Node configuration
+  - `components/workflow/ModelSelector.tsx` - Model selection (API-driven)
+  - `components/workflow/VariableAutocomplete.tsx` - Variable insertion
+  - `hooks/useVariableAutocomplete.ts` - Variable discovery
+  - `hooks/useWorkflowExecution.ts` - Execution state/SSE
+  - `lib/stores/workflowStore.ts` - Zustand store
+
+- **Backend**:
+  - `routers/workflows.py` - Workflow CRUD
+  - `routers/executions.py` - Execution endpoints + SSE
+  - `services/workflow_executor.py` - Execution orchestration
+  - `services/node_executor.py` - Individual node handlers
+  - `image_generation_service.py` - Image generation + model fetching
+  - `llm_service.py` - Text generation
+
+### SSE Authentication
+- Token passed via query param: `/executions/{id}/stream?token=...`
+- Backend validates token in SSE endpoint
+- Required for real-time execution updates
+
+## Database
+
+### Key Models
+- `WorkflowTemplate` - Workflow definition (nodes_json, edges_json)
+- `WorkflowExecution` - Execution instance (status, config_json, execution_context)
+- `NodeExecutionJob` - Individual node execution record
+- `Document` - Generated content (text/image)
+- `Project` - Container for documents and workflows
+
+### Storage
+- MinIO for file storage (images, assets)
+- PostgreSQL with pgvector for embeddings
+- Redis for caching
+
+## Development Commands
+
+```bash
+# Backend
+cd backend
+pip install -r requirements.txt
+uvicorn main:app --reload --port 8000
+
+# Frontend
+cd frontend
+npm install
+npm run dev
+
+# Docker (full stack)
+docker-compose up -d
+```
+
 <!-- MANUAL ADDITIONS END -->

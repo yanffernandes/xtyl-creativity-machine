@@ -61,11 +61,12 @@ export function useVariableAutocomplete(currentNodeId: string) {
 
             const safeId = node.id; // In real app, might want a user-friendly slug
 
+            // Generate variables based on node type and backend output fields
             switch (node.type) {
                 case "start":
                     variables.push({
-                        label: `${nodeLabel} Input`,
-                        value: `{{${safeId}.input}}`,
+                        label: `${nodeLabel} - Input Variables`,
+                        value: `{{${safeId}.input_variables}}`,
                         type: "json",
                         nodeId: node.id,
                         nodeLabel
@@ -74,8 +75,15 @@ export function useVariableAutocomplete(currentNodeId: string) {
 
                 case "text_generation":
                     variables.push({
-                        label: `${nodeLabel} Content`,
+                        label: `${nodeLabel} - Generated Text`,
                         value: `{{${safeId}.content}}`,
+                        type: "text",
+                        nodeId: node.id,
+                        nodeLabel
+                    });
+                    variables.push({
+                        label: `${nodeLabel} - Title`,
+                        value: `{{${safeId}.title}}`,
                         type: "text",
                         nodeId: node.id,
                         nodeLabel
@@ -84,9 +92,30 @@ export function useVariableAutocomplete(currentNodeId: string) {
 
                 case "image_generation":
                     variables.push({
-                        label: `${nodeLabel} URL`,
-                        value: `{{${safeId}.url}}`,
+                        label: `${nodeLabel} - Image URL`,
+                        value: `{{${safeId}.file_url}}`,
                         type: "url",
+                        nodeId: node.id,
+                        nodeLabel
+                    });
+                    variables.push({
+                        label: `${nodeLabel} - Thumbnail URL`,
+                        value: `{{${safeId}.thumbnail_url}}`,
+                        type: "url",
+                        nodeId: node.id,
+                        nodeLabel
+                    });
+                    variables.push({
+                        label: `${nodeLabel} - Title`,
+                        value: `{{${safeId}.title}}`,
+                        type: "text",
+                        nodeId: node.id,
+                        nodeLabel
+                    });
+                    variables.push({
+                        label: `${nodeLabel} - Prompt Used`,
+                        value: `{{${safeId}.prompt}}`,
+                        type: "text",
                         nodeId: node.id,
                         nodeLabel
                     });
@@ -94,16 +123,30 @@ export function useVariableAutocomplete(currentNodeId: string) {
 
                 case "context_retrieval":
                     variables.push({
-                        label: `${nodeLabel} Context`,
+                        label: `${nodeLabel} - Retrieved Context`,
                         value: `{{${safeId}.context}}`,
                         type: "text",
                         nodeId: node.id,
                         nodeLabel
                     });
                     variables.push({
-                        label: `${nodeLabel} Documents`,
+                        label: `${nodeLabel} - Content`,
+                        value: `{{${safeId}.content}}`,
+                        type: "text",
+                        nodeId: node.id,
+                        nodeLabel
+                    });
+                    variables.push({
+                        label: `${nodeLabel} - Documents`,
                         value: `{{${safeId}.documents}}`,
                         type: "array",
+                        nodeId: node.id,
+                        nodeLabel
+                    });
+                    variables.push({
+                        label: `${nodeLabel} - Document Count`,
+                        value: `{{${safeId}.count}}`,
+                        type: "number",
                         nodeId: node.id,
                         nodeLabel
                     });
@@ -111,9 +154,16 @@ export function useVariableAutocomplete(currentNodeId: string) {
 
                 case "processing":
                     variables.push({
-                        label: `${nodeLabel} Output`,
+                        label: `${nodeLabel} - Output`,
                         value: `{{${safeId}.content}}`,
-                        type: "any",
+                        type: "text",
+                        nodeId: node.id,
+                        nodeLabel
+                    });
+                    variables.push({
+                        label: `${nodeLabel} - Title`,
+                        value: `{{${safeId}.title}}`,
+                        type: "text",
                         nodeId: node.id,
                         nodeLabel
                     });
@@ -121,16 +171,40 @@ export function useVariableAutocomplete(currentNodeId: string) {
 
                 case "loop":
                     variables.push({
-                        label: `${nodeLabel} Current Item`,
+                        label: `${nodeLabel} - Current Item`,
                         value: `{{${safeId}.item}}`,
                         type: "any",
                         nodeId: node.id,
                         nodeLabel
                     });
                     variables.push({
-                        label: `${nodeLabel} Index`,
-                        value: `{{${safeId}.index}}`,
+                        label: `${nodeLabel} - Current Index`,
+                        value: `{{${safeId}.current_iteration}}`,
                         type: "number",
+                        nodeId: node.id,
+                        nodeLabel
+                    });
+                    variables.push({
+                        label: `${nodeLabel} - Total Iterations`,
+                        value: `{{${safeId}.iterations}}`,
+                        type: "number",
+                        nodeId: node.id,
+                        nodeLabel
+                    });
+                    break;
+
+                case "conditional":
+                    variables.push({
+                        label: `${nodeLabel} - Result`,
+                        value: `{{${safeId}.result}}`,
+                        type: "boolean",
+                        nodeId: node.id,
+                        nodeLabel
+                    });
+                    variables.push({
+                        label: `${nodeLabel} - Branch Taken`,
+                        value: `{{${safeId}.branch}}`,
+                        type: "text",
                         nodeId: node.id,
                         nodeLabel
                     });

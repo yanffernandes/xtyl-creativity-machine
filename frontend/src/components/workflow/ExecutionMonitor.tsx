@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CheckCircle, XCircle, Loader2, ChevronDown, ChevronUp, Terminal, Clock } from 'lucide-react';
+import { CheckCircle, XCircle, Loader2, ChevronDown, ChevronUp, Terminal, Clock, FileText, Code } from 'lucide-react';
 import { ExecutionStatus } from '@/hooks/useWorkflowExecution';
 import { Progress } from '@/components/ui/progress';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -11,6 +11,7 @@ interface ExecutionMonitorProps {
     status: ExecutionStatus;
     progress: number;
     logs: string[];
+    outputs: Record<string, any>;
     currentNodeId: string | null;
     executionId: string | null;
     onClose?: () => void;
@@ -20,11 +21,13 @@ export default function ExecutionMonitor({
     status,
     progress,
     logs,
+    outputs,
     currentNodeId,
     executionId,
     onClose
 }: ExecutionMonitorProps) {
     const [isExpanded, setIsExpanded] = React.useState(true);
+    const [activeTab, setActiveTab] = React.useState<'logs' | 'outputs'>('logs');
     const scrollRef = useRef<HTMLDivElement>(null);
 
     // Auto-scroll logs
@@ -101,7 +104,7 @@ export default function ExecutionMonitor({
                 />
             </div>
 
-            {/* Expanded Content (Logs) */}
+            {/* Expanded Content */}
             <AnimatePresence>
                 {isExpanded && (
                     <motion.div
@@ -110,20 +113,102 @@ export default function ExecutionMonitor({
                         exit={{ height: 0 }}
                         className="overflow-hidden"
                     >
+                        {/* Tabs */}
+                        <div className="flex border-b border-gray-800 bg-gray-900">
+                            <button
+                                onClick={() => setActiveTab('logs')}
+                                className={cn(
+                                    "flex items-center gap-2 px-4 py-2 text-xs font-medium transition-colors",
+                                    activeTab === 'logs'
+                                        ? "text-blue-400 border-b-2 border-blue-400"
+                                        : "text-gray-500 hover:text-gray-300"
+                                )}
+                            >
+                                <Terminal className="w-3 h-3" />
+                                Logs
+                            </button>
+                            <button
+                                onClick={() => setActiveTab('outputs')}
+                                className={cn(
+                                    "flex items-center gap-2 px-4 py-2 text-xs font-medium transition-colors",
+                                    activeTab === 'outputs'
+                                        ? "text-blue-400 border-b-2 border-blue-400"
+                                        : "text-gray-500 hover:text-gray-300"
+                                )}
+                            >
+                                <Code className="w-3 h-3" />
+                                Outputs
+                                {Object.keys(outputs).length > 0 && (
+                                    <span className="bg-blue-500/20 text-blue-400 px-1.5 py-0.5 rounded text-[10px]">
+                                        {Object.keys(outputs).length}
+                                    </span>
+                                )}
+                            </button>
+                        </div>
+
+                        {/* Content */}
                         <div className="p-4 bg-gray-950 font-mono text-xs text-gray-300">
                             <div
                                 ref={scrollRef}
                                 className="h-48 overflow-y-auto space-y-1 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent pr-2"
                             >
-                                {logs.length === 0 ? (
-                                    <span className="text-gray-600 italic">Waiting for logs...</span>
+                                {activeTab === 'logs' ? (
+                                    // Logs Tab
+                                    logs.length === 0 ? (
+                                        <span className="text-gray-600 italic">Waiting for logs...</span>
+                                    ) : (
+                                        logs.map((log, i) => (
+                                            <div key={i} className="break-words border-l-2 border-gray-800 pl-2 py-0.5 hover:bg-gray-900/50 transition-colors">
+                                                <span className="text-gray-500 mr-2">[{new Date().toLocaleTimeString()}]</span>
+                                                {log}
+                                            </div>
+                                        ))
+                                    )
                                 ) : (
-                                    logs.map((log, i) => (
-                                        <div key={i} className="break-words border-l-2 border-gray-800 pl-2 py-0.5 hover:bg-gray-900/50 transition-colors">
-                                            <span className="text-gray-500 mr-2">[{new Date().toLocaleTimeString()}]</span>
-                                            {log}
+                                    // Outputs Tab
+                                    Object.keys(outputs).length === 0 ? (
+                                        <span className="text-gray-600 italic">No outputs yet...</span>
+                                    ) : (
+                                        <div className="space-y-3">
+                                            {Object.entries(outputs).map(([nodeId, output]) => (
+                                                <div key={nodeId} className="border border-gray-800 rounded-lg overflow-hidden">
+                                                    <div className="bg-gray-800/50 px-3 py-2 flex items-center gap-2">
+                                                        <FileText className="w-3 h-3 text-blue-400" />
+                                                        <span className="text-blue-400 font-medium">{nodeId}</span>
+                                                    </div>
+                                                    <div className="p-3 space-y-2">
+                                                        {output.content && (
+                                                            <div>
+                                                                <span className="text-gray-500 text-[10px] uppercase tracking-wider">Content:</span>
+                                                                <p className="mt-1 text-gray-200 whitespace-pre-wrap">{output.content}</p>
+                                                            </div>
+                                                        )}
+                                                        {output.title && (
+                                                            <div>
+                                                                <span className="text-gray-500 text-[10px] uppercase tracking-wider">Title:</span>
+                                                                <p className="mt-1 text-gray-200">{output.title}</p>
+                                                            </div>
+                                                        )}
+                                                        {output.file_url && (
+                                                            <div>
+                                                                <span className="text-gray-500 text-[10px] uppercase tracking-wider">Image:</span>
+                                                                <img
+                                                                    src={output.file_url}
+                                                                    alt={output.title || 'Generated image'}
+                                                                    className="mt-1 max-w-full h-auto rounded border border-gray-700"
+                                                                />
+                                                            </div>
+                                                        )}
+                                                        {!output.content && !output.file_url && (
+                                                            <pre className="text-gray-400 text-[10px] overflow-x-auto">
+                                                                {JSON.stringify(output, null, 2)}
+                                                            </pre>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            ))}
                                         </div>
-                                    ))
+                                    )
                                 )}
                             </div>
                         </div>

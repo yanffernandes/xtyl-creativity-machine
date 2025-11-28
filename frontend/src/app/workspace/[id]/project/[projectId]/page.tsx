@@ -11,7 +11,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Card } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { useToast } from "@/components/ui/use-toast"
-import { Loader2, Plus, Upload, FileText, MoreHorizontal, Trash, X, Star, FolderOpen, Home, Sparkles, ImageIcon, Download, FileType, Share2, Workflow } from "lucide-react"
+import { Loader2, Plus, Upload, FileText, MoreHorizontal, Trash, X, Star, FolderOpen, Home, Sparkles, ImageIcon, Download, FileType, Share2, Workflow, ArrowRight } from "lucide-react"
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -74,7 +74,7 @@ export default function ProjectPage() {
     const [isUploading, setIsUploading] = useState(false)
     const [viewMode, setViewMode] = useState<"list" | "kanban">("kanban")
     const [suggestedContent, setSuggestedContent] = useState<string | null>(null)
-    const [tab, setTab] = useState<"creations" | "context" | "assets">("creations")
+    const [tab, setTab] = useState<"creations" | "context" | "assets" | "workflows">("creations")
     const [editingTitle, setEditingTitle] = useState<string | null>(null)
     const [tempTitle, setTempTitle] = useState("")
     const [isLoading, setIsLoading] = useState(true)
@@ -575,7 +575,10 @@ export default function ProjectPage() {
                 onUploadFile={() => document.getElementById('file-upload-trigger')?.click()}
             />
 
-            <WorkspaceSidebar onDocumentNavigate={handleNavigateToDocument} />
+            {/* Floating sidebar container */}
+            <div className="p-3 pr-0">
+                <WorkspaceSidebar onDocumentNavigate={handleNavigateToDocument} className="h-[calc(100vh-24px)]" />
+            </div>
             <div className="flex-1 flex flex-col overflow-hidden">
                 {/* Header with Breadcrumbs */}
                 <div className="px-6 py-6 border-b border-white/10">
@@ -637,6 +640,14 @@ export default function ProjectPage() {
                                 className={`flex-1 py-3 text-sm font-medium border-b-2 transition-colors ${tab === "assets" ? "border-accent-primary text-accent-primary" : "border-transparent text-text-secondary hover:text-text-primary"}`}
                             >
                                 Assets Visuais
+                            </button>
+                            <button
+                                onClick={() => router.push(`/workspace/${workspaceId}/project/${projectId}/workflows`)}
+                                className="flex-1 py-3 text-sm font-medium border-b-2 transition-colors border-transparent text-text-secondary hover:text-text-primary flex items-center justify-center gap-2"
+                            >
+                                <Workflow className="h-4 w-4" />
+                                Workflows
+                                <ArrowRight className="h-3 w-3" />
                             </button>
                         </div>
                     </div>
@@ -903,34 +914,38 @@ export default function ProjectPage() {
                 </div>
             </div>
 
-            <ChatSidebar
-                workspaceId={workspaceId}
-                projectId={projectId}
-                currentDocument={selectedDoc}
-                onAiSuggestion={setSuggestedContent}
-                documents={[...creations, ...contextFiles]}
-                autoApplyEdits={autoApplyEdits}
-                onAutoApplyChange={setAutoApplyEdits}
-                onDocumentUpdate={handleDocumentUpdate}
-                onToolExecuted={handleToolExecuted}
-                onNavigateToDocument={(docId) => {
-                    // Find the document and select it
-                    const doc = creations.find(d => d.id === docId) || contextFiles.find(f => f.id === docId)
-                    if (doc) {
-                        handleSelectDocument(doc)
-                    } else {
-                        // If not found in current list, refresh and try again
-                        fetchDocuments().then(() => {
-                            const updatedDoc = creations.find(d => d.id === docId) || contextFiles.find(f => f.id === docId)
-                            if (updatedDoc) {
-                                handleSelectDocument(updatedDoc)
-                            }
-                        })
-                    }
-                }}
-                availableModels={availableModels}
-                defaultModel={defaultTextModel}
-            />
+            {/* Floating chat sidebar container */}
+            <div className="p-3 pl-0">
+                <ChatSidebar
+                    workspaceId={workspaceId}
+                    projectId={projectId}
+                    currentDocument={selectedDoc}
+                    onAiSuggestion={setSuggestedContent}
+                    documents={[...creations, ...contextFiles]}
+                    autoApplyEdits={autoApplyEdits}
+                    onAutoApplyChange={setAutoApplyEdits}
+                    onDocumentUpdate={handleDocumentUpdate}
+                    onToolExecuted={handleToolExecuted}
+                    onNavigateToDocument={(docId) => {
+                        // Find the document and select it
+                        const doc = creations.find(d => d.id === docId) || contextFiles.find(f => f.id === docId)
+                        if (doc) {
+                            handleSelectDocument(doc)
+                        } else {
+                            // If not found in current list, refresh and try again
+                            fetchDocuments().then(() => {
+                                const updatedDoc = creations.find(d => d.id === docId) || contextFiles.find(f => f.id === docId)
+                                if (updatedDoc) {
+                                    handleSelectDocument(updatedDoc)
+                                }
+                            })
+                        }
+                    }}
+                    availableModels={availableModels}
+                    defaultModel={defaultTextModel}
+                    className="h-[calc(100vh-24px)]"
+                />
+            </div>
 
             {/* Unsaved Changes Dialog */}
             <AlertDialog open={showUnsavedDialog} onOpenChange={setShowUnsavedDialog}>

@@ -1,16 +1,20 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useCallback, useRef } from "react"
 import {
   DndContext,
   DragOverlay,
-  closestCorners,
+  pointerWithin,
+  rectIntersection,
   KeyboardSensor,
   PointerSensor,
   useSensor,
   useSensors,
   DragStartEvent,
   DragEndEvent,
+  DragOverEvent,
+  CollisionDetection,
+  getFirstCollision,
 } from "@dnd-kit/core"
 import { arrayMove, SortableContext, sortableKeyboardCoordinates } from "@dnd-kit/sortable"
 import { Card, CardContent } from "@/components/ui/card"
@@ -43,27 +47,33 @@ interface KanbanBoardProps {
 const COLUMNS = [
   {
     id: "draft",
-    title: "Rascunhos",
-    color: "bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800",
+    title: "Rascunho",
+    accentColor: "bg-slate-400",
     badgeColor: "bg-slate-500"
   },
   {
-    id: "review",
-    title: "Copys",
-    color: "bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950 dark:to-blue-900",
+    id: "text_ok",
+    title: "Texto OK",
+    accentColor: "bg-blue-500",
     badgeColor: "bg-blue-500"
   },
   {
-    id: "approved",
-    title: "Em Criação",
-    color: "bg-gradient-to-br from-green-50 to-green-100 dark:from-green-950 dark:to-green-900",
+    id: "art_ok",
+    title: "Arte OK",
+    accentColor: "bg-green-500",
     badgeColor: "bg-green-500"
   },
   {
-    id: "production",
-    title: "Finalizados",
-    color: "bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-950 dark:to-purple-900",
+    id: "done",
+    title: "Finalizado",
+    accentColor: "bg-purple-500",
     badgeColor: "bg-purple-500"
+  },
+  {
+    id: "published",
+    title: "Publicado",
+    accentColor: "bg-amber-500",
+    badgeColor: "bg-amber-500"
   },
 ]
 
@@ -75,12 +85,14 @@ export default function KanbanBoard({
   onStatusChange
 }: KanbanBoardProps) {
   const [activeId, setActiveId] = useState<string | null>(null)
+  const [overId, setOverId] = useState<string | null>(null)
+  const lastOverId = useRef<string | null>(null)
   const { toast } = useToast()
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
-        distance: 8,
+        distance: 5,
       },
     }),
     useSensor(KeyboardSensor, {
@@ -92,21 +104,65 @@ export default function KanbanBoard({
     return documents.filter(doc => (doc.status || "draft") === status)
   }
 
-  const findContainer = (id: string) => {
+  const findContainer = useCallback((id: string) => {
+    // Check if id is a column
     if (COLUMNS.find(col => col.id === id)) {
       return id
     }
 
+    // Otherwise find which column contains the document
     const doc = documents.find(d => d.id === id)
     return doc?.status || "draft"
-  }
+  }, [documents])
+
+  // Custom collision detection that prioritizes columns
+  const collisionDetectionStrategy: CollisionDetection = useCallback(
+    (args) => {
+      // First, check if we're over a droppable column using pointerWithin
+      const pointerCollisions = pointerWithin(args)
+      const columnCollision = pointerCollisions.find(
+        collision => COLUMNS.some(col => col.id === collision.id)
+      )
+
+      if (columnCollision) {
+        return [columnCollision]
+      }
+
+      // Fallback to rectangle intersection for better detection
+      const rectCollisions = rectIntersection(args)
+      const rectColumnCollision = rectCollisions.find(
+        collision => COLUMNS.some(col => col.id === collision.id)
+      )
+
+      if (rectColumnCollision) {
+        return [rectColumnCollision]
+      }
+
+      // Return any collision found
+      return pointerCollisions.length > 0 ? pointerCollisions : rectCollisions
+    },
+    []
+  )
 
   const handleDragStart = (event: DragStartEvent) => {
     setActiveId(event.active.id as string)
   }
 
+  const handleDragOver = (event: DragOverEvent) => {
+    const { over } = event
+    const overId = over?.id as string | undefined
+
+    if (overId) {
+      const container = findContainer(overId)
+      setOverId(container)
+      lastOverId.current = container
+    }
+  }
+
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event
+
+    setOverId(null)
 
     if (!over) {
       setActiveId(null)
@@ -114,7 +170,8 @@ export default function KanbanBoard({
     }
 
     const activeContainer = findContainer(active.id as string)
-    const overContainer = findContainer(over.id as string)
+    // Use the over id to find the container, prioritizing columns
+    let overContainer = COLUMNS.find(col => col.id === over.id)?.id || findContainer(over.id as string)
 
     if (activeContainer !== overContainer) {
       const doc = documents.find(d => d.id === active.id)
@@ -148,6 +205,7 @@ export default function KanbanBoard({
 
   const handleDragCancel = () => {
     setActiveId(null)
+    setOverId(null)
   }
 
   const activeDocument = activeId ? documents.find(d => d.id === activeId) : null
@@ -155,12 +213,13 @@ export default function KanbanBoard({
   return (
     <DndContext
       sensors={sensors}
-      collisionDetection={closestCorners}
+      collisionDetection={collisionDetectionStrategy}
       onDragStart={handleDragStart}
+      onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
       onDragCancel={handleDragCancel}
     >
-      <div className="flex gap-4 min-h-full overflow-x-auto pb-4 scrollbar-thin">
+      <div className="flex gap-4 h-full overflow-x-auto pb-4 scrollbar-thin">
         {COLUMNS.map((column) => {
           const columnDocs = getDocsByStatus(column.id)
 

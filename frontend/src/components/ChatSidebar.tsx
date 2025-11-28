@@ -114,6 +114,7 @@ interface ChatSidebarProps {
     onNavigateToDocument?: (documentId: string) => void  // Navigate to a document
     availableModels?: string[]
     defaultModel?: string
+    className?: string
 }
 
 export default function ChatSidebar({
@@ -128,7 +129,8 @@ export default function ChatSidebar({
     onToolExecuted,
     onNavigateToDocument,
     availableModels = [],
-    defaultModel
+    defaultModel,
+    className
 }: ChatSidebarProps) {
     const [messages, setMessages] = useState<Message[]>([])
     const [input, setInput] = useState("")
@@ -828,10 +830,23 @@ export default function ChatSidebar({
         }
     }
 
+    // Floating glass effect classes - Apple style
+    const floatingGlassClasses = cn(
+        "flex flex-col w-[400px]",
+        // Floating glass effect - Apple style
+        "bg-white/[0.03] dark:bg-white/[0.02]",
+        "backdrop-blur-2xl backdrop-saturate-150",
+        "border border-white/[0.1]",
+        "rounded-2xl",
+        "shadow-[0_8px_32px_-8px_rgba(0,0,0,0.15),0_0_0_1px_rgba(255,255,255,0.05)_inset]",
+        "dark:shadow-[0_8px_32px_-8px_rgba(0,0,0,0.4),0_0_0_1px_rgba(255,255,255,0.03)_inset]",
+        className
+    )
+
     // Show conversations list when active
     if (showConversationsList) {
         return (
-            <div className="flex flex-col h-full border-l border-white/[0.08] bg-background/80 backdrop-blur-xl w-[400px]">
+            <div className={floatingGlassClasses}>
                 <ConversationsList
                     workspaceId={workspaceId}
                     projectId={projectId}
@@ -843,8 +858,8 @@ export default function ChatSidebar({
     }
 
     return (
-        <div className="flex flex-col h-full border-l border-white/[0.08] bg-background/80 backdrop-blur-xl w-[400px]">
-            <div className="p-4 border-b border-white/[0.06] flex flex-col gap-4 bg-gradient-to-b from-white/[0.02] to-transparent">
+        <div className={floatingGlassClasses}>
+            <div className="p-4 border-b border-white/[0.06] flex flex-col gap-4 bg-gradient-to-b from-white/[0.04] to-transparent">
                 <div className="flex justify-between items-center">
                     <h2 className="text-sm font-semibold flex items-center gap-2">
                         <Bot className="h-4 w-4" /> Assistente IA

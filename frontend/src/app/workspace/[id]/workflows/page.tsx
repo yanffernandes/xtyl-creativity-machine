@@ -1,13 +1,32 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useParams, useSearchParams, useRouter } from "next/navigation";
-import { Workflow, Sparkles, Search } from "lucide-react";
-import { Card } from "@/components/ui/card";
+import { useParams, useRouter } from "next/navigation";
+import { Layers, Sparkles, Search, FolderOpen } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import TemplateCard from "@/components/workflow/TemplateCard";
-import LaunchWorkflowModal from "@/components/workflow/LaunchWorkflowModal";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/components/ui/use-toast";
+import { WorkflowCard } from "@/components/workflow/WorkflowCard";
+import WorkspaceSidebar from "@/components/WorkspaceSidebar";
+import Breadcrumbs from "@/components/Breadcrumbs";
 import api from "@/lib/api";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 
 interface WorkflowTemplate {
   id: string;
@@ -15,93 +34,123 @@ interface WorkflowTemplate {
   description: string;
   category: string;
   is_system: boolean;
+  is_recommended?: boolean;
   usage_count: number;
-  nodes_json: any[];
-  edges_json: any[];
-  default_params_json: Record<string, any>;
   created_at: string;
 }
 
-export default function WorkflowsPage() {
+interface Project {
+  id: string;
+  name: string;
+}
+
+export default function WorkflowTemplatesPage() {
   const params = useParams();
-  const searchParams = useSearchParams();
   const router = useRouter();
+  const { toast } = useToast();
   const workspaceId = params.id as string;
-  const projectIdFromQuery = searchParams.get("projectId");
 
   const [templates, setTemplates] = useState<WorkflowTemplate[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [workspaceName, setWorkspaceName] = useState("");
+
+  // Modal state
   const [selectedTemplate, setSelectedTemplate] = useState<WorkflowTemplate | null>(null);
-  const [launchModalOpen, setLaunchModalOpen] = useState(false);
-  const [projectId, setProjectId] = useState<string | null>(projectIdFromQuery);
-  const [viewScope, setViewScope] = useState<"workspace" | "project">("workspace");
+  const [selectedProjectId, setSelectedProjectId] = useState<string>("");
+  const [isCreating, setIsCreating] = useState(false);
 
   useEffect(() => {
-    fetchTemplates();
-    if (!projectIdFromQuery) {
-      fetchFirstProject();
-    }
-  }, [workspaceId, projectIdFromQuery, viewScope, projectId]);
+    fetchData();
+  }, [workspaceId]);
 
-  const fetchFirstProject = async () => {
+  const fetchData = async () => {
+    setLoading(true);
     try {
-      const response = await api.get(`/workspaces/${workspaceId}/projects`);
-      if (response.data && response.data.length > 0) {
-        setProjectId(response.data[0].id);
+      // Fetch workspace info
+      const workspaceRes = await api.get(`/workspaces/`);
+      const workspaces = workspaceRes.data;
+      const currentWorkspace = workspaces.find((w: any) => w.id === workspaceId);
+      if (currentWorkspace) {
+        setWorkspaceName(currentWorkspace.name);
       }
+
+      // Fetch projects
+      const projectsRes = await api.get(`/workspaces/${workspaceId}/projects`);
+      setProjects(projectsRes.data || []);
+
+      // Fetch ONLY system templates (workflow templates)
+      const templatesRes = await api.get("/workflows/", {
+        params: {
+          is_system: true,
+        },
+      });
+      setTemplates(templatesRes.data);
     } catch (error) {
-      console.error("Error fetching projects:", error);
+      console.error("Error fetching data:", error);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleTemplateClick = (template: WorkflowTemplate) => {
-    if (!projectId) {
-      alert("No project found. Please create a project first to launch workflows.");
+  const handleUseTemplate = (template: WorkflowTemplate) => {
+    if (projects.length === 0) {
+      toast({
+        title: "No Projects",
+        description: "Create a project first to use workflow templates",
+        variant: "destructive",
+      });
       return;
     }
     setSelectedTemplate(template);
-    setLaunchModalOpen(true);
+    setSelectedProjectId(projects[0]?.id || "");
   };
 
-  const handleTemplateEdit = (template: WorkflowTemplate) => {
-    router.push(`/workspace/${workspaceId}/workflows/builder/${template.id}`);
-  };
+  const handleCreateFromTemplate = async () => {
+    if (!selectedTemplate || !selectedProjectId) return;
 
-  const handleCreateNew = () => {
-    router.push(`/workspace/${workspaceId}/workflows/builder/new`);
-  };
-
-  const fetchTemplates = async () => {
+    setIsCreating(true);
     try {
-      setLoading(true);
-      const params: any = {
-        workspace_id: workspaceId,
-      };
+      const response = await api.post(
+        `/workflows/${selectedTemplate.id}/duplicate`,
+        null,
+        {
+          params: {
+            workspace_id: workspaceId,
+            project_id: selectedProjectId,
+            name: `${selectedTemplate.name}`,
+          },
+        }
+      );
 
-      if (viewScope === "project" && projectId) {
-        params.project_id = projectId;
-      } else {
-        // For workspace scope, we specifically want templates not bound to a project
-        // or we want all templates? Usually workspace templates have project_id=null
-        // But for now, let's just filter by workspace_id which returns all
-        // If we want ONLY workspace templates, we might need a flag or backend logic
-      }
+      toast({
+        title: "Workflow Created",
+        description: `"${selectedTemplate.name}" added to your project`,
+      });
 
-      const response = await api.get("/workflows/", { params });
-      setTemplates(response.data);
-    } catch (error) {
-      console.error("Error fetching templates:", error);
+      // Navigate to the new workflow editor
+      router.push(
+        `/workspace/${workspaceId}/project/${selectedProjectId}/workflows/${response.data.id}`
+      );
+    } catch (error: any) {
+      console.error("Failed to create workflow:", error);
+      toast({
+        title: "Error",
+        description: error.response?.data?.detail || "Failed to create workflow from template",
+        variant: "destructive",
+      });
     } finally {
-      setLoading(false);
+      setIsCreating(false);
+      setSelectedTemplate(null);
     }
   };
 
   const filteredTemplates = templates.filter((template) => {
     const matchesSearch =
       template.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      template.description.toLowerCase().includes(searchQuery.toLowerCase());
+      (template.description || "").toLowerCase().includes(searchQuery.toLowerCase());
 
     const matchesCategory =
       !selectedCategory || template.category === selectedCategory;
@@ -110,161 +159,168 @@ export default function WorkflowsPage() {
   });
 
   const categories = [
-    { value: null, label: "All Templates" },
+    { value: null, label: "All" },
     { value: "social_media", label: "Social Media" },
     { value: "paid_ads", label: "Paid Ads" },
-    { value: "blog", label: "Blog Content" },
-    { value: "email", label: "Email Campaigns" },
+    { value: "blog", label: "Blog" },
+    { value: "email", label: "Email" },
     { value: "seo", label: "SEO" },
+    { value: "creative", label: "Creative" },
+  ];
+
+  const breadcrumbItems = [
+    { label: workspaceName || "Workspace", href: `/workspace/${workspaceId}`, icon: <FolderOpen className="h-3.5 w-3.5" /> },
+    { label: "Workflow Templates", icon: <Layers className="h-3.5 w-3.5" /> },
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-[#0A0E14] dark:to-[#0A0E14] p-8">
-      {/* Header */}
-      <div className="max-w-7xl mx-auto mb-8">
-        <div className="flex items-center justify-between gap-3 mb-4">
-          <div className="flex items-center gap-3">
-            <div className="p-3 rounded-xl bg-gradient-to-br from-[#5B8DEF] to-[#4A7AD9] shadow-lg">
-              <Workflow className="w-6 h-6 text-white" />
-            </div>
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-white tracking-tight">
-                Workflow Templates
-              </h1>
-              <div className="flex items-center gap-3 mt-1">
-                <p className="text-gray-600 dark:text-gray-400">
-                  Launch automated marketing workflows with AI
+    <div className="flex h-screen overflow-hidden relative">
+      {/* Sidebar */}
+      <div className="p-3 pr-0">
+        <WorkspaceSidebar className="h-[calc(100vh-24px)]" />
+      </div>
+
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Header */}
+        <div className="px-6 py-6 border-b border-white/[0.08]">
+          <Breadcrumbs items={breadcrumbItems} className="mb-3" />
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="p-3 rounded-xl bg-gradient-to-br from-primary to-primary/80 shadow-lg">
+                <Layers className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold tracking-tight text-foreground">
+                  Workflow Templates
+                </h1>
+                <p className="text-sm text-muted-foreground">
+                  Pre-built automation workflows. Select a template to use it in your project.
                 </p>
-                {projectId && (
-                  <span className="px-2 py-1 rounded-md bg-green-100 dark:bg-green-950 text-green-700 dark:text-green-300 text-xs font-medium">
-                    Project Ready
-                  </span>
-                )}
-                {!projectId && !loading && (
-                  <span className="px-2 py-1 rounded-md bg-orange-100 dark:bg-orange-950 text-orange-700 dark:text-orange-300 text-xs font-medium">
-                    No Project
-                  </span>
-                )}
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            <div className="flex items-center bg-white/80 dark:bg-gray-900/80 rounded-lg p-1 border border-gray-200 dark:border-gray-800 backdrop-blur-xl">
-              <button
-                onClick={() => setViewScope("workspace")}
-                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${viewScope === "workspace"
-                    ? "bg-white dark:bg-gray-800 text-blue-600 shadow-sm"
-                    : "text-gray-600 dark:text-gray-400 hover:text-gray-900"
-                  }`}
-              >
-                Workspace Templates
-              </button>
-              <button
-                onClick={() => setViewScope("project")}
-                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${viewScope === "project"
-                    ? "bg-white dark:bg-gray-800 text-blue-600 shadow-sm"
-                    : "text-gray-600 dark:text-gray-400 hover:text-gray-900"
-                  }`}
-              >
-                Project Workflows
-              </button>
-            </div>
-            <button
-              onClick={handleCreateNew}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors shadow-sm"
-            >
-              <Sparkles className="w-4 h-4" />
-              Create from Scratch
-            </button>
-          </div>
-        </div>
 
-        {/* Search and Filters */}
-        <div className="flex flex-col sm:flex-row gap-4 mt-6">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-            <Input
-              placeholder="Search templates..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl border-gray-200 dark:border-gray-800"
-            />
-          </div>
-
-          <div className="flex gap-2 overflow-x-auto pb-2">
-            {categories.map((category) => (
-              <button
-                key={category.value || "all"}
-                onClick={() => setSelectedCategory(category.value)}
-                className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${selectedCategory === category.value
-                  ? "bg-[#5B8DEF] text-white shadow-lg"
-                  : "bg-white/80 dark:bg-gray-900/80 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 backdrop-blur-xl"
-                  }`}
-              >
-                {category.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Template Grid */}
-      <div className="max-w-7xl mx-auto">
-        {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[1, 2, 3, 4, 5, 6].map((i) => (
-              <Card key={i} className="p-6 bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl animate-pulse">
-                <div className="h-6 bg-gray-200 dark:bg-gray-800 rounded mb-4" />
-                <div className="h-4 bg-gray-200 dark:bg-gray-800 rounded mb-2" />
-                <div className="h-4 bg-gray-200 dark:bg-gray-800 rounded w-2/3" />
-              </Card>
-            ))}
-          </div>
-        ) : filteredTemplates.length === 0 ? (
-          <Card className="p-12 text-center bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl">
-            <Sparkles className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-              No templates found
-            </h3>
-            <p className="text-gray-600 dark:text-gray-400">
-              {searchQuery
-                ? "Try adjusting your search or filters"
-                : "No workflow templates available yet"}
-            </p>
-          </Card>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredTemplates.map((template) => (
-              <TemplateCard
-                key={template.id}
-                template={template}
-                onClick={() => handleTemplateClick(template)}
-                onEdit={() => handleTemplateEdit(template)}
+          {/* Search and Filters */}
+          <div className="flex flex-col sm:flex-row gap-4 mt-6">
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="Search templates..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 bg-white/[0.03] border-white/[0.08]"
               />
-            ))}
-          </div>
-        )}
+            </div>
 
-        {/* Launch Modal */}
-        <LaunchWorkflowModal
-          template={selectedTemplate}
-          open={launchModalOpen}
-          onClose={() => setLaunchModalOpen(false)}
-          workspaceId={workspaceId}
-          projectId={projectId || undefined}
-        />
+            <div className="flex gap-2 overflow-x-auto pb-2">
+              {categories.map((category) => (
+                <button
+                  key={category.value || "all"}
+                  onClick={() => setSelectedCategory(category.value)}
+                  className={cn(
+                    "px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-all",
+                    selectedCategory === category.value
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-white/[0.03] text-muted-foreground hover:bg-white/[0.06] hover:text-foreground border border-white/[0.08]"
+                  )}
+                >
+                  {category.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Template Grid */}
+        <div className="flex-1 overflow-y-auto p-6">
+          {loading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {[1, 2, 3, 4, 5, 6].map((i) => (
+                <div
+                  key={i}
+                  className="h-40 rounded-xl bg-white/[0.03] border border-white/[0.08] animate-pulse"
+                />
+              ))}
+            </div>
+          ) : filteredTemplates.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <div className="p-4 rounded-full bg-white/[0.03] mb-4">
+                <Sparkles className="w-8 h-8 text-muted-foreground" />
+              </div>
+              <h3 className="text-lg font-semibold text-foreground mb-2">
+                No templates found
+              </h3>
+              <p className="text-muted-foreground max-w-sm">
+                {searchQuery
+                  ? "Try adjusting your search or filters"
+                  : "No workflow templates available yet"}
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredTemplates.map((template) => (
+                <WorkflowCard
+                  key={template.id}
+                  id={template.id}
+                  name={template.name}
+                  description={template.description}
+                  category={template.category}
+                  isSystem={true}
+                  isRecommended={template.is_recommended}
+                  usageCount={template.usage_count}
+                  createdAt={template.created_at}
+                  onDuplicate={() => handleUseTemplate(template)}
+                  onEdit={() => handleUseTemplate(template)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
       </div>
+
+      {/* Use Template Modal */}
+      <Dialog open={!!selectedTemplate} onOpenChange={() => setSelectedTemplate(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Use Template</DialogTitle>
+            <DialogDescription>
+              Create a new workflow from "{selectedTemplate?.name}" in one of your projects.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-4">
+            <Label htmlFor="project">Select Project</Label>
+            <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
+              <SelectTrigger className="mt-2">
+                <SelectValue placeholder="Select a project" />
+              </SelectTrigger>
+              <SelectContent>
+                {projects.map((project) => (
+                  <SelectItem key={project.id} value={project.id}>
+                    {project.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setSelectedTemplate(null)}
+              disabled={isCreating}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleCreateFromTemplate}
+              disabled={isCreating || !selectedProjectId}
+            >
+              {isCreating ? "Creating..." : "Create Workflow"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
-
-const getCategoryColor = (category: string) => {
-  const colors: Record<string, string> = {
-    social_media: "bg-purple-500/10 text-purple-600 border-purple-500/20",
-    paid_ads: "bg-blue-500/10 text-blue-600 border-blue-500/20",
-    blog: "bg-green-500/10 text-green-600 border-green-500/20",
-    email: "bg-orange-500/10 text-orange-600 border-orange-500/20",
-    seo: "bg-pink-500/10 text-pink-600 border-pink-500/20",
-  };
-  return colors[category] || "bg-gray-500/10 text-gray-600 border-gray-500/20";
-};

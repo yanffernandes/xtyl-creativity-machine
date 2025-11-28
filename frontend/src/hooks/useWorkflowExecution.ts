@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import api from '@/lib/api';
 import { useToast } from '@/components/ui/use-toast';
+import { useAuthStore } from '@/lib/store';
 
 export type ExecutionStatus = 'idle' | 'running' | 'paused' | 'completed' | 'failed' | 'stopped';
 
@@ -33,6 +34,7 @@ export function useWorkflowExecution(workflowId: string) {
     executionId: null,
   });
   const { toast } = useToast();
+  const { token } = useAuthStore();
   const eventSourceRef = useRef<EventSource | null>(null);
 
   // Cleanup SSE connection on unmount
@@ -51,9 +53,15 @@ export function useWorkflowExecution(workflowId: string) {
       eventSourceRef.current.close();
     }
 
-    // Create new EventSource connection
+    if (!token) {
+      console.error('No auth token available for SSE connection');
+      return;
+    }
+
+    // Create new EventSource connection with token as query parameter
+    // (EventSource doesn't support custom headers, so we pass token via URL)
     const eventSource = new EventSource(
-      `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/workflows/executions/${executionId}/stream`
+      `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/workflows/executions/${executionId}/stream?token=${encodeURIComponent(token)}`
     );
 
     eventSource.onmessage = (event) => {
@@ -135,7 +143,7 @@ export function useWorkflowExecution(workflowId: string) {
     };
 
     eventSourceRef.current = eventSource;
-  }, []);
+  }, [token]);
 
   const startExecution = useCallback(async (projectId: string, inputVariables: Record<string, any> = {}) => {
     try {
