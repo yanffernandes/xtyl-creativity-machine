@@ -1,38 +1,27 @@
 from sqlalchemy.orm import Session
 from models import User, Workspace, Project, WorkspaceUser, Document, Folder, ActivityLog, UserPreferences
-from schemas import UserCreate, WorkspaceCreate, ProjectCreate, DocumentCreate, DocumentUpdate, UserUpdate, WorkspaceUpdate, UserPreferencesUpdate
-from passlib.context import CryptContext
+from schemas import WorkspaceCreate, ProjectCreate, DocumentCreate, DocumentUpdate, UserUpdate, WorkspaceUpdate, UserPreferencesUpdate
 from datetime import datetime
 from typing import Optional, List
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-def get_password_hash(password):
-    return pwd_context.hash(password)
-
-def verify_password(plain_password, hashed_password):
-    return pwd_context.verify(plain_password, hashed_password)
 
 def get_user_by_email(db: Session, email: str):
     return db.query(User).filter(User.email == email).first()
 
-def create_user(db: Session, user: UserCreate):
-    hashed_password = get_password_hash(user.password)
-    db_user = User(email=user.email, hashed_password=hashed_password, full_name=user.full_name)
-    db.add(db_user)
-    db.commit()
-    db.refresh(db_user)
-    return db_user
+
+def get_user_by_id(db: Session, user_id: str):
+    """Get user by ID (UUID)"""
+    return db.query(User).filter(User.id == user_id).first()
+
 
 def update_user(db: Session, user_id: str, user_update: UserUpdate):
+    """Update user profile (name, email only - password managed by Supabase Auth)"""
     db_user = db.query(User).filter(User.id == user_id).first()
     if not db_user:
         return None
 
     if user_update.full_name is not None:
         db_user.full_name = user_update.full_name
-    if user_update.password is not None:
-        db_user.hashed_password = get_password_hash(user_update.password)
     if user_update.email is not None:
         db_user.email = user_update.email
 
@@ -40,32 +29,34 @@ def update_user(db: Session, user_id: str, user_update: UserUpdate):
     db.refresh(db_user)
     return db_user
 
-def update_user_password(db: Session, user_id: str, new_password: str):
-    """Update user password (for password reset)"""
-    db_user = db.query(User).filter(User.id == user_id).first()
-    if not db_user:
-        return None
+def create_workspace(db: Session, workspace: WorkspaceCreate, user_id):
+    """Create a new workspace with the given user as owner.
 
-    db_user.hashed_password = get_password_hash(new_password)
-    db.commit()
-    db.refresh(db_user)
-    return db_user
-
-def create_workspace(db: Session, workspace: WorkspaceCreate, user_id: str):
+    Args:
+        user_id: Can be UUID or string - will be converted to string for storage
+    """
     db_workspace = Workspace(name=workspace.name, description=workspace.description)
     db.add(db_workspace)
     db.commit()
     db.refresh(db_workspace)
 
-    # Add creator as owner
-    workspace_user = WorkspaceUser(workspace_id=db_workspace.id, user_id=user_id, role="owner")
+    # Add creator as owner - convert UUID to string if needed
+    user_id_str = str(user_id) if hasattr(user_id, 'hex') else user_id
+    workspace_user = WorkspaceUser(workspace_id=db_workspace.id, user_id=user_id_str, role="owner")
     db.add(workspace_user)
     db.commit()
-    
+
     return db_workspace
 
-def get_user_workspaces(db: Session, user_id: str):
-    return db.query(Workspace).join(WorkspaceUser).filter(WorkspaceUser.user_id == user_id).all()
+def get_user_workspaces(db: Session, user_id):
+    """Get all workspaces for a user.
+
+    Args:
+        user_id: Can be UUID or string - will be converted to string for query
+    """
+    # Convert UUID to string if needed (WorkspaceUser.user_id is String type)
+    user_id_str = str(user_id) if hasattr(user_id, 'hex') else user_id
+    return db.query(Workspace).join(WorkspaceUser).filter(WorkspaceUser.user_id == user_id_str).all()
 
 def get_workspace(db: Session, workspace_id: str):
     return db.query(Workspace).filter(Workspace.id == workspace_id).first()
@@ -93,13 +84,20 @@ def update_workspace(db: Session, workspace_id: str, workspace_update: Workspace
     return db_workspace
 
 def get_workspace_members(db: Session, workspace_id: str):
+    """Get all members of a workspace with their roles."""
+    import uuid as uuid_module
     workspace_users = db.query(WorkspaceUser).filter(WorkspaceUser.workspace_id == workspace_id).all()
     members = []
     for wu in workspace_users:
-        user = db.query(User).filter(User.id == wu.user_id).first()
+        # WorkspaceUser.user_id is String, User.id is UUID - need to convert
+        try:
+            user_uuid = uuid_module.UUID(wu.user_id)
+            user = db.query(User).filter(User.id == user_uuid).first()
+        except ValueError:
+            user = None
         if user:
             members.append({
-                "id": user.id,
+                "id": str(user.id),
                 "email": user.email,
                 "full_name": user.full_name,
                 "role": wu.role
@@ -111,10 +109,13 @@ def add_workspace_member(db: Session, workspace_id: str, user_email: str, role: 
     if not user:
         return None
 
+    # Convert UUID to string for WorkspaceUser
+    user_id_str = str(user.id)
+
     # Check if already a member
     existing = db.query(WorkspaceUser).filter(
         WorkspaceUser.workspace_id == workspace_id,
-        WorkspaceUser.user_id == user.id
+        WorkspaceUser.user_id == user_id_str
     ).first()
 
     if existing:
@@ -123,7 +124,7 @@ def add_workspace_member(db: Session, workspace_id: str, user_email: str, role: 
     # Get workspace info for email
     workspace = db.query(Workspace).filter(Workspace.id == workspace_id).first()
 
-    workspace_user = WorkspaceUser(workspace_id=workspace_id, user_id=user.id, role=role)
+    workspace_user = WorkspaceUser(workspace_id=workspace_id, user_id=user_id_str, role=role)
     db.add(workspace_user)
     db.commit()
 
@@ -139,10 +140,18 @@ def add_workspace_member(db: Session, workspace_id: str, user_email: str, role: 
 
     return {"success": True, "user": user}
 
-def remove_workspace_member(db: Session, workspace_id: str, user_id: str):
+def remove_workspace_member(db: Session, workspace_id: str, user_id):
+    """Remove a member from a workspace.
+
+    Args:
+        user_id: Can be UUID or string - will be converted to string for query
+    """
+    # Convert UUID to string if needed
+    user_id_str = str(user_id) if hasattr(user_id, 'hex') else user_id
+
     workspace_user = db.query(WorkspaceUser).filter(
         WorkspaceUser.workspace_id == workspace_id,
-        WorkspaceUser.user_id == user_id
+        WorkspaceUser.user_id == user_id_str
     ).first()
 
     if not workspace_user:
@@ -189,6 +198,7 @@ def create_document(db: Session, document: DocumentCreate, project_id: str):
 
 def update_document(db: Session, document_id: str, document: DocumentUpdate):
     from datetime import datetime
+    from models import DocumentAttachment
 
     db_document = db.query(Document).filter(Document.id == document_id).first()
     if not db_document:
@@ -199,7 +209,22 @@ def update_document(db: Session, document_id: str, document: DocumentUpdate):
     if document.content is not None:
         db_document.content = document.content
     if document.status is not None:
+        old_status = db_document.status
         db_document.status = document.status
+
+        # Sync status to all attached images when document status changes
+        if old_status != document.status:
+            attachments = db.query(DocumentAttachment).filter(
+                DocumentAttachment.document_id == document_id
+            ).all()
+
+            for attachment in attachments:
+                attached_image = db.query(Document).filter(
+                    Document.id == attachment.image_id
+                ).first()
+                if attached_image:
+                    attached_image.status = document.status
+                    attached_image.updated_at = datetime.now()
 
     # Manually update the updated_at timestamp (SQLAlchemy onupdate doesn't trigger on Python attr changes)
     db_document.updated_at = datetime.now()

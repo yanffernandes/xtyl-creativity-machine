@@ -1,4 +1,15 @@
+/**
+ * Folders & Documents API
+ *
+ * Uses Supabase Client for folders and documents.
+ * Activity API still uses backend.
+ *
+ * Feature: 007-hybrid-supabase-architecture
+ */
+
 import api from './api'
+import { folderService } from './supabase/folders'
+import { documentService } from './supabase/documents'
 
 export interface Folder {
   id: string
@@ -6,8 +17,8 @@ export interface Folder {
   parent_folder_id: string | null
   project_id: string
   created_at: string
-  updated_at?: string
-  deleted_at?: string
+  updated_at?: string | null
+  deleted_at?: string | null
 }
 
 export interface ArchivedItem {
@@ -32,93 +43,99 @@ export interface Activity {
   created_at: string
 }
 
-// Folder API
+// Folder API - now uses Supabase
 export const foldersApi = {
   // Create folder
   create: async (projectId: string, name: string, parentFolderId?: string) => {
-    const response = await api.post('/folders/', {
+    const { data, error } = await folderService.create({
       name,
       project_id: projectId,
       parent_folder_id: parentFolderId || null
     })
-    return response.data
+    if (error) throw error
+    return data
   },
 
   // List folders in project
   list: async (projectId: string, parentFolderId?: string) => {
-    const params = new URLSearchParams()
     if (parentFolderId) {
-      params.append('parent_folder_id', parentFolderId)
+      const { data, error } = await folderService.listByParent(projectId, parentFolderId)
+      if (error) throw error
+      return data || []
     }
-    const response = await api.get(`/folders/project/${projectId}?${params}`)
-    return response.data
+    const { data, error } = await folderService.listByProject(projectId)
+    if (error) throw error
+    return data || []
   },
 
   // Get single folder
   get: async (folderId: string) => {
-    const response = await api.get(`/folders/${folderId}`)
-    return response.data
+    const { data, error } = await folderService.get(folderId)
+    if (error) throw error
+    return data
   },
 
   // Update folder name
   update: async (folderId: string, name: string) => {
-    const response = await api.put(`/folders/${folderId}`, { name })
-    return response.data
+    const { data, error } = await folderService.update(folderId, { name })
+    if (error) throw error
+    return data
   },
 
   // Move folder
   move: async (folderId: string, newParentId: string | null) => {
-    const response = await api.post(`/folders/${folderId}/move`, {
-      new_parent_id: newParentId
-    })
-    return response.data
+    const { data, error } = await folderService.move(folderId, newParentId)
+    if (error) throw error
+    return data
   },
 
   // Delete (archive) folder
   delete: async (folderId: string, cascade: boolean = true) => {
-    const response = await api.delete(`/folders/${folderId}?cascade=${cascade}`)
-    return response.data
+    const { error } = await folderService.archive(folderId)
+    if (error) throw error
+    return { success: true }
   },
 
   // Restore folder
   restore: async (folderId: string, restoreContents: boolean = false) => {
-    const response = await api.post(`/folders/${folderId}/restore?restore_contents=${restoreContents}`)
-    return response.data
+    const { data, error } = await folderService.restore(folderId)
+    if (error) throw error
+    return data
   },
 
   // List archived folders
   listArchived: async (projectId: string) => {
-    const response = await api.get(`/folders/project/${projectId}/archived`)
-    return response.data
+    const { data, error } = await folderService.listArchived(projectId)
+    if (error) throw error
+    return data || []
   }
 }
 
-// Document API extensions
+// Document API extensions - now uses Supabase
 export const documentsApi = {
   // Move document
   move: async (documentId: string, folderId: string | null) => {
-    const params = new URLSearchParams()
-    if (folderId) {
-      params.append('folder_id', folderId)
-    }
-    const response = await api.post(`/documents/${documentId}/move?${params}`)
-    return response.data
+    const { data, error } = await documentService.move(documentId, folderId)
+    if (error) throw error
+    return data
   },
 
   // Restore document
   restore: async (documentId: string) => {
-    const response = await api.post(`/documents/${documentId}/restore`)
-    return response.data
+    const { data, error } = await documentService.restore(documentId)
+    if (error) throw error
+    return data
   },
 
   // List archived documents
   listArchived: async (projectId: string) => {
-    const response = await api.get(`/documents/projects/${projectId}/archived`)
-    return response.data
+    const { data, error } = await documentService.listArchived(projectId)
+    if (error) throw error
+    return data || []
   }
 }
 
-// Activity API
+// Activity API - still uses backend (not migrated)
 export const activityApi = {
   // Get entity history
   getHistory: async (entityType: 'document' | 'folder', entityId: string) => {

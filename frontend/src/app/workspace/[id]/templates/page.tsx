@@ -1,8 +1,7 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useMemo, useState } from "react"
 import { useParams } from "next/navigation"
-import api from "@/lib/api"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -11,84 +10,58 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Search, Plus, Copy, Eye } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
-
-interface Template {
-  id: string
-  name: string
-  description: string
-  category: string
-  icon: string
-  prompt: string
-  tags: string[]
-  is_system: boolean
-  usage_count: number
-}
+import { useTemplates } from "@/hooks/use-templates"
+import { templateService } from "@/lib/supabase/templates"
+import type { Template } from "@/types/supabase"
 
 export default function TemplatesPage() {
   const params = useParams()
   const workspaceId = params.id as string
   const { toast } = useToast()
 
-  const [templates, setTemplates] = useState<Template[]>([])
-  const [filteredTemplates, setFilteredTemplates] = useState<Template[]>([])
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("all")
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null)
-  const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    fetchTemplates()
-  }, [workspaceId])
+  // Use Supabase hook for templates
+  const { data: templates, isLoading: loading } = useTemplates(workspaceId)
+  const templateList = templates ?? []
 
-  useEffect(() => {
-    filterTemplates()
-  }, [searchQuery, selectedCategory, templates])
-
-  const fetchTemplates = async () => {
-    try {
-      setLoading(true)
-      const response = await api.get(`/templates?workspace_id=${workspaceId}&include_system=true`)
-      setTemplates(response.data)
-    } catch (error) {
-      console.error("Failed to fetch templates", error)
-      toast({ title: "Erro", description: "Falha ao carregar templates", variant: "destructive" })
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const filterTemplates = () => {
-    let filtered = templates
+  // Filter templates using useMemo for performance
+  const filteredTemplates = useMemo(() => {
+    let filtered = templateList
 
     if (selectedCategory !== "all") {
       filtered = filtered.filter(t => t.category === selectedCategory)
     }
 
     if (searchQuery) {
+      const query = searchQuery.toLowerCase()
       filtered = filtered.filter(t =>
-        t.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        t.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        t.tags?.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
+        t.name.toLowerCase().includes(query) ||
+        t.description?.toLowerCase().includes(query) ||
+        t.tags?.some((tag: string) => tag.toLowerCase().includes(query))
       )
     }
 
-    setFilteredTemplates(filtered)
-  }
+    return filtered
+  }, [templateList, selectedCategory, searchQuery])
 
-  const categories = [
-    { id: "all", name: "Todos", count: templates.length },
-    { id: "ads", name: "Anúncios", count: templates.filter(t => t.category === "ads").length },
-    { id: "landing_page", name: "Landing Pages", count: templates.filter(t => t.category === "landing_page").length },
-    { id: "email", name: "Email Marketing", count: templates.filter(t => t.category === "email").length },
-    { id: "social_media", name: "Social Media", count: templates.filter(t => t.category === "social_media").length },
-    { id: "seo", name: "SEO & Blog", count: templates.filter(t => t.category === "seo").length },
-    { id: "creative", name: "Criativo", count: templates.filter(t => t.category === "creative").length },
-  ]
+  const categories = useMemo(() => [
+    { id: "all", name: "Todos", count: templateList.length },
+    { id: "ads", name: "Anúncios", count: templateList.filter(t => t.category === "ads").length },
+    { id: "landing_page", name: "Landing Pages", count: templateList.filter(t => t.category === "landing_page").length },
+    { id: "email", name: "Email Marketing", count: templateList.filter(t => t.category === "email").length },
+    { id: "social_media", name: "Social Media", count: templateList.filter(t => t.category === "social_media").length },
+    { id: "seo", name: "SEO & Blog", count: templateList.filter(t => t.category === "seo").length },
+    { id: "creative", name: "Criativo", count: templateList.filter(t => t.category === "creative").length },
+  ], [templateList])
 
   const copyToClipboard = async (template: Template) => {
     try {
-      await navigator.clipboard.writeText(template.prompt)
-      await api.post(`/templates/${template.id}/use`)
+      await navigator.clipboard.writeText(template.prompt || '')
+      // Increment usage count via Supabase
+      await templateService.incrementUsageCount(template.id)
       toast({ title: "Copiado!", description: "Template copiado para área de transferência" })
     } catch (error) {
       toast({ title: "Erro", description: "Falha ao copiar template", variant: "destructive" })

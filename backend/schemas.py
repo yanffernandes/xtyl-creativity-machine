@@ -1,24 +1,28 @@
-from pydantic import BaseModel, Field
-from typing import List, Optional, Dict, Any
+from pydantic import BaseModel, Field, field_serializer
+from typing import List, Optional, Dict, Any, Union
 from datetime import datetime
 from decimal import Decimal
+from uuid import UUID
 
 class UserBase(BaseModel):
     email: str
     full_name: Optional[str] = None
 
-class UserCreate(UserBase):
-    password: str
 
 class UserUpdate(BaseModel):
+    """User update schema - password managed by Supabase Auth"""
     full_name: Optional[str] = None
-    password: Optional[str] = None
     email: Optional[str] = None
 
+
 class User(UserBase):
-    id: str
-    is_active: bool
+    id: Union[str, UUID]  # Accept both string and UUID
     created_at: datetime
+
+    @field_serializer('id')
+    def serialize_id(self, v):
+        """Convert UUID to string for JSON serialization"""
+        return str(v) if isinstance(v, UUID) else v
 
     class Config:
         from_attributes = True
@@ -82,6 +86,7 @@ class DocumentUpdate(BaseModel):
     file_url: Optional[str] = None
     thumbnail_url: Optional[str] = None
     generation_metadata: Optional[Dict[str, Any]] = None
+    is_context: Optional[bool] = None
 
 class Document(DocumentBase):
     id: str
@@ -96,6 +101,7 @@ class Document(DocumentBase):
     is_reference_asset: Optional[bool] = False
     asset_type: Optional[str] = None
     asset_metadata: Optional[Dict[str, Any]] = None
+    is_context: Optional[bool] = False  # Context file for RAG
     created_at: datetime
     updated_at: Optional[datetime] = None
     attachments: Optional[List['DocumentAttachment']] = None  # Include attached images
@@ -499,7 +505,7 @@ class UserPreferencesUpdate(BaseModel):
 
 class UserPreferencesRead(UserPreferencesBase):
     id: str
-    user_id: str
+    user_id: Union[str, UUID]  # Accept both string and UUID from database
     created_at: datetime
     updated_at: Optional[datetime] = None
 

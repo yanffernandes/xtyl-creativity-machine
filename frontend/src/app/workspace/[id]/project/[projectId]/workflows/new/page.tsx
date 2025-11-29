@@ -73,16 +73,18 @@ export default function NewWorkflowPage() {
   const [newWorkflowDescription, setNewWorkflowDescription] = useState("");
   const [newWorkflowCategory, setNewWorkflowCategory] = useState("creative");
 
-  const { token } = useAuthStore();
+  const { session, isLoading: authLoading } = useAuthStore();
   const { toast } = useToast();
 
   useEffect(() => {
-    if (!token) {
+    if (authLoading) return;
+
+    if (!session) {
       router.push("/login");
       return;
     }
     fetchData();
-  }, [token, projectId, router]);
+  }, [session, authLoading, projectId, router]);
 
   const fetchData = async () => {
     setIsLoading(true);

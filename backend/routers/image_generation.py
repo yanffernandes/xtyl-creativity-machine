@@ -23,7 +23,7 @@ from image_generation_service import (
 from image_naming_service import generate_image_title
 from ai_usage_service import log_ai_usage
 from pricing_config import calculate_image_cost
-from auth import get_current_user
+from supabase_auth import get_current_user
 from models import User, Project
 import time
 import json
@@ -208,7 +208,7 @@ async def generate_image(
 
             log_ai_usage(
                 db=db,
-                user_id=current_user.id,
+                user_id=str(current_user.id),
                 workspace_id=get_workspace_id_from_project(db, request.project_id),
                 project_id=request.project_id,
                 model=request.model,
@@ -373,7 +373,7 @@ async def refine_image(
 
             log_ai_usage(
                 db=db,
-                user_id=current_user.id,
+                user_id=str(current_user.id),
                 workspace_id=get_workspace_id_from_project(db, existing_doc.project_id),
                 project_id=existing_doc.project_id,
                 model=model,

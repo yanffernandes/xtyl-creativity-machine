@@ -10,7 +10,7 @@ import json
 from typing import Dict, Any, Optional, List
 from datetime import datetime
 import uuid
-from minio_service import upload_file
+from storage_service import upload_file
 
 DEFAULT_MODEL = "google/gemini-3-pro-image-preview"
 

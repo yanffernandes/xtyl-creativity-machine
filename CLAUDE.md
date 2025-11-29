@@ -1,13 +1,17 @@
 # xtyl-creativity-machine Development Guidelines
 
-Auto-generated from all feature plans. Last updated: 2025-11-25
+Auto-generated from all feature plans. Last updated: 2025-11-28
 
 ## Active Technologies
-- Python 3.11 (Backend), TypeScript 5.x (Frontend) + FastAPI, SQLAlchemy, Next.js 14, React 18, Shadcn/UI (004-agent-tools-enhancement)
-- PostgreSQL 15+ with pgvector (004-agent-tools-enhancement)
-- Python 3.11 (Backend), TypeScript 5.x (Frontend) + FastAPI, SQLAlchemy, Next.js 14, React 18, ReactFlow, Shadcn/UI, Tailwind CSS (005-workflow-visual-redesign)
 
-- TypeScript 5.x (Frontend), Node.js 20+ (Build tools) + Next.js 14 (App Router), React 18, Tailwind CSS 3.4+, Shadcn/UI (customized), Framer Motion 10+ (animations), Radix UI (primitives) (001-premium-visual-redesign)
+### Core Stack
+- **Backend**: Python 3.11, FastAPI, SQLAlchemy
+- **Frontend**: TypeScript 5.x, Next.js 14 (App Router), React 18, Shadcn/UI, Tailwind CSS, Framer Motion
+- **Database**: Supabase PostgreSQL (cloud) with pgvector extension
+- **Authentication**: Supabase Auth
+- **Storage**: Cloudflare R2 (S3-compatible)
+- **Cache/Queue**: Redis (local Docker)
+- **Workflow UI**: ReactFlow
 
 ## Design System
 
@@ -70,10 +74,10 @@ TypeScript 5.x (Frontend), Node.js 20+ (Build tools): Follow standard convention
 - Follow mobile-first responsive design
 
 ## Recent Changes
-- 005-workflow-visual-redesign: Added Python 3.11 (Backend), TypeScript 5.x (Frontend) + FastAPI, SQLAlchemy, Next.js 14, React 18, ReactFlow, Shadcn/UI, Tailwind CSS
-- 004-agent-tools-enhancement: Added Python 3.11 (Backend), TypeScript 5.x (Frontend) + FastAPI, SQLAlchemy, Next.js 14, React 18, Shadcn/UI
+- 008-architecture-cleanup: Added Markdown, YAML, Bash (documentation and configuration cleanup only) + None (no runtime dependencies - pure file editing)
+- 007-hybrid-supabase-architecture: Added TypeScript 5.x (Frontend), Python 3.11 (Backend)
+- 006-production-infrastructure: Added Python 3.11 (Backend), TypeScript 5.x (Frontend) + FastAPI, SQLAlchemy, Next.js 14, React 18, Supabase JS SDK, boto3 (S3-compatible)
 
-- 001-premium-visual-redesign: Added TypeScript 5.x (Frontend), Node.js 20+ (Build tools) + Next.js 14 (App Router), React 18, Tailwind CSS 3.4+, Shadcn/UI (customized), Framer Motion 10+ (animations), Radix UI (primitives)
 
 <!-- MANUAL ADDITIONS START -->
 
@@ -153,24 +157,23 @@ TypeScript 5.x (Frontend), Node.js 20+ (Build tools): Follow standard convention
 - `Project` - Container for documents and workflows
 
 ### Storage
-- MinIO for file storage (images, assets)
-- PostgreSQL with pgvector for embeddings
+- Cloudflare R2 for file storage (images, assets)
+- Supabase PostgreSQL with pgvector for embeddings
 - Redis for caching
 
 ## Development Commands
 
 ```bash
-# Backend
-cd backend
-pip install -r requirements.txt
-uvicorn main:app --reload --port 8000
+# Quick start (recommended)
+./dev.sh setup   # First time setup
+./dev.sh start   # Start all services (Redis + backend + frontend)
 
-# Frontend
-cd frontend
-npm install
-npm run dev
+# Individual services
+./dev.sh redis     # Start Redis only
+./dev.sh backend   # Start backend only
+./dev.sh frontend  # Start frontend only
 
-# Docker (full stack)
+# Production deployment
 docker-compose up -d
 ```
 

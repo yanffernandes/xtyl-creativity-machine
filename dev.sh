@@ -1,7 +1,8 @@
 #!/bin/bash
 
 # Development script for xtyl-creativity-machine
-# Runs infrastructure in Docker, frontend/backend locally
+# Uses Supabase (cloud DB) and Cloudflare R2 (cloud storage)
+# Only Redis runs locally in Docker for caching
 
 set -e
 
@@ -40,24 +41,54 @@ check_command() {
     return 0
 }
 
-# Start infrastructure
-start_infra() {
-    print_status "Starting infrastructure (PostgreSQL, Redis, MinIO)..."
-    docker compose -f docker-compose.infra.yml up -d
-
-    # Wait for postgres to be ready
-    print_status "Waiting for PostgreSQL to be ready..."
-    until docker exec xtyl-db pg_isready -U xtyl &> /dev/null; do
-        sleep 1
-    done
-    print_success "Infrastructure is ready"
+# Load environment variables from .env
+load_env() {
+    if [ -f "$PROJECT_ROOT/.env" ]; then
+        set -a
+        while IFS='=' read -r key value; do
+            # Skip empty lines and comments
+            [[ -z "$key" || "$key" =~ ^[[:space:]]*# ]] && continue
+            # Remove leading/trailing whitespace from key
+            key=$(echo "$key" | xargs)
+            # Only export if key is valid
+            if [[ "$key" =~ ^[a-zA-Z_][a-zA-Z0-9_]*$ ]]; then
+                export "$key=$value"
+            fi
+        done < "$PROJECT_ROOT/.env"
+        set +a
+    else
+        print_error ".env file not found!"
+        exit 1
+    fi
 }
 
-# Stop infrastructure
-stop_infra() {
-    print_status "Stopping infrastructure..."
-    docker compose -f docker-compose.infra.yml down
-    print_success "Infrastructure stopped"
+# Start Redis (only local infrastructure needed)
+start_redis() {
+    print_status "Starting Redis for caching..."
+
+    # Check if Redis container exists
+    if docker ps -a --format '{{.Names}}' | grep -q '^xtyl-redis$'; then
+        # Container exists, start it if not running
+        if ! docker ps --format '{{.Names}}' | grep -q '^xtyl-redis$'; then
+            docker start xtyl-redis
+        fi
+    else
+        # Create new container
+        docker run -d --name xtyl-redis -p 6379:6379 redis:alpine
+    fi
+
+    # Wait for Redis to be ready
+    until docker exec xtyl-redis redis-cli ping &> /dev/null; do
+        sleep 1
+    done
+    print_success "Redis is ready"
+}
+
+# Stop Redis
+stop_redis() {
+    print_status "Stopping Redis..."
+    docker stop xtyl-redis 2>/dev/null || true
+    print_success "Redis stopped"
 }
 
 # Setup backend virtual environment
@@ -88,43 +119,56 @@ setup_frontend() {
     print_success "Frontend setup complete"
 }
 
+# Kill processes on a specific port
+kill_port() {
+    local port=$1
+    local pids=$(lsof -ti :$port 2>/dev/null)
+    if [ -n "$pids" ]; then
+        print_status "Killing processes on port $port..."
+        echo "$pids" | xargs kill -9 2>/dev/null || true
+        sleep 1
+    fi
+}
+
 # Run backend
 run_backend() {
     cd "$PROJECT_ROOT/backend"
-    source venv/bin/activate
 
-    export DATABASE_URL=postgresql://xtyl:xtylpassword@localhost:5432/xtyl_db
-    export REDIS_URL=redis://localhost:6379/0
-    export MINIO_ENDPOINT=localhost:9000
-    export MINIO_ACCESS_KEY=minioadmin
-    export MINIO_SECRET_KEY=minioadmin
-
-    # Load .env if exists (handle inline comments)
-    if [ -f "$PROJECT_ROOT/.env" ]; then
-        set -a
-        source <(grep -v '^#' "$PROJECT_ROOT/.env" | sed 's/#.*//' | sed 's/[[:space:]]*$//')
-        set +a
+    # Activate venv if exists
+    if [ -d "venv" ]; then
+        source venv/bin/activate
     fi
 
+    load_env
+
     print_status "Starting backend on http://localhost:8000"
+    print_status "Using Supabase database (cloud)"
     uvicorn main:app --reload --port 8000
 }
 
 # Run frontend
 run_frontend() {
     cd "$PROJECT_ROOT/frontend"
+    load_env
 
     print_status "Starting frontend on http://localhost:3000"
-    NEXT_PUBLIC_API_URL=http://localhost:8000 npm run dev
+    npm run dev
 }
 
 # Main command handler
 case "${1:-}" in
+    redis)
+        start_redis
+        ;;
+    redis-stop)
+        stop_redis
+        ;;
     infra)
-        start_infra
+        # Now just starts Redis
+        start_redis
         ;;
     infra-stop)
-        stop_infra
+        stop_redis
         ;;
     backend)
         setup_backend
@@ -142,38 +186,42 @@ case "${1:-}" in
         check_command npm
         print_success "All requirements met"
 
-        start_infra
+        start_redis
         setup_backend
         setup_frontend
         print_success "Setup complete! Run './dev.sh start' to start development servers"
         ;;
     start)
         print_status "Starting all services..."
-        start_infra
+
+        # Kill any existing processes on our ports
+        kill_port 8000
+        kill_port 3000
+
+        # Start Redis for caching
+        start_redis
 
         echo ""
-        print_warning "Starting backend and frontend in background..."
+        print_status "Starting backend and frontend..."
         echo ""
+
+        load_env
 
         # Run backend in background
         cd "$PROJECT_ROOT/backend"
-        source venv/bin/activate
-        export DATABASE_URL=postgresql://xtyl:xtylpassword@localhost:5432/xtyl_db
-        export REDIS_URL=redis://localhost:6379/0
-        export MINIO_ENDPOINT=localhost:9000
-        export MINIO_ACCESS_KEY=minioadmin
-        export MINIO_SECRET_KEY=minioadmin
-        if [ -f "$PROJECT_ROOT/.env" ]; then
-            set -a
-            source <(grep -v '^#' "$PROJECT_ROOT/.env" | sed 's/#.*//' | sed 's/[[:space:]]*$//')
-            set +a
+        if [ -d "venv" ]; then
+            source venv/bin/activate
         fi
+
         uvicorn main:app --reload --port 8000 &
         BACKEND_PID=$!
 
+        # Give backend a moment to start
+        sleep 2
+
         # Run frontend in background
         cd "$PROJECT_ROOT/frontend"
-        NEXT_PUBLIC_API_URL=http://localhost:8000 npm run dev &
+        npm run dev &
         FRONTEND_PID=$!
 
         echo ""
@@ -181,12 +229,23 @@ case "${1:-}" in
         echo ""
         echo "  Frontend: http://localhost:3000"
         echo "  Backend:  http://localhost:8000"
-        echo "  MinIO:    http://localhost:9001"
+        echo ""
+        echo "  Database: Supabase (cloud)"
+        echo "  Storage:  Cloudflare R2 (cloud)"
+        echo "  Cache:    Redis (local Docker)"
         echo ""
         print_warning "Press Ctrl+C to stop all services"
 
         # Trap SIGINT to clean up
-        trap "kill $BACKEND_PID $FRONTEND_PID 2>/dev/null; stop_infra; exit 0" SIGINT
+        cleanup() {
+            echo ""
+            print_status "Shutting down..."
+            kill $BACKEND_PID $FRONTEND_PID 2>/dev/null || true
+            stop_redis
+            print_success "All services stopped"
+            exit 0
+        }
+        trap cleanup SIGINT SIGTERM
 
         # Wait for processes
         wait
@@ -194,25 +253,59 @@ case "${1:-}" in
     stop)
         print_status "Stopping all services..."
         # Kill any running uvicorn/node processes for this project
-        pkill -f "uvicorn main:app" 2>/dev/null || true
-        pkill -f "next dev" 2>/dev/null || true
-        stop_infra
+        kill_port 8000
+        kill_port 3000
+        stop_redis
         print_success "All services stopped"
+        ;;
+    status)
+        echo ""
+        echo "Service Status:"
+        echo "---------------"
+
+        # Check backend
+        if curl -s http://localhost:8000/health > /dev/null 2>&1; then
+            print_success "Backend:  Running on http://localhost:8000"
+        else
+            print_error "Backend:  Not running"
+        fi
+
+        # Check frontend
+        if curl -s http://localhost:3000 > /dev/null 2>&1; then
+            print_success "Frontend: Running on http://localhost:3000"
+        else
+            print_error "Frontend: Not running"
+        fi
+
+        # Check Redis
+        if docker exec xtyl-redis redis-cli ping > /dev/null 2>&1; then
+            print_success "Redis:    Running on localhost:6379"
+        else
+            print_error "Redis:    Not running"
+        fi
+
+        echo ""
         ;;
     *)
         echo "Usage: ./dev.sh <command>"
         echo ""
         echo "Commands:"
-        echo "  setup      - Initial setup (install dependencies, start infra)"
-        echo "  start      - Start all services (infra + backend + frontend)"
-        echo "  stop       - Stop all services"
-        echo "  infra      - Start only infrastructure (Docker)"
-        echo "  infra-stop - Stop infrastructure"
-        echo "  backend    - Start only backend (requires infra running)"
-        echo "  frontend   - Start only frontend"
+        echo "  setup         - Initial setup (install dependencies)"
+        echo "  start         - Start all services (Redis + backend + frontend)"
+        echo "  stop          - Stop all services"
+        echo "  status        - Check status of all services"
+        echo "  redis         - Start only Redis"
+        echo "  redis-stop    - Stop Redis"
+        echo "  backend       - Start only backend"
+        echo "  frontend      - Start only frontend"
+        echo ""
+        echo "Architecture:"
+        echo "  Database: Supabase (cloud PostgreSQL)"
+        echo "  Storage:  Cloudflare R2 (cloud object storage)"
+        echo "  Cache:    Redis (local Docker container)"
         echo ""
         echo "For development, run in separate terminals:"
-        echo "  Terminal 1: ./dev.sh infra"
+        echo "  Terminal 1: ./dev.sh redis"
         echo "  Terminal 2: ./dev.sh backend"
         echo "  Terminal 3: ./dev.sh frontend"
         ;;

@@ -37,16 +37,18 @@ export default function ProjectWorkflowsPage() {
   const [projectName, setProjectName] = useState("");
   const [workspaceName, setWorkspaceName] = useState("");
 
-  const { token } = useAuthStore();
+  const { session, isLoading: authLoading } = useAuthStore();
   const { toast } = useToast();
 
   useEffect(() => {
-    if (!token) {
+    if (authLoading) return;
+
+    if (!session) {
       router.push("/login");
       return;
     }
     fetchData();
-  }, [token, projectId, router]);
+  }, [session, authLoading, projectId, router]);
 
   const fetchData = async () => {
     setIsLoading(true);

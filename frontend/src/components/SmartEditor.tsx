@@ -14,6 +14,7 @@ interface SmartEditorProps {
     onAcceptSuggestion?: () => void
     onRejectSuggestion?: () => void
     onChange?: (content: string) => void
+    isSaving?: boolean
 }
 
 export default function SmartEditor({
@@ -22,7 +23,8 @@ export default function SmartEditor({
     suggestedContent,
     onAcceptSuggestion,
     onRejectSuggestion,
-    onChange
+    onChange,
+    isSaving = false
 }: SmartEditorProps) {
     const [content, setContent] = useState(initialContent)
     const [isDiffMode, setIsDiffMode] = useState(false)
@@ -64,26 +66,28 @@ export default function SmartEditor({
                 setIsDiffMode(true)
                 setShowEditor(true)
             }, 50) // Small delay to ensure cleanup
-        } else if (!suggestedContent) {
-            // When exiting diff mode, dispose diff editor first
-            if (diffEditorRef.current) {
-                try {
-                    diffEditorRef.current.dispose()
-                } catch (error) {
-                    // Ignore dispose errors silently
-                    console.debug('DiffEditor dispose:', error)
-                }
-                diffEditorRef.current = null
-            }
+        } else if (!suggestedContent && isDiffMode) {
+            // When exiting diff mode, we need to be careful about disposal order
+            // The DiffEditor widget owns the models, so we should NOT dispose them manually
+            // Just let React unmount handle the cleanup
 
-            // Then unmount diff editor if in diff mode
-            if (isDiffMode) {
-                setShowEditor(false)
+            // First, clear the diff editor ref to prevent any further access
+            const editorToCleanup = diffEditorRef.current
+            diffEditorRef.current = null
+
+            // Hide the editor to trigger React unmount
+            setShowEditor(false)
+
+            // Use requestAnimationFrame to ensure DOM updates are flushed
+            requestAnimationFrame(() => {
+                // Now switch back to regular editor mode
+                setIsDiffMode(false)
+
+                // Show the regular editor after a short delay
                 setTimeout(() => {
-                    setIsDiffMode(false)
                     setShowEditor(true)
-                }, 50)
-            }
+                }, 100)
+            })
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [suggestedContent])
@@ -153,25 +157,40 @@ export default function SmartEditor({
 
     const handleAccept = () => {
         if (suggestedContent) {
-            setContent(suggestedContent)
-            if (editorRef.current) {
-                editorRef.current.setValue(suggestedContent)
+            // Store the content we want to save
+            const contentToSave = suggestedContent
+
+            // First hide the editor to prevent disposal issues
+            setShowEditor(false)
+
+            // Then update state and call callbacks after a delay
+            setTimeout(() => {
+                setContent(contentToSave)
+                onSave(contentToSave)
+
+                if (onAcceptSuggestion) {
+                    onAcceptSuggestion()
+                }
+                // The useEffect watching suggestedContent will handle the transition back
+            }, 50)
+        } else {
+            if (onAcceptSuggestion) {
+                onAcceptSuggestion()
             }
-            onSave(suggestedContent)
         }
-        if (onAcceptSuggestion) {
-            onAcceptSuggestion()
-        }
-        // Trigger the cleanup via suggestedContent becoming null
-        // The useEffect will handle the transition
     }
 
     const handleReject = () => {
-        if (onRejectSuggestion) {
-            onRejectSuggestion()
-        }
-        // Trigger the cleanup via suggestedContent becoming null
-        // The useEffect will handle the transition
+        // First hide the editor to prevent disposal issues
+        setShowEditor(false)
+
+        // Then call the callback after a delay
+        setTimeout(() => {
+            if (onRejectSuggestion) {
+                onRejectSuggestion()
+            }
+            // The useEffect watching suggestedContent will handle the transition back
+        }, 50)
     }
 
     const handleManualSave = () => {
@@ -221,9 +240,18 @@ export default function SmartEditor({
                             <span className="text-xs">Refazer</span>
                         </Button>
                         <div className="w-px h-4 bg-border mx-1" />
-                        <Button size="sm" onClick={handleManualSave}>
-                            <Save className="w-4 h-4 mr-1" />
-                            Salvar
+                        <Button size="sm" onClick={handleManualSave} disabled={isSaving}>
+                            {isSaving ? (
+                                <>
+                                    <div className="w-4 h-4 mr-1 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                                    Salvando...
+                                </>
+                            ) : (
+                                <>
+                                    <Save className="w-4 h-4 mr-1" />
+                                    Salvar
+                                </>
+                            )}
                         </Button>
                     </div>
                 )}

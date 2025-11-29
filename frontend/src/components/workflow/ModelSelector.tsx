@@ -78,13 +78,14 @@ export default function ModelSelector({
   const [open, setOpen] = useState(false);
   const [models, setModels] = useState<Model[]>([]);
   const [loading, setLoading] = useState(true);
-  const { token } = useAuthStore();
+  const { token, isLoading: authLoading } = useAuthStore();
 
   useEffect(() => {
+    if (authLoading) return;
     if (token) {
       fetchModels();
     }
-  }, [token, type]);
+  }, [token, authLoading, type]);
 
   const fetchModels = async () => {
     try {

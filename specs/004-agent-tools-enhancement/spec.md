@@ -2,7 +2,9 @@
 
 **Feature Branch**: `004-agent-tools-enhancement`
 **Created**: 2025-11-26
-**Status**: Draft
+**Status**: Completed
+**Completed**: 2025-11-28
+**Note**: This feature has been implemented. For current architecture details, see `007-hybrid-supabase-architecture`.
 **Input**: User description: "Melhoria do sistema de ferramentas do assistente IA com execução automática, lista de tarefas visual e novas tools"
 
 ## User Scenarios & Testing *(mandatory)*

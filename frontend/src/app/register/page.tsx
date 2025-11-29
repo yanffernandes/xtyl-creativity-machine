@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import api from "@/lib/api"
+import { useAuthStore } from "@/lib/store"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -14,22 +14,29 @@ export default function RegisterPage() {
     const [password, setPassword] = useState("")
     const [fullName, setFullName] = useState("")
     const [error, setError] = useState("")
+    const [loading, setLoading] = useState(false)
+    const register = useAuthStore((state) => state.register)
     const router = useRouter()
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
         setError("")
+        setLoading(true)
 
         try {
-            await api.post("/auth/register", {
-                email,
-                password,
-                full_name: fullName
-            })
+            const result = await register(email, password, fullName)
 
-            router.push("/login")
+            if (result.error) {
+                setError(result.error)
+                return
+            }
+
+            // With email verification disabled, user is logged in immediately
+            router.push("/dashboard")
         } catch (err) {
-            setError("Registration failed")
+            setError("Ocorreu um erro. Tente novamente.")
+        } finally {
+            setLoading(false)
         }
     }
 
@@ -50,6 +57,7 @@ export default function RegisterPage() {
                                 value={fullName}
                                 onChange={(e) => setFullName(e.target.value)}
                                 required
+                                disabled={loading}
                             />
                         </div>
                         <div className="space-y-2">
@@ -61,6 +69,7 @@ export default function RegisterPage() {
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                                 required
+                                disabled={loading}
                             />
                         </div>
                         <div className="space-y-2">
@@ -68,18 +77,23 @@ export default function RegisterPage() {
                             <Input
                                 id="password"
                                 type="password"
-                                placeholder="••••••••"
+                                placeholder="********"
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
                                 required
+                                disabled={loading}
+                                minLength={6}
                             />
+                            <p className="text-xs text-text-secondary">Minimo de 6 caracteres</p>
                         </div>
                         {error && (
                             <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20">
                                 <p className="text-red-500 text-sm">{error}</p>
                             </div>
                         )}
-                        <Button type="submit" className="w-full" size="lg">Create Account</Button>
+                        <Button type="submit" className="w-full" size="lg" disabled={loading}>
+                            {loading ? "Criando conta..." : "Create Account"}
+                        </Button>
                         <div className="text-center">
                             <span className="text-sm text-text-secondary">Already have an account? </span>
                             <Link

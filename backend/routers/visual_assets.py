@@ -15,8 +15,8 @@ import os
 
 from database import get_db
 from models import User, Document, Project
-from auth import get_current_user
-from minio_service import upload_file
+from supabase_auth import get_current_user
+from storage_service import upload_file
 
 router = APIRouter()
 
@@ -95,7 +95,7 @@ async def upload_visual_asset(
     - Validates image format and size
     - Extracts metadata (dimensions, file size, format, color mode)
     - Generates 400x400 WebP thumbnail
-    - Stores original and thumbnail in MinIO
+    - Stores original and thumbnail in R2 storage
     - Creates Document record with is_reference_asset=True
 
     Args:
@@ -161,7 +161,7 @@ async def upload_visual_asset(
         # Determine file extension
         file_ext = file.filename.split('.')[-1] if '.' in file.filename else 'png'
 
-        # Upload original to MinIO
+        # Upload original to R2 storage
         original_filename = f"{asset_id}.{file_ext}"
         original_folder = f"projects/{project_id}/assets/{asset_type}"
         original_url = upload_file(
@@ -171,7 +171,7 @@ async def upload_visual_asset(
             folder=original_folder
         )
 
-        # Upload thumbnail to MinIO
+        # Upload thumbnail to R2 storage
         thumbnail_filename = f"{asset_id}_thumb.webp"
         thumbnail_folder = f"projects/{project_id}/assets/{asset_type}/thumbnails"
         thumbnail_url = upload_file(
@@ -458,7 +458,7 @@ async def delete_visual_asset(
 
     if hard_delete:
         # Permanently delete from database
-        # Note: Files in MinIO are kept for now (can implement cleanup later)
+        # Note: Files in R2 storage are kept for now (can implement cleanup later)
         db.delete(asset)
         db.commit()
         return {"message": "Visual asset permanently deleted"}

@@ -1,9 +1,12 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, useCallback, useRef } from "react"
 import { useRouter, useParams } from "next/navigation"
 import api from "@/lib/api"
 import { useAuthStore } from "@/lib/store"
+import { useWorkspace } from "@/hooks/use-workspaces"
+import { useProjects } from "@/hooks/use-projects"
+import { documentService } from "@/lib/supabase/documents"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -44,7 +47,7 @@ import ProjectTreeItem from "./ProjectTreeItem"
 interface Workspace {
   id: string
   name: string
-  description?: string
+  description?: string | null
 }
 
 interface SidebarDocument {
@@ -60,7 +63,7 @@ interface SidebarDocument {
 interface Project {
   id: string
   name: string
-  description?: string
+  description?: string | null
   documents?: SidebarDocument[]
   visualAssets?: SidebarDocument[]
 }
@@ -71,67 +74,76 @@ interface WorkspaceSidebarProps {
 }
 
 export default function WorkspaceSidebar({ className, onDocumentNavigate }: WorkspaceSidebarProps) {
-  const [workspace, setWorkspace] = useState<Workspace | null>(null)
-  const [projects, setProjects] = useState<Project[]>([])
+  const [projectsWithDocs, setProjectsWithDocs] = useState<Project[]>([])
   const [isCollapsed, setIsCollapsed] = useState(false)
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set())
   const [searchQuery, setSearchQuery] = useState("")
   const [mediaFilter, setMediaFilter] = useState<"all" | "text" | "image">("all")
-  const { token, logout, user, fetchUser } = useAuthStore()
+  const { token, logout, user, fetchUser, isLoading: authLoading } = useAuthStore()
   const router = useRouter()
   const params = useParams()
   const workspaceId = params.id as string
   const projectId = params.projectId as string
 
-  useEffect(() => {
-    if (token && workspaceId) {
-      fetchWorkspaceData()
-      // Refresh data every 5 seconds to catch document title changes
-      const interval = setInterval(() => {
-        fetchWorkspaceData()
-      }, 5000)
-      return () => clearInterval(interval)
-    }
-  }, [token, workspaceId])
+  // Use Supabase hooks for workspace and projects
+  const { data: workspace } = useWorkspace(workspaceId)
+  const { data: projects = [], refetch: refetchProjects } = useProjects(workspaceId)
 
-  // Fetch user data on mount
-  useEffect(() => {
-    if (token && !user) {
-      fetchUser()
-    }
-  }, [token, user, fetchUser])
+  // Track previous project IDs to prevent infinite loops
+  const prevProjectIdsRef = useRef<string>('')
+  const isFetchingRef = useRef(false)
 
-  // Auto-expand active project
-  useEffect(() => {
-    if (projectId && !expandedProjects.has(projectId)) {
-      setExpandedProjects(prev => new Set([...prev, projectId]))
+  // Fetch documents for all projects when projects change
+  const fetchDocumentsForProjects = useCallback(async (force = false) => {
+    if (!projects || projects.length === 0) {
+      if (prevProjectIdsRef.current !== '') {
+        prevProjectIdsRef.current = ''
+        setProjectsWithDocs([])
+      }
+      return
     }
-  }, [projectId])
 
-  const fetchWorkspaceData = async () => {
+    // Check if projects actually changed (by comparing IDs)
+    const newProjectIds = projects.map((p: any) => p.id).sort().join(',')
+    if (!force && newProjectIds === prevProjectIdsRef.current) {
+      return // Skip if projects haven't changed
+    }
+
+    // Prevent concurrent fetches
+    if (isFetchingRef.current) return
+    isFetchingRef.current = true
+    prevProjectIdsRef.current = newProjectIds
+
     try {
-      const workspacesRes = await api.get("/workspaces/")
-      const currentWorkspace = workspacesRes.data.find((w: Workspace) => w.id === workspaceId)
-      setWorkspace(currentWorkspace)
-
-      const projectsRes = await api.get(`/workspaces/${workspaceId}/projects`)
-      const projectsData = projectsRes.data
-
-      // Fetch documents AND visual assets for each project
-      const projectsWithDocs = await Promise.all(
-        projectsData.map(async (project: Project) => {
+      const projectsData = await Promise.all(
+        projects.map(async (project: any) => {
           try {
-            // Fetch regular documents
-            const docsRes = await api.get(`/documents/projects/${project.id}/documents`)
-            const regularDocs = (docsRes.data || []).filter((doc: any) => !doc.is_reference_asset)
+            // Fetch documents and assets in parallel for each project
+            // Use optimized listForSidebar for faster loading (fewer fields)
+            const [docsResult, assetsResult] = await Promise.allSettled([
+              documentService.listForSidebar(project.id),
+              api.get(`/projects/${project.id}/assets`)
+            ])
 
-            // Fetch visual assets
+            // Process documents
+            let regularDocs: SidebarDocument[] = []
+            if (docsResult.status === 'fulfilled' && docsResult.value.data) {
+              regularDocs = docsResult.value.data
+                .filter((doc: any) => !doc.is_reference_asset)
+                .map((doc: any) => ({
+                  id: doc.id,
+                  title: doc.title,
+                  status: doc.status || 'draft',
+                  type: 'creation' as const,
+                  media_type: doc.media_type || 'text',
+                  is_reference_asset: doc.is_reference_asset,
+                }))
+            }
+
+            // Process assets
             let assets: SidebarDocument[] = []
-            try {
-              const assetsRes = await api.get(`/projects/${project.id}/assets`)
-              assets = assetsRes.data.assets || []
-            } catch (assetError) {
-              console.error(`Failed to fetch assets for project ${project.id}`, assetError)
+            if (assetsResult.status === 'fulfilled') {
+              assets = assetsResult.value.data.assets || []
             }
 
             return { ...project, documents: regularDocs, visualAssets: assets }
@@ -142,11 +154,53 @@ export default function WorkspaceSidebar({ className, onDocumentNavigate }: Work
         })
       )
 
-      setProjects(projectsWithDocs)
-    } catch (error) {
-      console.error("Failed to fetch workspace data", error)
+      setProjectsWithDocs(projectsData)
+    } finally {
+      isFetchingRef.current = false
     }
-  }
+  }, [projects])
+
+  // Fetch documents when projects change
+  useEffect(() => {
+    fetchDocumentsForProjects()
+  }, [fetchDocumentsForProjects])
+
+  // Refresh data periodically (for document title changes) - only when window is focused
+  useEffect(() => {
+    if (!workspaceId) return
+    const interval = setInterval(() => {
+      // Only refresh if the window is focused to avoid unnecessary requests
+      if (document.hasFocus()) {
+        refetchProjects()
+        fetchDocumentsForProjects(true) // Force refresh
+      }
+    }, 30000) // Every 30 seconds - reduced frequency for better performance
+    return () => clearInterval(interval)
+  }, [workspaceId, refetchProjects, fetchDocumentsForProjects])
+
+  // Fetch user data on mount
+  useEffect(() => {
+    if (authLoading) return
+    if (token && !user) {
+      fetchUser()
+    }
+  }, [token, authLoading, user, fetchUser])
+
+  // Auto-expand active project
+  useEffect(() => {
+    if (projectId) {
+      setExpandedProjects(prev => {
+        if (prev.has(projectId)) return prev // Don't trigger re-render if already expanded
+        return new Set([...prev, projectId])
+      })
+    }
+  }, [projectId])
+
+  // Refresh function for child components
+  const handleRefresh = useCallback(() => {
+    refetchProjects()
+    fetchDocumentsForProjects(true) // Force refresh
+  }, [refetchProjects, fetchDocumentsForProjects])
 
   const toggleProject = (projectId: string) => {
     setExpandedProjects(prev => {
@@ -161,7 +215,7 @@ export default function WorkspaceSidebar({ className, onDocumentNavigate }: Work
   }
 
   const filteredProjects = useMemo(() => {
-    let result = projects
+    let result = projectsWithDocs
 
     // Apply media type filter
     if (mediaFilter !== "all") {
@@ -184,14 +238,23 @@ export default function WorkspaceSidebar({ className, onDocumentNavigate }: Work
         doc.title.toLowerCase().includes(query)
       )
       return projectMatches || docMatches
-    }).map(project => {
-      // If searching, expand projects with matches
-      if (searchQuery && !expandedProjects.has(project.id)) {
-        setExpandedProjects(prev => new Set([...prev, project.id]))
-      }
-      return project
     })
-  }, [projects, searchQuery, mediaFilter])
+  }, [projectsWithDocs, searchQuery, mediaFilter])
+
+  // Auto-expand projects with search matches (separate effect to avoid infinite loop)
+  // Only trigger on searchQuery change, not on filteredProjects
+  useEffect(() => {
+    if (!searchQuery.trim()) return
+
+    // Expand all projects when searching to show matches
+    const allProjectIds = projectsWithDocs.map(p => p.id)
+    setExpandedProjects(prev => {
+      const newSet = new Set([...prev, ...allProjectIds])
+      // Only update if actually different to prevent re-renders
+      if (newSet.size === prev.size) return prev
+      return newSet
+    })
+  }, [searchQuery, projectsWithDocs])
 
   if (isCollapsed) {
     return (
@@ -216,7 +279,7 @@ export default function WorkspaceSidebar({ className, onDocumentNavigate }: Work
         </Button>
         <Separator className="mb-4 w-8" />
         <div className="flex flex-col gap-2 flex-1 overflow-y-auto w-full px-2">
-          {projects.map((project) => (
+          {projectsWithDocs.map((project) => (
             <Button
               key={project.id}
               variant={projectId === project.id ? "default" : "ghost"}
@@ -380,7 +443,7 @@ export default function WorkspaceSidebar({ className, onDocumentNavigate }: Work
               documentCount={project.documents?.length || 0}
               visualAssets={project.visualAssets || []}
               onDocumentNavigate={onDocumentNavigate}
-              onRefresh={fetchWorkspaceData}
+              onRefresh={handleRefresh}
             />
           ))}
         </div>

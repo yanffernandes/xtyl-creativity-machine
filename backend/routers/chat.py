@@ -5,7 +5,7 @@ from typing import List, Optional, Dict, Any
 from sqlalchemy.orm import Session
 import asyncio
 from database import get_db, SessionLocal
-from auth import get_current_user
+from supabase_auth import get_current_user
 from models import User, Project, Workspace, UserPreferences
 from llm_service import list_models, chat_completion, chat_completion_stream
 from crud import get_user_preferences
@@ -130,7 +130,8 @@ class ToolApprovalResponse(BaseModel):
     approved: bool
 
 @router.get("/models")
-async def get_available_models(current_user: User = Depends(get_current_user)):
+async def get_available_models():
+    """List available models - public endpoint (no auth required)"""
     return await list_models()
 
 @router.post("/upload-attachment")
@@ -348,6 +349,27 @@ IMPORTANT: When working with this document:
 {content_preview}
 """)
 
+    # Add ALL context files (is_context=True) from the project automatically
+    if request.use_rag and request.project_id:
+        from models import Document as DBDocument
+        context_files = db.query(DBDocument).filter(
+            DBDocument.project_id == request.project_id,
+            DBDocument.is_context == True,
+            DBDocument.deleted_at == None
+        ).all()
+
+        if context_files:
+            system_parts.append("\n📚 Arquivos de Contexto do Projeto (use como referência):")
+            for doc in context_files:
+                content_preview = doc.content[:3000] if doc.content else ""
+                if doc.content and len(doc.content) > 3000:
+                    content_preview += "\n... (content truncated)"
+
+                system_parts.append(f"""
+- [{doc.title}] (ID: {doc.id}, Type: {doc.media_type or 'text'})
+{content_preview}
+""")
+
     # Add RAG context if available (semantic search when no specific docs selected)
     if request.use_rag and request.project_id and not request.current_document and not request.document_ids:
         last_user_message = messages[-1]["content"]
@@ -408,7 +430,7 @@ Retrieved Context:
             # Log AI usage
             log_ai_usage(
                 db=db,
-                user_id=current_user.id,
+                user_id=str(current_user.id),
                 workspace_id=get_workspace_id_from_project(db, request.project_id),
                 project_id=request.project_id,
                 model=request.model,
@@ -461,7 +483,7 @@ Retrieved Context:
 
     log_ai_usage(
         db=db,
-        user_id=current_user.id,
+        user_id=str(current_user.id),
         workspace_id=get_workspace_id_from_project(db, request.project_id),
         project_id=request.project_id,
         model=request.model,
@@ -611,7 +633,28 @@ IMPORTANT: When working with this document:
 {content_preview}
 """)
 
-            # Add RAG context
+            # Add ALL context files (is_context=True) from the project automatically
+            if request.use_rag and request.project_id:
+                from models import Document as DBDocument
+                context_files = db.query(DBDocument).filter(
+                    DBDocument.project_id == request.project_id,
+                    DBDocument.is_context == True,
+                    DBDocument.deleted_at == None
+                ).all()
+
+                if context_files:
+                    system_parts.append("\n📚 Arquivos de Contexto do Projeto (use como referência):")
+                    for doc in context_files:
+                        content_preview = doc.content[:3000] if doc.content else ""
+                        if doc.content and len(doc.content) > 3000:
+                            content_preview += "\n... (content truncated)"
+
+                        system_parts.append(f"""
+- [{doc.title}] (ID: {doc.id}, Type: {doc.media_type or 'text'})
+{content_preview}
+""")
+
+            # Add RAG context (semantic search when no specific docs selected)
             if request.use_rag and request.project_id and not request.current_document and not request.document_ids:
                 last_user_message = messages[-1]["content"]
                 docs = query_knowledge_base(
@@ -639,7 +682,7 @@ Retrieved Context:
 
             # Tool calling loop with streaming updates
             # Read max_iterations from user preferences, default to 15
-            user_prefs = get_user_preferences(db, current_user.id)
+            user_prefs = get_user_preferences(db, str(current_user.id))
             max_iterations = user_prefs.max_iterations if user_prefs else 15
             iteration = 0
             tool_call_history = []  # Track tool calls for infinite loop detection
@@ -752,7 +795,7 @@ Retrieved Context:
 
                     log_ai_usage(
                         db=db,
-                        user_id=current_user.id,
+                        user_id=str(current_user.id),
                         workspace_id=get_workspace_id_from_project(db, request.project_id),
                         project_id=request.project_id,
                         model=request.model,
@@ -880,7 +923,7 @@ Retrieved Context:
                             user_msg = next((m.content for m in reversed(request.messages) if m.role == "user"), "")
                             log_ai_usage(
                                 db=db,
-                                user_id=current_user.id,
+                                user_id=str(current_user.id),
                                 workspace_id=get_workspace_id_from_project(db, request.project_id),
                                 project_id=request.project_id,
                                 model=request.model,
@@ -1039,7 +1082,7 @@ Retrieved Context:
 
                 log_ai_usage(
                     db=db,
-                    user_id=current_user.id,
+                    user_id=str(current_user.id),
                     workspace_id=None,
                     project_id=request.project_id,
                     model=request.model,

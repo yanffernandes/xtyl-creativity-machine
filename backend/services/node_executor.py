@@ -28,7 +28,7 @@ sys.path.append('/app')
 from llm_service import chat_completion
 from image_generation_service import generate_image_openrouter
 from image_naming_service import generate_image_title
-from minio_service import upload_file
+from storage_service import upload_file
 from services.context_retrieval import retrieve_workflow_context
 
 logger = logging.getLogger(__name__)

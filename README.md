@@ -1,48 +1,118 @@
 # XTYL Creativity Machine
 
-## 🚀 Getting Started
+## Architecture
+
+Hybrid cloud architecture:
+- **Database**: Supabase PostgreSQL (cloud) with pgvector
+- **Authentication**: Supabase Auth
+- **Storage**: Cloudflare R2 (S3-compatible)
+- **Cache/Queue**: Redis (local Docker)
+
+## Quick Start
 
 ### Prerequisites
 - Docker & Docker Compose
-- Node.js (optional, for local frontend dev outside docker)
+- Node.js 20+
+- Supabase account
+- Cloudflare R2 account
 
-### 1. Environment Setup
-Copy the example environment file:
+### 1. Setup Supabase
+1. Create project at [supabase.com](https://supabase.com)
+2. Enable `pgvector` extension: Dashboard > Database > Extensions
+3. Get credentials from Dashboard > Settings > API
+
+### 2. Configure Environment
 ```bash
 cp .env.example .env
+# Fill in your Supabase and R2 credentials
 ```
-*Note: If you have an OpenRouter API Key, add it to the `.env` file. Otherwise, the system will use mock responses.*
 
-### 2. Run with Docker
-
-#### Development Mode
-For local development with hot reload:
+### 3. Run Development
 ```bash
-docker-compose -f docker-compose.dev.yml up --build
+./dev.sh setup   # First time
+./dev.sh start   # Start all services
 ```
 
-#### Production Mode (Recommended for Easypanel/VPS)
-For production deployment:
+### URLs
+- **Frontend**: http://localhost:3000
+- **Backend API**: http://localhost:8000/docs
+
+---
+
+## Production Deployment
+
+### Prerequisites
+- Docker Engine 24.0+
+- 4GB+ RAM, 20GB+ storage
+- Configured Supabase project
+- Configured Cloudflare R2 bucket
+
+### Deploy
 ```bash
-docker-compose up --build
+cp .env.example .env
+# Configure all production variables (update URLs, Redis to redis://redis:6379/0)
+docker-compose up -d
 ```
 
-> **Note**: The main `docker-compose.yml` is optimized for production/Easypanel deployment (no `container_name` or `ports` to avoid conflicts).
+### Required Environment Variables
 
-- **Frontend**: [http://localhost:3000](http://localhost:3000)
-- **Backend API**: [http://localhost:8000/docs](http://localhost:8000/docs)
-- **MinIO Console**: [http://localhost:9001](http://localhost:9001) (User/Pass: minioadmin/minioadmin)
+**Supabase:**
+- `DATABASE_URL` - Connection string (use pooler port 6543)
+- `SUPABASE_JWT_SECRET`
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 
-### 3. Development Notes
-- **Frontend**: Located in `frontend/`. Built with Next.js + Shadcn/UI.
-- **Backend**: Located in `backend/`. Built with FastAPI.
-- **Database**: PostgreSQL with `pgvector` extension for AI memory.
+**Cloudflare R2:**
+- `R2_ENDPOINT` - `https://[ACCOUNT_ID].r2.cloudflarestorage.com`
+- `R2_ACCESS_KEY`, `R2_SECRET_KEY`
+- `R2_BUCKET`, `R2_PUBLIC_URL`
 
-### 4. Testing the Flow
-1. Go to [http://localhost:3000](http://localhost:3000).
-2. Register a new account.
-3. Create a Workspace (e.g., "XTYL Agency").
-4. Create a Project (e.g., "Client A").
-5. Upload a PDF/TXT document in the Project.
-6. Use the Chat Sidebar to ask questions about the document.
-7. Ask the AI to generate content and use "Suggest Edit" to send it to the Smart Editor.
+**Application:**
+- `OPENROUTER_API_KEY` - AI models
+- `BREVO_API_KEY` - Email
+- `FRONTEND_URL`, `NEXT_PUBLIC_API_URL`
+
+---
+
+## Troubleshooting
+
+### Supabase Connection
+```bash
+# Verify DATABASE_URL format
+postgresql://postgres.[PROJECT_REF]:[PASSWORD]@aws-0-us-east-1.pooler.supabase.com:6543/postgres
+```
+
+### R2 Storage
+- Verify credentials in Cloudflare Dashboard > R2
+- Check bucket permissions for public access
+
+### Redis/Celery
+```bash
+docker exec xtyl-redis redis-cli ping  # Should return PONG
+docker-compose logs celery-worker
+```
+
+### Complete Rebuild
+```bash
+docker-compose down --rmi all
+docker-compose build --no-cache
+docker-compose up -d
+```
+
+### Development Mode
+```bash
+./dev.sh status   # Check services
+./dev.sh stop     # Stop all
+./dev.sh setup    # Reinstall dependencies
+```
+
+---
+
+## Project Structure
+```
+├── frontend/          Next.js 14 + Shadcn/UI
+├── backend/           FastAPI + SQLAlchemy
+├── docker-compose.yml Production deployment
+├── dev.sh             Development script
+└── .env.example       Environment template
+```

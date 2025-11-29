@@ -15,23 +15,28 @@ export default function ProfilePage() {
     const [user, setUser] = useState<any>(null)
     const [fullName, setFullName] = useState("")
     const [password, setPassword] = useState("")
-    const [isLoading, setIsLoading] = useState(false)
-    const { token } = useAuthStore()
+    const [isSaving, setIsSaving] = useState(false)
+    const { session, isLoading: authLoading } = useAuthStore()
     const { toast } = useToast()
     const router = useRouter()
 
     useEffect(() => {
-        if (token) {
-            api.get("/auth/me").then(res => {
-                setUser(res.data)
-                setFullName(res.data.full_name || "")
-            }).catch(console.error)
+        if (authLoading) return
+
+        if (!session) {
+            router.push("/login")
+            return
         }
-    }, [token])
+
+        api.get("/auth/me").then(res => {
+            setUser(res.data)
+            setFullName(res.data.full_name || "")
+        }).catch(console.error)
+    }, [session, authLoading, router])
 
     const handleSave = async () => {
         try {
-            setIsLoading(true)
+            setIsSaving(true)
             const data: any = { full_name: fullName }
             if (password) {
                 data.password = password
@@ -43,7 +48,7 @@ export default function ProfilePage() {
             console.error("Failed to update profile", error)
             toast({ title: "Erro", description: "Falha ao atualizar perfil.", variant: "destructive" })
         } finally {
-            setIsLoading(false)
+            setIsSaving(false)
         }
     }
 
@@ -81,8 +86,8 @@ export default function ProfilePage() {
                 </CardContent>
                 <CardFooter className="flex justify-between pt-2">
                     <Button variant="outline" onClick={() => router.back()}>Voltar</Button>
-                    <Button onClick={handleSave} disabled={isLoading}>
-                        {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    <Button onClick={handleSave} disabled={isSaving}>
+                        {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                         Salvar Alterações
                     </Button>
                 </CardFooter>

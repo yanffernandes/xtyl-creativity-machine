@@ -41,6 +41,9 @@ import {
     addCreatedDocument,
     ChatMessage,
 } from "@/lib/api/conversations"
+import { useFolders } from "@/hooks/use-folders"
+import { useTemplates } from "@/hooks/use-templates"
+import { templateService } from "@/lib/supabase/templates"
 
 interface Message {
     role: "user" | "assistant" | "system"
@@ -77,12 +80,6 @@ interface Document {
     title: string
 }
 
-interface Folder {
-    id: string
-    name: string
-    document_count?: number
-}
-
 interface ToolExecution {
     id: string
     tool: string
@@ -110,7 +107,7 @@ interface ChatSidebarProps {
     autoApplyEdits?: boolean
     onAutoApplyChange?: (value: boolean) => void
     onDocumentUpdate?: (documentId: string) => Promise<void>
-    onToolExecuted?: (toolName: string) => Promise<void>  // New callback for any tool execution
+    onToolExecuted?: (toolName: string, toolResult?: any) => Promise<void>  // New callback for any tool execution
     onNavigateToDocument?: (documentId: string) => void  // Navigate to a document
     availableModels?: string[]
     defaultModel?: string
@@ -136,20 +133,18 @@ export default function ChatSidebar({
     const [input, setInput] = useState("")
     const [isLoading, setIsLoading] = useState(false)
     const [models, setModels] = useState<Model[]>([])
-    const [selectedModel, setSelectedModel] = useState(defaultModel || "x-ai/grok-beta")
+    const [selectedModel, setSelectedModel] = useState(defaultModel || "openai/gpt-4o-mini")
     const [useRag, setUseRag] = useState(true)
     const [openModelSelect, setOpenModelSelect] = useState(false)
     const [isContextExpanded, setIsContextExpanded] = useState(false)
     const [selectedContextIds, setSelectedContextIds] = useState<string[]>([])
     const [streamingStatus, setStreamingStatus] = useState<StreamingStatus | null>(null)
-    const [templates, setTemplates] = useState<any[]>([])
     const [openTemplates, setOpenTemplates] = useState(false)
     const [pendingApproval, setPendingApproval] = useState<PendingApproval | null>(null)
     const [attachments, setAttachments] = useState<any[]>([])
     const [uploadingAttachment, setUploadingAttachment] = useState(false)
     const [contextSearchQuery, setContextSearchQuery] = useState("")
     const [selectedFolderIds, setSelectedFolderIds] = useState<string[]>([])
-    const [folders, setFolders] = useState<Folder[]>([])
     const [currentStreamingContent, setCurrentStreamingContent] = useState("")
     const [toolExecutions, setToolExecutions] = useState<ToolExecution[]>([])
     const [taskList, setTaskList] = useState<TaskItem[]>([])
@@ -163,25 +158,26 @@ export default function ChatSidebar({
     const messagesEndRef = useRef<HTMLDivElement>(null)
     const fileInputRef = useRef<HTMLInputElement>(null)
     const contextRef = useRef<HTMLDivElement>(null)
-    const { token } = useAuthStore()
+    const { token, isLoading: authLoading } = useAuthStore()
     const { toast } = useToast()
 
     // User preferences for autonomous mode
     const { preferences, updatePreference, isLoading: preferencesLoading } = useUserPreferences(token)
 
+    // Supabase hooks for folders and templates
+    const { data: foldersData } = useFolders(projectId || '')
+    const folders = foldersData ?? []
+    const { data: templatesData } = useTemplates(workspaceId)
+    const templates = (templatesData ?? []).slice(0, 10) // Top 10 templates
+
     // Fetch models only on client side with token
     useEffect(() => {
+        if (authLoading) return
         if (typeof window !== 'undefined' && token) {
             fetchModels()
         }
-    }, [token])
+    }, [token, authLoading])
 
-    // Fetch folders when projectId changes
-    useEffect(() => {
-        if (projectId && token) {
-            fetchFolders()
-        }
-    }, [projectId, token])
 
     // Scroll to bottom when messages change
     useEffect(() => {
@@ -228,33 +224,11 @@ export default function ChatSidebar({
         }
     }
 
-    const fetchTemplates = async () => {
-        try {
-            const response = await api.get("/templates?include_system=true")
-            setTemplates(response.data.slice(0, 10)) // Top 10 templates
-        } catch (error) {
-            console.error("Failed to fetch templates", error)
-        }
-    }
-
-    const fetchFolders = async () => {
-        if (!projectId) return
-        try {
-            const response = await api.get(`/folders/project/${projectId}`)
-            setFolders(response.data.folders || [])
-        } catch (error) {
-            console.error("Failed to fetch folders", error)
-        }
-    }
-
     const useTemplate = async (template: any) => {
-        setInput(template.prompt)
+        setInput(template.prompt || '')
         setOpenTemplates(false)
-        try {
-            await api.post(`/templates/${template.id}/use`)
-        } catch (error) {
-            console.error("Failed to log template usage", error)
-        }
+        // Increment usage count via Supabase
+        await templateService.incrementUsageCount(template.id)
         toast({ title: "Template carregado!", description: template.name })
     }
 
@@ -727,16 +701,17 @@ export default function ChatSidebar({
                                     })
                                     setToolExecutions(localToolExecutions)
 
-                                    // Trigger refresh for tools that modify the file system
-                                    const fileSystemTools = [
+                                    // Trigger refresh for tools that modify the file system or edit documents
+                                    const refreshTools = [
                                         'create_document', 'create_folder',
                                         'move_file', 'move_folder',
                                         'delete_file', 'delete_folder',
                                         'rename_document', 'rename_folder',
-                                        'generate_image', 'attach_image_to_document'
+                                        'generate_image', 'attach_image_to_document',
+                                        'edit_document'  // Include edit_document to update editor in real-time
                                     ]
-                                    if (onToolExecuted && fileSystemTools.includes(event.tool)) {
-                                        await onToolExecuted(event.tool)
+                                    if (onToolExecuted && refreshTools.includes(event.tool)) {
+                                        await onToolExecuted(event.tool, event.result)
                                     }
 
                                     // Track created documents for navigation links
@@ -838,6 +813,7 @@ export default function ChatSidebar({
         "backdrop-blur-2xl backdrop-saturate-150",
         "border border-white/[0.1]",
         "rounded-2xl",
+        "overflow-hidden", // Prevents child elements from showing outside rounded corners
         "shadow-[0_8px_32px_-8px_rgba(0,0,0,0.15),0_0_0_1px_rgba(255,255,255,0.05)_inset]",
         "dark:shadow-[0_8px_32px_-8px_rgba(0,0,0,0.4),0_0_0_1px_rgba(255,255,255,0.03)_inset]",
         className
@@ -1067,11 +1043,6 @@ export default function ChatSidebar({
                                                         <label htmlFor={`folder-${folder.id}`} className="truncate flex-1 cursor-pointer py-1" title={folder.name}>
                                                             {folder.name}
                                                         </label>
-                                                        {folder.document_count !== undefined && (
-                                                            <Badge variant="outline" className="text-[9px] h-4 px-1">
-                                                                {folder.document_count} docs
-                                                            </Badge>
-                                                        )}
                                                     </div>
                                                 ))}
                                             </>
@@ -1451,9 +1422,6 @@ export default function ChatSidebar({
                                     type="button"
                                     size="sm"
                                     variant="outline"
-                                    onClick={() => {
-                                        if (templates.length === 0) fetchTemplates()
-                                    }}
                                     disabled={isLoading}
                                     title="Usar template"
                                     className="gap-2"

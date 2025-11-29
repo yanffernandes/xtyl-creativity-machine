@@ -9,7 +9,7 @@ from schemas import (
     DocumentCreate, DocumentUpdate, Document as DocumentSchema,
     DocumentAttachmentCreate, DocumentAttachment as DocumentAttachmentSchema
 )
-from auth import get_current_user
+from supabase_auth import get_current_user
 from rag_service import process_document
 from crud import (
     get_project_documents, get_document, create_document, update_document, delete_document,
@@ -34,17 +34,20 @@ async def upload_document(
     project_id: str,
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
+    is_context: bool = False,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    """Upload a document. Set is_context=true to mark as context file for RAG."""
     # Create DB entry
     doc_id = str(uuid.uuid4())
     db_doc = Document(
         id=doc_id,
         title=file.filename,
-        content="", # Will be filled or just used for metadata
+        content="",  # Will be filled or just used for metadata
         status="processing",
-        project_id=project_id
+        project_id=project_id,
+        is_context=is_context
     )
     db.add(db_doc)
     db.commit()
@@ -54,10 +57,15 @@ async def upload_document(
     with open(temp_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
-    # Trigger background processing
+    # Trigger background processing (RAG indexing happens here)
     background_tasks.add_task(process_document, db, doc_id, temp_path, file.filename)
 
-    return {"id": doc_id, "status": "processing", "message": "Document uploaded and processing started"}
+    return {
+        "id": doc_id,
+        "status": "processing",
+        "is_context": is_context,
+        "message": "Document uploaded and processing started"
+    }
 
 @router.get("/projects/{project_id}/documents", response_model=List[DocumentSchema])
 def list_project_documents(
@@ -73,6 +81,51 @@ def list_project_documents(
         Document.deleted_at == None
     ).all()
     return documents
+
+
+@router.get("/projects/{project_id}/context-files", response_model=List[DocumentSchema])
+def list_context_files(
+    project_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """List all context files (is_context=True) for a project"""
+    documents = db.query(Document).filter(
+        Document.project_id == project_id,
+        Document.is_context == True,
+        Document.deleted_at == None
+    ).order_by(Document.created_at.desc()).all()
+    return documents
+
+
+@router.post("/{document_id}/toggle-context")
+async def toggle_document_context(
+    document_id: str,
+    background_tasks: BackgroundTasks,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Toggle is_context flag for a document. If turning ON, triggers RAG processing."""
+    doc = get_document(db, document_id)
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    # Toggle the flag
+    new_value = not doc.is_context
+    doc.is_context = new_value
+    db.commit()
+    db.refresh(doc)
+
+    # If turning ON context and document has content, we could trigger RAG re-indexing
+    # For now, just return the updated state
+    # TODO: If needed, trigger background_tasks.add_task(reindex_document, db, document_id)
+
+    return {
+        "id": doc.id,
+        "title": doc.title,
+        "is_context": doc.is_context,
+        "message": f"Document {'added to' if new_value else 'removed from'} context files"
+    }
 
 @router.post("/projects/{project_id}/documents", response_model=DocumentSchema)
 def create_new_document(
@@ -120,7 +173,7 @@ def delete_existing_document(
             raise HTTPException(status_code=404, detail="Document not found")
         return {"message": "Document permanently deleted"}
     else:
-        deleted_doc = soft_delete_document(db, document_id, current_user.id)
+        deleted_doc = soft_delete_document(db, document_id, str(current_user.id))
         if not deleted_doc:
             raise HTTPException(status_code=404, detail="Document not found")
         return {
@@ -137,7 +190,7 @@ def move_document_to_folder(
     db: Session = Depends(get_db)
 ):
     """Move document to a folder (or to root if folder_id is None)"""
-    moved_doc = move_document(db, document_id, folder_id, current_user.id)
+    moved_doc = move_document(db, document_id, folder_id, str(current_user.id))
     if not moved_doc:
         raise HTTPException(status_code=404, detail="Document not found")
 
@@ -155,7 +208,7 @@ def restore_archived_document(
     db: Session = Depends(get_db)
 ):
     """Restore a soft-deleted (archived) document"""
-    restored_doc = restore_document(db, document_id, current_user.id)
+    restored_doc = restore_document(db, document_id, str(current_user.id))
     if not restored_doc:
         raise HTTPException(status_code=404, detail="Document not found or not archived")
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   MessageSquare,
@@ -21,13 +21,13 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useToast } from "@/components/ui/use-toast";
 import {
-  listConversations,
-  deleteConversation,
-  archiveConversation,
-  ConversationSummary,
-} from "@/lib/api/conversations";
+  useWorkspaceConversations,
+  useProjectConversations,
+  useArchivedConversations,
+  useDeleteConversation,
+  useArchiveConversation,
+} from "@/hooks/use-conversations";
 
 interface ConversationsListProps {
   workspaceId: string;
@@ -42,79 +42,38 @@ export default function ConversationsList({
   onSelectConversation,
   onClose,
 }: ConversationsListProps) {
-  const [conversations, setConversations] = useState<ConversationSummary[]>([]);
-  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [showArchived, setShowArchived] = useState(false);
-  const { toast } = useToast();
 
-  const fetchConversations = async () => {
-    try {
-      setLoading(true);
-      const data = await listConversations(
-        workspaceId,
-        projectId,
-        showArchived
-      );
-      setConversations(data.conversations);
-    } catch (error) {
-      console.error("Failed to fetch conversations:", error);
-      toast({
-        title: "Erro",
-        description: "Falha ao carregar conversas",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
+  // Use Supabase hooks for conversations
+  const { data: workspaceConversations, isLoading: workspaceLoading } = useWorkspaceConversations(workspaceId);
+  const { data: projectConversations, isLoading: projectLoading } = useProjectConversations(projectId || '');
+  const { data: archivedConversations, isLoading: archivedLoading } = useArchivedConversations();
+  const deleteConversation = useDeleteConversation();
+  const archiveConversation = useArchiveConversation();
+
+  // Determine which conversations to show based on filters
+  const conversations = useMemo(() => {
+    if (showArchived) {
+      return archivedConversations || [];
     }
-  };
+    if (projectId) {
+      return projectConversations || [];
+    }
+    return workspaceConversations || [];
+  }, [showArchived, projectId, archivedConversations, projectConversations, workspaceConversations]);
 
-  useEffect(() => {
-    fetchConversations();
-  }, [workspaceId, projectId, showArchived]);
+  const loading = showArchived ? archivedLoading : (projectId ? projectLoading : workspaceLoading);
 
-  const handleDelete = async (conversationId: string, e: React.MouseEvent) => {
+  const handleDelete = (conversationId: string, e: React.MouseEvent) => {
     e.stopPropagation();
     if (!confirm("Tem certeza que deseja excluir esta conversa?")) return;
-
-    try {
-      await deleteConversation(conversationId);
-      setConversations((prev) =>
-        prev.filter((c) => c.id !== conversationId)
-      );
-      toast({
-        title: "Conversa excluída",
-        description: "A conversa foi excluída com sucesso",
-      });
-    } catch (error) {
-      console.error("Failed to delete conversation:", error);
-      toast({
-        title: "Erro",
-        description: "Falha ao excluir conversa",
-        variant: "destructive",
-      });
-    }
+    deleteConversation.mutate(conversationId);
   };
 
-  const handleArchive = async (conversationId: string, e: React.MouseEvent) => {
+  const handleArchive = (conversationId: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    try {
-      await archiveConversation(conversationId);
-      setConversations((prev) =>
-        prev.filter((c) => c.id !== conversationId)
-      );
-      toast({
-        title: "Conversa arquivada",
-        description: "A conversa foi arquivada com sucesso",
-      });
-    } catch (error) {
-      console.error("Failed to archive conversation:", error);
-      toast({
-        title: "Erro",
-        description: "Falha ao arquivar conversa",
-        variant: "destructive",
-      });
-    }
+    archiveConversation.mutate(conversationId);
   };
 
   const filteredConversations = conversations.filter((c) => {

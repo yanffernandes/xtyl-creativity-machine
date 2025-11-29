@@ -14,7 +14,7 @@ from typing import List, Optional
 from database import get_db
 from models import WorkflowExecution, WorkflowTemplate, User, Project, Document
 from schemas import WorkflowExecution as WorkflowExecutionSchema
-from auth import get_current_user
+from supabase_auth import get_current_user
 from datetime import datetime
 
 router = APIRouter(
@@ -153,7 +153,7 @@ async def save_workflow_output_to_project(
         folder_id=folder_id,
         title=document_title or f"Workflow Output - {execution.workflow_name}",
         content=content,
-        user_id=current_user.id,
+        user_id=str(current_user.id),
         created_at=datetime.utcnow(),
         updated_at=datetime.utcnow()
     )

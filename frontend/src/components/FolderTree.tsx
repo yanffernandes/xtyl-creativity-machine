@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect } from "react"
+import React, { useState } from "react"
 import { ChevronRight, ChevronDown, Folder, FolderOpen, File, Plus, Trash2, Edit2, FolderPlus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -19,8 +19,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { foldersApi, documentsApi, Folder as FolderType } from "@/lib/folders-api"
-import { useToast } from "@/components/ui/use-toast"
+import { useFolders, useCreateFolder, useUpdateFolder, useArchiveFolder, useMoveFolder } from "@/hooks/use-folders"
+import { useMoveDocument } from "@/hooks/use-documents"
+import type { Folder as FolderType } from "@/types/supabase"
 
 interface Document {
   id: string
@@ -55,7 +56,6 @@ export default function FolderTree({
   onSelectDocument,
   onRefresh
 }: FolderTreeProps) {
-  const [folders, setFolders] = useState<FolderType[]>([])
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set())
   const [showNewFolderDialog, setShowNewFolderDialog] = useState(false)
   const [showRenameFolderDialog, setShowRenameFolderDialog] = useState(false)
@@ -65,27 +65,22 @@ export default function FolderTree({
   const [parentFolder, setParentFolder] = useState<FolderType | null>(null)
   const [draggedItem, setDraggedItem] = useState<{type: 'document' | 'folder', id: string} | null>(null)
   const [dragOverFolder, setDragOverFolder] = useState<string | null>(null)
-  const { toast } = useToast()
 
-  useEffect(() => {
-    loadFolders()
-  }, [projectId])
-
-  const loadFolders = async () => {
-    try {
-      const response = await foldersApi.list(projectId)
-      setFolders(response.folders || [])
-    } catch (error) {
-      console.error("Failed to load folders", error)
-    }
-  }
+  // Supabase hooks
+  const { data: folders = [], refetch: refetchFolders } = useFolders(projectId)
+  const createFolder = useCreateFolder()
+  const updateFolder = useUpdateFolder()
+  const archiveFolder = useArchiveFolder()
+  const moveFolder = useMoveFolder()
+  const moveDocument = useMoveDocument()
 
   const buildTree = (): TreeNode[] => {
     const tree: TreeNode[] = []
     const folderMap = new Map<string, TreeNode>()
+    const folderList = folders || []
 
     // Create folder nodes
-    folders.forEach(folder => {
+    folderList.forEach(folder => {
       const node: TreeNode = {
         type: 'folder',
         data: folder,
@@ -96,7 +91,7 @@ export default function FolderTree({
     })
 
     // Build folder hierarchy
-    folders.forEach(folder => {
+    folderList.forEach(folder => {
       const node = folderMap.get(folder.id)!
       if (folder.parent_folder_id) {
         const parent = folderMap.get(folder.parent_folder_id)
@@ -144,103 +139,76 @@ export default function FolderTree({
     })
   }
 
-  const handleCreateFolder = async () => {
+  const handleCreateFolder = () => {
     if (!newFolderName.trim()) return
 
-    try {
-      await foldersApi.create(projectId, newFolderName, parentFolder?.id)
-      toast({
-        title: "Pasta criada",
-        description: `Pasta "${newFolderName}" criada com sucesso`
-      })
-      setNewFolderName("")
-      setParentFolder(null)
-      setShowNewFolderDialog(false)
-      loadFolders()
-    } catch (error) {
-      toast({
-        title: "Erro",
-        description: "Falha ao criar pasta",
-        variant: "destructive"
-      })
-    }
+    createFolder.mutate(
+      {
+        name: newFolderName,
+        project_id: projectId,
+        parent_folder_id: parentFolder?.id || null,
+      },
+      {
+        onSuccess: () => {
+          setNewFolderName("")
+          setParentFolder(null)
+          setShowNewFolderDialog(false)
+        },
+      }
+    )
   }
 
-  const handleRenameFolder = async () => {
+  const handleRenameFolder = () => {
     if (!selectedFolder || !renameFolderName.trim()) return
 
-    try {
-      await foldersApi.update(selectedFolder.id, renameFolderName)
-      toast({
-        title: "Pasta renomeada",
-        description: `Pasta renomeada para "${renameFolderName}"`
-      })
-      setRenameFolderName("")
-      setSelectedFolder(null)
-      setShowRenameFolderDialog(false)
-      loadFolders()
-    } catch (error) {
-      toast({
-        title: "Erro",
-        description: "Falha ao renomear pasta",
-        variant: "destructive"
-      })
-    }
+    updateFolder.mutate(
+      {
+        id: selectedFolder.id,
+        data: { name: renameFolderName },
+      },
+      {
+        onSuccess: () => {
+          setRenameFolderName("")
+          setSelectedFolder(null)
+          setShowRenameFolderDialog(false)
+        },
+      }
+    )
   }
 
-  const handleDeleteFolder = async (folder: FolderType) => {
+  const handleDeleteFolder = (folder: FolderType) => {
     if (!confirm(`Arquivar pasta "${folder.name}" e todo seu conteúdo?`)) return
 
-    try {
-      await foldersApi.delete(folder.id, true)
-      toast({
-        title: "Pasta arquivada",
-        description: `Pasta "${folder.name}" foi arquivada. Você pode restaurá-la depois.`
-      })
-      loadFolders()
-      onRefresh()
-    } catch (error) {
-      toast({
-        title: "Erro",
-        description: "Falha ao arquivar pasta",
-        variant: "destructive"
-      })
-    }
+    archiveFolder.mutate(
+      { id: folder.id, cascade: true },
+      {
+        onSuccess: () => {
+          onRefresh()
+        },
+      }
+    )
   }
 
-  const handleMoveDocument = async (doc: Document, targetFolderId: string | null) => {
-    try {
-      await documentsApi.move(doc.id, targetFolderId)
-      toast({
-        title: "Documento movido",
-        description: `"${doc.title}" foi movido com sucesso`
-      })
-      onRefresh()
-    } catch (error) {
-      toast({
-        title: "Erro",
-        description: "Falha ao mover documento",
-        variant: "destructive"
-      })
-    }
+  const handleMoveDocument = (doc: Document, targetFolderId: string | null) => {
+    moveDocument.mutate(
+      { id: doc.id, folderId: targetFolderId },
+      {
+        onSuccess: () => {
+          onRefresh()
+        },
+      }
+    )
   }
 
-  const handleMoveFolder = async (folderId: string, targetParentId: string | null) => {
-    try {
-      await foldersApi.move(folderId, targetParentId)
-      toast({
-        title: "Pasta movida",
-        description: "Pasta movida com sucesso"
-      })
-      loadFolders()
-      onRefresh()
-    } catch (error: any) {
-      toast({
-        title: "Erro",
-        description: error.response?.data?.detail || "Falha ao mover pasta",
-        variant: "destructive"
-      })
-    }
+  const handleMoveFolder = (folderId: string, targetParentId: string | null) => {
+    moveFolder.mutate(
+      { id: folderId, newParentId: targetParentId },
+      {
+        onSuccess: () => {
+          onRefresh()
+        },
+      }
+    )
   }
 
   // Drag & Drop handlers
@@ -259,7 +227,7 @@ export default function FolderTree({
     setDragOverFolder(null)
   }
 
-  const handleDrop = async (e: React.DragEvent, targetFolderId: string | null) => {
+  const handleDrop = (e: React.DragEvent, targetFolderId: string | null) => {
     e.preventDefault()
     e.stopPropagation()
 
@@ -268,12 +236,12 @@ export default function FolderTree({
     if (draggedItem.type === 'document') {
       const doc = documents.find(d => d.id === draggedItem.id)
       if (doc) {
-        await handleMoveDocument(doc, targetFolderId)
+        handleMoveDocument(doc, targetFolderId)
       }
     } else if (draggedItem.type === 'folder') {
       // Don't allow dropping folder into itself
       if (draggedItem.id !== targetFolderId) {
-        await handleMoveFolder(draggedItem.id, targetFolderId)
+        handleMoveFolder(draggedItem.id, targetFolderId)
       }
     }
 

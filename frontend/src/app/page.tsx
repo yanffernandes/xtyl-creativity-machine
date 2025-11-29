@@ -6,15 +6,17 @@ import { useAuthStore } from "@/lib/store"
 
 export default function Home() {
     const router = useRouter()
-    const token = useAuthStore((state) => state.token)
+    const { session, isLoading } = useAuthStore()
 
     useEffect(() => {
-        if (token) {
+        if (isLoading) return
+
+        if (session) {
             router.push("/dashboard")
         } else {
             router.push("/login")
         }
-    }, [token, router])
+    }, [session, isLoading, router])
 
     return null
 }

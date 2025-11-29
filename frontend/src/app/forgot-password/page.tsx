@@ -1,9 +1,8 @@
 "use client"
 
 import { useState } from "react"
-import { useRouter } from "next/navigation"
 import Link from "next/link"
-import api from "@/lib/api"
+import { useAuthStore } from "@/lib/store"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
@@ -16,7 +15,7 @@ export default function ForgotPasswordPage() {
     const [error, setError] = useState("")
     const [success, setSuccess] = useState(false)
     const [loading, setLoading] = useState(false)
-    const router = useRouter()
+    const resetPassword = useAuthStore((state) => state.resetPassword)
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -25,7 +24,13 @@ export default function ForgotPasswordPage() {
         setLoading(true)
 
         try {
-            await api.post("/auth/password-reset/request", { email })
+            const result = await resetPassword(email)
+
+            if (result.error) {
+                setError(result.error)
+                return
+            }
+
             setSuccess(true)
         } catch (err) {
             setError("Ocorreu um erro. Tente novamente.")
@@ -45,7 +50,7 @@ export default function ForgotPasswordPage() {
                         Recuperar Senha
                     </CardTitle>
                     <CardDescription className="text-text-secondary mt-2">
-                        Digite seu email para receber o link de recuperação
+                        Digite seu email para receber o link de recuperacao
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -53,7 +58,7 @@ export default function ForgotPasswordPage() {
                         <Alert className="border-green-500/20 bg-green-500/10">
                             <CheckCircle2 className="h-4 w-4 text-green-600" />
                             <AlertDescription className="text-green-700 dark:text-green-300">
-                                Se o email estiver cadastrado, você receberá um link de recuperação em instantes.
+                                Se o email estiver cadastrado, voce recebera um link de recuperacao em instantes.
                                 Verifique sua caixa de entrada e spam.
                             </AlertDescription>
                         </Alert>
@@ -77,7 +82,7 @@ export default function ForgotPasswordPage() {
                                 </div>
                             )}
                             <Button type="submit" className="w-full" size="lg" disabled={loading}>
-                                {loading ? "Enviando..." : "Enviar Link de Recuperação"}
+                                {loading ? "Enviando..." : "Enviar Link de Recuperacao"}
                             </Button>
                             <div className="text-center">
                                 <Link

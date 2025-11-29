@@ -34,7 +34,7 @@ export function useWorkflowExecution(workflowId: string) {
     executionId: null,
   });
   const { toast } = useToast();
-  const { token } = useAuthStore();
+  const { token, isLoading: authLoading } = useAuthStore();
   const eventSourceRef = useRef<EventSource | null>(null);
 
   // Cleanup SSE connection on unmount
@@ -53,8 +53,8 @@ export function useWorkflowExecution(workflowId: string) {
       eventSourceRef.current.close();
     }
 
-    if (!token) {
-      console.error('No auth token available for SSE connection');
+    if (authLoading || !token) {
+      console.error('Auth not ready or no token available for SSE connection');
       return;
     }
 

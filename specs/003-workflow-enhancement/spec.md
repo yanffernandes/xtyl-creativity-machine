@@ -2,7 +2,9 @@
 
 **Feature Branch**: `003-workflow-enhancement`
 **Created**: 2025-11-25
-**Status**: Draft
+**Status**: Completed
+**Completed**: 2025-11-28
+**Note**: This feature has been implemented. For current architecture details, see `007-hybrid-supabase-architecture`.
 **Input**: User description: "Vamos criar uma nova atualização visando finalizar o sistema de workflows. Então a gente tem que atualizar o sistema de criação de fluxos e edição de fluxos para que funcione com todos os nós. Então tem um nó de criação de texto, um nó de criação de imagem. É importante ver como é que vai ser o formato de saída para que eu possa jogar uma variável de um para o outro, talvez padroneizar um jeito. Não sei, preciso de mais clareza nisso tudo. Então como é que funciona isso, como é que funciona suas conexões, como é que eu pego a variável de um para o outro. Ajustar visualmente tanto a barra lateral onde eu seleciono os nós, como todos os nós, então o nó start, o nó finalizado, o nó de condicional, né, o nó de... e todos os nós que fazem sentido. No selector de modelo, no nó de imagem, deixar apenas os tipos de imagem que estão disponíveis no open router, assim como nos de texto, também apenas os que estão disponíveis, priorizando da mesma forma como é do lado de fora, fora da área de workflow, priorizando aqueles que são marcados como recomendados. Além do mais estruturar toda essa ideia de workflows, eu acho que ele tem que estar dentro de um workspace, mas ele também está relacionado sempre a um projeto. Então, de forma que eu possa depois executar em loop, né, então eu posso botar um loop para executar x vezes. Preciso de nós que vão buscar contexto, então ele tem que executar uma vez, buscar o contexto, fazer uma análise em cima desse contexto e depois criar. Então, eu preciso de um nó intermediário onde eu não vou criar um documento, eu quero fazer alguma coisa com a IA, mas eu não vou salvar isso, essa vai ser usada apenas dentro do fluxo talvez, entende? Então, para eu poder ter um pouquinho mais de flexibilidade."
 
 ## Clarifications

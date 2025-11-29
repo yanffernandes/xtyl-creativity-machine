@@ -65,7 +65,7 @@ interface FolderType {
 interface Project {
   id: string
   name: string
-  description?: string
+  description?: string | null
   documents?: Document[]
 }
 
@@ -134,8 +134,8 @@ export default function ProjectTreeItem({
   const loadFolders = async () => {
     try {
       const data = await foldersApi.list(project.id)
-      // Handle both array and object responses
-      const foldersArray = Array.isArray(data) ? data : (data.folders || [])
+      // API now returns array directly (migrated to Supabase)
+      const foldersArray = Array.isArray(data) ? data : ((data as any).folders || [])
       const activeFolders = foldersArray.filter((f: FolderType) => !f.deleted_at)
       setFolders(activeFolders)
     } catch (error) {

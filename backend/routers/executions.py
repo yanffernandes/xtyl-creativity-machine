@@ -20,7 +20,7 @@ from schemas import (
     WorkflowExecution as WorkflowExecutionSchema,
     AgentJob as AgentJobSchema
 )
-from auth import get_current_user, get_current_user_from_token
+from supabase_auth import get_current_user, get_current_user_from_token
 from services.workflow_executor import WorkflowExecutor
 import uuid
 import json
@@ -62,12 +62,14 @@ async def launch_workflow_execution(
         raise HTTPException(status_code=404, detail="Project not found")
 
     # Create execution record
+    # Convert UUID to string for WorkflowExecution table
+    user_id_str = str(current_user.id)
     execution = WorkflowExecution(
         id=str(uuid.uuid4()),
         template_id=execution_data.template_id,
         project_id=execution_data.project_id,
         workspace_id=project.workspace_id,
-        user_id=current_user.id,
+        user_id=user_id_str,
         status="pending",
         config_json=execution_data.config_json or {},
         progress_percent=0
@@ -108,7 +110,7 @@ async def get_workflow_execution(
         raise HTTPException(status_code=404, detail="Workflow execution not found")
 
     # Verify user has access (must be the user who created it)
-    if execution.user_id != current_user.id:
+    if execution.user_id != str(current_user.id):
         raise HTTPException(status_code=403, detail="Access denied")
 
     return execution
@@ -135,7 +137,7 @@ async def list_workflow_executions(
         offset: Offset for pagination
     """
     query = db.query(WorkflowExecution).filter(
-        WorkflowExecution.user_id == current_user.id
+        WorkflowExecution.user_id == str(current_user.id)
     )
 
     if project_id:
@@ -170,7 +172,7 @@ async def get_execution_jobs(
     if not execution:
         raise HTTPException(status_code=404, detail="Workflow execution not found")
 
-    if execution.user_id != current_user.id:
+    if execution.user_id != str(current_user.id):
         raise HTTPException(status_code=403, detail="Access denied")
 
     # Get all jobs for this execution
@@ -195,7 +197,7 @@ async def pause_execution(
     if not execution:
         raise HTTPException(status_code=404, detail="Workflow execution not found")
 
-    if execution.user_id != current_user.id:
+    if execution.user_id != str(current_user.id):
         raise HTTPException(status_code=403, detail="Access denied")
 
     if execution.status != "running":
@@ -228,7 +230,7 @@ async def resume_execution(
     if not execution:
         raise HTTPException(status_code=404, detail="Workflow execution not found")
 
-    if execution.user_id != current_user.id:
+    if execution.user_id != str(current_user.id):
         raise HTTPException(status_code=403, detail="Access denied")
 
     if execution.status != "paused":
@@ -261,7 +263,7 @@ async def stop_execution(
     if not execution:
         raise HTTPException(status_code=404, detail="Workflow execution not found")
 
-    if execution.user_id != current_user.id:
+    if execution.user_id != str(current_user.id):
         raise HTTPException(status_code=403, detail="Access denied")
 
     if execution.status not in ["running", "paused"]:
@@ -295,7 +297,7 @@ async def get_execution_status(
     if not execution:
         raise HTTPException(status_code=404, detail="Workflow execution not found")
 
-    if execution.user_id != current_user.id:
+    if execution.user_id != str(current_user.id):
         raise HTTPException(status_code=403, detail="Access denied")
 
     # Get job statistics
@@ -379,7 +381,7 @@ async def stream_execution_progress(
     if not execution:
         raise HTTPException(status_code=404, detail="Workflow execution not found")
 
-    if execution.user_id != current_user.id:
+    if execution.user_id != str(current_user.id):
         raise HTTPException(status_code=403, detail="Access denied")
 
     async def event_generator():
@@ -391,7 +393,7 @@ async def stream_execution_progress(
             # Execute workflow and yield progress
             async for progress_update in executor.execute_workflow(
                 execution_id=execution_id,
-                user_id=current_user.id,
+                user_id=str(current_user.id),
                 yield_progress=True
             ):
                 # Format as SSE event

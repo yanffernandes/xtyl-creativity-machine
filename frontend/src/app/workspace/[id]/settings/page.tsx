@@ -11,14 +11,14 @@ import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useToast } from "@/components/ui/use-toast"
-import { Settings, Users, Sparkles, Eye, ArrowLeft, Trash2, UserPlus, Palette, Moon, Sun } from "lucide-react"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Settings, Users, Sparkles, ArrowLeft, Trash2, UserPlus, Palette, Moon, Sun } from "lucide-react"
 import { useTheme } from "next-themes"
-import { Combobox, ComboboxOption } from "@/components/ui/combobox"
+import { Combobox } from "@/components/ui/combobox"
 import { Checkbox } from "@/components/ui/checkbox"
 import WorkspaceSidebar from "@/components/WorkspaceSidebar"
 import Breadcrumbs from "@/components/Breadcrumbs"
 import { Home, SettingsIcon } from "lucide-react"
+import { useWorkspace, useUpdateWorkspace, useWorkspaceMembers, useRemoveWorkspaceMember } from "@/hooks/use-workspaces"
 
 interface Workspace {
     id: string
@@ -30,12 +30,8 @@ interface Workspace {
     available_models?: string[]
 }
 
-interface WorkspaceMember {
-    id: string
-    email: string
-    role: string
-    joined_at: string
-}
+// WorkspaceMember type is from Supabase hooks
+// It has structure: { workspace_id, user_id, role, user: { id, email, full_name } }
 
 interface Model {
     id: string
@@ -53,16 +49,19 @@ export default function SettingsPage() {
     const params = useParams()
     const workspaceId = params.id as string
     const router = useRouter()
-    const { token } = useAuthStore()
+    const { session, isLoading: authLoading } = useAuthStore()
     const { toast } = useToast()
     const { theme, setTheme } = useTheme()
 
-    const [workspace, setWorkspace] = useState<Workspace | null>(null)
-    const [members, setMembers] = useState<WorkspaceMember[]>([])
+    // Supabase hooks for workspace and members
+    const { data: workspace, isLoading: workspaceLoading } = useWorkspace(workspaceId)
+    const { data: members = [], isLoading: membersLoading } = useWorkspaceMembers(workspaceId)
+    const updateWorkspace = useUpdateWorkspace()
+    const removeMember = useRemoveWorkspaceMember()
+
     const [textModels, setTextModels] = useState<Model[]>([])
     const [visionModels, setVisionModels] = useState<Model[]>([])
-    const [isLoading, setIsLoading] = useState(true)
-    const [isSaving, setIsSaving] = useState(false)
+    const [modelsLoading, setModelsLoading] = useState(true)
     const [newMemberEmail, setNewMemberEmail] = useState("")
 
     // Form states
@@ -74,72 +73,62 @@ export default function SettingsPage() {
     const [availableModels, setAvailableModels] = useState<string[]>([])
     const [modelFilter, setModelFilter] = useState("")
 
+    // Initialize form when workspace data loads
     useEffect(() => {
-        if (!token) {
+        if (workspace) {
+            setName(workspace.name)
+            setDescription(workspace.description || "")
+            setDefaultTextModel(workspace.default_text_model || "")
+            setDefaultVisionModel(workspace.default_vision_model || "")
+            setAttachmentAnalysisModel(workspace.attachment_analysis_model || "")
+            setAvailableModels(workspace.available_models || [])
+        }
+    }, [workspace])
+
+    useEffect(() => {
+        if (authLoading) return
+
+        if (!session) {
             router.push("/login")
             return
         }
-        fetchData()
-    }, [token, workspaceId])
+        fetchModels()
+    }, [session, authLoading, router])
 
-    const fetchData = async () => {
-        setIsLoading(true)
+    // Fetch AI models from backend API (OpenRouter proxy)
+    const fetchModels = async () => {
+        setModelsLoading(true)
         try {
-            // Fetch workspace details
-            const workspacesRes = await api.get("/workspaces/")
-            const currentWorkspace = workspacesRes.data.find((w: Workspace) => w.id === workspaceId)
-
-            if (currentWorkspace) {
-                setWorkspace(currentWorkspace)
-                setName(currentWorkspace.name)
-                setDescription(currentWorkspace.description || "")
-                setDefaultTextModel(currentWorkspace.default_text_model || "")
-                setDefaultVisionModel(currentWorkspace.default_vision_model || "")
-                setAttachmentAnalysisModel(currentWorkspace.attachment_analysis_model || "")
-                setAvailableModels(currentWorkspace.available_models || [])
-            }
-
-            // Fetch available models
             const modelsRes = await api.get("/chat/models")
             const models = modelsRes.data
 
             // Use the same models for both text and vision (OpenRouter provides multimodal models)
             setTextModels(models)
             setVisionModels(models)
-
-            // Fetch workspace members
-            const membersRes = await api.get(`/workspaces/${workspaceId}/members`)
-            setMembers(membersRes.data)
         } catch (error) {
-            console.error("Failed to fetch settings data", error)
-            toast({ title: "Erro", description: "Falha ao carregar configurações", variant: "destructive" })
+            console.error("Failed to fetch models", error)
+            toast({ title: "Erro", description: "Falha ao carregar modelos de IA", variant: "destructive" })
         } finally {
-            setIsLoading(false)
+            setModelsLoading(false)
         }
     }
 
-    const handleSaveWorkspace = async () => {
+    const isLoading = authLoading || workspaceLoading || membersLoading || modelsLoading
+
+    const handleSaveWorkspace = () => {
         if (!workspace) return
 
-        setIsSaving(true)
-        try {
-            await api.put(`/workspaces/${workspaceId}`, {
+        updateWorkspace.mutate({
+            id: workspaceId,
+            data: {
                 name,
                 description,
                 default_text_model: defaultTextModel,
                 default_vision_model: defaultVisionModel,
                 attachment_analysis_model: attachmentAnalysisModel,
                 available_models: availableModels,
-            })
-
-            toast({ title: "Sucesso", description: "Configurações salvas com sucesso!" })
-            fetchData()
-        } catch (error) {
-            console.error("Failed to save workspace", error)
-            toast({ title: "Erro", description: "Falha ao salvar configurações", variant: "destructive" })
-        } finally {
-            setIsSaving(false)
-        }
+            },
+        })
     }
 
     const handleAddMember = async () => {
@@ -148,6 +137,8 @@ export default function SettingsPage() {
             return
         }
 
+        // Note: Adding members by email still needs the backend API
+        // since we need to look up user by email
         try {
             await api.post(`/workspaces/${workspaceId}/members`, {
                 email: newMemberEmail,
@@ -156,7 +147,6 @@ export default function SettingsPage() {
 
             toast({ title: "Sucesso", description: "Membro adicionado com sucesso!" })
             setNewMemberEmail("")
-            fetchData() // Refresh members list
         } catch (error: any) {
             console.error("Failed to add member", error)
             const errorMsg = error?.response?.data?.detail || "Falha ao adicionar membro"
@@ -164,18 +154,10 @@ export default function SettingsPage() {
         }
     }
 
-    const handleRemoveMember = async (memberId: string) => {
+    const handleRemoveMember = (memberId: string) => {
         if (!confirm("Tem certeza que deseja remover este membro?")) return
 
-        try {
-            await api.delete(`/workspaces/${workspaceId}/members/${memberId}`)
-            toast({ title: "Sucesso", description: "Membro removido com sucesso!" })
-            fetchData() // Refresh members list
-        } catch (error: any) {
-            console.error("Failed to remove member", error)
-            const errorMsg = error?.response?.data?.detail || "Falha ao remover membro"
-            toast({ title: "Erro", description: errorMsg, variant: "destructive" })
-        }
+        removeMember.mutate({ workspaceId, userId: memberId })
     }
 
     const formatPrice = (price: string | number | undefined) => {
@@ -293,8 +275,8 @@ export default function SettingsPage() {
                                         />
                                     </div>
 
-                                    <Button onClick={handleSaveWorkspace} disabled={isSaving}>
-                                        {isSaving ? "Salvando..." : "Salvar Alterações"}
+                                    <Button onClick={handleSaveWorkspace} disabled={updateWorkspace.isPending}>
+                                        {updateWorkspace.isPending ? "Salvando..." : "Salvar Alterações"}
                                     </Button>
                                 </CardContent>
                             </Card>
@@ -456,8 +438,8 @@ export default function SettingsPage() {
                                         </p>
                                     </div>
 
-                                    <Button onClick={handleSaveWorkspace} disabled={isSaving}>
-                                        {isSaving ? "Salvando..." : "Salvar Alterações"}
+                                    <Button onClick={handleSaveWorkspace} disabled={updateWorkspace.isPending}>
+                                        {updateWorkspace.isPending ? "Salvando..." : "Salvar Alterações"}
                                     </Button>
                                 </CardContent>
                             </Card>
@@ -488,17 +470,17 @@ export default function SettingsPage() {
 
                                     <div className="space-y-2 mt-6">
                                         <h4 className="text-sm font-medium">Membros atuais</h4>
-                                        {members.length === 0 ? (
+                                        {(members || []).length === 0 ? (
                                             <p className="text-sm text-muted-foreground">Nenhum membro encontrado</p>
                                         ) : (
                                             <div className="space-y-2">
-                                                {members.map((member) => (
+                                                {(members || []).map((member) => (
                                                     <div
-                                                        key={member.id}
+                                                        key={member.user_id}
                                                         className="flex items-center justify-between p-3 border rounded-lg"
                                                     >
                                                         <div>
-                                                            <p className="text-sm font-medium">{member.email}</p>
+                                                            <p className="text-sm font-medium">{member.user?.email || member.user_id}</p>
                                                             <p className="text-xs text-muted-foreground capitalize">
                                                                 {member.role}
                                                             </p>
@@ -507,7 +489,7 @@ export default function SettingsPage() {
                                                             <Button
                                                                 variant="ghost"
                                                                 size="icon"
-                                                                onClick={() => handleRemoveMember(member.id)}
+                                                                onClick={() => handleRemoveMember(member.user_id)}
                                                             >
                                                                 <Trash2 className="h-4 w-4 text-destructive" />
                                                             </Button>

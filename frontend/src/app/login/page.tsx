@@ -4,36 +4,37 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { useAuthStore } from "@/lib/store"
-import api from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 
 export default function LoginPage() {
-    const [email, setEmail] = useState("yan@xtyl.digital")
-    const [password, setPassword] = useState("123321313")
+    const [email, setEmail] = useState("")
+    const [password, setPassword] = useState("")
     const [error, setError] = useState("")
+    const [loading, setLoading] = useState(false)
     const login = useAuthStore((state) => state.login)
     const router = useRouter()
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
         setError("")
+        setLoading(true)
 
         try {
-            const formData = new FormData()
-            formData.append("username", email)
-            formData.append("password", password)
+            const result = await login(email, password)
 
-            const response = await api.post("/auth/token", formData, {
-                headers: { "Content-Type": "application/x-www-form-urlencoded" }
-            })
+            if (result.error) {
+                setError(result.error)
+                return
+            }
 
-            login(response.data.access_token, response.data.refresh_token)
             router.push("/dashboard")
         } catch (err) {
-            setError("Invalid credentials")
+            setError("Ocorreu um erro. Tente novamente.")
+        } finally {
+            setLoading(false)
         }
     }
 
@@ -55,6 +56,7 @@ export default function LoginPage() {
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                                 required
+                                disabled={loading}
                             />
                         </div>
                         <div className="space-y-2">
@@ -62,10 +64,11 @@ export default function LoginPage() {
                             <Input
                                 id="password"
                                 type="password"
-                                placeholder="••••••••"
+                                placeholder="********"
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
                                 required
+                                disabled={loading}
                             />
                         </div>
                         {error && (
@@ -73,14 +76,25 @@ export default function LoginPage() {
                                 <p className="text-red-500 text-sm">{error}</p>
                             </div>
                         )}
-                        <Button type="submit" className="w-full" size="lg">Login</Button>
-                        <div className="text-center">
+                        <Button type="submit" className="w-full" size="lg" disabled={loading}>
+                            {loading ? "Entrando..." : "Login"}
+                        </Button>
+                        <div className="text-center space-y-2">
                             <Link
                                 href="/forgot-password"
-                                className="text-sm text-accent-primary hover:text-accent-primary/80 transition-colors font-medium"
+                                className="text-sm text-accent-primary hover:text-accent-primary/80 transition-colors font-medium block"
                             >
                                 Esqueci minha senha
                             </Link>
+                            <div>
+                                <span className="text-sm text-text-secondary">Nao tem conta? </span>
+                                <Link
+                                    href="/register"
+                                    className="text-sm text-accent-primary hover:text-accent-primary/80 transition-colors font-medium"
+                                >
+                                    Criar conta
+                                </Link>
+                            </div>
                         </div>
                     </form>
                 </CardContent>

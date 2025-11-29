@@ -22,7 +22,7 @@ from schemas import (
     WorkflowNode,
     WorkflowEdge
 )
-from auth import get_current_user
+from supabase_auth import get_current_user
 from services.workflow_validator import WorkflowValidator
 import uuid
 from datetime import datetime
@@ -159,7 +159,7 @@ async def create_workflow_template(
         is_recommended=template.is_recommended,
         version=template.version,
         usage_count=0,
-        created_by=current_user.id
+        created_by=str(current_user.id)
     )
 
     db.add(db_template)
@@ -190,7 +190,7 @@ async def update_workflow_template(
         raise HTTPException(status_code=403, detail="Cannot modify system templates")
 
     # Only allow creator to update
-    if template.created_by != current_user.id:
+    if template.created_by != str(current_user.id):
         raise HTTPException(status_code=403, detail="Only template creator can update it")
 
     # Update fields
@@ -264,7 +264,7 @@ async def delete_workflow_template(
         raise HTTPException(status_code=403, detail="Cannot delete system templates")
 
     # Only allow creator to delete
-    if template.created_by != current_user.id:
+    if template.created_by != str(current_user.id):
         raise HTTPException(status_code=403, detail="Only template creator can delete it")
 
     # Check for active executions
@@ -332,7 +332,7 @@ async def duplicate_workflow_template(
         is_recommended=False,
         version=source_template.version,
         usage_count=0,
-        created_by=current_user.id
+        created_by=str(current_user.id)
     )
 
     db.add(duplicated_template)

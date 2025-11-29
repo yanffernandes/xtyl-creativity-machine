@@ -2,17 +2,40 @@
  * useUserPreferences Hook
  *
  * Provides user AI assistant preferences with caching and optimistic updates.
- * Uses SWR-like pattern for data fetching with local state for immediate feedback.
+ * Uses Supabase directly instead of backend API.
+ *
+ * Feature: 007-hybrid-supabase-architecture
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import {
-  UserPreferences,
-  UserPreferencesUpdate,
-  getPreferences,
-  updatePreferences,
-} from '@/lib/api/preferences';
 import { useToast } from './use-toast';
+import { preferencesService } from '@/lib/supabase/preferences';
+
+export interface UserPreferences {
+  id?: string;
+  user_id?: string;
+  autonomous_mode: boolean;
+  max_autonomous_iterations: number;
+  require_approval_for: string[];
+  auto_apply_edits: boolean;
+  default_text_model?: string;
+  default_image_model?: string;
+  theme?: string;
+  language?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface UserPreferencesUpdate {
+  autonomous_mode?: boolean;
+  max_autonomous_iterations?: number;
+  require_approval_for?: string[];
+  auto_apply_edits?: boolean;
+  default_text_model?: string;
+  default_image_model?: string;
+  theme?: string;
+  language?: string;
+}
 
 interface UseUserPreferencesReturn {
   preferences: UserPreferences | null;
@@ -26,8 +49,20 @@ interface UseUserPreferencesReturn {
   refetch: () => Promise<void>;
 }
 
+// Default preferences
+const defaultPreferences: UserPreferences = {
+  autonomous_mode: false,
+  max_autonomous_iterations: 5,
+  require_approval_for: ['document_edit', 'file_upload', 'delete'],
+  auto_apply_edits: false,
+  default_text_model: 'openai/gpt-4o',
+  default_image_model: 'openai/dall-e-3',
+  theme: 'system',
+  language: 'pt-BR',
+};
+
 /**
- * Hook to manage user AI assistant preferences
+ * Hook to manage user AI assistant preferences via Supabase
  */
 export function useUserPreferences(token: string | null): UseUserPreferencesReturn {
   const [preferences, setPreferences] = useState<UserPreferences | null>(null);
@@ -46,12 +81,29 @@ export function useUserPreferences(token: string | null): UseUserPreferencesRetu
     setError(null);
 
     try {
-      const data = await getPreferences(token);
-      setPreferences(data);
+      const { data, error: fetchError } = await preferencesService.get();
+
+      if (fetchError) {
+        // If not found, return defaults
+        if (fetchError.message?.includes('No rows')) {
+          setPreferences(defaultPreferences);
+        } else {
+          throw fetchError;
+        }
+      } else if (data) {
+        setPreferences({
+          ...defaultPreferences,
+          ...data,
+        } as UserPreferences);
+      } else {
+        setPreferences(defaultPreferences);
+      }
     } catch (err) {
       const error = err instanceof Error ? err : new Error('Failed to fetch preferences');
       setError(error);
       console.error('Error fetching preferences:', error);
+      // Use defaults on error
+      setPreferences(defaultPreferences);
     } finally {
       setIsLoading(false);
     }
@@ -76,8 +128,11 @@ export function useUserPreferences(token: string | null): UseUserPreferencesRetu
       );
 
       try {
-        const updated = await updatePreferences(token, { [key]: value });
-        setPreferences(updated);
+        const { data, error: updateError } = await preferencesService.update({ [key]: value } as any);
+        if (updateError) throw updateError;
+        if (data) {
+          setPreferences({ ...defaultPreferences, ...data } as UserPreferences);
+        }
       } catch (err) {
         // Revert on error
         setPreferences(previousPreferences);
@@ -105,8 +160,11 @@ export function useUserPreferences(token: string | null): UseUserPreferencesRetu
       );
 
       try {
-        const updated = await updatePreferences(token, updates);
-        setPreferences(updated);
+        const { data, error: updateError } = await preferencesService.update(updates as any);
+        if (updateError) throw updateError;
+        if (data) {
+          setPreferences({ ...defaultPreferences, ...data } as UserPreferences);
+        }
       } catch (err) {
         // Revert on error
         setPreferences(previousPreferences);

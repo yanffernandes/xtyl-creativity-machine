@@ -2,7 +2,9 @@
 
 **Feature Branch**: `005-workflow-visual-redesign`
 **Created**: 2025-11-27
-**Status**: Draft
+**Status**: Completed
+**Completed**: 2025-11-28
+**Note**: This feature has been implemented. For current architecture details, see `007-hybrid-supabase-architecture`.
 **Input**: User description: "Revisar e otimizar a tela de workflows com visual liquid glass, nós horizontais, workflows dentro de projetos, separação clara de templates vs workflows do usuário"
 
 ## User Scenarios & Testing *(mandatory)*

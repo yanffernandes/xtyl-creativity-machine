@@ -1,9 +1,13 @@
 "use client"
 
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState, useCallback, useRef, useMemo } from "react"
 import { useParams, useRouter, useSearchParams } from "next/navigation"
 import { useAuthStore } from "@/lib/store"
 import api from "@/lib/api"
+import { useWorkspace } from "@/hooks/use-workspaces"
+import { useProjects } from "@/hooks/use-projects"
+import { useDocuments } from "@/hooks/use-documents"
+import { useContextFiles, useToggleContext } from "@/hooks/use-context-files"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -48,6 +52,14 @@ import VisualAssetsLibrary from "@/components/VisualAssetsLibrary"
 import DocumentAttachments from "@/components/document/DocumentAttachments"
 import AttachImageModal from "@/components/document/AttachImageModal"
 
+interface DocumentAttachment {
+    id: string
+    document_id: string
+    image_id: string
+    is_primary?: boolean
+    attachment_order?: number
+}
+
 interface Document {
     id: string
     title: string
@@ -60,6 +72,7 @@ interface Document {
     file_url?: string
     thumbnail_url?: string
     generation_metadata?: any
+    attachments?: DocumentAttachment[]
 }
 
 export default function ProjectPage() {
@@ -69,7 +82,6 @@ export default function ProjectPage() {
     const projectId = params.projectId as string
 
     const [creations, setCreations] = useState<Document[]>([])
-    const [contextFiles, setContextFiles] = useState<Document[]>([])
     const [selectedDoc, setSelectedDoc] = useState<Document | null>(null)
     const [isUploading, setIsUploading] = useState(false)
     const [viewMode, setViewMode] = useState<"list" | "kanban">("kanban")
@@ -96,12 +108,45 @@ export default function ProjectPage() {
     const [sharingDocument, setSharingDocument] = useState<Document | null>(null)
     const [showAttachImageModal, setShowAttachImageModal] = useState(false)
     const [attachmentsRefreshKey, setAttachmentsRefreshKey] = useState(0)
+    const [isSavingDocument, setIsSavingDocument] = useState(false)
 
-    const { token } = useAuthStore()
+    const { session, isLoading: authLoading } = useAuthStore()
     const router = useRouter()
     const { toast } = useToast()
 
+    // Use Supabase hooks for workspace, projects, and documents
+    // These MUST be declared before any useEffects that use their data
+    const { data: workspace } = useWorkspace(workspaceId)
+    const { data: projects = [] } = useProjects(workspaceId)
+    const { data: documents = [], isLoading: docsLoading, refetch: refetchDocuments } = useDocuments(projectId)
+    const { data: contextFiles = [], isLoading: contextLoading, refetch: refetchContextFiles } = useContextFiles(projectId)
+    const toggleContextMutation = useToggleContext()
+
     const hasUnsavedChanges = selectedDoc && savedContent !== currentContent
+
+    // Compute IDs of images that are attached to other documents (to hide from Kanban)
+    const attachedImageIds = useMemo(() => {
+        const ids = new Set<string>()
+        creations.forEach(doc => {
+            if (doc.attachments) {
+                doc.attachments.forEach(att => {
+                    ids.add(att.image_id)
+                })
+            }
+        })
+        return ids
+    }, [creations])
+
+    // Filter creations for Kanban: exclude images that are attached to documents
+    const kanbanDocuments = useMemo(() => {
+        return creations.filter(doc => {
+            // If it's an image and it's attached to some document, hide it
+            if (doc.media_type === 'image' && attachedImageIds.has(doc.id)) {
+                return false
+            }
+            return true
+        })
+    }, [creations, attachedImageIds])
 
     // Handle document updates from AI
     const handleDocumentUpdate = async (documentId: string) => {
@@ -129,14 +174,40 @@ export default function ProjectPage() {
         }
     }
 
-    // Handle tool execution (for file/folder creation and image attachment)
-    const handleToolExecuted = async (toolName: string) => {
-        console.log(`Tool executed: ${toolName}`)
-        // Refresh the document list when files/folders are created
-        if (['create_document', 'create_folder'].includes(toolName)) {
+    // Handle tool execution (for file/folder creation, editing and image attachment)
+    const handleToolExecuted = async (toolName: string, toolResult?: any) => {
+        console.log(`Tool executed: ${toolName}`, toolResult)
+
+        // Refresh the document list when files/folders are created or moved
+        if (['create_document', 'create_folder', 'move_file', 'move_folder', 'delete_file', 'delete_folder', 'rename_document', 'rename_folder'].includes(toolName)) {
             await fetchDocuments()
             toast({ title: "Atualizado", description: "Lista de arquivos atualizada." })
         }
+
+        // Handle document edits - refresh the current document if it was edited
+        if (toolName === 'edit_document' && toolResult?.document_id && selectedDoc?.id === toolResult.document_id) {
+            // Fetch the updated content directly
+            try {
+                const response = await api.get(`/documents/${toolResult.document_id}`)
+                const updatedDoc = response.data
+                if (updatedDoc && selectedDoc) {
+                    const newContent = updatedDoc.content || ""
+                    // Always update the editor when AI edits the current document
+                    const updatedSelectedDoc: Document = {
+                        ...selectedDoc,
+                        content: newContent,
+                        title: updatedDoc.title || selectedDoc.title
+                    }
+                    setSelectedDoc(updatedSelectedDoc)
+                    setSavedContent(newContent)
+                    setCurrentContent(newContent)
+                    setCreations(prev => prev.map(d => d.id === toolResult.document_id ? { ...d, content: newContent, title: updatedDoc.title || d.title } : d))
+                }
+            } catch (error) {
+                console.error("Failed to fetch updated document after edit_document", error)
+            }
+        }
+
         // Refresh attachments when images are generated or attached
         if (['generate_image', 'attach_image_to_document'].includes(toolName)) {
             await fetchDocuments()
@@ -202,12 +273,14 @@ export default function ProjectPage() {
     }, [creations, contextFiles])
 
     useEffect(() => {
-        if (!token) {
+        if (authLoading) return
+
+        if (!session) {
             router.push("/login")
             return
         }
-        fetchDocuments()
-    }, [token, projectId, router])
+        // Documents and context files are now loaded automatically via hooks
+    }, [session, authLoading, projectId, router])
 
     // Handle ?doc= query parameter to auto-select document from sidebar
     useEffect(() => {
@@ -221,58 +294,68 @@ export default function ProjectPage() {
         }
     }, [searchParams, creations, contextFiles])
 
-    const fetchDocuments = async () => {
-        setIsLoading(true)
-        try {
-            // Fetch project info
-            const projectRes = await api.get(`/workspaces/${workspaceId}/projects`)
-            const projects = projectRes.data
+    // Track previous document IDs to prevent infinite loops
+    const prevDocIdsRef = useRef<string>('')
+
+    // Update local state when hooks data changes
+    useEffect(() => {
+        if (workspace) {
+            setWorkspaceName(workspace.name || '')
+            setAvailableModels((workspace as any).available_models || [])
+            setDefaultTextModel((workspace as any).default_text_model || '')
+        }
+    }, [workspace])
+
+    useEffect(() => {
+        if (projects && projects.length > 0) {
             setAllProjects(projects)
             const currentProject = projects.find((p: any) => p.id === projectId)
             if (currentProject) {
                 setProjectName(currentProject.name)
             }
-
-            // Fetch workspace info
-            const workspaceRes = await api.get(`/workspaces/`)
-            const workspaces = workspaceRes.data
-            const currentWorkspace = workspaces.find((w: any) => w.id === workspaceId)
-            if (currentWorkspace) {
-                setWorkspaceName(currentWorkspace.name)
-                setAvailableModels(currentWorkspace.available_models || [])
-                setDefaultTextModel(currentWorkspace.default_text_model || "")
-            }
-
-            const response = await api.get(`/documents/projects/${projectId}/documents`)
-            const docs = response.data
-
-            // Separate creations from context files
-            setCreations(docs.map((d: any) => ({ ...d, type: "creation", is_context: false })))
-
-            // Context files would come from a different endpoint or be filtered
-            // For now, keeping the mock context files
-            setContextFiles([
-                { id: "ctx-1", title: "Brand Guidelines.pdf", status: "processed", type: "context", created_at: new Date().toISOString(), content: "<h1>Brand Guidelines</h1><p>Logo usage, colors, typography...</p>" },
-                { id: "ctx-2", title: "Client Brief.txt", status: "processed", type: "context", created_at: new Date().toISOString(), content: "<h1>Client Brief</h1><p>Project objectives and requirements...</p>" },
-            ])
-        } catch (error) {
-            console.error("Failed to fetch documents", error)
-            toast({ title: "Erro", description: "Falha ao carregar documentos", variant: "destructive" })
-        } finally {
-            setIsLoading(false)
         }
+    }, [projects, projectId])
+
+    useEffect(() => {
+        if (documents) {
+            // Only update if documents actually changed (compare IDs using ref)
+            const newIds = documents.map((d: any) => d.id).sort().join(',')
+            if (newIds !== prevDocIdsRef.current) {
+                prevDocIdsRef.current = newIds
+                if (documents.length > 0) {
+                    setCreations(documents.map((d: any) => ({ ...d, type: "creation", is_context: false })))
+                } else {
+                    setCreations([])
+                }
+            }
+        }
+    }, [documents])
+
+    useEffect(() => {
+        setIsLoading(docsLoading)
+    }, [docsLoading])
+
+    // Legacy fetchDocuments function - now just triggers refetch
+    const fetchDocuments = async () => {
+        refetchDocuments()
+        refetchContextFiles()
     }
 
-    const handleFileUpload = async (file: File) => {
+    const handleFileUpload = async (file: File, isContext: boolean = false) => {
         const formData = new FormData()
         formData.append("file", file)
 
         setIsUploading(true)
         try {
-            await api.post(`/documents/upload/${projectId}`, formData, {
+            await api.post(`/documents/upload/${projectId}?is_context=${isContext}`, formData, {
                 headers: { "Content-Type": "multipart/form-data" }
             })
-            toast({ title: "Sucesso", description: "Arquivo enviado com sucesso! Processamento iniciado." })
+            toast({
+                title: "Sucesso",
+                description: isContext
+                    ? "Arquivo de contexto enviado! Será usado como referência pelo chat."
+                    : "Arquivo enviado com sucesso! Processamento iniciado."
+            })
             // Refresh documents after upload
             setTimeout(() => fetchDocuments(), 2000)
         } catch (error) {
@@ -309,17 +392,13 @@ export default function ProjectPage() {
         const docToSave = creations.find(d => d.id === docId) || contextFiles.find(f => f.id === docId)
         if (!docToSave) return
 
+        setIsSavingDocument(true)
         try {
             const response = await api.put(`/documents/${docId}`, { content })
 
             // Use the backend response to ensure we have the latest data including updated_at
             const updatedDoc = { ...docToSave, ...response.data }
-
-            if (docToSave.type === "creation") {
-                setCreations(docs => docs.map(d => d.id === docId ? updatedDoc : d))
-            } else {
-                setContextFiles(files => files.map(f => f.id === docId ? updatedDoc : f))
-            }
+            setCreations(docs => docs.map(d => d.id === docId ? updatedDoc : d))
 
             // Only update selected doc and content states if this is the currently selected document
             if (selectedDoc?.id === docId) {
@@ -337,6 +416,8 @@ export default function ProjectPage() {
         } catch (error) {
             console.error("Failed to save document", error)
             toast({ title: "Erro", description: "Falha ao salvar documento", variant: "destructive" })
+        } finally {
+            setIsSavingDocument(false)
         }
     }
 
@@ -454,22 +535,19 @@ export default function ProjectPage() {
         }
     }
 
-    const handleToggleContext = (e: React.MouseEvent, doc: Document) => {
+    const handleToggleContext = async (e: React.MouseEvent, doc: Document) => {
         e.stopPropagation()
-        const updatedDoc = { ...doc, is_context: !doc.is_context }
-
-        if (doc.type === "creation") {
+        try {
+            await toggleContextMutation.mutateAsync(doc.id)
+            // The mutation will invalidate queries and show toast automatically
+            // Also update local state for immediate UI feedback
+            const updatedDoc = { ...doc, is_context: !doc.is_context }
             setCreations(prev => prev.map(d => d.id === doc.id ? updatedDoc : d))
-
-            // If it became context, add to context files (mock logic)
-            if (updatedDoc.is_context) {
-                setContextFiles(prev => [...prev, { ...updatedDoc, type: "context", id: `ctx-from-${doc.id}` }])
-                toast({ title: "Atualizado", description: "Marcado como arquivo de contexto." })
-            } else {
-                // Remove from context if un-starred
-                setContextFiles(prev => prev.filter(f => f.id !== `ctx-from-${doc.id}`))
-                toast({ title: "Atualizado", description: "Removido dos arquivos de contexto." })
+            if (selectedDoc?.id === doc.id) {
+                setSelectedDoc(updatedDoc)
             }
+        } catch (error) {
+            console.error("Failed to toggle context", error)
         }
     }
 
@@ -479,13 +557,10 @@ export default function ProjectPage() {
 
         try {
             await api.delete(`/documents/${doc.id}`)
-
-            if (doc.type === "creation") {
-                setCreations(prev => prev.filter(d => d.id !== doc.id))
-            } else {
-                setContextFiles(prev => prev.filter(f => f.id !== doc.id))
-            }
+            setCreations(prev => prev.filter(d => d.id !== doc.id))
             if (selectedDoc?.id === doc.id) setSelectedDoc(null)
+            // Refetch both lists to ensure consistency
+            fetchDocuments()
             toast({ title: "Excluído", description: "Documento excluído com sucesso." })
         } catch (error) {
             console.error("Failed to delete document", error)
@@ -546,11 +621,9 @@ export default function ProjectPage() {
         try {
             await api.put(`/documents/${editingTitle}`, { title: tempTitle.trim() })
 
-            const updateTitle = (docs: Document[]) =>
-                docs.map(d => d.id === editingTitle ? { ...d, title: tempTitle.trim() } : d)
-
-            setCreations(updateTitle)
-            setContextFiles(updateTitle)
+            setCreations(prev =>
+                prev.map(d => d.id === editingTitle ? { ...d, title: tempTitle.trim() } : d)
+            )
 
             if (selectedDoc?.id === editingTitle) {
                 setSelectedDoc({ ...selectedDoc, title: tempTitle.trim() })
@@ -746,6 +819,7 @@ export default function ProjectPage() {
                                         }}
                                         onRejectSuggestion={() => setSuggestedContent(null)}
                                         onChange={setCurrentContent}
+                                        isSaving={isSavingDocument}
                                     />
                                 </div>
 
@@ -797,7 +871,7 @@ export default function ProjectPage() {
                                             />
                                         ) : viewMode === "kanban" ? (
                                             <KanbanBoard
-                                                documents={creations}
+                                                documents={kanbanDocuments}
                                                 onSelectDocument={handleSelectDocument}
                                                 onToggleContext={handleToggleContext}
                                                 onDelete={handleDelete}
@@ -809,7 +883,7 @@ export default function ProjectPage() {
                                             />
                                         ) : (
                                             <div className="grid grid-cols-1 gap-4">
-                                                {creations.map(doc => (
+                                                {kanbanDocuments.map(doc => (
                                                     <Card key={doc.id} glass className="p-4 cursor-pointer" onClick={() => handleSelectDocument(doc)}>
                                                         <div className="flex justify-between items-start">
                                                             <div className="flex-1" onDoubleClick={(e) => { e.stopPropagation(); handleStartEditTitle(doc); }}>
@@ -868,16 +942,16 @@ export default function ProjectPage() {
                                         accept=".pdf,.txt,.md,.png,.jpg,.jpeg"
                                         onChange={(e) => {
                                             const file = e.target.files?.[0]
-                                            if (file) handleFileUpload(file)
+                                            if (file) handleFileUpload(file, true)
                                         }}
                                     />
 
                                     <ImageUpload
-                                        onUpload={handleFileUpload}
+                                        onUpload={(file) => handleFileUpload(file, true)}
                                         accept=".pdf,.txt,.md,.png,.jpg,.jpeg"
                                     />
 
-                                    {isLoading ? (
+                                    {contextLoading ? (
                                         <LoadingSkeleton type="card" count={6} />
                                     ) : contextFiles.length === 0 ? (
                                         <EmptyState
@@ -887,23 +961,46 @@ export default function ProjectPage() {
                                         />
                                     ) : (
                                         <div className="flex-1 overflow-y-auto">
-                                            <ImageGallery
-                                                images={contextFiles.map(f => ({
-                                                    id: f.id,
-                                                    title: f.title,
-                                                    created_at: f.created_at,
-                                                }))}
-                                                onSelect={(img) => {
-                                                    const doc = contextFiles.find(f => f.id === img.id)
-                                                    if (doc) handleSelectDocument(doc)
-                                                }}
-                                                onAnalyze={(img) => {
-                                                    toast({
-                                                        title: "Análise de Imagem",
-                                                        description: "Recurso de visão com IA será implementado em breve!"
-                                                    })
-                                                }}
-                                            />
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                                                {contextFiles.map((file: any) => (
+                                                    <Card
+                                                        key={file.id}
+                                                        glass
+                                                        className="p-4 cursor-pointer hover:border-accent-primary/50 transition-colors"
+                                                        onClick={() => {
+                                                            const doc: Document = {
+                                                                ...file,
+                                                                type: "context" as const
+                                                            }
+                                                            handleSelectDocument(doc)
+                                                        }}
+                                                    >
+                                                        <div className="flex items-start gap-3">
+                                                            <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-accent-primary/10 flex items-center justify-center">
+                                                                <FileText className="h-5 w-5 text-accent-primary" />
+                                                            </div>
+                                                            <div className="flex-1 min-w-0">
+                                                                <h4 className="font-medium truncate">{file.title}</h4>
+                                                                <p className="text-xs text-text-secondary mt-1">
+                                                                    {file.status === 'processing' ? 'Processando...' : 'Pronto para uso'}
+                                                                </p>
+                                                            </div>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="h-8 w-8 text-yellow-500"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation()
+                                                                    handleToggleContext(e, { ...file, type: "context" as const })
+                                                                }}
+                                                                title="Remover do contexto"
+                                                            >
+                                                                <Star className="h-4 w-4" fill="currentColor" />
+                                                            </Button>
+                                                        </div>
+                                                    </Card>
+                                                ))}
+                                            </div>
                                         </div>
                                     )}
                                 </div>
@@ -921,7 +1018,7 @@ export default function ProjectPage() {
                     projectId={projectId}
                     currentDocument={selectedDoc}
                     onAiSuggestion={setSuggestedContent}
-                    documents={[...creations, ...contextFiles]}
+                    documents={[...creations, ...contextFiles.map((f: any) => ({ ...f, type: "context" as const }))]}
                     autoApplyEdits={autoApplyEdits}
                     onAutoApplyChange={setAutoApplyEdits}
                     onDocumentUpdate={handleDocumentUpdate}
@@ -981,7 +1078,7 @@ export default function ProjectPage() {
                     }
                 }}
                 projectId={projectId}
-                documents={[...creations, ...contextFiles]}
+                documents={[...creations, ...contextFiles.map((f: any) => ({ ...f, type: "context" as const }))]}
                 documentId={refiningImage?.id}
                 existingPrompt={refiningImage?.content || ""}
                 attachToDocumentId={selectedDoc?.media_type !== 'image' ? selectedDoc?.id : undefined}
@@ -1012,7 +1109,7 @@ export default function ProjectPage() {
                 onArchive={() => {
                     fetchDocuments()
                 }}
-                allImages={[...creations, ...contextFiles].filter(doc => doc.media_type === 'image')}
+                allImages={[...creations, ...contextFiles.map((f: any) => ({ ...f, type: "context" as const }))].filter(doc => doc.media_type === 'image')}
             />
 
             {/* Share Dialog */}

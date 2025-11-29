@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { X, Image as ImageIcon, Check } from "lucide-react";
+import { X, Image as ImageIcon, Check, Link } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
@@ -40,24 +40,37 @@ export default function AttachImageModal({
 }: AttachImageModalProps) {
   const [images, setImages] = useState<Image[]>([]);
   const [selectedImages, setSelectedImages] = useState<Set<string>>(new Set());
+  const [alreadyAttachedImages, setAlreadyAttachedImages] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [attaching, setAttaching] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
-      fetchImages();
+      fetchImagesAndAttachments();
       setSelectedImages(new Set());
     }
-  }, [isOpen, projectId]);
+  }, [isOpen, projectId, documentId]);
 
-  const fetchImages = async () => {
+  const fetchImagesAndAttachments = async () => {
     try {
       setLoading(true);
-      const response = await api.get(`/documents/projects/${projectId}/documents`);
+
+      // Fetch images and existing attachments in parallel
+      const [imagesResponse, attachmentsResponse] = await Promise.all([
+        api.get(`/documents/projects/${projectId}/documents`),
+        api.get(`/documents/${documentId}/attachments`).catch(() => ({ data: [] }))
+      ]);
+
       // Filter only images
-      const allDocs = response.data;
+      const allDocs = imagesResponse.data;
       const imageDocuments = allDocs.filter((doc: any) => doc.media_type === "image");
       setImages(imageDocuments);
+
+      // Track already attached images
+      const attachedIds = new Set<string>(
+        (attachmentsResponse.data || []).map((att: any) => att.image_id)
+      );
+      setAlreadyAttachedImages(attachedIds);
     } catch (error) {
       console.error("Error fetching images:", error);
     } finally {
@@ -66,6 +79,11 @@ export default function AttachImageModal({
   };
 
   const toggleImage = (imageId: string) => {
+    // Don't allow toggling already attached images
+    if (alreadyAttachedImages.has(imageId)) {
+      return;
+    }
+
     const newSelected = new Set(selectedImages);
     if (newSelected.has(imageId)) {
       newSelected.delete(imageId);
@@ -88,14 +106,23 @@ export default function AttachImageModal({
     try {
       setAttaching(true);
 
-      // Attach all images
-      const imageIds = Array.from(selectedImages);
-      for (let i = 0; i < imageIds.length; i++) {
+      // Filter out already attached images (safety check)
+      const newImageIds = Array.from(selectedImages).filter(
+        id => !alreadyAttachedImages.has(id)
+      );
+
+      if (newImageIds.length === 0) {
+        alert("All selected images are already attached");
+        return;
+      }
+
+      // Attach only new images
+      for (let i = 0; i < newImageIds.length; i++) {
         await api.post(`/documents/${documentId}/attachments`, {
           document_id: documentId,
-          image_id: imageIds[i],
-          is_primary: i === 0 && selectedImages.size === 1, // Only first image is primary if it's the only one
-          attachment_order: i,
+          image_id: newImageIds[i],
+          is_primary: i === 0 && newImageIds.length === 1, // Only first image is primary if it's the only one
+          attachment_order: alreadyAttachedImages.size + i, // Continue from existing count
         });
       }
 
@@ -145,17 +172,20 @@ export default function AttachImageModal({
             <div className="grid grid-cols-3 md:grid-cols-4 gap-4 p-4">
               {images.map((image) => {
                 const isSelected = selectedImages.has(image.id);
+                const isAlreadyAttached = alreadyAttachedImages.has(image.id);
                 return (
                   <motion.div
                     key={image.id}
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
+                    whileHover={{ scale: isAlreadyAttached ? 1 : 1.05 }}
+                    whileTap={{ scale: isAlreadyAttached ? 1 : 0.95 }}
                   >
                     <Card
-                      className={`cursor-pointer relative overflow-hidden transition-all ${
-                        isSelected
-                          ? "ring-2 ring-[#5B8DEF] shadow-lg"
-                          : "hover:shadow-md"
+                      className={`relative overflow-hidden transition-all ${
+                        isAlreadyAttached
+                          ? "ring-2 ring-green-500 opacity-75 cursor-default"
+                          : isSelected
+                            ? "ring-2 ring-[#5B8DEF] shadow-lg cursor-pointer"
+                            : "hover:shadow-md cursor-pointer"
                       }`}
                       onClick={() => toggleImage(image.id)}
                     >
@@ -163,23 +193,39 @@ export default function AttachImageModal({
                         <img
                           src={image.thumbnail_url || image.file_url || image.image_url || "/placeholder.png"}
                           alt={image.title}
-                          className="w-full h-full object-cover"
+                          className={`w-full h-full object-cover ${isAlreadyAttached ? "opacity-60" : ""}`}
                         />
 
+                        {/* Already Attached Indicator */}
+                        {isAlreadyAttached && (
+                          <div className="absolute top-2 right-2 w-6 h-6 rounded-full flex items-center justify-center bg-green-500 text-white">
+                            <Link className="w-3 h-3" />
+                          </div>
+                        )}
+
                         {/* Selection Indicator */}
-                        <div
-                          className={`absolute top-2 right-2 w-6 h-6 rounded-full flex items-center justify-center transition-all ${
-                            isSelected
-                              ? "bg-[#5B8DEF] text-white"
-                              : "bg-white/80 text-gray-400"
-                          }`}
-                        >
-                          {isSelected && <Check className="w-4 h-4" />}
-                        </div>
+                        {!isAlreadyAttached && (
+                          <div
+                            className={`absolute top-2 right-2 w-6 h-6 rounded-full flex items-center justify-center transition-all ${
+                              isSelected
+                                ? "bg-[#5B8DEF] text-white"
+                                : "bg-white/80 text-gray-400"
+                            }`}
+                          >
+                            {isSelected && <Check className="w-4 h-4" />}
+                          </div>
+                        )}
 
                         {/* Overlay on hover */}
-                        {!isSelected && (
+                        {!isSelected && !isAlreadyAttached && (
                           <div className="absolute inset-0 bg-black/0 hover:bg-black/20 transition-colors" />
+                        )}
+
+                        {/* Already attached overlay label */}
+                        {isAlreadyAttached && (
+                          <div className="absolute bottom-0 left-0 right-0 bg-green-500/90 text-white text-xs py-1 text-center">
+                            Já anexada
+                          </div>
                         )}
                       </div>
 

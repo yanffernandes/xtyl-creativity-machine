@@ -3,64 +3,63 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useAuthStore } from "@/lib/store"
-import api from "@/lib/api"
+import { useWorkspaces, useCreateWorkspace } from "@/hooks/use-workspaces"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Plus } from "lucide-react"
-
-interface Workspace {
-    id: string
-    name: string
-    description: string
-    created_at: string
-}
+import { Plus, Loader2 } from "lucide-react"
 
 export default function DashboardPage() {
-    const [workspaces, setWorkspaces] = useState<Workspace[]>([])
     const [newWorkspaceName, setNewWorkspaceName] = useState("")
     const [isCreating, setIsCreating] = useState(false)
-    const { token, logout } = useAuthStore()
+    const { session, isLoading: authLoading, logout } = useAuthStore()
     const router = useRouter()
 
+    // Supabase hooks for workspace operations
+    const { data: workspaces = [], isLoading: workspacesLoading } = useWorkspaces()
+    const createWorkspace = useCreateWorkspace()
+
     useEffect(() => {
-        if (!token) {
+        if (authLoading) return
+
+        if (!session) {
             router.push("/login")
             return
         }
+    }, [session, authLoading, router])
 
-        fetchWorkspaces()
-    }, [token, router])
-
-    const fetchWorkspaces = async () => {
-        try {
-            const response = await api.get("/workspaces/")
-            const workspaceData = response.data
-            setWorkspaces(workspaceData)
-
-            // Auto-redirect if only one workspace
-            if (workspaceData.length === 1) {
-                router.push(`/workspace/${workspaceData[0].id}`)
-            }
-        } catch (error) {
-            console.error("Failed to fetch workspaces", error)
+    // Auto-redirect if only one workspace
+    useEffect(() => {
+        if (!workspacesLoading && workspaces && workspaces.length === 1) {
+            router.push(`/workspace/${workspaces[0].id}`)
         }
-    }
+    }, [workspaces, workspacesLoading, router])
 
     const handleCreateWorkspace = async (e: React.FormEvent) => {
         e.preventDefault()
-        try {
-            await api.post("/workspaces/", {
+        createWorkspace.mutate(
+            {
                 name: newWorkspaceName,
                 description: "Created via Dashboard"
-            })
-            setNewWorkspaceName("")
-            setIsCreating(false)
-            fetchWorkspaces()
-        } catch (error) {
-            console.error("Failed to create workspace", error)
-        }
+            },
+            {
+                onSuccess: () => {
+                    setNewWorkspaceName("")
+                    setIsCreating(false)
+                }
+            }
+        )
+    }
+
+    const isLoading = authLoading || workspacesLoading
+
+    if (isLoading) {
+        return (
+            <div className="min-h-screen flex items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-accent-primary" />
+            </div>
+        )
     }
 
     return (
@@ -75,7 +74,7 @@ export default function DashboardPage() {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {workspaces.map((workspace) => (
+                    {(workspaces || []).map((workspace) => (
                         <Card
                             key={workspace.id}
                             glass

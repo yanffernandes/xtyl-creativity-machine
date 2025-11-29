@@ -46,7 +46,7 @@ export default function WorkflowEditorPage() {
   const [workspaceName, setWorkspaceName] = useState("");
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
-  const { token } = useAuthStore();
+  const { session, isLoading: authLoading } = useAuthStore();
   const { toast } = useToast();
 
   const {
@@ -68,12 +68,14 @@ export default function WorkflowEditorPage() {
   } = useWorkflowExecution(workflowId);
 
   useEffect(() => {
-    if (!token) {
+    if (authLoading) return;
+
+    if (!session) {
       router.push("/login");
       return;
     }
     fetchData();
-  }, [token, workflowId, router]);
+  }, [session, authLoading, workflowId, router]);
 
   // Track changes
   useEffect(() => {

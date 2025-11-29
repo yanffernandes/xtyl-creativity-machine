@@ -1,5 +1,5 @@
 from sqlalchemy import Column, Integer, String, ForeignKey, Boolean, DateTime, Text, Numeric
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from database import Base
@@ -9,14 +9,18 @@ def generate_uuid():
     return str(uuid.uuid4())
 
 class User(Base):
+    """
+    User model - synced from Supabase Auth via database trigger.
+    The id matches auth.users.id from Supabase.
+    Password management is handled by Supabase Auth, not stored here.
+    """
     __tablename__ = "users"
 
-    id = Column(String, primary_key=True, default=generate_uuid)
-    email = Column(String, unique=True, index=True)
-    hashed_password = Column(String)
-    full_name = Column(String)
-    is_active = Column(Boolean, default=True)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    email = Column(String, unique=True, index=True, nullable=False)
+    full_name = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     workspaces = relationship("WorkspaceUser", back_populates="user")
 
@@ -98,6 +102,9 @@ class Document(Base):
     is_public = Column(Boolean, default=False)
     share_token = Column(String, unique=True, nullable=True, index=True)
     share_expires_at = Column(DateTime(timezone=True), nullable=True)
+
+    # Context file for RAG (reference material, not a creation)
+    is_context = Column(Boolean, default=False)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
