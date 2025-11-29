@@ -75,4 +75,48 @@ api.interceptors.response.use(
     }
 );
 
+// Project Settings API
+export interface ProjectSettings {
+    client_name: string;
+    description?: string | null;
+    target_audience?: string | null;
+    brand_voice?: string | null;
+    brand_voice_custom?: string | null;
+    key_messages?: string[] | null;
+    competitors?: string[] | null;
+    custom_notes?: string | null;
+}
+
+export interface ProjectContext {
+    formatted_context: string;
+    has_settings: boolean;
+    missing_fields: string[];
+}
+
+export async function getProjectSettings(projectId: string): Promise<ProjectSettings | null> {
+    try {
+        const response = await api.get(`/projects/${projectId}/settings`);
+        // Return null if empty object (no settings configured)
+        if (!response.data || Object.keys(response.data).length === 0) {
+            return null;
+        }
+        return response.data;
+    } catch (error: any) {
+        if (error.response?.status === 404) {
+            return null;
+        }
+        throw error;
+    }
+}
+
+export async function updateProjectSettings(projectId: string, settings: ProjectSettings): Promise<ProjectSettings> {
+    const response = await api.put(`/projects/${projectId}/settings`, settings);
+    return response.data;
+}
+
+export async function getProjectContext(projectId: string): Promise<ProjectContext> {
+    const response = await api.get(`/projects/${projectId}/settings/context`);
+    return response.data;
+}
+
 export default api;

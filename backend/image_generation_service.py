@@ -516,7 +516,8 @@ async def generate_and_store_image(
             "style": result["style"],
             "generated_at": datetime.utcnow().isoformat(),
             "usage": result.get("usage", {}),
-        }
+        },
+        "generation_id": result.get("raw_response", {}).get("id")  # For cost tracking
     }
 
 

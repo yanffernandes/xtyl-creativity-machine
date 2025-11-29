@@ -22,7 +22,7 @@ from image_generation_service import (
 )
 from image_naming_service import generate_image_title
 from ai_usage_service import log_ai_usage
-from pricing_config import calculate_image_cost
+from pricing_service import calculate_image_cost, fetch_generation_cost
 from supabase_auth import get_current_user
 from models import User, Project
 import time
@@ -195,7 +195,16 @@ async def generate_image(
         # Log AI usage
         try:
             duration_ms = int((time.time() - start_time) * 1000)
-            cost = calculate_image_cost(request.model, request.aspect_ratio, request.quality)
+
+            # Fetch actual cost from OpenRouter
+            cost = None
+            generation_id = result.get("generation_id")
+            if generation_id:
+                cost = await fetch_generation_cost(generation_id)
+                if cost is not None:
+                    print(f"💰 OpenRouter actual image cost: ${cost:.8f}")
+                else:
+                    print(f"⚠️ Could not fetch cost for generation {generation_id}")
 
             # Create metadata JSON for image generation details
             image_metadata = {
@@ -360,7 +369,16 @@ async def refine_image(
         # Log AI usage
         try:
             duration_ms = int((time.time() - start_time) * 1000)
-            cost = calculate_image_cost(model, aspect_ratio, request.quality)
+
+            # Fetch actual cost from OpenRouter
+            cost = None
+            generation_id = result.get("generation_id")
+            if generation_id:
+                cost = await fetch_generation_cost(generation_id)
+                if cost is not None:
+                    print(f"💰 OpenRouter actual refinement cost: ${cost:.8f}")
+                else:
+                    print(f"⚠️ Could not fetch cost for generation {generation_id}")
 
             # Create metadata JSON for image refinement details
             image_metadata = {

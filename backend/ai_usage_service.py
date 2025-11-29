@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func, and_
 from models import AIUsageLog as AIUsageLogModel
 from schemas import AIUsageLogCreate, AIUsageStats
-from pricing_config import calculate_cost
+from pricing_service import calculate_cost
 from typing import Optional, List, Dict, Any
 from datetime import datetime, timedelta
 import uuid
@@ -29,7 +29,7 @@ def log_ai_usage(
     tool_calls: Optional[List[str]] = None,
     duration_ms: Optional[int] = None,
     cost: Optional[float] = None
-) -> AIUsageLogModel:
+) -> Optional[AIUsageLogModel]:
     """
     Log an AI usage record.
 
@@ -50,44 +50,55 @@ def log_ai_usage(
         cost: Optional explicit cost (overrides calculation)
 
     Returns:
-        Created AIUsageLog instance
+        Created AIUsageLog instance or None if logging failed
     """
-    # Calculate costs
-    if cost is not None:
-        total_cost = cost
-        input_cost = 0.0
-        output_cost = cost
-    else:
-        input_cost, output_cost, total_cost = calculate_cost(model, input_tokens, output_tokens)
-    
-    total_tokens = input_tokens + output_tokens
+    try:
+        # Calculate costs
+        if cost is not None:
+            total_cost = cost
+            input_cost = 0.0
+            output_cost = cost
+        else:
+            input_cost, output_cost, total_cost = calculate_cost(model, input_tokens, output_tokens)
 
-    # Create log entry
-    usage_log = AIUsageLogModel(
-        id=str(uuid.uuid4()),
-        user_id=user_id,
-        workspace_id=workspace_id,
-        project_id=project_id,
-        model=model,
-        provider=provider,
-        request_type=request_type,
-        input_tokens=input_tokens,
-        output_tokens=output_tokens,
-        total_tokens=total_tokens,
-        input_cost=input_cost,
-        output_cost=output_cost,
-        total_cost=total_cost,
-        prompt_preview=prompt_preview[:500] if prompt_preview else None,
-        response_preview=response_preview[:500] if response_preview else None,
-        tool_calls=tool_calls,
-        duration_ms=duration_ms
-    )
+        total_tokens = input_tokens + output_tokens
 
-    db.add(usage_log)
-    db.commit()
-    db.refresh(usage_log)
+        # Create log entry
+        usage_log = AIUsageLogModel(
+            id=str(uuid.uuid4()),
+            user_id=user_id,
+            workspace_id=workspace_id,
+            project_id=project_id,
+            model=model,
+            provider=provider,
+            request_type=request_type,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            total_tokens=total_tokens,
+            input_cost=input_cost,
+            output_cost=output_cost,
+            total_cost=total_cost,
+            prompt_preview=prompt_preview[:500] if prompt_preview else None,
+            response_preview=response_preview[:500] if response_preview else None,
+            tool_calls=tool_calls,
+            duration_ms=duration_ms
+        )
 
-    return usage_log
+        db.add(usage_log)
+        db.commit()
+        db.refresh(usage_log)
+
+        print(f"📊 AI Usage logged: {model} | {input_tokens}+{output_tokens} tokens | ${total_cost:.6f}")
+
+        return usage_log
+    except Exception as e:
+        print(f"❌ Failed to log AI usage: {e}")
+        # Try to rollback if possible
+        try:
+            db.rollback()
+        except:
+            pass
+        return None
 
 
 def get_usage_stats(

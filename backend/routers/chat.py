@@ -13,7 +13,9 @@ from rag_service import query_knowledge_base
 from tools import TOOL_DEFINITIONS, execute_tool
 from vision_service import vision_service
 from ai_usage_service import log_ai_usage
+from pricing_service import fetch_generation_cost
 from attachment_service import attachment_service
+from routers.projects import format_project_context
 import json
 import os
 import uuid
@@ -299,6 +301,24 @@ IMPORTANT: You are working within this project. When using tools that require pr
 you MUST use project_id="{request.project_id}". Do NOT ask the user for the project ID - you already have it.
 """)
 
+        # Add project settings context for AI (T018-T022: AI Context Integration)
+        if project:
+            settings = project.settings or {}
+            if settings.get("client_name"):  # Only add context if client_name is configured
+                project_context = format_project_context(settings)
+                if project_context:
+                    system_parts.append(f"""
+PROJECT SETTINGS (use this context to tailor your responses):
+{project_context}
+
+IMPORTANT: Use this project information to:
+- Tailor content to the specified target audience
+- Match the brand voice/tone in all generated content
+- Reference key messages when creating marketing content
+- Consider competitors when differentiating the product/service
+- The user may override any of these in their prompt - explicit user instructions take precedence
+""")
+
     # Add current document context if available
     if request.current_document and request.use_rag:
         system_parts.append(f"""
@@ -399,6 +419,7 @@ Retrieved Context:
     total_output_tokens = 0
     start_time = time.time()
     tool_names_used = []
+    generation_ids = []  # Track all generation IDs for cost fetching
 
     while iteration < max_iterations:
         iteration += 1
@@ -409,6 +430,12 @@ Retrieved Context:
             model=request.model,
             tools=TOOL_DEFINITIONS
         )
+
+        # Capture generation ID for cost tracking
+        gen_id = response.get("id")
+        if gen_id:
+            generation_ids.append(gen_id)
+            print(f"📝 Captured generation ID: {gen_id}")
 
         # Track token usage
         usage = response.get("usage", {})
@@ -427,6 +454,16 @@ Retrieved Context:
             user_msg = next((m.content for m in reversed(request.messages) if m.role == "user"), "")
             assistant_msg = response_message.get("content", "")
 
+            # Fetch actual cost from OpenRouter
+            total_cost = None
+            if generation_ids:
+                total_cost = 0.0
+                for gid in generation_ids:
+                    cost = await fetch_generation_cost(gid)
+                    if cost is not None:
+                        total_cost += cost
+                print(f"💰 OpenRouter actual cost: ${total_cost:.8f} for {len(generation_ids)} generation(s)")
+
             # Log AI usage
             log_ai_usage(
                 db=db,
@@ -441,7 +478,8 @@ Retrieved Context:
                 prompt_preview=user_msg,
                 response_preview=assistant_msg,
                 tool_calls=tool_names_used if tool_names_used else None,
-                duration_ms=duration_ms
+                duration_ms=duration_ms,
+                cost=total_cost
             )
 
             return response
@@ -481,6 +519,16 @@ Retrieved Context:
     user_msg = next((m.content for m in reversed(request.messages) if m.role == "user"), "")
     assistant_msg = response.get("choices", [{}])[0].get("message", {}).get("content", "")
 
+    # Fetch actual cost from OpenRouter
+    total_cost = None
+    if generation_ids:
+        total_cost = 0.0
+        for gid in generation_ids:
+            cost = await fetch_generation_cost(gid)
+            if cost is not None:
+                total_cost += cost
+        print(f"💰 OpenRouter actual cost: ${total_cost:.8f} for {len(generation_ids)} generation(s)")
+
     log_ai_usage(
         db=db,
         user_id=str(current_user.id),
@@ -494,7 +542,8 @@ Retrieved Context:
         prompt_preview=user_msg,
         response_preview=assistant_msg,
         tool_calls=tool_names_used,
-        duration_ms=duration_ms
+        duration_ms=duration_ms,
+        cost=total_cost
     )
 
     return response
@@ -582,6 +631,24 @@ CURRENT PROJECT CONTEXT:
 
 IMPORTANT: You are working within this project. When using tools that require project_id (like create_document, generate_image, etc.),
 you MUST use project_id="{request.project_id}". Do NOT ask the user for the project ID - you already have it.
+""")
+
+                # Add project settings context for AI (T018-T022: AI Context Integration)
+                if project:
+                    settings = project.settings or {}
+                    if settings.get("client_name"):  # Only add context if client_name is configured
+                        project_context = format_project_context(settings)
+                        if project_context:
+                            system_parts.append(f"""
+PROJECT SETTINGS (use this context to tailor your responses):
+{project_context}
+
+IMPORTANT: Use this project information to:
+- Tailor content to the specified target audience
+- Match the brand voice/tone in all generated content
+- Reference key messages when creating marketing content
+- Consider competitors when differentiating the product/service
+- The user may override any of these in their prompt - explicit user instructions take precedence
 """)
 
             # Add current document context
@@ -690,6 +757,7 @@ Retrieved Context:
             total_output_tokens = 0
             start_time = time.time()
             tool_names_used = []
+            generation_ids = []  # Track OpenRouter generation IDs for cost lookup
 
             while iteration < max_iterations:
                 iteration += 1
@@ -711,6 +779,7 @@ Retrieved Context:
                 accumulated_tool_calls = []
                 usage = {}
                 response_message = {}
+                current_generation_id = None
 
                 try:
                     async for chunk in chat_completion_stream(
@@ -718,6 +787,12 @@ Retrieved Context:
                         model=request.model,
                         tools=TOOL_DEFINITIONS
                     ):
+                        # Capture generation ID from chunk (for cost lookup)
+                        if "id" in chunk and chunk["id"] and not current_generation_id:
+                            current_generation_id = chunk["id"]
+                            generation_ids.append(current_generation_id)
+                            print(f"📝 Captured generation ID: {current_generation_id}")
+
                         # Process chunk
                         if "choices" in chunk and len(chunk["choices"]) > 0:
                             delta = chunk["choices"][0].get("delta", {})
@@ -789,25 +864,41 @@ Retrieved Context:
                     # Send usage stats
                     yield f"data: {json.dumps({'type': 'usage', 'data': usage})}\n\n"
 
-                    # Log AI usage
+                    # Log AI usage with fresh DB session (original session may be closed in generator)
                     duration_ms = int((time.time() - start_time) * 1000)
                     user_msg = next((m.content for m in reversed(request.messages) if m.role == "user"), "")
 
-                    log_ai_usage(
-                        db=db,
-                        user_id=str(current_user.id),
-                        workspace_id=get_workspace_id_from_project(db, request.project_id),
-                        project_id=request.project_id,
-                        model=request.model,
-                        provider="openrouter",
-                        request_type="chat" if not tool_names_used else "tool_call",
-                        input_tokens=total_input_tokens,
-                        output_tokens=total_output_tokens,
-                        prompt_preview=user_msg,
-                        response_preview=accumulated_content,
-                        tool_calls=tool_names_used if tool_names_used else None,
-                        duration_ms=duration_ms
-                    )
+                    # Fetch actual cost from OpenRouter for all generations
+                    total_cost = None
+                    if generation_ids:
+                        total_cost = 0.0
+                        for gen_id in generation_ids:
+                            cost = await fetch_generation_cost(gen_id)
+                            if cost is not None:
+                                total_cost += cost
+                        print(f"💰 OpenRouter actual cost: ${total_cost:.8f} for {len(generation_ids)} generation(s)")
+
+                    log_db = SessionLocal()
+                    try:
+                        workspace_id = get_workspace_id_from_project(log_db, request.project_id)
+                        log_ai_usage(
+                            db=log_db,
+                            user_id=str(current_user.id),
+                            workspace_id=workspace_id,
+                            project_id=request.project_id,
+                            model=request.model,
+                            provider="openrouter",
+                            request_type="chat" if not tool_names_used else "tool_call",
+                            input_tokens=total_input_tokens,
+                            output_tokens=total_output_tokens,
+                            prompt_preview=user_msg,
+                            response_preview=accumulated_content,
+                            tool_calls=tool_names_used if tool_names_used else None,
+                            duration_ms=duration_ms,
+                            cost=total_cost  # Use actual cost from OpenRouter
+                        )
+                    finally:
+                        log_db.close()
 
                     # Send done signal
                     yield f"data: {json.dumps({'type': 'done'})}\n\n"
@@ -918,24 +1009,40 @@ Retrieved Context:
                             yield f"data: {json.dumps({'type': 'status', 'message': 'Operação cancelada pelo usuário.'})}\n\n"
                             yield f"data: {json.dumps({'type': 'done'})}\n\n"
 
-                            # Log usage before stopping
+                            # Log usage before stopping (with fresh DB session)
                             duration_ms = int((time.time() - start_time) * 1000)
                             user_msg = next((m.content for m in reversed(request.messages) if m.role == "user"), "")
-                            log_ai_usage(
-                                db=db,
-                                user_id=str(current_user.id),
-                                workspace_id=get_workspace_id_from_project(db, request.project_id),
-                                project_id=request.project_id,
-                                model=request.model,
-                                provider="openrouter",
-                                request_type="tool_call",
-                                input_tokens=total_input_tokens,
-                                output_tokens=total_output_tokens,
-                                prompt_preview=user_msg,
-                                response_preview="Operação cancelada pelo usuário",
-                                tool_calls=tool_names_used,
-                                duration_ms=duration_ms
-                            )
+
+                            # Fetch actual cost from OpenRouter
+                            total_cost = None
+                            if generation_ids:
+                                total_cost = 0.0
+                                for gen_id in generation_ids:
+                                    cost = await fetch_generation_cost(gen_id)
+                                    if cost is not None:
+                                        total_cost += cost
+
+                            log_db = SessionLocal()
+                            try:
+                                workspace_id = get_workspace_id_from_project(log_db, request.project_id)
+                                log_ai_usage(
+                                    db=log_db,
+                                    user_id=str(current_user.id),
+                                    workspace_id=workspace_id,
+                                    project_id=request.project_id,
+                                    model=request.model,
+                                    provider="openrouter",
+                                    request_type="tool_call",
+                                    input_tokens=total_input_tokens,
+                                    output_tokens=total_output_tokens,
+                                    prompt_preview=user_msg,
+                                    response_preview="Operação cancelada pelo usuário",
+                                    tool_calls=tool_names_used,
+                                    duration_ms=duration_ms,
+                                    cost=total_cost
+                                )
+                            finally:
+                                log_db.close()
                             return  # Stop execution completely
 
                         # Approved - send approval event
@@ -1075,26 +1182,41 @@ Retrieved Context:
                 yield f"data: {json.dumps({'type': 'iteration_limit', 'current': iteration, 'max': max_iterations, 'message': f'Limite de {max_iterations} iterações atingido. Você pode aumentar este limite nas preferências.'})}\n\n"
                 yield f"data: {json.dumps({'type': 'status', 'message': f'Limite de {max_iterations} iterações atingido'})}\n\n"
 
-                # Log usage
+                # Log usage (with fresh DB session)
                 duration_ms = int((time.time() - start_time) * 1000)
                 user_msg = next((m.content for m in reversed(request.messages) if m.role == "user"), "")
                 assistant_msg = accumulated_content or ""
 
-                log_ai_usage(
-                    db=db,
-                    user_id=str(current_user.id),
-                    workspace_id=None,
-                    project_id=request.project_id,
-                    model=request.model,
-                    provider="openrouter",
-                    request_type="tool_call",
-                    input_tokens=total_input_tokens,
-                    output_tokens=total_output_tokens,
-                    prompt_preview=user_msg,
-                    response_preview=assistant_msg,
-                    tool_calls=tool_names_used,
-                    duration_ms=duration_ms
-                )
+                # Fetch actual cost from OpenRouter
+                total_cost = None
+                if generation_ids:
+                    total_cost = 0.0
+                    for gen_id in generation_ids:
+                        cost = await fetch_generation_cost(gen_id)
+                        if cost is not None:
+                            total_cost += cost
+
+                log_db = SessionLocal()
+                try:
+                    workspace_id = get_workspace_id_from_project(log_db, request.project_id)
+                    log_ai_usage(
+                        db=log_db,
+                        user_id=str(current_user.id),
+                        workspace_id=workspace_id,
+                        project_id=request.project_id,
+                        model=request.model,
+                        provider="openrouter",
+                        request_type="tool_call",
+                        input_tokens=total_input_tokens,
+                        output_tokens=total_output_tokens,
+                        prompt_preview=user_msg,
+                        response_preview=assistant_msg,
+                        tool_calls=tool_names_used,
+                        duration_ms=duration_ms,
+                        cost=total_cost
+                    )
+                finally:
+                    log_db.close()
 
                 yield f"data: {json.dumps({'type': 'done'})}\n\n"
 

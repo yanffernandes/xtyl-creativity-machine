@@ -34,13 +34,23 @@ import ToolExecutionCard from "@/components/ToolExecutionCard"
 import TaskListCard, { TaskItem } from "@/components/TaskListCard"
 import { useUserPreferences } from "@/hooks/useUserPreferences"
 import ConversationsList from "@/components/ConversationsList"
-import {
-    createConversation,
-    updateConversation,
-    getConversation,
-    addCreatedDocument,
-    ChatMessage,
-} from "@/lib/api/conversations"
+import { conversationService } from "@/lib/supabase/conversations"
+
+// Generate a title from the first user message (truncate at ~50 chars on word boundary)
+function generateTitleFromMessage(content: string): string {
+    const cleaned = content.trim().replace(/\s+/g, ' ')
+    if (cleaned.length <= 50) return cleaned
+    const truncated = cleaned.substring(0, 50)
+    const lastSpace = truncated.lastIndexOf(' ')
+    return (lastSpace > 20 ? truncated.substring(0, lastSpace) : truncated) + '...'
+}
+
+interface ChatMessage {
+    role: "user" | "assistant" | "system"
+    content: string
+    toolExecutions?: any[]
+    taskList?: any[]
+}
 import { useFolders } from "@/hooks/use-folders"
 import { useTemplates } from "@/hooks/use-templates"
 import { templateService } from "@/lib/supabase/templates"
@@ -240,7 +250,7 @@ export default function ChatSidebar({
         // Save current conversation before clearing if there are messages
         if (messages.length > 0 && workspaceId) {
             try {
-                const chatMessages: ChatMessage[] = messages.map(m => ({
+                const chatMessages = messages.map(m => ({
                     role: m.role,
                     content: m.content,
                     toolExecutions: m.toolExecutions,
@@ -249,20 +259,29 @@ export default function ChatSidebar({
 
                 if (currentConversationId) {
                     // Update existing conversation
-                    await updateConversation(currentConversationId, {
-                        messages: chatMessages,
-                        created_document_ids: createdDocuments.map(d => d.id)
+                    const { error } = await conversationService.update(currentConversationId, {
+                        messages_json: chatMessages,
+                        created_document_ids: createdDocuments.map(d => d.id),
+                        message_count: chatMessages.length,
+                        last_message_at: new Date().toISOString()
                     })
+                    if (error) throw error
                 } else {
-                    // Create new conversation
-                    await createConversation({
+                    // Create new conversation with auto-generated title
+                    const firstUserMsg = chatMessages.find(m => m.role === 'user')
+                    const title = firstUserMsg ? generateTitleFromMessage(firstUserMsg.content) : undefined
+                    const { error } = await conversationService.create({
                         workspace_id: workspaceId,
-                        project_id: projectId,
-                        messages: chatMessages,
+                        project_id: projectId || null,
+                        title,
+                        messages_json: chatMessages,
                         model_used: selectedModel,
                         document_ids_context: selectedContextIds,
-                        folder_ids_context: selectedFolderIds
+                        folder_ids_context: selectedFolderIds,
+                        message_count: chatMessages.length,
+                        last_message_at: new Date().toISOString()
                     })
+                    if (error) throw error
                 }
             } catch (error) {
                 console.error("Failed to save conversation:", error)
@@ -277,8 +296,12 @@ export default function ChatSidebar({
 
     const handleLoadConversation = async (conversationId: string) => {
         try {
-            const conversation = await getConversation(conversationId)
-            setMessages(conversation.messages.map(m => ({
+            const { data: conversation, error } = await conversationService.get(conversationId)
+            if (error) throw error
+            if (!conversation) throw new Error("Conversation not found")
+
+            const messages_json = conversation.messages_json || []
+            setMessages(messages_json.map((m: any) => ({
                 role: m.role as "user" | "assistant" | "system",
                 content: m.content,
                 toolExecutions: m.toolExecutions,
@@ -297,12 +320,18 @@ export default function ChatSidebar({
         }
     }
 
-    const handleDocumentCreated = (docId: string, docTitle: string, docType: "text" | "image") => {
+    const handleDocumentCreated = async (docId: string, docTitle: string, docType: "text" | "image") => {
         setCreatedDocuments(prev => [...prev, { id: docId, title: docTitle, type: docType }])
 
-        // Also track in current conversation
+        // Also track in current conversation via backend (uses addCreatedDocument endpoint)
         if (currentConversationId) {
-            addCreatedDocument(currentConversationId, docId).catch(console.error)
+            try {
+                await api.post(`/conversations/${currentConversationId}/add-document`, null, {
+                    params: { document_id: docId }
+                })
+            } catch (error) {
+                console.error("Failed to add document to conversation:", error)
+            }
         }
     }
 
@@ -753,15 +782,64 @@ export default function ChatSidebar({
 
                                 case 'done':
                                     // Add final message to history with tool executions and task list
-                                    if (currentContent.trim() || localToolExecutions.length > 0) {
-                                        setMessages((prev) => [...prev, {
-                                            role: "assistant",
-                                            content: currentContent || "",
-                                            isStreaming: false,
-                                            toolExecutions: localToolExecutions.length > 0 ? [...localToolExecutions] : undefined,
-                                            taskList: localTaskList.length > 0 ? [...localTaskList] : undefined
-                                        }])
+                                    const newAssistantMessage = {
+                                        role: "assistant" as const,
+                                        content: currentContent || "",
+                                        isStreaming: false,
+                                        toolExecutions: localToolExecutions.length > 0 ? [...localToolExecutions] : undefined,
+                                        taskList: localTaskList.length > 0 ? [...localTaskList] : undefined
                                     }
+
+                                    if (currentContent.trim() || localToolExecutions.length > 0) {
+                                        setMessages((prev) => [...prev, newAssistantMessage])
+                                    }
+
+                                    // Save conversation to database
+                                    if (workspaceId) {
+                                        const allMessages = [...messages, userMessage]
+                                        if (currentContent.trim() || localToolExecutions.length > 0) {
+                                            allMessages.push(newAssistantMessage)
+                                        }
+                                        const chatMessages = allMessages.map(m => ({
+                                            role: m.role,
+                                            content: m.content,
+                                            toolExecutions: m.toolExecutions,
+                                            taskList: m.taskList
+                                        }))
+
+                                        try {
+                                            if (currentConversationId) {
+                                                // Update existing conversation
+                                                await conversationService.update(currentConversationId, {
+                                                    messages_json: chatMessages,
+                                                    model_used: selectedModel,
+                                                    message_count: chatMessages.length,
+                                                    last_message_at: new Date().toISOString()
+                                                })
+                                            } else {
+                                                // Create new conversation with auto-generated title
+                                                const firstUserMsg = chatMessages.find(m => m.role === 'user')
+                                                const title = firstUserMsg ? generateTitleFromMessage(firstUserMsg.content) : undefined
+                                                const { data, error } = await conversationService.create({
+                                                    workspace_id: workspaceId,
+                                                    project_id: projectId || null,
+                                                    title,
+                                                    messages_json: chatMessages,
+                                                    model_used: selectedModel,
+                                                    document_ids_context: selectedContextIds,
+                                                    folder_ids_context: selectedFolderIds,
+                                                    message_count: chatMessages.length,
+                                                    last_message_at: new Date().toISOString()
+                                                })
+                                                if (!error && data) {
+                                                    setCurrentConversationId(data.id)
+                                                }
+                                            }
+                                        } catch (saveError) {
+                                            console.error("Failed to save conversation:", saveError)
+                                        }
+                                    }
+
                                     setStreamingStatus(null)
                                     setCurrentStreamingContent("")  // Clear streaming content
                                     setToolExecutions([])  // Clear tool executions (now stored in message)

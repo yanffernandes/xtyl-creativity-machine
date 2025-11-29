@@ -1,0 +1,185 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Project Settings API",
+    "version": "1.0.0",
+    "description": "API endpoints for project settings management"
+  },
+  "paths": {
+    "/projects/{project_id}/settings": {
+      "get": {
+        "summary": "Get project settings",
+        "operationId": "getProjectSettings",
+        "tags": ["Project Settings"],
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Project settings",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ProjectSettings" }
+              }
+            }
+          },
+          "404": { "description": "Project not found" }
+        }
+      },
+      "put": {
+        "summary": "Update project settings",
+        "operationId": "updateProjectSettings",
+        "tags": ["Project Settings"],
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ProjectSettingsUpdate" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated settings",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ProjectSettings" }
+              }
+            }
+          },
+          "400": { "description": "Validation error" },
+          "404": { "description": "Project not found" }
+        }
+      }
+    },
+    "/projects/{project_id}/settings/context": {
+      "get": {
+        "summary": "Get formatted AI context from settings",
+        "operationId": "getProjectContext",
+        "tags": ["Project Settings"],
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Formatted AI context",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ProjectContext" }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ProjectSettings": {
+        "type": "object",
+        "required": ["client_name"],
+        "properties": {
+          "client_name": {
+            "type": "string",
+            "maxLength": 200,
+            "description": "Client/company name (required)"
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 2000,
+            "nullable": true,
+            "description": "Project description"
+          },
+          "target_audience": {
+            "type": "string",
+            "maxLength": 1000,
+            "nullable": true,
+            "description": "Target audience characteristics"
+          },
+          "brand_voice": {
+            "type": "string",
+            "enum": ["professional_formal", "casual_friendly", "technical_precise", "creative_playful", "authoritative_expert", "custom"],
+            "nullable": true,
+            "description": "Predefined brand voice option"
+          },
+          "brand_voice_custom": {
+            "type": "string",
+            "maxLength": 500,
+            "nullable": true,
+            "description": "Custom brand voice text"
+          },
+          "key_messages": {
+            "type": "array",
+            "items": { "type": "string", "maxLength": 500 },
+            "maxItems": 10,
+            "nullable": true,
+            "description": "Key messages or talking points"
+          },
+          "competitors": {
+            "type": "array",
+            "items": { "type": "string", "maxLength": 200 },
+            "maxItems": 10,
+            "nullable": true,
+            "description": "Competitor names"
+          },
+          "custom_notes": {
+            "type": "string",
+            "maxLength": 5000,
+            "nullable": true,
+            "description": "Additional notes for AI context"
+          }
+        }
+      },
+      "ProjectSettingsUpdate": {
+        "type": "object",
+        "required": ["client_name"],
+        "properties": {
+          "client_name": { "type": "string", "maxLength": 200 },
+          "description": { "type": "string", "maxLength": 2000, "nullable": true },
+          "target_audience": { "type": "string", "maxLength": 1000, "nullable": true },
+          "brand_voice": { "type": "string", "nullable": true },
+          "brand_voice_custom": { "type": "string", "maxLength": 500, "nullable": true },
+          "key_messages": { "type": "array", "items": { "type": "string" }, "nullable": true },
+          "competitors": { "type": "array", "items": { "type": "string" }, "nullable": true },
+          "custom_notes": { "type": "string", "maxLength": 5000, "nullable": true }
+        }
+      },
+      "ProjectContext": {
+        "type": "object",
+        "properties": {
+          "formatted_context": {
+            "type": "string",
+            "description": "Formatted text ready for AI prompt injection"
+          },
+          "has_settings": {
+            "type": "boolean",
+            "description": "Whether project has settings configured"
+          },
+          "missing_fields": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Suggested fields to improve AI responses"
+          }
+        }
+      }
+    }
+  }
+}

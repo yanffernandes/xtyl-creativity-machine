@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, field_serializer
+from pydantic import BaseModel, Field, field_serializer, field_validator
 from typing import List, Optional, Dict, Any, Union
 from datetime import datetime
 from decimal import Decimal
@@ -62,10 +62,48 @@ class ProjectCreate(ProjectBase):
 
 class Project(ProjectBase):
     id: str
+    settings: Optional[Dict[str, Any]] = None
     created_at: datetime
 
     class Config:
         from_attributes = True
+
+
+# Project Settings schemas
+class ProjectSettingsBase(BaseModel):
+    """Base schema for project settings"""
+    client_name: str = Field(..., max_length=200, description="Client/company name (required)")
+    description: Optional[str] = Field(None, max_length=2000, description="Project description")
+    target_audience: Optional[str] = Field(None, max_length=1000, description="Target audience characteristics")
+    brand_voice: Optional[str] = Field(None, description="Predefined brand voice option")
+    brand_voice_custom: Optional[str] = Field(None, max_length=500, description="Custom brand voice text")
+    key_messages: Optional[List[str]] = Field(None, max_items=10, description="Key messages or talking points")
+    competitors: Optional[List[str]] = Field(None, max_items=10, description="Competitor names")
+    custom_notes: Optional[str] = Field(None, max_length=5000, description="Additional notes for AI context")
+
+
+class ProjectSettingsUpdate(BaseModel):
+    """Schema for updating project settings (all fields optional except client_name)"""
+    client_name: str = Field(..., max_length=200)
+    description: Optional[str] = Field(None, max_length=2000)
+    target_audience: Optional[str] = Field(None, max_length=1000)
+    brand_voice: Optional[str] = None
+    brand_voice_custom: Optional[str] = Field(None, max_length=500)
+    key_messages: Optional[List[str]] = None
+    competitors: Optional[List[str]] = None
+    custom_notes: Optional[str] = Field(None, max_length=5000)
+
+
+class ProjectSettings(ProjectSettingsBase):
+    """Full project settings response"""
+    pass
+
+
+class ProjectContext(BaseModel):
+    """Formatted AI context from project settings"""
+    formatted_context: str = Field(..., description="Formatted text ready for AI prompt injection")
+    has_settings: bool = Field(..., description="Whether project has settings configured")
+    missing_fields: List[str] = Field(default_factory=list, description="Suggested fields to improve AI responses")
 
 class DocumentBase(BaseModel):
     title: str
@@ -130,19 +168,19 @@ class AIUsageLogCreate(BaseModel):
     duration_ms: Optional[int] = None
 
 class AIUsageLog(BaseModel):
-    id: str
-    user_id: str
-    workspace_id: Optional[str] = None
-    project_id: Optional[str] = None
+    id: Union[str, UUID]
+    user_id: Union[str, UUID]
+    workspace_id: Optional[Union[str, UUID]] = None
+    project_id: Optional[Union[str, UUID]] = None
     model: str
     provider: str
     request_type: str
     input_tokens: int
     output_tokens: int
     total_tokens: int
-    input_cost: float
-    output_cost: float
-    total_cost: float
+    input_cost: Union[float, Decimal]
+    output_cost: Union[float, Decimal]
+    total_cost: Union[float, Decimal]
     prompt_preview: Optional[str] = None
     response_preview: Optional[str] = None
     tool_calls: Optional[List[str]] = None
@@ -151,6 +189,20 @@ class AIUsageLog(BaseModel):
 
     class Config:
         from_attributes = True
+
+    # Serialize UUID fields to strings for JSON output
+    @field_serializer('id', 'user_id', 'workspace_id', 'project_id')
+    def serialize_uuid(self, v):
+        if isinstance(v, UUID):
+            return str(v)
+        return v
+
+    # Serialize Decimal to float for JSON output
+    @field_serializer('input_cost', 'output_cost', 'total_cost')
+    def serialize_decimal(self, v):
+        if isinstance(v, Decimal):
+            return float(v)
+        return v
 
 class AIUsageStats(BaseModel):
     total_requests: int

@@ -199,7 +199,9 @@ export default function SettingsPage() {
 
     return (
         <div className="flex h-screen overflow-hidden relative">
-            <WorkspaceSidebar />
+            <div className="p-3 pr-0">
+                <WorkspaceSidebar className="h-[calc(100vh-24px)]" />
+            </div>
 
             <div className="flex-1 flex flex-col overflow-hidden">
                 {/* Header */}

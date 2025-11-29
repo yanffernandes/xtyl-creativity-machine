@@ -56,6 +56,7 @@ class Project(Base):
     name = Column(String, index=True)
     description = Column(Text, nullable=True)
     workspace_id = Column(String, ForeignKey("workspaces.id"))
+    settings = Column(JSONB, default=dict)  # Project settings for AI context
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     workspace = relationship("Workspace", back_populates="projects")

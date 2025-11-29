@@ -34,6 +34,7 @@ interface Document {
   type: "creation" | "context"
   content?: string
   is_context?: boolean
+  is_reference_asset?: boolean
 }
 
 interface KanbanBoardProps {
@@ -101,7 +102,9 @@ export default function KanbanBoard({
   )
 
   const getDocsByStatus = (status: string) => {
-    return documents.filter(doc => (doc.status || "draft") === status)
+    return documents.filter(doc =>
+      (doc.status || "draft") === status && !doc.is_reference_asset
+    )
   }
 
   const findContainer = useCallback((id: string) => {
@@ -159,7 +162,7 @@ export default function KanbanBoard({
     }
   }
 
-  const handleDragEnd = async (event: DragEndEvent) => {
+  const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event
 
     setOverId(null)
@@ -176,27 +179,31 @@ export default function KanbanBoard({
     if (activeContainer !== overContainer) {
       const doc = documents.find(d => d.id === active.id)
       if (doc) {
-        try {
-          // Update status via API
-          await api.put(`/documents/${doc.id}`, { status: overContainer })
-
-          // Notify parent component
-          if (onStatusChange) {
-            onStatusChange(doc.id, overContainer)
-          }
-
-          toast({
-            title: "Status atualizado",
-            description: `"${doc.title}" movido para ${COLUMNS.find(c => c.id === overContainer)?.title}`,
-          })
-        } catch (error) {
-          console.error("Failed to update document status", error)
-          toast({
-            title: "Erro",
-            description: "Falha ao atualizar status do documento",
-            variant: "destructive"
-          })
+        // OPTIMISTIC UPDATE: Notify parent immediately for instant UI response
+        if (onStatusChange) {
+          onStatusChange(doc.id, overContainer)
         }
+
+        // API call in background - no await
+        api.put(`/documents/${doc.id}`, { status: overContainer })
+          .then(() => {
+            toast({
+              title: "Status atualizado",
+              description: `"${doc.title}" movido para ${COLUMNS.find(c => c.id === overContainer)?.title}`,
+            })
+          })
+          .catch((error) => {
+            console.error("Failed to update document status", error)
+            // Revert the optimistic update on error
+            if (onStatusChange) {
+              onStatusChange(doc.id, activeContainer)
+            }
+            toast({
+              title: "Erro",
+              description: "Falha ao atualizar status do documento. Revertendo...",
+              variant: "destructive"
+            })
+          })
       }
     }
 

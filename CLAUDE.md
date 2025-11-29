@@ -3,6 +3,10 @@
 Auto-generated from all feature plans. Last updated: 2025-11-28
 
 ## Active Technologies
+- Python 3.11 (Backend), TypeScript 5.x (Frontend) + FastAPI, SQLAlchemy, Next.js 14, React 18, Shadcn/UI (009-project-settings)
+- Supabase PostgreSQL (extends existing Project model) (009-project-settings)
+- Python 3.11 (Backend), TypeScript 5.x (Frontend) + FastAPI, SQLAlchemy, Next.js 14, React 18, Shadcn/UI, Radix UI (010-system-bugfixes)
+- Supabase PostgreSQL (existing tables: ChatConversation, Document, ActivityLog, Project, User) (010-system-bugfixes)
 
 ### Core Stack
 - **Backend**: Python 3.11, FastAPI, SQLAlchemy
@@ -74,9 +78,9 @@ TypeScript 5.x (Frontend), Node.js 20+ (Build tools): Follow standard convention
 - Follow mobile-first responsive design
 
 ## Recent Changes
+- 010-system-bugfixes: Added Python 3.11 (Backend), TypeScript 5.x (Frontend) + FastAPI, SQLAlchemy, Next.js 14, React 18, Shadcn/UI, Radix UI
+- 009-project-settings: Added Python 3.11 (Backend), TypeScript 5.x (Frontend) + FastAPI, SQLAlchemy, Next.js 14, React 18, Shadcn/UI
 - 008-architecture-cleanup: Added Markdown, YAML, Bash (documentation and configuration cleanup only) + None (no runtime dependencies - pure file editing)
-- 007-hybrid-supabase-architecture: Added TypeScript 5.x (Frontend), Python 3.11 (Backend)
-- 006-production-infrastructure: Added Python 3.11 (Backend), TypeScript 5.x (Frontend) + FastAPI, SQLAlchemy, Next.js 14, React 18, Supabase JS SDK, boto3 (S3-compatible)
 
 
 <!-- MANUAL ADDITIONS START -->

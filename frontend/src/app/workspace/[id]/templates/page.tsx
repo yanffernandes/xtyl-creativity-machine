@@ -1,24 +1,29 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { useParams } from "next/navigation"
+import { useParams, useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { Search, Plus, Copy, Eye } from "lucide-react"
+import { Search, Plus, Copy, Eye, ArrowLeft, Home, FileText } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import { useTemplates } from "@/hooks/use-templates"
 import { templateService } from "@/lib/supabase/templates"
 import type { Template } from "@/types/supabase"
+import WorkspaceSidebar from "@/components/WorkspaceSidebar"
+import Breadcrumbs from "@/components/Breadcrumbs"
+import { useWorkspace } from "@/hooks/use-workspaces"
 
 export default function TemplatesPage() {
   const params = useParams()
+  const router = useRouter()
   const workspaceId = params.id as string
   const { toast } = useToast()
 
+  const { data: workspace } = useWorkspace(workspaceId)
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("all")
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null)
@@ -26,6 +31,11 @@ export default function TemplatesPage() {
   // Use Supabase hook for templates
   const { data: templates, isLoading: loading } = useTemplates(workspaceId)
   const templateList = templates ?? []
+
+  const breadcrumbItems = [
+    { label: workspace?.name || "Workspace", href: `/workspace/${workspaceId}`, icon: <Home className="h-3.5 w-3.5" /> },
+    { label: "Templates", icon: <FileText className="h-3.5 w-3.5" /> },
+  ]
 
   // Filter templates using useMemo for performance
   const filteredTemplates = useMemo(() => {
@@ -69,18 +79,37 @@ export default function TemplatesPage() {
   }
 
   return (
-    <div className="p-8 space-y-6 relative">
-      {/* Header */}
-      <div className="flex items-center justify-between max-w-7xl mx-auto">
-        <div>
-          <h1 className="text-4xl font-bold tracking-tight mb-2">Templates de Marketing</h1>
-          <p className="text-text-secondary">Templates profissionais para tráfego pago e marketing digital</p>
-        </div>
-        <Button>
-          <Plus className="h-4 w-4 mr-2" />
-          Criar Template
-        </Button>
+    <div className="flex h-screen overflow-hidden relative">
+      <div className="p-3 pr-0">
+        <WorkspaceSidebar className="h-[calc(100vh-24px)]" />
       </div>
+
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Header */}
+        <div className="px-6 py-6 border-b border-white/10">
+          <Breadcrumbs items={breadcrumbItems} className="mb-3" />
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight">Templates de Marketing</h1>
+              <p className="text-sm text-text-secondary mt-2">
+                Templates profissionais para tráfego pago e marketing digital
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => router.push(`/workspace/${workspaceId}`)}>
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Voltar
+              </Button>
+              <Button>
+                <Plus className="h-4 w-4 mr-2" />
+                Criar Template
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-6">
 
       {/* Search */}
       <div className="relative max-w-7xl mx-auto">
@@ -185,6 +214,8 @@ export default function TemplatesPage() {
           )}
         </TabsContent>
       </Tabs>
+        </div>
+      </div>
     </div>
   )
 }

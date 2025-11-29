@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from "react"
 import { useParams, useRouter, useSearchParams } from "next/navigation"
 import { useAuthStore } from "@/lib/store"
-import api from "@/lib/api"
+import api, { getProjectSettings, ProjectSettings } from "@/lib/api"
 import { useWorkspace } from "@/hooks/use-workspaces"
 import { useProjects } from "@/hooks/use-projects"
 import { useDocuments } from "@/hooks/use-documents"
@@ -15,7 +15,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Card } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { useToast } from "@/components/ui/use-toast"
-import { Loader2, Plus, Upload, FileText, MoreHorizontal, Trash, X, Star, FolderOpen, Home, Sparkles, ImageIcon, Download, FileType, Share2, Workflow, ArrowRight } from "lucide-react"
+import { Loader2, Plus, Upload, FileText, MoreHorizontal, Trash, X, Star, FolderOpen, Home, Sparkles, ImageIcon, Download, FileType, Share2, Workflow, ArrowRight, Settings } from "lucide-react"
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -93,6 +93,7 @@ export default function ProjectPage() {
     const [autoApplyEdits, setAutoApplyEdits] = useState(false)
     const [projectName, setProjectName] = useState("")
     const [workspaceName, setWorkspaceName] = useState("")
+    const [clientName, setClientName] = useState("")
     const [allProjects, setAllProjects] = useState<any[]>([])
     const [savedContent, setSavedContent] = useState<string>("")
     const [currentContent, setCurrentContent] = useState<string>("")
@@ -251,10 +252,10 @@ export default function ProjectPage() {
         const handleImageNavigation = (e: any) => {
             const imageId = e.detail?.imageId
             if (imageId) {
-                const allDocs = [...creations, ...contextFiles]
+                const allDocs = [...creations, ...(contextFiles || [])]
                 const image = allDocs.find(doc => doc.id === imageId)
                 if (image && image.media_type === 'image') {
-                    setViewingImage(image)
+                    setViewingImage(image as Document)
                 }
             }
         }
@@ -287,9 +288,9 @@ export default function ProjectPage() {
         const docId = searchParams.get('doc')
         if (docId && creations.length > 0) {
             // Find document in creations or context files
-            const doc = creations.find(d => d.id === docId) || contextFiles.find(f => f.id === docId)
+            const doc = creations.find(d => d.id === docId) || contextFiles?.find(f => f.id === docId)
             if (doc && doc.id !== selectedDoc?.id) {
-                handleSelectDocument(doc)
+                handleSelectDocument(doc as Document)
             }
         }
     }, [searchParams, creations, contextFiles])
@@ -305,6 +306,24 @@ export default function ProjectPage() {
             setDefaultTextModel((workspace as any).default_text_model || '')
         }
     }, [workspace])
+
+    // Fetch project settings for client name display
+    useEffect(() => {
+        async function fetchProjectSettings() {
+            try {
+                const settings = await getProjectSettings(projectId)
+                if (settings?.client_name) {
+                    setClientName(settings.client_name)
+                }
+            } catch (error) {
+                // Silently ignore - settings may not exist yet
+                console.debug("No project settings found")
+            }
+        }
+        if (projectId) {
+            fetchProjectSettings()
+        }
+    }, [projectId])
 
     useEffect(() => {
         if (projects && projects.length > 0) {
@@ -389,7 +408,7 @@ export default function ProjectPage() {
         const docId = documentId || selectedDoc?.id
         if (!docId) return
 
-        const docToSave = creations.find(d => d.id === docId) || contextFiles.find(f => f.id === docId)
+        const docToSave = creations.find(d => d.id === docId) || (contextFiles || []).find(f => f.id === docId)
         if (!docToSave) return
 
         setIsSavingDocument(true)
@@ -657,9 +676,16 @@ export default function ProjectPage() {
                 <div className="px-6 py-6 border-b border-white/10">
                     <Breadcrumbs items={breadcrumbItems} className="mb-3" />
                     <div className="flex items-center justify-between">
-                        <h1 className="flex-1 min-w-0 text-2xl font-bold tracking-tight truncate">
-                            {projectName || "Conteúdo do Projeto"}
-                        </h1>
+                        <div className="flex-1 min-w-0">
+                            <h1 className="text-2xl font-bold tracking-tight truncate">
+                                {projectName || "Conteúdo do Projeto"}
+                            </h1>
+                            {clientName && (
+                                <p className="text-sm text-slate-500 truncate mt-0.5">
+                                    Cliente: {clientName}
+                                </p>
+                            )}
+                        </div>
                         <div className="flex items-center gap-2 flex-shrink-0">
                             <Button
                                 variant="outline"
@@ -669,6 +695,15 @@ export default function ProjectPage() {
                             >
                                 <Sparkles className="h-4 w-4" />
                                 Gerar Imagem
+                            </Button>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => router.push(`/workspace/${workspaceId}/project/${projectId}/settings`)}
+                                className="gap-2"
+                            >
+                                <Settings className="h-4 w-4" />
+                                Configurações
                             </Button>
                             <ArchiveView
                                 projectId={projectId}
@@ -832,10 +867,10 @@ export default function ProjectPage() {
                                             onAttachImage={() => setShowAttachImageModal(true)}
                                             onViewImage={(imageId) => {
                                                 // Find the image document and open in ImageViewer
-                                                const allImages = [...creations, ...contextFiles].filter(doc => doc.media_type === 'image')
+                                                const allImages = [...creations, ...(contextFiles || [])].filter(doc => doc.media_type === 'image')
                                                 const imageDoc = allImages.find(img => img.id === imageId)
                                                 if (imageDoc) {
-                                                    setViewingImage(imageDoc)
+                                                    setViewingImage(imageDoc as Document)
                                                 }
                                             }}
                                         />
@@ -953,7 +988,7 @@ export default function ProjectPage() {
 
                                     {contextLoading ? (
                                         <LoadingSkeleton type="card" count={6} />
-                                    ) : contextFiles.length === 0 ? (
+                                    ) : (contextFiles || []).length === 0 ? (
                                         <EmptyState
                                             icon={Upload}
                                             title="Nenhum arquivo de contexto"
@@ -962,7 +997,7 @@ export default function ProjectPage() {
                                     ) : (
                                         <div className="flex-1 overflow-y-auto">
                                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                                                {contextFiles.map((file: any) => (
+                                                {(contextFiles || []).map((file: any) => (
                                                     <Card
                                                         key={file.id}
                                                         glass
@@ -1018,22 +1053,22 @@ export default function ProjectPage() {
                     projectId={projectId}
                     currentDocument={selectedDoc}
                     onAiSuggestion={setSuggestedContent}
-                    documents={[...creations, ...contextFiles.map((f: any) => ({ ...f, type: "context" as const }))]}
+                    documents={[...creations, ...(contextFiles || []).map((f: any) => ({ ...f, type: "context" as const }))]}
                     autoApplyEdits={autoApplyEdits}
                     onAutoApplyChange={setAutoApplyEdits}
                     onDocumentUpdate={handleDocumentUpdate}
                     onToolExecuted={handleToolExecuted}
                     onNavigateToDocument={(docId) => {
                         // Find the document and select it
-                        const doc = creations.find(d => d.id === docId) || contextFiles.find(f => f.id === docId)
+                        const doc = creations.find(d => d.id === docId) || contextFiles?.find(f => f.id === docId)
                         if (doc) {
-                            handleSelectDocument(doc)
+                            handleSelectDocument(doc as Document)
                         } else {
                             // If not found in current list, refresh and try again
                             fetchDocuments().then(() => {
-                                const updatedDoc = creations.find(d => d.id === docId) || contextFiles.find(f => f.id === docId)
+                                const updatedDoc = creations.find(d => d.id === docId) || (contextFiles || []).find(f => f.id === docId)
                                 if (updatedDoc) {
-                                    handleSelectDocument(updatedDoc)
+                                    handleSelectDocument(updatedDoc as Document)
                                 }
                             })
                         }
@@ -1078,7 +1113,7 @@ export default function ProjectPage() {
                     }
                 }}
                 projectId={projectId}
-                documents={[...creations, ...contextFiles.map((f: any) => ({ ...f, type: "context" as const }))]}
+                documents={[...creations, ...(contextFiles || []).map((f: any) => ({ ...f, type: "context" as const }))]}
                 documentId={refiningImage?.id}
                 existingPrompt={refiningImage?.content || ""}
                 attachToDocumentId={selectedDoc?.media_type !== 'image' ? selectedDoc?.id : undefined}
@@ -1109,7 +1144,7 @@ export default function ProjectPage() {
                 onArchive={() => {
                     fetchDocuments()
                 }}
-                allImages={[...creations, ...contextFiles.map((f: any) => ({ ...f, type: "context" as const }))].filter(doc => doc.media_type === 'image')}
+                allImages={[...creations, ...(contextFiles || []).map((f: any) => ({ ...f, type: "context" as const }))].filter(doc => doc.media_type === 'image')}
             />
 
             {/* Share Dialog */}
