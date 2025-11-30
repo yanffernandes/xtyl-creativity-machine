@@ -190,7 +190,7 @@ export default function ProjectPage() {
 
         // Handle document edits - refresh the current document if it was edited
         // Note: edit_document tool returns { id, title, content, status, message }
-        if (toolName === 'edit_document' && toolResult?.id && selectedDoc?.id === toolResult.id) {
+        if (toolName === 'edit_document' && toolResult?.id && selectedDoc && selectedDoc.id === toolResult.id) {
             // Use the content directly from the tool result (already have it)
             const newContent = toolResult.content || ""
             // Preserve existing title if tool result doesn't provide one
