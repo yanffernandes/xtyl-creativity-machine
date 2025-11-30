@@ -904,6 +904,7 @@ export default function ChatSidebar({
                                     setToolExecutions([])  // Clear tool executions (now stored in message)
                                     setTaskList([])  // Clear task list (now stored in message)
                                     setIsLoading(false)
+                                    console.log('🔓 isLoading set to false')
 
                                     // Trigger document update only if edit_document was used on the current document
                                     const editedCurrentDoc = localToolExecutions.some(
@@ -912,7 +913,11 @@ export default function ChatSidebar({
                                                exec.args?.document_id === currentDocument?.id
                                     )
                                     if (editedCurrentDoc && currentDocument?.id && onDocumentUpdate) {
-                                        await onDocumentUpdate(currentDocument.id)
+                                        try {
+                                            await onDocumentUpdate(currentDocument.id)
+                                        } catch (updateErr) {
+                                            console.error('Failed to update document after edit:', updateErr)
+                                        }
                                     }
                                     break
 
