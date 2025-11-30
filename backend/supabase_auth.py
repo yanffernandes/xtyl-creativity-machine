@@ -25,6 +25,15 @@ ALGORITHM = "HS256"
 _user_cache: Dict[str, Tuple[User, float]] = {}
 _CACHE_TTL = 60  # seconds
 
+
+def clear_user_cache(user_id: str = None):
+    """Clear user cache. If user_id is provided, only clear that user. Otherwise clear all."""
+    global _user_cache
+    if user_id:
+        _user_cache.pop(user_id, None)
+    else:
+        _user_cache = {}
+
 def _get_jwt_secret() -> str:
     """Get JWT secret dynamically to ensure env vars are loaded."""
     return os.getenv("SUPABASE_JWT_SECRET", "")
@@ -178,6 +187,13 @@ async def get_current_user(
                 headers={"WWW-Authenticate": "Bearer"},
             )
 
+    # Check if user is blocked (Admin Panel feature 015)
+    if user.is_blocked:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Your account has been suspended. Please contact support.",
+        )
+
     # Cache the user for future requests
     _user_cache[user_id] = (user, time.time())
 
@@ -275,3 +291,39 @@ def get_optional_current_user(
         pass
 
     return None
+
+
+async def require_admin(
+    current_user: User = Depends(get_current_user),
+) -> User:
+    """
+    Require super_admin role for admin panel access.
+
+    This dependency ensures only super_admin users can access admin endpoints.
+    It should be used as a dependency for all /admin/* routes.
+
+    Args:
+        current_user: The authenticated user from get_current_user
+
+    Returns:
+        User model instance (if user is a super_admin)
+
+    Raises:
+        HTTPException: 403 Forbidden if user is not a super_admin
+
+    Usage:
+        @router.get("/admin/users")
+        async def list_users(admin: User = Depends(require_admin)):
+            ...
+    """
+    # Log admin check for debugging
+    print(f"[ADMIN] Checking admin access for user {current_user.email}, is_super_admin={current_user.is_super_admin}")
+
+    # Check is_super_admin - explicitly check for True (not None or False)
+    if current_user.is_super_admin is not True:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required. You do not have permission to access this resource.",
+        )
+
+    return current_user

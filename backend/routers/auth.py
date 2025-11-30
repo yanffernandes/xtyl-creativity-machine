@@ -22,6 +22,7 @@ class UserProfile(BaseModel):
     id: UUID
     email: str
     full_name: Optional[str] = None
+    is_super_admin: bool = False
 
     class Config:
         from_attributes = True
@@ -39,12 +40,13 @@ async def get_current_user_profile(
     """
     Get current authenticated user's profile.
 
-    Returns user id, email, and full_name.
+    Returns user id, email, full_name, and is_super_admin.
     """
     return UserProfile(
         id=current_user.id,
         email=current_user.email,
-        full_name=current_user.full_name
+        full_name=current_user.full_name,
+        is_super_admin=current_user.is_super_admin,
     )
 
 
@@ -68,5 +70,6 @@ async def update_current_user_profile(
     return UserProfile(
         id=current_user.id,
         email=current_user.email,
-        full_name=current_user.full_name
+        full_name=current_user.full_name,
+        is_super_admin=current_user.is_super_admin,
     )

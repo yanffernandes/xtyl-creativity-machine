@@ -11,7 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from database import engine, Base
 # Note: workspaces, folders, preferences routers removed - CRUD via Supabase Client (feature 007)
-from routers import documents, chat, activity, ai_usage, templates, image_generation, visual_assets, workflows, executions, validation, models, project_workflows, conversations, projects, auth
+from routers import documents, chat, activity, ai_usage, templates, image_generation, visual_assets, workflows, executions, validation, models, project_workflows, conversations, projects, auth, admin, prompts
 import io
 
 # Create tables
@@ -85,6 +85,8 @@ app.include_router(models.router)
 app.include_router(conversations.router)  # Only messages/add-document, CRUD via Supabase
 app.include_router(projects.router)  # Project settings endpoints
 app.include_router(auth.router)  # User profile endpoints
+app.include_router(admin.router)  # Admin panel endpoints (Feature 015)
+app.include_router(prompts.router)  # Prompt enrichment endpoints (Feature 016)
 
 @app.get("/")
 async def root():

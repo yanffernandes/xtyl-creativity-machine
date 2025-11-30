@@ -20,9 +20,12 @@ import {
     CollapsibleContent,
     CollapsibleTrigger,
 } from "@/components/ui/collapsible"
-import { getProjectSettings, updateProjectSettings, ProjectSettings } from "@/lib/api"
+import { getProjectSettings, updateProjectSettings, ProjectSettings, BrandIdentity, BrandTypography } from "@/lib/api"
 import { useQueryClient } from "@tanstack/react-query"
 import { projectKeys } from "@/hooks/use-projects"
+import ColorPalette from "./brand-identity/ColorPalette"
+import ColorExtractor from "./brand-identity/ColorExtractor"
+import TypographySettings from "./brand-identity/TypographySettings"
 
 interface ProjectSettingsFormProps {
     projectId: string
@@ -57,6 +60,14 @@ export default function ProjectSettingsForm({ projectId, workspaceId }: ProjectS
     const [competitors, setCompetitors] = useState<string[]>([])
     const [customNotes, setCustomNotes] = useState("")
 
+    // Brand Identity state (Feature 012)
+    const [colorPalette, setColorPalette] = useState<string[]>([])
+    const [typography, setTypography] = useState<BrandTypography>({
+        primary: null,
+        secondary: null,
+        tertiary: null,
+    })
+
     // Validation
     const [errors, setErrors] = useState<Record<string, string>>({})
 
@@ -78,6 +89,16 @@ export default function ProjectSettingsForm({ projectId, workspaceId }: ProjectS
                 setKeyMessages(settings.key_messages || [])
                 setCompetitors(settings.competitors || [])
                 setCustomNotes(settings.custom_notes || "")
+
+                // Load brand identity (Feature 012)
+                if (settings.brand_identity) {
+                    setColorPalette(settings.brand_identity.color_palette || [])
+                    setTypography(settings.brand_identity.typography || {
+                        primary: null,
+                        secondary: null,
+                        tertiary: null,
+                    })
+                }
 
                 // Open advanced section if any advanced fields have values
                 if (settings.brand_voice || settings.key_messages?.length || settings.competitors?.length || settings.custom_notes) {
@@ -138,6 +159,14 @@ export default function ProjectSettingsForm({ projectId, workspaceId }: ProjectS
         try {
             setIsSaving(true)
 
+            // Build brand identity object (Feature 012)
+            const brandIdentity: BrandIdentity | null = (colorPalette.length > 0 || typography.primary || typography.secondary || typography.tertiary)
+                ? {
+                    color_palette: colorPalette,
+                    typography: (typography.primary || typography.secondary || typography.tertiary) ? typography : null,
+                }
+                : null
+
             const settings: ProjectSettings = {
                 client_name: clientName.trim(),
                 description: description.trim() || null,
@@ -147,6 +176,7 @@ export default function ProjectSettingsForm({ projectId, workspaceId }: ProjectS
                 key_messages: keyMessages.filter(m => m.trim()).length > 0 ? keyMessages.filter(m => m.trim()) : null,
                 competitors: competitors.filter(c => c.trim()).length > 0 ? competitors.filter(c => c.trim()) : null,
                 custom_notes: customNotes.trim() || null,
+                brand_identity: brandIdentity,
             }
 
             await updateProjectSettings(projectId, settings)
@@ -293,6 +323,46 @@ export default function ProjectSettingsForm({ projectId, workspaceId }: ProjectS
                             <p className="text-sm text-accent-error">{errors.targetAudience}</p>
                         )}
                     </div>
+                </div>
+            </div>
+
+            {/* Brand Identity Card (Feature 012) */}
+            <div className="bg-surface-secondary rounded-xl border border-border-primary p-6">
+                <h2 className="text-lg font-semibold text-text-primary mb-6">Brand Identity</h2>
+                <p className="text-sm text-text-tertiary mb-6">
+                    Define your brand colors and typography. These will be used as context for AI-generated content.
+                </p>
+
+                <div className="space-y-6">
+                    {/* Color Palette */}
+                    <ColorPalette
+                        colors={colorPalette}
+                        onChange={setColorPalette}
+                        disabled={isSaving}
+                    />
+
+                    {/* Color Extraction from Image */}
+                    <ColorExtractor
+                        projectId={projectId}
+                        onColorsExtracted={(newColors) => {
+                            // Add extracted colors to palette (respecting max limit)
+                            const combined = [...colorPalette, ...newColors].slice(0, 6)
+                            setColorPalette(combined)
+                        }}
+                        currentColorCount={colorPalette.length}
+                        maxColors={6}
+                        disabled={isSaving}
+                    />
+
+                    {/* Divider */}
+                    <div className="border-t border-border-primary my-2" />
+
+                    {/* Typography Settings */}
+                    <TypographySettings
+                        typography={typography}
+                        onChange={setTypography}
+                        disabled={isSaving}
+                    />
                 </div>
             </div>
 

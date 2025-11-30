@@ -7,6 +7,15 @@ Auto-generated from all feature plans. Last updated: 2025-11-28
 - Supabase PostgreSQL (extends existing Project model) (009-project-settings)
 - Python 3.11 (Backend), TypeScript 5.x (Frontend) + FastAPI, SQLAlchemy, Next.js 14, React 18, Shadcn/UI, Radix UI (010-system-bugfixes)
 - Supabase PostgreSQL (existing tables: ChatConversation, Document, ActivityLog, Project, User) (010-system-bugfixes)
+- Supabase PostgreSQL (extends existing Project/Document models), Cloudflare R2 (011-smart-visual-assets)
+- TypeScript 5.x (Frontend only) + @tanstack/react-query 5.x, zustand 5.x, Next.js 16 (App Router) (013-sidebar-cache)
+- localStorage (browser) for cache persistence (013-sidebar-cache)
+- TypeScript 5.x (Frontend only) + React 18, Radix UI (AlertDialog, Toast), Framer Motion (014-custom-alerts)
+- N/A (frontend-only, no data persistence) (014-custom-alerts)
+- Python 3.11 (Backend), TypeScript 5.x (Frontend) + FastAPI, SQLAlchemy, Pydantic (Backend); Next.js 14, React 18, Shadcn/UI, Tailwind CSS (Frontend) (015-admin-panel)
+- Supabase PostgreSQL with pgvector extension; JSONB for flexible configurations (015-admin-panel)
+- Python 3.11 (Backend), TypeScript 5.x (Frontend) + FastAPI, SQLAlchemy, Next.js 14, React 18, Shadcn/UI, Framer Motion (016-v1-polish)
+- Supabase PostgreSQL, Cloudflare R2 (images) (016-v1-polish)
 
 ### Core Stack
 - **Backend**: Python 3.11, FastAPI, SQLAlchemy
@@ -78,9 +87,9 @@ TypeScript 5.x (Frontend), Node.js 20+ (Build tools): Follow standard convention
 - Follow mobile-first responsive design
 
 ## Recent Changes
-- 010-system-bugfixes: Added Python 3.11 (Backend), TypeScript 5.x (Frontend) + FastAPI, SQLAlchemy, Next.js 14, React 18, Shadcn/UI, Radix UI
-- 009-project-settings: Added Python 3.11 (Backend), TypeScript 5.x (Frontend) + FastAPI, SQLAlchemy, Next.js 14, React 18, Shadcn/UI
-- 008-architecture-cleanup: Added Markdown, YAML, Bash (documentation and configuration cleanup only) + None (no runtime dependencies - pure file editing)
+- 016-v1-polish: Added Python 3.11 (Backend), TypeScript 5.x (Frontend) + FastAPI, SQLAlchemy, Next.js 14, React 18, Shadcn/UI, Framer Motion
+- 015-admin-panel: Added Python 3.11 (Backend), TypeScript 5.x (Frontend) + FastAPI, SQLAlchemy, Pydantic (Backend); Next.js 14, React 18, Shadcn/UI, Tailwind CSS (Frontend)
+- 014-custom-alerts: Added TypeScript 5.x (Frontend only) + React 18, Radix UI (AlertDialog, Toast), Framer Motion
 
 
 <!-- MANUAL ADDITIONS START -->

@@ -1,0 +1,414 @@
+openapi: 3.0.3
+info:
+  title: V1 Polish API Contracts
+  version: 1.0.0
+  description: |
+    Contratos de API para feature 016-v1-polish:
+    - Ações de imagens anexadas (visualizar, excluir, desanexar)
+    - Gerador de prompts intermediário
+
+paths:
+  # ============================================
+  # GERENCIAMENTO DE IMAGENS ANEXADAS
+  # ============================================
+
+  /documents/{document_id}/attachments/{attachment_id}:
+    delete:
+      summary: Desanexar imagem do documento
+      description: |
+        Remove o vínculo entre a imagem e o documento.
+        A imagem permanece disponível no storage e na biblioteca.
+      operationId: detachImage
+      tags:
+        - Document Attachments
+      parameters:
+        - name: document_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: attachment_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Imagem desanexada com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetachResponse'
+        '404':
+          description: Documento ou attachment não encontrado
+
+  /documents/{document_id}/attachments/{attachment_id}/permanent:
+    delete:
+      summary: Excluir imagem permanentemente
+      description: |
+        Remove a imagem permanentemente:
+        1. Remove arquivo do R2 storage
+        2. Remove registro do banco de dados
+        3. Remove vínculo com o documento
+
+        Esta ação é IRREVERSÍVEL.
+      operationId: deleteImagePermanently
+      tags:
+        - Document Attachments
+      parameters:
+        - name: document_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: attachment_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Imagem excluída permanentemente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeletePermanentResponse'
+        '400':
+          description: Imagem é referência original de outra imagem refinada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Documento ou attachment não encontrado
+
+  # ============================================
+  # REFINAMENTO DE IMAGENS
+  # ============================================
+
+  /image-generation/refine:
+    post:
+      summary: Refinar imagem existente
+      description: |
+        Gera uma nova versão da imagem aplicando instruções de refinamento.
+
+        IMPORTANTE: Sempre usa a imagem ORIGINAL como base, não a versão
+        anterior refinada. Isso preserva a qualidade máxima.
+      operationId: refineImage
+      tags:
+        - Image Generation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefineImageRequest'
+      responses:
+        '200':
+          description: Imagem refinada com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RefineImageResponse'
+        '400':
+          description: Requisição inválida
+        '404':
+          description: Imagem original não encontrada
+
+  # ============================================
+  # GERADOR DE PROMPTS INTERMEDIÁRIO
+  # ============================================
+
+  /prompts/enrich:
+    post:
+      summary: Enriquecer prompt de imagem
+      description: |
+        Transforma um prompt simples do usuário em um prompt detalhado
+        e profissional, incorporando contexto de marca quando disponível.
+
+        Usa o modelo configurado em `ai_models.defaults.prompt_enrichment`.
+      operationId: enrichPrompt
+      tags:
+        - Prompt Enrichment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EnrichPromptRequest'
+      responses:
+        '200':
+          description: Prompt enriquecido com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnrichPromptResponse'
+        '400':
+          description: Prompt vazio ou inválido
+
+  # ============================================
+  # CONFIGURAÇÃO DE MODELOS (Admin)
+  # ============================================
+
+  /admin/models/config:
+    get:
+      summary: Obter configuração de modelos de IA
+      description: Retorna configuração atual incluindo modelo de prompt_enrichment
+      operationId: getModelConfig
+      tags:
+        - Admin
+      responses:
+        '200':
+          description: Configuração de modelos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ModelConfig'
+        '403':
+          description: Não autorizado (requer admin)
+
+    put:
+      summary: Atualizar configuração de modelos
+      description: Atualiza modelos padrão e fallbacks incluindo prompt_enrichment
+      operationId: updateModelConfig
+      tags:
+        - Admin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ModelConfigUpdate'
+      responses:
+        '200':
+          description: Configuração atualizada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ModelConfig'
+        '403':
+          description: Não autorizado (requer admin)
+
+components:
+  schemas:
+    # ============================================
+    # SCHEMAS DE ATTACHMENTS
+    # ============================================
+
+    DetachResponse:
+      type: object
+      required:
+        - success
+        - message
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Image detached successfully"
+        image_id:
+          type: string
+          format: uuid
+          description: ID da imagem que foi desanexada (ainda disponível na biblioteca)
+
+    DeletePermanentResponse:
+      type: object
+      required:
+        - success
+        - message
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Image permanently deleted"
+        deleted_files:
+          type: array
+          items:
+            type: string
+          description: URLs dos arquivos removidos do storage
+          example:
+            - "https://r2.example.com/images/abc123.png"
+            - "https://r2.example.com/thumbnails/abc123_thumb.png"
+
+    # ============================================
+    # SCHEMAS DE REFINAMENTO
+    # ============================================
+
+    RefineImageRequest:
+      type: object
+      required:
+        - document_id
+        - refinement_prompt
+      properties:
+        document_id:
+          type: string
+          format: uuid
+          description: ID do documento de imagem a refinar
+        refinement_prompt:
+          type: string
+          minLength: 1
+          maxLength: 2000
+          description: Instrução de refinamento
+          example: "Make the background more vibrant and add warmer tones"
+        model:
+          type: string
+          description: Modelo de geração (usa default se não especificado)
+          example: "openai/dall-e-3"
+        aspect_ratio:
+          type: string
+          enum: ["1:1", "16:9", "9:16", "4:3", "3:4"]
+          default: "1:1"
+        quality:
+          type: string
+          enum: ["standard", "hd"]
+          default: "standard"
+        style:
+          type: string
+          enum: ["vivid", "natural"]
+          default: "vivid"
+
+    RefineImageResponse:
+      type: object
+      required:
+        - document_id
+        - file_url
+        - thumbnail_url
+      properties:
+        document_id:
+          type: string
+          format: uuid
+          description: ID do novo documento de imagem gerado
+        file_url:
+          type: string
+          format: uri
+          description: URL da imagem refinada
+        thumbnail_url:
+          type: string
+          format: uri
+          description: URL do thumbnail
+        title:
+          type: string
+          description: Título gerado automaticamente
+        original_image_id:
+          type: string
+          format: uuid
+          description: ID da imagem original (não da iteração anterior)
+        refinement_count:
+          type: integer
+          description: Número total de refinamentos sobre a original
+          example: 3
+
+    # ============================================
+    # SCHEMAS DE PROMPT ENRICHMENT
+    # ============================================
+
+    EnrichPromptRequest:
+      type: object
+      required:
+        - prompt
+        - project_id
+      properties:
+        prompt:
+          type: string
+          minLength: 1
+          maxLength: 1000
+          description: Prompt original do usuário
+          example: "Create a beautiful banner for my website"
+        project_id:
+          type: string
+          format: uuid
+          description: ID do projeto para contexto de marca
+
+    EnrichPromptResponse:
+      type: object
+      required:
+        - original_prompt
+        - enriched_prompt
+      properties:
+        original_prompt:
+          type: string
+          description: Prompt original do usuário
+        enriched_prompt:
+          type: string
+          description: Prompt enriquecido com detalhes técnicos e contexto de marca
+          example: |
+            Professional website banner, modern and clean aesthetic.
+            Color palette: deep blue (#1a365d), coral accent (#ed8936), white (#ffffff).
+            Typography style: sans-serif, bold headers.
+            Composition: Rule of thirds, focal point center-right.
+            Lighting: Soft, diffused, professional studio quality.
+            Style: Minimalist, corporate, trustworthy.
+        brand_context_applied:
+          type: boolean
+          description: Se contexto de marca foi aplicado
+        model_used:
+          type: string
+          description: Modelo usado para enriquecimento
+          example: "anthropic/claude-3-haiku"
+
+    # ============================================
+    # SCHEMAS DE CONFIGURAÇÃO
+    # ============================================
+
+    ModelConfig:
+      type: object
+      properties:
+        defaults:
+          type: object
+          additionalProperties:
+            type: string
+          example:
+            chat: "anthropic/claude-sonnet-4"
+            vision: "anthropic/claude-sonnet-4"
+            embedding: "openai/text-embedding-3-small"
+            document: "anthropic/claude-sonnet-4"
+            image_generation: "openai/dall-e-3"
+            image_naming: "anthropic/claude-3-haiku"
+            prompt_enrichment: "anthropic/claude-3-haiku"
+        fallbacks:
+          type: object
+          additionalProperties:
+            type: string
+          example:
+            chat: "openai/gpt-4o"
+            vision: "openai/gpt-4o"
+            prompt_enrichment: "openai/gpt-4o-mini"
+
+    ModelConfigUpdate:
+      type: object
+      properties:
+        defaults:
+          type: object
+          additionalProperties:
+            type: string
+        fallbacks:
+          type: object
+          additionalProperties:
+            type: string
+
+    # ============================================
+    # SCHEMAS DE ERRO
+    # ============================================
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+        - message
+      properties:
+        error:
+          type: string
+          example: "CANNOT_DELETE_ORIGINAL"
+        message:
+          type: string
+          example: "This image is the original reference for 3 refined images. Delete the refined images first."
+        details:
+          type: object
+          additionalProperties: true

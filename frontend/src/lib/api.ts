@@ -75,6 +75,28 @@ api.interceptors.response.use(
     }
 );
 
+// ============================================================================
+// BRAND IDENTITY TYPES (Feature 012)
+// ============================================================================
+
+export interface BrandTypography {
+    primary: string | null;
+    secondary: string | null;
+    tertiary: string | null;
+}
+
+export interface BrandIdentity {
+    color_palette: string[];  // HEX colors, max 6, ordered by priority
+    typography: BrandTypography | null;
+}
+
+export interface ColorExtractionResult {
+    colors: string[];
+    source_filename: string;
+    processing_time_ms: number;
+    message: string | null;
+}
+
 // Project Settings API
 export interface ProjectSettings {
     client_name: string;
@@ -85,6 +107,7 @@ export interface ProjectSettings {
     key_messages?: string[] | null;
     competitors?: string[] | null;
     custom_notes?: string | null;
+    brand_identity?: BrandIdentity | null;
 }
 
 export interface ProjectContext {
@@ -116,6 +139,247 @@ export async function updateProjectSettings(projectId: string, settings: Project
 
 export async function getProjectContext(projectId: string): Promise<ProjectContext> {
     const response = await api.get(`/projects/${projectId}/settings/context`);
+    return response.data;
+}
+
+// Brand Identity - Color Extraction API (Feature 012)
+export async function extractColorsFromImage(projectId: string, file: File): Promise<ColorExtractionResult> {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await api.post(`/projects/${projectId}/extract-colors`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+    });
+    return response.data;
+}
+
+export async function extractColorsFromAsset(projectId: string, assetId: string): Promise<ColorExtractionResult & { source_asset_id: string; source_asset_name: string }> {
+    const response = await api.post(`/projects/${projectId}/extract-colors-from-asset`, { asset_id: assetId });
+    return response.data;
+}
+
+// ============================================================================
+// Smart Visual Assets API (Feature 011)
+// ============================================================================
+
+// Asset Categories
+export type AssetCategory = 'Logo' | 'Pessoa' | 'Background' | 'Produto' | 'Outro';
+export type VisualContextMode = 'manual' | 'auto';
+
+// Visual Asset Types
+export interface VisualAsset {
+    id: string;
+    project_id: string;
+    title: string;  // API returns "title" not "name"
+    file_url?: string;
+    thumbnail_url?: string;
+    category?: AssetCategory;
+    tags?: string[];
+    ai_description?: string;
+    is_classified: boolean;
+    created_at: string;
+    updated_at?: string;
+}
+
+export interface VisualAssetList {
+    assets: VisualAsset[];
+    total: number;
+    by_category?: Record<string, VisualAsset[]>;
+}
+
+export interface VisualAssetsSummary {
+    total: number;
+    by_category: Record<string, number>;
+}
+
+// Classification Types
+export interface AssetClassificationResult {
+    asset_id: string;
+    suggested_category: AssetCategory;
+    suggested_tags: string[];
+    ai_description: string;
+    confidence?: number;
+}
+
+export interface AssetMetadataUpdate {
+    category?: AssetCategory;
+    tags?: string[];
+    ai_description?: string;
+}
+
+// Visual Settings Types
+export interface AssistantVisualSettings {
+    id: string;
+    project_id: string;
+    is_enabled: boolean;
+    mode: VisualContextMode;
+    assets_per_category: number;
+    created_at: string;
+    updated_at?: string;
+}
+
+export interface AssistantVisualSettingsUpdate {
+    is_enabled?: boolean;
+    mode?: VisualContextMode;
+    assets_per_category?: number;
+}
+
+// Asset Selection Types
+export interface AssetSelection {
+    id: string;
+    asset_id: string;
+    asset?: VisualAsset;
+    is_enabled: boolean;
+    created_at: string;
+}
+
+export interface AssetSelectionList {
+    selections: AssetSelection[];
+    total_enabled: number;
+}
+
+// Visual Context Types
+export interface VisualContextResponse {
+    is_enabled: boolean;
+    mode?: VisualContextMode;
+    assets: VisualAsset[];
+    message?: string;
+}
+
+// Asset Classification API
+export async function classifyAsset(assetId: string, force: boolean = false): Promise<AssetClassificationResult> {
+    // AI classification can take time, especially with vision models - use 60s timeout
+    const response = await api.post(`/assets/${assetId}/classify?force=${force}`, {}, { timeout: 60000 });
+    return response.data;
+}
+
+export async function updateAssetMetadata(assetId: string, metadata: AssetMetadataUpdate): Promise<VisualAsset> {
+    const response = await api.patch(`/assets/${assetId}/metadata`, metadata);
+    return response.data;
+}
+
+// Visual Assets List API
+export async function getVisualAssets(
+    projectId: string,
+    category?: AssetCategory,
+    includeUnclassified: boolean = true
+): Promise<VisualAssetList> {
+    const params = new URLSearchParams();
+    if (category) params.append('category', category);
+    params.append('include_unclassified', String(includeUnclassified));
+
+    const response = await api.get(`/projects/${projectId}/visual-assets?${params.toString()}`);
+    return response.data;
+}
+
+export async function getVisualAssetsSummary(projectId: string): Promise<VisualAssetsSummary> {
+    const response = await api.get(`/projects/${projectId}/visual-assets/summary`);
+    return response.data;
+}
+
+// Visual Settings API
+export async function getVisualSettings(projectId: string): Promise<AssistantVisualSettings> {
+    const response = await api.get(`/projects/${projectId}/assistant/visual-settings`);
+    return response.data;
+}
+
+export async function updateVisualSettings(
+    projectId: string,
+    update: AssistantVisualSettingsUpdate
+): Promise<AssistantVisualSettings> {
+    const response = await api.put(`/projects/${projectId}/assistant/visual-settings`, update);
+    return response.data;
+}
+
+// Asset Selections API
+export async function getAssetSelections(projectId: string): Promise<AssetSelectionList> {
+    const response = await api.get(`/projects/${projectId}/assistant/visual-settings/selections`);
+    return response.data;
+}
+
+export async function updateAssetSelections(projectId: string, assetIds: string[]): Promise<AssetSelectionList> {
+    const response = await api.put(`/projects/${projectId}/assistant/visual-settings/selections`, {
+        asset_ids: assetIds
+    });
+    return response.data;
+}
+
+// Visual Context API
+export async function getVisualContext(projectId: string, limit: number = 5): Promise<VisualContextResponse> {
+    const response = await api.get(`/projects/${projectId}/assistant/visual-context?limit=${limit}`);
+    return response.data;
+}
+
+export async function recordAssetUsage(
+    projectId: string,
+    assetIds: string[],
+    generationId?: string
+): Promise<{ message: string; count: number }> {
+    const response = await api.post(`/projects/${projectId}/assistant/visual-context/record-usage`, {
+        asset_ids: assetIds,
+        generation_id: generationId
+    });
+    return response.data;
+}
+
+// ============================================================================
+// Document Attachment Actions API (Feature 016 - V1 Polish)
+// ============================================================================
+
+export interface DetachImageResponse {
+    success: boolean;
+    message: string;
+    image_id: string;
+}
+
+export interface DeleteImagePermanentResponse {
+    success: boolean;
+    message: string;
+    deleted_files: string[];
+}
+
+/**
+ * Detach an image from a document (keeps image in library)
+ */
+export async function detachImageFromDocument(
+    documentId: string,
+    attachmentId: string
+): Promise<DetachImageResponse> {
+    const response = await api.delete(`/documents/${documentId}/attachments/${attachmentId}`);
+    return response.data;
+}
+
+/**
+ * Permanently delete an image from document AND storage
+ */
+export async function deleteImagePermanently(
+    documentId: string,
+    attachmentId: string
+): Promise<DeleteImagePermanentResponse> {
+    const response = await api.delete(`/documents/${documentId}/attachments/${attachmentId}/permanent`);
+    return response.data;
+}
+
+// ============================================================================
+// Prompt Enrichment API (Feature 016 - V1 Polish)
+// ============================================================================
+
+export interface EnrichPromptRequest {
+    prompt: string;
+    project_id: string;
+}
+
+export interface EnrichPromptResponse {
+    original_prompt: string;
+    enriched_prompt: string;
+    brand_context_applied: boolean;
+    model_used: string;
+}
+
+/**
+ * Enrich a user prompt with brand context and best practices
+ */
+export async function enrichPrompt(request: EnrichPromptRequest): Promise<EnrichPromptResponse> {
+    const response = await api.post('/prompts/enrich', request);
     return response.data;
 }
 

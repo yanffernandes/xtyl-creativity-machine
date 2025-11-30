@@ -6,11 +6,20 @@
  *
  * Feature: 007-hybrid-supabase-architecture
  * User Story: US2 - Responsive Document Management
+ *
+ * Updated: 013-sidebar-cache - Added localStorage persistence
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useState, useEffect } from 'react'
 import { documentService } from '@/lib/supabase/documents'
 import { useToast } from './use-toast'
+import {
+  getDocumentsCache,
+  setDocumentsCache,
+  type CachedDocument,
+  type CachedAttachment
+} from '@/lib/documents-cache'
 import type { DocumentInsert, DocumentUpdate, Document } from '@/types/supabase'
 
 // Query keys
@@ -27,19 +36,88 @@ export const documentKeys = {
 }
 
 /**
- * Hook to fetch all documents in a project
+ * Hook to fetch all documents in a project with localStorage cache
+ *
+ * Implements stale-while-revalidate pattern:
+ * 1. Returns cached data immediately (if available)
+ * 2. Fetches fresh data in background
+ * 3. Updates cache when fresh data arrives
  */
 export function useDocuments(projectId: string) {
-  return useQuery({
+  // SSR hydration safety: start with null, load from cache after mount
+  const [cachedData, setCachedData] = useState<CachedDocument[] | null>(null)
+  const [hasMounted, setHasMounted] = useState(false)
+
+  // Load from localStorage after mount (client-only)
+  useEffect(() => {
+    if (projectId) {
+      const cached = getDocumentsCache(projectId)
+      setCachedData(cached)
+    }
+    setHasMounted(true)
+  }, [projectId])
+
+  const query = useQuery({
     queryKey: documentKeys.list(projectId),
     queryFn: async () => {
       const { data, error } = await documentService.listByProject(projectId)
       if (error) throw error
+
+      // Save to localStorage cache
+      if (data) {
+        const toCache: CachedDocument[] = data.map(doc => {
+          // V3: Cache attachments for kanban card previews
+          const attachments: CachedAttachment[] | undefined = (doc as any).attachments?.map((att: any) => ({
+            id: att.id,
+            image_id: att.image_id,
+            is_primary: att.is_primary,
+            attachment_order: att.attachment_order,
+            image: att.image ? {
+              id: att.image.id,
+              title: att.image.title,
+              file_url: att.image.file_url || undefined,
+              thumbnail_url: att.image.thumbnail_url || undefined
+            } : undefined
+          }))
+
+          return {
+            id: doc.id,
+            title: doc.title,
+            status: doc.status,
+            created_at: doc.created_at,
+            media_type: doc.media_type || undefined,
+            is_context: doc.is_context || undefined,
+            is_reference_asset: doc.is_reference_asset || undefined,
+            // V2: Include image URLs for kanban previews
+            thumbnail_url: doc.thumbnail_url || undefined,
+            file_url: doc.file_url || undefined,
+            image_url: (doc as any).image_url || undefined,
+            // V3: Include attachments for kanban card previews
+            attachments: attachments?.length ? attachments : undefined
+          }
+        })
+        setDocumentsCache(projectId, toCache)
+        setCachedData(toCache)
+      }
+
       return data
     },
-    enabled: !!projectId,
+    enabled: !!projectId && hasMounted,
     staleTime: 15000, // Consider data fresh for 15 seconds
+    // Use cached data as placeholder while fetching
+    placeholderData: (previousData) => previousData,
   })
+
+  // Return cached data if query hasn't loaded yet
+  const isInitialLoad = !hasMounted || (query.isLoading && !cachedData)
+
+  return {
+    ...query,
+    // Use cached data while loading fresh data
+    data: query.data || (cachedData as any) || undefined,
+    isInitialLoad,
+    isRefreshing: query.isFetching && !query.isLoading
+  }
 }
 
 /**

@@ -1,12 +1,12 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { supabase } from "@/lib/supabase"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Loader2 } from "lucide-react"
 
-export default function AuthCallbackPage() {
+function AuthCallbackContent() {
     const router = useRouter()
     const searchParams = useSearchParams()
     const [error, setError] = useState<string | null>(null)
@@ -87,5 +87,28 @@ export default function AuthCallbackPage() {
                 </CardContent>
             </Card>
         </div>
+    )
+}
+
+function LoadingFallback() {
+    return (
+        <div className="flex items-center justify-center min-h-screen relative">
+            <Card glass className="w-[420px]">
+                <CardHeader>
+                    <CardTitle className="text-2xl text-center">Carregando...</CardTitle>
+                </CardHeader>
+                <CardContent className="flex flex-col items-center gap-4">
+                    <Loader2 className="h-8 w-8 animate-spin text-accent-primary" />
+                </CardContent>
+            </Card>
+        </div>
+    )
+}
+
+export default function AuthCallbackPage() {
+    return (
+        <Suspense fallback={<LoadingFallback />}>
+            <AuthCallbackContent />
+        </Suspense>
     )
 }

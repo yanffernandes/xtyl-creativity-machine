@@ -12,14 +12,28 @@ ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 
-# Model selection by cost/quality
-VISION_MODEL = os.getenv("VISION_MODEL", "claude-3-haiku-20240307")
+# Fallback default model (used if DB is unavailable)
+_DEFAULT_VISION_MODEL = "openai/gpt-5-nano"
+
+
+def get_default_vision_model() -> str:
+    """
+    Get the configured default vision model from database.
+
+    Falls back to hardcoded default if database is unavailable.
+    """
+    try:
+        from services.model_config_service import get_default_model
+        return get_default_model("vision")
+    except Exception:
+        return _DEFAULT_VISION_MODEL
+
+
+# Model selection - use configured default or env var override
+VISION_MODEL = os.getenv("VISION_MODEL", _DEFAULT_VISION_MODEL)
 # Options:
-# - "claude-3-5-sonnet-20241022" (best quality, $3/$15)
-# - "claude-3-haiku-20240307" (best cost/benefit, $0.25/$1.25) ⭐ RECOMMENDED
-# - "gpt-4o" (via OpenRouter, $2.50/$10)
-# - "gpt-4o-mini" (via OpenRouter, $0.15/$0.60)
-# - "google/gemini-flash-1.5" (via OpenRouter, $0.075/$0.30)
+# - "openai/gpt-5-nano" (via OpenRouter) ⭐ DEFAULT - fast and accurate
+
 
 class VisionService:
     """Service for analyzing images with AI vision models"""
@@ -29,30 +43,37 @@ class VisionService:
         self.provider = None
         self.model = VISION_MODEL
 
-        # Initialize based on available API keys
-        if ANTHROPIC_API_KEY and "claude" in self.model.lower():
-            self.client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
-            self.provider = "anthropic"
-            print(f"✓ Vision service initialized: Anthropic Direct ({self.model})")
+        # OpenRouter is ALWAYS the priority (system default)
+        # All models go through OpenRouter using OpenAI SDK format
+        if OPENROUTER_API_KEY:
+            try:
+                from openai import OpenAI
+                self.client = OpenAI(
+                    api_key=OPENROUTER_API_KEY,
+                    base_url="https://openrouter.ai/api/v1"
+                )
+                self.provider = "openrouter"
+                print(f"✓ Vision service initialized: OpenRouter ({self.model})")
+            except ImportError:
+                print("⚠ OpenAI library not installed. Install with: pip install openai")
 
-        elif OPENROUTER_API_KEY:
-            # OpenRouter supports multiple models
-            self.client = anthropic.Anthropic(
-                api_key=OPENROUTER_API_KEY,
-                base_url="https://openrouter.ai/api/v1"
-            )
-            self.provider = "openrouter"
-            print(f"✓ Vision service initialized: OpenRouter ({self.model})")
-
-        elif OPENAI_API_KEY and "gpt" in self.model.lower():
-            # Native OpenAI for GPT models
+        elif OPENAI_API_KEY:
+            # Fallback to native OpenAI if no OpenRouter key
             try:
                 from openai import OpenAI
                 self.client = OpenAI(api_key=OPENAI_API_KEY)
                 self.provider = "openai"
-                print(f"✓ Vision service initialized: OpenAI ({self.model})")
+                print(f"✓ Vision service initialized: OpenAI Direct ({self.model})")
             except ImportError:
                 print("⚠ OpenAI library not installed. Install with: pip install openai")
+
+        elif ANTHROPIC_API_KEY:
+            # Fallback to Anthropic if no other keys
+            self.client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+            self.provider = "anthropic"
+            # Override model to Claude if using Anthropic directly
+            self.model = "claude-3-haiku-20240307"
+            print(f"✓ Vision service initialized: Anthropic Direct ({self.model})")
 
         else:
             print("⚠ No vision API key configured. Vision features disabled.")
@@ -101,8 +122,8 @@ class VisionService:
         media_type = media_type_map.get(ext, 'image/jpeg')
 
         try:
-            if self.provider in ["anthropic", "openrouter"]:
-                # Claude/Anthropic format
+            if self.provider == "anthropic":
+                # Claude/Anthropic format (fallback only)
                 response = self.client.messages.create(
                     model=self.model,
                     max_tokens=max_tokens,
@@ -138,8 +159,8 @@ class VisionService:
                     }
                 }
 
-            elif self.provider == "openai":
-                # OpenAI format (GPT-4V)
+            else:
+                # OpenAI format - works for OpenRouter (default) and native OpenAI
                 response = self.client.chat.completions.create(
                     model=self.model,
                     max_tokens=max_tokens,
@@ -168,8 +189,8 @@ class VisionService:
                     "model": self.model,
                     "provider": self.provider,
                     "usage": {
-                        "input_tokens": response.usage.prompt_tokens,
-                        "output_tokens": response.usage.completion_tokens,
+                        "input_tokens": response.usage.prompt_tokens if response.usage else 0,
+                        "output_tokens": response.usage.completion_tokens if response.usage else 0,
                     }
                 }
 

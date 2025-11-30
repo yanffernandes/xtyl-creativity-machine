@@ -7,6 +7,7 @@ interface User {
     id: string;
     email: string;
     full_name: string;
+    is_super_admin: boolean;
 }
 
 interface AuthState {
@@ -25,12 +26,14 @@ interface AuthState {
 }
 
 // Helper to convert Supabase user to our User format
+// Note: is_super_admin is fetched from the backend via fetchUser()
 const mapSupabaseUser = (supabaseUser: SupabaseUser | null): User | null => {
     if (!supabaseUser) return null;
     return {
         id: supabaseUser.id,
         email: supabaseUser.email || '',
         full_name: supabaseUser.user_metadata?.full_name || '',
+        is_super_admin: false, // Default, will be updated by fetchUser()
     };
 };
 
@@ -140,13 +143,22 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             isLoading: false,
         });
 
+        // Fetch full user profile (including is_super_admin) from backend
+        if (session) {
+            await get().fetchUser();
+        }
+
         // Set up auth state change listener
-        supabase.auth.onAuthStateChange((_event, session) => {
+        supabase.auth.onAuthStateChange(async (_event, session) => {
             set({
                 session,
                 token: session?.access_token || null,
                 user: mapSupabaseUser(session?.user || null),
             });
+            // Fetch full user profile when session changes
+            if (session) {
+                await get().fetchUser();
+            }
         });
     },
 }));

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, Boolean, DateTime, Text, Numeric
+from sqlalchemy import Column, Integer, String, ForeignKey, Boolean, DateTime, Text, Numeric, ARRAY
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -22,7 +22,14 @@ class User(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
+    # Admin Panel fields (Feature 015)
+    is_super_admin = Column(Boolean, default=False, index=True)
+    is_blocked = Column(Boolean, default=False, index=True)
+    blocked_at = Column(DateTime(timezone=True), nullable=True)
+    blocked_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+
     workspaces = relationship("WorkspaceUser", back_populates="user")
+    blocker = relationship("User", remote_side=[id], foreign_keys=[blocked_by])
 
 class Workspace(Base):
     __tablename__ = "workspaces"
@@ -107,6 +114,15 @@ class Document(Base):
     # Context file for RAG (reference material, not a creation)
     is_context = Column(Boolean, default=False)
 
+    # Smart Visual Assets fields (Feature 011)
+    asset_category = Column(String(20), nullable=True)  # Logo, Pessoa, Background, Produto, Outro
+    asset_tags = Column(ARRAY(Text), nullable=True)  # Array of descriptive tags
+    ai_description = Column(Text, nullable=True)  # AI-generated description (max 500 chars)
+
+    # Image Refinement fields (Feature 016 - V1 Polish)
+    original_image_id = Column(String, ForeignKey("documents.id"), nullable=True)  # Reference to original image for refinements
+    refinement_history = Column(JSONB, nullable=True, default=list)  # Array of {prompt, applied_at}
+
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     deleted_at = Column(DateTime(timezone=True), nullable=True)
@@ -114,6 +130,7 @@ class Document(Base):
     project = relationship("Project", back_populates="documents")
     folder = relationship("Folder", back_populates="documents")
     attachments = relationship("DocumentAttachment", foreign_keys="[DocumentAttachment.document_id]", back_populates="document")
+    original_image = relationship("Document", remote_side="Document.id", foreign_keys=[original_image_id])  # Self-reference for refinements
 
 class ActivityLog(Base):
     __tablename__ = "activity_log"
@@ -400,3 +417,96 @@ class DocumentAttachment(Base):
     # Relationships
     document = relationship("Document", foreign_keys=[document_id])
     image = relationship("Document", foreign_keys=[image_id])
+
+
+# ============================================================================
+# SMART VISUAL ASSETS MODELS (Feature 011)
+# ============================================================================
+
+class AssistantVisualSettings(Base):
+    """Per-project visual context settings for AI assistant"""
+    __tablename__ = "assistant_visual_settings"
+
+    id = Column(String, primary_key=True, default=generate_uuid)
+    project_id = Column(String, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, unique=True, index=True)
+    is_enabled = Column(Boolean, nullable=False, default=False)
+    mode = Column(String(10), nullable=False, default="manual")  # 'manual' or 'auto'
+    assets_per_category = Column(Integer, nullable=False, default=2)  # 1-5 for auto mode
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    # Relationships
+    project = relationship("Project")
+    selections = relationship("AssistantAssetSelection", back_populates="settings", cascade="all, delete-orphan")
+
+
+class AssistantAssetSelection(Base):
+    """Manual mode: tracks which assets are selected for visual context"""
+    __tablename__ = "assistant_asset_selection"
+
+    id = Column(String, primary_key=True, default=generate_uuid)
+    settings_id = Column(String, ForeignKey("assistant_visual_settings.id", ondelete="CASCADE"), nullable=False, index=True)
+    asset_id = Column(String, ForeignKey("documents.id", ondelete="CASCADE"), nullable=False, index=True)
+    is_enabled = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    # Relationships
+    settings = relationship("AssistantVisualSettings", back_populates="selections")
+    asset = relationship("Document")
+
+    __table_args__ = (
+        # Unique constraint on (settings_id, asset_id)
+        {'extend_existing': True},
+    )
+
+
+class AssetUsageHistory(Base):
+    """Tracks asset usage for rotation algorithm (30-day retention)"""
+    __tablename__ = "asset_usage_history"
+
+    id = Column(String, primary_key=True, default=generate_uuid)
+    asset_id = Column(String, ForeignKey("documents.id", ondelete="CASCADE"), nullable=False, index=True)
+    generation_id = Column(String, nullable=True)  # Reference to image generation
+    used_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    # Relationships
+    asset = relationship("Document")
+
+
+# ============================================================================
+# ADMIN PANEL MODELS (Feature 015)
+# ============================================================================
+
+class SystemConfig(Base):
+    """System-wide configuration stored in JSONB format"""
+    __tablename__ = "system_config"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    key = Column(String(100), unique=True, nullable=False, index=True)  # 'ai_models', 'global_limits', 'feature_flags', 'api_keys'
+    value = Column(JSONB, nullable=False)
+    description = Column(Text, nullable=True)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    updated_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+
+    # Relationships
+    updater = relationship("User", foreign_keys=[updated_by])
+
+
+class AdminAuditLog(Base):
+    """Tracks all administrative actions for compliance and debugging"""
+    __tablename__ = "admin_audit_log"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    admin_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
+    action = Column(String(100), nullable=False, index=True)  # 'update_ai_models', 'block_user', etc.
+    entity_type = Column(String(50), nullable=True)  # 'user', 'workspace', 'system_config'
+    entity_id = Column(String(255), nullable=True)
+    old_value = Column(JSONB, nullable=True)
+    new_value = Column(JSONB, nullable=True)
+    extra_data = Column("metadata", JSONB, nullable=True)  # 'metadata' is reserved in SQLAlchemy
+    ip_address = Column(String(45), nullable=True)
+    user_agent = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+
+    # Relationships
+    admin = relationship("User", foreign_keys=[admin_id])

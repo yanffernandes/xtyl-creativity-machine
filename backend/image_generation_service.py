@@ -12,7 +12,25 @@ from datetime import datetime
 import uuid
 from storage_service import upload_file
 
-DEFAULT_MODEL = "google/gemini-3-pro-image-preview"
+# Fallback default model (used if DB is unavailable)
+_DEFAULT_IMAGE_MODEL = "google/gemini-3-pro-image-preview"
+
+
+def get_default_image_model() -> str:
+    """
+    Get the configured default image generation model from database.
+
+    Falls back to hardcoded default if database is unavailable.
+    """
+    try:
+        from services.model_config_service import get_default_model
+        return get_default_model("image_generation")
+    except Exception:
+        return _DEFAULT_IMAGE_MODEL
+
+
+# Export DEFAULT_MODEL for backwards compatibility
+DEFAULT_MODEL = _DEFAULT_IMAGE_MODEL
 
 # Cache for models (updated periodically)
 _models_cache = None

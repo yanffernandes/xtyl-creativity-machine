@@ -1,46 +1,46 @@
 import os
 import httpx
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from fastapi import HTTPException
 
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
+
+# Default model fallback (used if DB is unavailable)
+_DEFAULT_CHAT_MODEL = "anthropic/claude-sonnet-4-20250514"
+
 
 def get_api_key():
     """Get API key dynamically to ensure .env is loaded"""
     return os.getenv("OPENROUTER_API_KEY")
 
+
+def get_default_chat_model() -> str:
+    """
+    Get the configured default chat model from database.
+
+    Falls back to hardcoded default if database is unavailable.
+    This function is used by routers to get the default model
+    when the user doesn't specify one.
+    """
+    try:
+        from services.model_config_service import get_default_model
+        return get_default_model("chat")
+    except Exception:
+        return _DEFAULT_CHAT_MODEL
+
 async def list_models():
     """
     Fetch available models from OpenRouter with pricing information.
     Returns models with id, name, and pricing data.
+    Returns empty list if API key is not configured or API fails.
     """
     api_key = get_api_key()
     if not api_key:
-        # Return a default list if no key is present (for dev/testing without key)
-        return [
-            {
-                "id": "openai/gpt-3.5-turbo",
-                "name": "GPT-3.5 Turbo",
-                "pricing": {"prompt": "0.0005", "completion": "0.0015"}
-            },
-            {
-                "id": "openai/gpt-4",
-                "name": "GPT-4",
-                "pricing": {"prompt": "0.03", "completion": "0.06"}
-            },
-            {
-                "id": "anthropic/claude-2",
-                "name": "Claude 2",
-                "pricing": {"prompt": "0.008", "completion": "0.024"}
-            },
-            {
-                "id": "meta-llama/llama-2-70b-chat",
-                "name": "Llama 2 70B",
-                "pricing": {"prompt": "0.0007", "completion": "0.0009"}
-            },
-        ]
+        # Return empty list - frontend will show loading state
+        print("Warning: OPENROUTER_API_KEY not configured")
+        return []
 
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=30.0) as client:
         try:
             response = await client.get(
                 f"{OPENROUTER_BASE_URL}/models",
@@ -55,20 +55,38 @@ async def list_models():
             # OpenRouter returns models with full data including pricing
             return data.get("data", [])
         except Exception as e:
-            print(f"Error fetching models: {e}")
-            # Fallback
-            return [
-                {
-                    "id": "openai/gpt-3.5-turbo",
-                    "name": "GPT-3.5 Turbo",
-                    "pricing": {"prompt": "0.0005", "completion": "0.0015"}
-                },
-                {
-                    "id": "openai/gpt-4",
-                    "name": "GPT-4",
-                    "pricing": {"prompt": "0.03", "completion": "0.06"}
-                },
-            ]
+            print(f"Error fetching models from OpenRouter: {e}")
+            # Return empty list - frontend will show loading state or retry
+            return []
+
+
+async def list_embedding_models():
+    """
+    Fetch available embedding models from OpenRouter.
+    Uses the dedicated /embeddings/models endpoint.
+    Returns empty list if API key is not configured or API fails.
+    """
+    api_key = get_api_key()
+    if not api_key:
+        print("Warning: OPENROUTER_API_KEY not configured")
+        return []
+
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        try:
+            response = await client.get(
+                f"{OPENROUTER_BASE_URL}/embeddings/models",
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "HTTP-Referer": "https://xtyl.com",
+                    "X-Title": "XTYL Creativity Machine"
+                }
+            )
+            response.raise_for_status()
+            data = response.json()
+            return data.get("data", [])
+        except Exception as e:
+            print(f"Error fetching embedding models from OpenRouter: {e}")
+            return []
 
 async def chat_completion(
     messages: List[Dict[str, str]],

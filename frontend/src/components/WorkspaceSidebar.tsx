@@ -1,21 +1,26 @@
 "use client"
 
-import { useState, useEffect, useMemo, useCallback, useRef } from "react"
+/**
+ * Workspace Sidebar Component
+ *
+ * Displays cached workspace projects and documents with background refresh.
+ * Features: instant cache load, loading indicator, smooth animations.
+ *
+ * Feature: 013-sidebar-cache
+ */
+
+import { useState, useEffect, useMemo, useCallback } from "react"
 import { useRouter, useParams } from "next/navigation"
-import api from "@/lib/api"
 import { useAuthStore } from "@/lib/store"
-import { useWorkspace } from "@/hooks/use-workspaces"
-import { useProjects } from "@/hooks/use-projects"
-import { documentService } from "@/lib/supabase/documents"
+import { useSidebarCache } from "@/hooks/use-sidebar-cache"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
+import { motion, AnimatePresence } from "framer-motion"
 import {
   ChevronLeft,
   ChevronRight,
-  ChevronDown,
-  Plus,
   MoreHorizontal,
   User,
   LogOut,
@@ -28,9 +33,8 @@ import {
   FileText,
   FileImage,
   List,
-  Image as ImageIcon,
-  Palette,
-  Workflow
+  Workflow,
+  Loader2
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import {
@@ -41,14 +45,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import ProjectTreeItem from "./ProjectTreeItem"
-
-interface Workspace {
-  id: string
-  name: string
-  description?: string | null
-}
 
 interface SidebarDocument {
   id: string
@@ -73,8 +71,14 @@ interface WorkspaceSidebarProps {
   onDocumentNavigate?: (url: string) => void
 }
 
+// T027/T028: Animation variants for smooth enter/exit
+const projectItemVariants = {
+  initial: { opacity: 0, y: -10 },
+  animate: { opacity: 1, y: 0 },
+  exit: { opacity: 0, y: -10, transition: { duration: 0.15 } }
+}
+
 export default function WorkspaceSidebar({ className, onDocumentNavigate }: WorkspaceSidebarProps) {
-  const [projectsWithDocs, setProjectsWithDocs] = useState<Project[]>([])
   const [isCollapsed, setIsCollapsed] = useState(false)
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set())
   const [searchQuery, setSearchQuery] = useState("")
@@ -85,98 +89,19 @@ export default function WorkspaceSidebar({ className, onDocumentNavigate }: Work
   const workspaceId = params.id as string
   const projectId = params.projectId as string
 
-  // Use Supabase hooks for workspace and projects
-  const { data: workspace } = useWorkspace(workspaceId)
-  const { data: projects = [], refetch: refetchProjects } = useProjects(workspaceId)
+  // T013-T016: Use sidebar cache hook instead of direct hooks
+  const {
+    workspace,
+    projects: projectsWithDocs,
+    isRefreshing,
+    isInitialLoad,
+    invalidate
+  } = useSidebarCache(workspaceId)
 
-  // Track previous project IDs to prevent infinite loops
-  const prevProjectIdsRef = useRef<string>('')
-  const isFetchingRef = useRef(false)
-
-  // Fetch documents for all projects when projects change
-  const fetchDocumentsForProjects = useCallback(async (force = false) => {
-    if (!projects || projects.length === 0) {
-      if (prevProjectIdsRef.current !== '') {
-        prevProjectIdsRef.current = ''
-        setProjectsWithDocs([])
-      }
-      return
-    }
-
-    // Check if projects actually changed (by comparing IDs)
-    const newProjectIds = projects.map((p: any) => p.id).sort().join(',')
-    if (!force && newProjectIds === prevProjectIdsRef.current) {
-      return // Skip if projects haven't changed
-    }
-
-    // Prevent concurrent fetches
-    if (isFetchingRef.current) return
-    isFetchingRef.current = true
-    prevProjectIdsRef.current = newProjectIds
-
-    try {
-      const projectsData = await Promise.all(
-        projects.map(async (project: any) => {
-          try {
-            // Fetch documents and assets in parallel for each project
-            // Use optimized listForSidebar for faster loading (fewer fields)
-            const [docsResult, assetsResult] = await Promise.allSettled([
-              documentService.listForSidebar(project.id),
-              api.get(`/projects/${project.id}/assets`)
-            ])
-
-            // Process documents
-            let regularDocs: SidebarDocument[] = []
-            if (docsResult.status === 'fulfilled' && docsResult.value.data) {
-              regularDocs = docsResult.value.data
-                .filter((doc: any) => !doc.is_reference_asset)
-                .map((doc: any) => ({
-                  id: doc.id,
-                  title: doc.title,
-                  status: doc.status || 'draft',
-                  type: 'creation' as const,
-                  media_type: doc.media_type || 'text',
-                  is_reference_asset: doc.is_reference_asset,
-                }))
-            }
-
-            // Process assets
-            let assets: SidebarDocument[] = []
-            if (assetsResult.status === 'fulfilled') {
-              assets = assetsResult.value.data.assets || []
-            }
-
-            return { ...project, documents: regularDocs, visualAssets: assets }
-          } catch (error) {
-            console.error(`Failed to fetch documents for project ${project.id}`, error)
-            return { ...project, documents: [], visualAssets: [] }
-          }
-        })
-      )
-
-      setProjectsWithDocs(projectsData)
-    } finally {
-      isFetchingRef.current = false
-    }
-  }, [projects])
-
-  // Fetch documents when projects change
-  useEffect(() => {
-    fetchDocumentsForProjects()
-  }, [fetchDocumentsForProjects])
-
-  // Refresh data periodically (for document title changes) - only when window is focused
-  useEffect(() => {
-    if (!workspaceId) return
-    const interval = setInterval(() => {
-      // Only refresh if the window is focused to avoid unnecessary requests
-      if (document.hasFocus()) {
-        refetchProjects()
-        fetchDocumentsForProjects(true) // Force refresh
-      }
-    }, 30000) // Every 30 seconds - reduced frequency for better performance
-    return () => clearInterval(interval)
-  }, [workspaceId, refetchProjects, fetchDocumentsForProjects])
+  // T024: Wire invalidate to handleRefresh
+  const handleRefresh = useCallback(() => {
+    invalidate()
+  }, [invalidate])
 
   // Fetch user data on mount
   useEffect(() => {
@@ -190,17 +115,11 @@ export default function WorkspaceSidebar({ className, onDocumentNavigate }: Work
   useEffect(() => {
     if (projectId) {
       setExpandedProjects(prev => {
-        if (prev.has(projectId)) return prev // Don't trigger re-render if already expanded
+        if (prev.has(projectId)) return prev
         return new Set([...prev, projectId])
       })
     }
   }, [projectId])
-
-  // Refresh function for child components
-  const handleRefresh = useCallback(() => {
-    refetchProjects()
-    fetchDocumentsForProjects(true) // Force refresh
-  }, [refetchProjects, fetchDocumentsForProjects])
 
   const toggleProject = (projectId: string) => {
     setExpandedProjects(prev => {
@@ -215,7 +134,7 @@ export default function WorkspaceSidebar({ className, onDocumentNavigate }: Work
   }
 
   const filteredProjects = useMemo(() => {
-    let result = projectsWithDocs
+    let result = projectsWithDocs as Project[]
 
     // Apply media type filter
     if (mediaFilter !== "all") {
@@ -241,26 +160,56 @@ export default function WorkspaceSidebar({ className, onDocumentNavigate }: Work
     })
   }, [projectsWithDocs, searchQuery, mediaFilter])
 
-  // Auto-expand projects with search matches (separate effect to avoid infinite loop)
-  // Only trigger on searchQuery change, not on filteredProjects
+  // Auto-expand projects with search matches
   useEffect(() => {
     if (!searchQuery.trim()) return
 
-    // Expand all projects when searching to show matches
     const allProjectIds = projectsWithDocs.map(p => p.id)
     setExpandedProjects(prev => {
       const newSet = new Set([...prev, ...allProjectIds])
-      // Only update if actually different to prevent re-renders
       if (newSet.size === prev.size) return prev
       return newSet
     })
   }, [searchQuery, projectsWithDocs])
 
+  // T018: Show skeleton only on initial load (no cache)
+  if (isInitialLoad) {
+    return (
+      <div
+        className={cn(
+          "flex flex-col transition-smooth overflow-hidden",
+          "bg-white/[0.03] dark:bg-white/[0.02]",
+          "backdrop-blur-2xl backdrop-saturate-150",
+          "border border-white/[0.1]",
+          "rounded-2xl",
+          "shadow-[0_8px_32px_-8px_rgba(0,0,0,0.15),0_0_0_1px_rgba(255,255,255,0.05)_inset]",
+          "dark:shadow-[0_8px_32px_-8px_rgba(0,0,0,0.4),0_0_0_1px_rgba(255,255,255,0.03)_inset]",
+          className
+        )}
+        style={{ width: "var(--sidebar-width)" }}
+      >
+        {/* Skeleton Header */}
+        <div className="p-4 flex justify-between items-center border-b border-white/[0.06]">
+          <div className="flex-1 min-w-0 space-y-2">
+            <div className="h-5 bg-muted/30 rounded animate-pulse w-32" />
+            <div className="h-3 bg-muted/20 rounded animate-pulse w-24" />
+          </div>
+        </div>
+        {/* Skeleton Projects */}
+        <div className="p-3 space-y-2">
+          <div className="h-4 bg-muted/20 rounded animate-pulse w-20 mb-4" />
+          {[1, 2, 3].map(i => (
+            <div key={i} className="h-10 bg-muted/10 rounded-lg animate-pulse" />
+          ))}
+        </div>
+      </div>
+    )
+  }
+
   if (isCollapsed) {
     return (
       <div className={cn(
         "w-16 flex flex-col items-center py-4 transition-smooth",
-        // Floating glass effect - Apple style
         "bg-white/[0.03] dark:bg-white/[0.02]",
         "backdrop-blur-2xl backdrop-saturate-150",
         "border border-white/[0.1]",
@@ -310,7 +259,6 @@ export default function WorkspaceSidebar({ className, onDocumentNavigate }: Work
     <div
       className={cn(
         "flex flex-col transition-smooth overflow-hidden",
-        // Floating glass effect - Apple style
         "bg-white/[0.03] dark:bg-white/[0.02]",
         "backdrop-blur-2xl backdrop-saturate-150",
         "border border-white/[0.1]",
@@ -409,10 +357,26 @@ export default function WorkspaceSidebar({ className, onDocumentNavigate }: Work
       {/* Projects Tree */}
       <ScrollArea className="flex-1 scrollbar-thin overflow-x-hidden">
         <div className="p-3 space-y-1 overflow-hidden">
+          {/* T019-T023: Projects header with loading indicator */}
           <div className="flex justify-between items-center mb-3 px-2">
-            <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-              Projetos ({filteredProjects.length})
-            </h3>
+            <div className="flex items-center gap-2">
+              <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                Projetos ({filteredProjects.length})
+              </h3>
+              {/* T022-T023: Loading indicator during background refresh */}
+              <AnimatePresence>
+                {isRefreshing && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.8 }}
+                    transition={{ duration: 0.15 }}
+                  >
+                    <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
             <Button
               variant="ghost"
               size="icon"
@@ -432,20 +396,34 @@ export default function WorkspaceSidebar({ className, onDocumentNavigate }: Work
             </div>
           )}
 
-          {filteredProjects.map((project) => (
-            <ProjectTreeItem
-              key={project.id}
-              project={project}
-              workspaceId={workspaceId}
-              isActive={projectId === project.id}
-              isExpanded={expandedProjects.has(project.id)}
-              onToggle={() => toggleProject(project.id)}
-              documentCount={project.documents?.length || 0}
-              visualAssets={project.visualAssets || []}
-              onDocumentNavigate={onDocumentNavigate}
-              onRefresh={handleRefresh}
-            />
-          ))}
+          {/* T027: AnimatePresence wrapper for smooth enter/exit */}
+          <AnimatePresence mode="popLayout">
+            {filteredProjects.map((project) => (
+              // T028: motion.div with fade animation
+              <motion.div
+                key={project.id}
+                variants={projectItemVariants}
+                initial="initial"
+                animate="animate"
+                exit="exit"
+                layout
+                transition={{ duration: 0.2, ease: "easeOut" }}
+              >
+                {/* T025-T026: Pass invalidate to onRefresh, stable key */}
+                <ProjectTreeItem
+                  project={project}
+                  workspaceId={workspaceId}
+                  isActive={projectId === project.id}
+                  isExpanded={expandedProjects.has(project.id)}
+                  onToggle={() => toggleProject(project.id)}
+                  documentCount={project.documents?.length || 0}
+                  visualAssets={project.visualAssets || []}
+                  onDocumentNavigate={onDocumentNavigate}
+                  onRefresh={handleRefresh}
+                />
+              </motion.div>
+            ))}
+          </AnimatePresence>
         </div>
       </ScrollArea>
 

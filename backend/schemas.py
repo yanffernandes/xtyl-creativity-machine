@@ -69,6 +69,59 @@ class Project(ProjectBase):
         from_attributes = True
 
 
+# ============================================================================
+# BRAND IDENTITY SCHEMAS (Feature 012)
+# ============================================================================
+
+import re
+
+class BrandTypography(BaseModel):
+    """Typography settings for brand identity"""
+    primary: Optional[str] = Field(None, max_length=100, description="Primary font for headlines")
+    secondary: Optional[str] = Field(None, max_length=100, description="Secondary font for body text")
+    tertiary: Optional[str] = Field(None, max_length=100, description="Tertiary font for accents")
+
+
+class BrandIdentity(BaseModel):
+    """Brand identity settings (colors + typography)"""
+    color_palette: List[str] = Field(
+        default_factory=list,
+        max_length=6,
+        description="Ordered list of HEX colors (index 0 = primary)"
+    )
+    typography: Optional[BrandTypography] = None
+
+    @field_validator('color_palette')
+    @classmethod
+    def validate_hex_colors(cls, colors: List[str]) -> List[str]:
+        hex_pattern = re.compile(r'^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$')
+        for color in colors:
+            if not hex_pattern.match(color):
+                raise ValueError(f"Invalid HEX color: {color}")
+        if len(colors) > 6:
+            raise ValueError("Maximum 6 colors allowed in palette")
+        return colors
+
+
+class ColorExtractionResult(BaseModel):
+    """Result from color extraction endpoint"""
+    colors: List[str] = Field(description="Extracted HEX colors sorted by prevalence")
+    source_filename: str
+    processing_time_ms: int
+    message: Optional[str] = None  # For edge cases like "Limited colors found"
+
+
+class AssetColorExtractionRequest(BaseModel):
+    """Request body for extracting colors from an existing asset"""
+    asset_id: str = Field(..., description="ID of the visual asset to extract colors from")
+
+
+class AssetColorExtractionResult(ColorExtractionResult):
+    """Result from extracting colors from an existing asset"""
+    source_asset_id: str = Field(description="ID of the source asset")
+    source_asset_name: str = Field(description="Name of the source asset")
+
+
 # Project Settings schemas
 class ProjectSettingsBase(BaseModel):
     """Base schema for project settings"""
@@ -80,6 +133,7 @@ class ProjectSettingsBase(BaseModel):
     key_messages: Optional[List[str]] = Field(None, max_items=10, description="Key messages or talking points")
     competitors: Optional[List[str]] = Field(None, max_items=10, description="Competitor names")
     custom_notes: Optional[str] = Field(None, max_length=5000, description="Additional notes for AI context")
+    brand_identity: Optional[BrandIdentity] = Field(None, description="Brand colors and typography")
 
 
 class ProjectSettingsUpdate(BaseModel):
@@ -92,6 +146,7 @@ class ProjectSettingsUpdate(BaseModel):
     key_messages: Optional[List[str]] = None
     competitors: Optional[List[str]] = None
     custom_notes: Optional[str] = Field(None, max_length=5000)
+    brand_identity: Optional[BrandIdentity] = None
 
 
 class ProjectSettings(ProjectSettingsBase):
@@ -629,3 +684,538 @@ class ChatConversationList(BaseModel):
     total: int
     page: int
     page_size: int
+
+
+# ============================================================================
+# SMART VISUAL ASSETS SCHEMAS (Feature 011)
+# ============================================================================
+
+from enum import Enum
+
+
+class AssetCategory(str, Enum):
+    """Visual asset categories for AI classification"""
+    LOGO = "Logo"
+    PESSOA = "Pessoa"
+    BACKGROUND = "Background"
+    PRODUTO = "Produto"
+    OUTRO = "Outro"
+
+
+class VisualContextMode(str, Enum):
+    """Visual context selection mode"""
+    MANUAL = "manual"
+    AUTO = "auto"
+
+
+# Asset Classification Schemas (US1)
+class AssetClassificationResult(BaseModel):
+    """Result of AI image classification"""
+    asset_id: str
+    suggested_category: AssetCategory
+    suggested_tags: List[str] = Field(default_factory=list, max_length=10)
+    ai_description: str = Field(max_length=500)
+    confidence: Optional[float] = Field(None, ge=0, le=1)
+
+
+class AssetMetadataUpdate(BaseModel):
+    """Update asset classification metadata"""
+    category: Optional[AssetCategory] = None
+    tags: Optional[List[str]] = Field(None, max_length=10)
+    ai_description: Optional[str] = Field(None, max_length=500)
+
+
+# Visual Asset Schemas
+class VisualAsset(BaseModel):
+    """Visual asset with classification metadata"""
+    id: str
+    project_id: str
+    name: str
+    file_url: Optional[str] = None
+    thumbnail_url: Optional[str] = None
+    category: Optional[AssetCategory] = None
+    tags: Optional[List[str]] = None
+    ai_description: Optional[str] = None
+    is_classified: bool = False
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class VisualAssetList(BaseModel):
+    """List of visual assets with categorization"""
+    assets: List[VisualAsset]
+    total: int
+    by_category: Optional[Dict[str, List[VisualAsset]]] = None
+
+
+class VisualAssetsSummary(BaseModel):
+    """Summary of visual assets by category"""
+    total: int
+    by_category: Dict[str, int]
+
+
+# Assistant Visual Settings Schemas (US2)
+class AssistantVisualSettingsBase(BaseModel):
+    """Base settings for visual context"""
+    is_enabled: bool = False
+    mode: VisualContextMode = VisualContextMode.MANUAL
+    assets_per_category: int = Field(default=2, ge=1, le=5)
+
+
+class AssistantVisualSettingsCreate(AssistantVisualSettingsBase):
+    """Create visual settings"""
+    pass
+
+
+class AssistantVisualSettingsUpdate(BaseModel):
+    """Update visual settings (all optional)"""
+    is_enabled: Optional[bool] = None
+    mode: Optional[VisualContextMode] = None
+    assets_per_category: Optional[int] = Field(None, ge=1, le=5)
+
+
+class AssistantVisualSettings(AssistantVisualSettingsBase):
+    """Full visual settings response"""
+    id: str
+    project_id: str
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+# Asset Selection Schemas (US2 - Manual Mode)
+class AssetSelection(BaseModel):
+    """Single asset selection"""
+    id: str
+    asset_id: str
+    asset: Optional[VisualAsset] = None
+    is_enabled: bool = True
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class AssetSelectionList(BaseModel):
+    """List of asset selections"""
+    selections: List[AssetSelection]
+    total_enabled: int
+
+
+class AssetSelectionUpdate(BaseModel):
+    """Update asset selections (replace all)"""
+    asset_ids: List[str] = Field(max_length=20)
+
+
+# Visual Context Schemas (US3)
+class VisualContextResponse(BaseModel):
+    """Resolved visual context for image generation"""
+    is_enabled: bool
+    mode: Optional[VisualContextMode] = None
+    assets: List[VisualAsset] = Field(default_factory=list, max_length=5)
+    message: Optional[str] = None
+
+
+# Asset Usage Schemas (US4)
+class AssetUsageRecord(BaseModel):
+    """Record asset usage for rotation"""
+    asset_ids: List[str]
+    generation_id: Optional[str] = None
+
+
+# ============================================================================
+# ADMIN PANEL SCHEMAS (Feature 015)
+# ============================================================================
+
+# AI Model Configuration
+class AIModelDefaults(BaseModel):
+    """Default models for each task type"""
+    chat: str = "openai/gpt-4-turbo"
+    embedding: str = "openai/text-embedding-3-small"
+    vision: str = "openai/gpt-4-turbo"
+    document_analysis: str = "openai/gpt-4-turbo"
+    image_generation: str = "openai/dall-e-3"
+    image_naming: str = "openai/gpt-3.5-turbo"
+
+
+class AIModelFallbacks(BaseModel):
+    """Fallback models for each task type"""
+    chat: str = "openai/gpt-3.5-turbo"
+    embedding: str = "openai/text-embedding-ada-002"
+    vision: str = "anthropic/claude-3-sonnet"
+    document_analysis: str = "anthropic/claude-3-sonnet"
+    image_generation: str = "stabilityai/stable-diffusion-xl"
+    image_naming: str = "openai/gpt-3.5-turbo"
+
+
+class AIModelConfig(BaseModel):
+    """AI model configuration"""
+    defaults: Dict[str, str] = {}
+    fallbacks: Dict[str, str] = {}
+    visible_models: List[str] = []
+
+
+class AIModelConfigUpdate(BaseModel):
+    """Update AI model configuration"""
+    defaults: Optional[Dict[str, str]] = None
+    fallbacks: Optional[Dict[str, str]] = None
+    visible_models: Optional[List[str]] = None
+
+
+class AvailableModel(BaseModel):
+    """Model available from OpenRouter"""
+    id: str
+    name: str
+    description: Optional[str] = None
+    context_length: Optional[int] = None
+    pricing_prompt: Optional[str] = None
+    pricing_completion: Optional[str] = None
+    top_provider: Optional[str] = None
+    output_modalities: Optional[List[str]] = None  # e.g., ["text"], ["embedding"], ["image"]
+
+
+class ModelValidationRequest(BaseModel):
+    """Request to validate a model ID"""
+    model_id: str
+
+
+class ModelValidationResponse(BaseModel):
+    """Response from model validation"""
+    valid: bool
+    model_id: str
+    model_name: Optional[str] = None
+    message: str
+
+
+# User Management
+class AdminUserListItem(BaseModel):
+    """User item for admin list"""
+    id: Union[str, UUID]
+    email: str
+    full_name: Optional[str] = None
+    is_super_admin: bool = False
+    is_blocked: bool = False
+    created_at: datetime
+    last_active_at: Optional[datetime] = None
+    workspace_count: int = 0
+
+    @field_serializer('id')
+    def serialize_id(self, v):
+        return str(v) if isinstance(v, UUID) else v
+
+    class Config:
+        from_attributes = True
+
+
+class AdminUserListResponse(BaseModel):
+    """Paginated user list"""
+    items: List[AdminUserListItem]
+    total: int
+    page: int
+    limit: int
+
+
+class AdminUserWorkspace(BaseModel):
+    """Workspace info for user details"""
+    id: str
+    name: str
+    role: str
+
+
+class AdminUserStats(BaseModel):
+    """User usage statistics"""
+    total_conversations: int = 0
+    total_documents: int = 0
+    total_tokens_used: int = 0
+    tokens_this_month: int = 0
+
+
+class AdminUserDetails(BaseModel):
+    """Detailed user information for admin"""
+    id: Union[str, UUID]
+    email: str
+    full_name: Optional[str] = None
+    is_super_admin: bool = False
+    is_blocked: bool = False
+    blocked_at: Optional[datetime] = None
+    blocked_by: Optional[str] = None
+    created_at: datetime
+    last_active_at: Optional[datetime] = None
+    workspaces: List[AdminUserWorkspace] = []
+    stats: AdminUserStats = AdminUserStats()
+
+    @field_serializer('id')
+    def serialize_id(self, v):
+        return str(v) if isinstance(v, UUID) else v
+
+    class Config:
+        from_attributes = True
+
+
+# Workspace Management
+class AdminWorkspaceOwner(BaseModel):
+    """Workspace owner info"""
+    id: str
+    email: str
+    full_name: Optional[str] = None
+
+
+class AdminWorkspaceListItem(BaseModel):
+    """Workspace item for admin list"""
+    id: str
+    name: str
+    owner_id: str
+    owner_email: str
+    member_count: int = 0
+    project_count: int = 0
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class AdminWorkspaceListResponse(BaseModel):
+    """Paginated workspace list"""
+    items: List[AdminWorkspaceListItem]
+    total: int
+    page: int
+    limit: int
+
+
+class AdminWorkspaceMember(BaseModel):
+    """Workspace member info"""
+    user_id: str
+    email: str
+    full_name: Optional[str] = None
+    role: str
+    joined_at: Optional[datetime] = None
+
+
+class AdminWorkspaceProject(BaseModel):
+    """Project info for workspace details"""
+    id: str
+    name: str
+    document_count: int = 0
+
+
+class AdminWorkspaceStats(BaseModel):
+    """Workspace usage statistics"""
+    total_documents: int = 0
+    total_conversations: int = 0
+    total_tokens_used: int = 0
+
+
+class AdminWorkspaceDetails(BaseModel):
+    """Detailed workspace information for admin"""
+    id: str
+    name: str
+    created_at: datetime
+    owner: AdminWorkspaceOwner
+    members: List[AdminWorkspaceMember] = []
+    projects: List[AdminWorkspaceProject] = []
+    stats: AdminWorkspaceStats = AdminWorkspaceStats()
+
+    class Config:
+        from_attributes = True
+
+
+# Dashboard & Metrics
+class UserMetrics(BaseModel):
+    """User metrics for dashboard"""
+    total: int = 0
+    active: int = 0
+    new_this_period: int = 0
+    blocked: int = 0
+
+
+class WorkspaceMetrics(BaseModel):
+    """Workspace metrics for dashboard"""
+    total: int = 0
+    active: int = 0
+    avg_members: float = 0.0
+
+
+class AIUsageMetrics(BaseModel):
+    """AI usage metrics for dashboard"""
+    total_tokens: int = 0
+    api_calls: int = 0
+    error_rate: float = 0.0
+
+
+class DashboardMetrics(BaseModel):
+    """Combined dashboard metrics"""
+    users: UserMetrics = UserMetrics()
+    workspaces: WorkspaceMetrics = WorkspaceMetrics()
+    ai_usage: AIUsageMetrics = AIUsageMetrics()
+    period: str = "30d"
+
+
+class SystemAlert(BaseModel):
+    """System alert"""
+    id: str
+    severity: str  # info, warning, error, critical
+    title: str
+    message: str
+    created_at: datetime
+
+
+class UsageDataPoint(BaseModel):
+    """Single data point for usage stats"""
+    date: Optional[str] = None
+    model: Optional[str] = None
+    user_id: Optional[str] = None
+    tokens: int = 0
+    api_calls: int = 0
+
+
+class UsageStats(BaseModel):
+    """Usage statistics response"""
+    data: List[UsageDataPoint] = []
+    period: str = "30d"
+    group_by: str = "day"
+
+
+# System Settings
+class GlobalLimits(BaseModel):
+    """Global system limits"""
+    max_tokens_per_user_month: int = 1000000
+    max_workspaces_per_user: int = 10
+    max_documents_per_project: int = 500
+    max_image_size_mb: int = 10
+    max_concurrent_workflows: int = 5
+    updated_at: Optional[datetime] = None
+
+
+class GlobalLimitsUpdate(BaseModel):
+    """Update global limits"""
+    max_tokens_per_user_month: Optional[int] = Field(None, ge=0)
+    max_workspaces_per_user: Optional[int] = Field(None, ge=1)
+    max_documents_per_project: Optional[int] = Field(None, ge=1)
+    max_image_size_mb: Optional[int] = Field(None, ge=1)
+    max_concurrent_workflows: Optional[int] = Field(None, ge=1)
+
+
+class FeatureFlags(BaseModel):
+    """Feature flags"""
+    enable_image_generation: bool = True
+    enable_workflows: bool = True
+    enable_rag: bool = True
+    enable_vision: bool = True
+    maintenance_mode: bool = False
+    updated_at: Optional[datetime] = None
+
+
+class FeatureFlagsUpdate(BaseModel):
+    """Update feature flags"""
+    enable_image_generation: Optional[bool] = None
+    enable_workflows: Optional[bool] = None
+    enable_rag: Optional[bool] = None
+    enable_vision: Optional[bool] = None
+    maintenance_mode: Optional[bool] = None
+
+
+class ApiKeyStatus(BaseModel):
+    """API key status (masked)"""
+    openrouter: Dict[str, Any] = {
+        "configured": False,
+        "masked_key": None,
+        "updated_at": None
+    }
+
+
+class ApiKeyUpdate(BaseModel):
+    """Update API keys"""
+    openrouter_key: Optional[str] = None
+
+
+# Audit Log
+class AdminAuditLogEntry(BaseModel):
+    """Audit log entry"""
+    id: Union[str, UUID]
+    admin_id: Union[str, UUID]
+    admin_email: Optional[str] = None
+    action: str
+    entity_type: Optional[str] = None
+    entity_id: Optional[str] = None
+    old_value: Optional[Dict[str, Any]] = None
+    new_value: Optional[Dict[str, Any]] = None
+    ip_address: Optional[str] = None
+    created_at: datetime
+
+    @field_serializer('id', 'admin_id')
+    def serialize_uuid(self, v):
+        return str(v) if isinstance(v, UUID) else v
+
+    class Config:
+        from_attributes = True
+
+
+class AdminAuditLogResponse(BaseModel):
+    """Paginated audit log"""
+    items: List[AdminAuditLogEntry]
+    total: int
+    page: int
+    limit: int
+
+
+# Admin verification
+class AdminVerifyResponse(BaseModel):
+    """Admin verification response"""
+    is_admin: bool
+    user_id: str
+    email: str
+
+
+# ============================================================================
+# IMAGE REFINEMENT SCHEMAS (Feature 016 - V1 Polish)
+# ============================================================================
+
+class RefinementHistoryEntry(BaseModel):
+    """Single entry in refinement history"""
+    prompt: str
+    applied_at: datetime
+
+
+class RefineImageResponse(BaseModel):
+    """Enhanced response from image refinement with quality preservation fields"""
+    document_id: str
+    file_url: str
+    thumbnail_url: str
+    title: str
+    generation_metadata: Dict[str, Any]
+    original_image_id: Optional[str] = None  # ID of the original image (for quality preservation)
+    refinement_count: int = 0  # Number of refinements applied to original
+    refinement_history: List[RefinementHistoryEntry] = []  # History of all refinements
+
+
+class EnrichPromptRequest(BaseModel):
+    """Request to enrich a user prompt with brand context"""
+    prompt: str = Field(..., min_length=1, max_length=1000)
+    project_id: str
+
+
+class EnrichPromptResponse(BaseModel):
+    """Response from prompt enrichment"""
+    original_prompt: str
+    enriched_prompt: str
+    brand_context_applied: bool = False
+    model_used: str
+
+
+class DeleteImagePermanentResponse(BaseModel):
+    """Response from permanent image deletion"""
+    success: bool
+    message: str
+    deleted_files: List[str] = []  # URLs of deleted files from storage
+
+
+class DetachImageResponse(BaseModel):
+    """Response from image detachment"""
+    success: bool
+    message: str
+    image_id: str  # ID of the detached image (still available in library)

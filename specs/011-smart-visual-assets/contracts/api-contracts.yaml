@@ -1,0 +1,643 @@
+# API Contracts: Smart Visual Assets
+# Feature: 011-smart-visual-assets
+# Date: 2025-11-29
+
+openapi: 3.0.3
+info:
+  title: Smart Visual Assets API
+  description: API endpoints for visual asset classification and assistant visual context
+  version: 1.0.0
+
+paths:
+  # ============================================
+  # Asset Classification Endpoints
+  # ============================================
+
+  /assets/{asset_id}/classify:
+    post:
+      summary: Classify a visual asset using AI
+      description: |
+        Analyzes an image asset using vision AI and returns suggested category, tags, and description.
+        Used when an asset is uploaded or when user requests re-classification.
+      operationId: classifyAsset
+      tags:
+        - Asset Classification
+      parameters:
+        - name: asset_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The asset (document) ID to classify
+      responses:
+        '200':
+          description: Classification successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssetClassificationResult'
+        '404':
+          description: Asset not found
+        '422':
+          description: Asset is not an image or cannot be classified
+        '503':
+          description: Classification service unavailable
+      x-requirements:
+        - FR-001
+        - FR-002
+        - NFR-001
+
+  /assets/{asset_id}/metadata:
+    patch:
+      summary: Update asset classification metadata
+      description: |
+        Updates the category, tags, and/or description of a visual asset.
+        Used when confirming AI suggestions or manually editing classification.
+      operationId: updateAssetMetadata
+      tags:
+        - Asset Classification
+      parameters:
+        - name: asset_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssetMetadataUpdate'
+      responses:
+        '200':
+          description: Metadata updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VisualAsset'
+        '400':
+          description: Invalid category or tags
+        '404':
+          description: Asset not found
+      x-requirements:
+        - FR-003
+        - FR-004
+        - FR-005
+
+  # ============================================
+  # Visual Assets List & Management
+  # ============================================
+
+  /projects/{project_id}/visual-assets:
+    get:
+      summary: List visual assets for a project
+      description: |
+        Returns all visual assets (is_reference_asset=true) for a project,
+        organized by category with classification metadata.
+      operationId: listVisualAssets
+      tags:
+        - Visual Assets
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: category
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/AssetCategory'
+          description: Filter by category
+        - name: include_unclassified
+          in: query
+          required: false
+          schema:
+            type: boolean
+            default: true
+          description: Include assets without classification
+      responses:
+        '200':
+          description: List of visual assets
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VisualAssetList'
+        '404':
+          description: Project not found
+      x-requirements:
+        - FR-008
+        - FR-011
+        - NFR-002
+
+  /projects/{project_id}/visual-assets/summary:
+    get:
+      summary: Get visual assets summary by category
+      description: |
+        Returns count of visual assets per category for the project.
+        Used in the assistant configuration UI to show available assets.
+      operationId: getVisualAssetsSummary
+      tags:
+        - Visual Assets
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Summary by category
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VisualAssetsSummary'
+        '404':
+          description: Project not found
+      x-requirements:
+        - FR-011
+
+  # ============================================
+  # Assistant Visual Settings Endpoints
+  # ============================================
+
+  /projects/{project_id}/assistant/visual-settings:
+    get:
+      summary: Get visual context settings for a project
+      description: |
+        Returns the assistant visual context configuration for a project.
+        Creates default settings if none exist.
+      operationId: getVisualSettings
+      tags:
+        - Visual Settings
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Visual settings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssistantVisualSettings'
+        '404':
+          description: Project not found
+      x-requirements:
+        - FR-006
+        - FR-007
+
+    put:
+      summary: Update visual context settings
+      description: |
+        Updates the assistant visual context configuration.
+        Includes toggle, mode selection, and auto mode parameters.
+      operationId: updateVisualSettings
+      tags:
+        - Visual Settings
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssistantVisualSettingsUpdate'
+      responses:
+        '200':
+          description: Settings updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssistantVisualSettings'
+        '400':
+          description: Invalid settings
+        '404':
+          description: Project not found
+      x-requirements:
+        - FR-006
+        - FR-007
+        - FR-009
+        - FR-010
+
+  /projects/{project_id}/assistant/visual-settings/selections:
+    get:
+      summary: Get manual mode asset selections
+      description: |
+        Returns the list of assets selected for manual mode visual context.
+        Only relevant when mode is 'manual'.
+      operationId: getAssetSelections
+      tags:
+        - Visual Settings
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Asset selections
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssetSelectionList'
+        '404':
+          description: Project or settings not found
+      x-requirements:
+        - FR-008
+
+    put:
+      summary: Update manual mode asset selections
+      description: |
+        Replaces the list of selected assets for manual mode.
+        Assets must exist and be visual assets (is_reference_asset=true).
+      operationId: updateAssetSelections
+      tags:
+        - Visual Settings
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssetSelectionUpdate'
+      responses:
+        '200':
+          description: Selections updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssetSelectionList'
+        '400':
+          description: Invalid asset IDs or too many selections
+        '404':
+          description: Project or settings not found
+      x-requirements:
+        - FR-008
+
+  # ============================================
+  # Visual Context for Generation
+  # ============================================
+
+  /projects/{project_id}/assistant/visual-context:
+    get:
+      summary: Get resolved visual context for generation
+      description: |
+        Returns the list of assets that should be used as visual references
+        based on current settings (manual selections or auto rotation).
+        Used by image generation endpoints to fetch context.
+      operationId: getVisualContext
+      tags:
+        - Visual Context
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 5
+            minimum: 1
+            maximum: 5
+          description: Maximum number of assets to return (NFR-003)
+      responses:
+        '200':
+          description: Resolved visual context
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VisualContextResponse'
+        '404':
+          description: Project not found
+      x-requirements:
+        - FR-012
+        - FR-013
+        - FR-017
+        - NFR-003
+
+  /projects/{project_id}/assistant/visual-context/record-usage:
+    post:
+      summary: Record asset usage for rotation
+      description: |
+        Records that assets were used in a generation for the rotation algorithm.
+        Called after successful image generation.
+      operationId: recordAssetUsage
+      tags:
+        - Visual Context
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssetUsageRecord'
+      responses:
+        '200':
+          description: Usage recorded
+        '404':
+          description: Project or assets not found
+      x-requirements:
+        - FR-016
+        - NFR-004
+
+# ============================================
+# Components
+# ============================================
+
+components:
+  schemas:
+    AssetCategory:
+      type: string
+      enum:
+        - Logo
+        - Pessoa
+        - Background
+        - Produto
+        - Outro
+      description: Visual asset category
+
+    VisualContextMode:
+      type: string
+      enum:
+        - manual
+        - auto
+      description: Visual context selection mode
+
+    AssetClassificationResult:
+      type: object
+      properties:
+        asset_id:
+          type: string
+          format: uuid
+        suggested_category:
+          $ref: '#/components/schemas/AssetCategory'
+        suggested_tags:
+          type: array
+          items:
+            type: string
+          maxItems: 10
+        ai_description:
+          type: string
+          maxLength: 500
+        confidence:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+          description: AI confidence score (0-1)
+      required:
+        - asset_id
+        - suggested_category
+        - suggested_tags
+        - ai_description
+
+    AssetMetadataUpdate:
+      type: object
+      properties:
+        category:
+          $ref: '#/components/schemas/AssetCategory'
+        tags:
+          type: array
+          items:
+            type: string
+          maxItems: 10
+        ai_description:
+          type: string
+          maxLength: 500
+      description: At least one field must be provided
+
+    VisualAsset:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        project_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        file_url:
+          type: string
+          format: uri
+        thumbnail_url:
+          type: string
+          format: uri
+        category:
+          $ref: '#/components/schemas/AssetCategory'
+        tags:
+          type: array
+          items:
+            type: string
+        ai_description:
+          type: string
+        is_classified:
+          type: boolean
+          description: Whether asset has been classified
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - project_id
+        - name
+        - is_classified
+        - created_at
+
+    VisualAssetList:
+      type: object
+      properties:
+        assets:
+          type: array
+          items:
+            $ref: '#/components/schemas/VisualAsset'
+        total:
+          type: integer
+        by_category:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              $ref: '#/components/schemas/VisualAsset'
+          description: Assets grouped by category
+
+    VisualAssetsSummary:
+      type: object
+      properties:
+        total:
+          type: integer
+        by_category:
+          type: object
+          properties:
+            Logo:
+              type: integer
+            Pessoa:
+              type: integer
+            Background:
+              type: integer
+            Produto:
+              type: integer
+            Outro:
+              type: integer
+            unclassified:
+              type: integer
+      required:
+        - total
+        - by_category
+
+    AssistantVisualSettings:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        project_id:
+          type: string
+          format: uuid
+        is_enabled:
+          type: boolean
+          default: false
+        mode:
+          $ref: '#/components/schemas/VisualContextMode'
+        assets_per_category:
+          type: integer
+          minimum: 1
+          maximum: 5
+          default: 2
+          description: For auto mode - how many assets per category
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - project_id
+        - is_enabled
+        - mode
+        - assets_per_category
+
+    AssistantVisualSettingsUpdate:
+      type: object
+      properties:
+        is_enabled:
+          type: boolean
+        mode:
+          $ref: '#/components/schemas/VisualContextMode'
+        assets_per_category:
+          type: integer
+          minimum: 1
+          maximum: 5
+
+    AssetSelection:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        asset_id:
+          type: string
+          format: uuid
+        asset:
+          $ref: '#/components/schemas/VisualAsset'
+        is_enabled:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - asset_id
+        - is_enabled
+
+    AssetSelectionList:
+      type: object
+      properties:
+        selections:
+          type: array
+          items:
+            $ref: '#/components/schemas/AssetSelection'
+        total_enabled:
+          type: integer
+
+    AssetSelectionUpdate:
+      type: object
+      properties:
+        asset_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 20
+          description: List of asset IDs to select for manual mode
+      required:
+        - asset_ids
+
+    VisualContextResponse:
+      type: object
+      properties:
+        is_enabled:
+          type: boolean
+        mode:
+          $ref: '#/components/schemas/VisualContextMode'
+        assets:
+          type: array
+          items:
+            $ref: '#/components/schemas/VisualAsset'
+          maxItems: 5
+        message:
+          type: string
+          description: User-friendly message about visual context status
+      required:
+        - is_enabled
+        - assets
+
+    AssetUsageRecord:
+      type: object
+      properties:
+        asset_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        generation_id:
+          type: string
+          format: uuid
+          description: Optional reference to the image generation
+      required:
+        - asset_ids

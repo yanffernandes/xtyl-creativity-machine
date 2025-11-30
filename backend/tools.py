@@ -13,6 +13,7 @@ from schemas import DocumentUpdate, DocumentCreate
 import asyncio
 from image_generation_service import generate_and_store_image
 from image_naming_service import generate_image_title
+from services.visual_asset_service import visual_asset_service
 
 
 def read_document_tool(db: Session, document_id: str) -> Dict[str, Any]:
@@ -74,20 +75,21 @@ def edit_document_tool(
     else:
         new_content = doc.content
     
-    # Create update object
+    # Create update object - preserve existing title if not explicitly provided
+    final_title = title if title is not None else doc.title
     update_data = DocumentUpdate(
         content=new_content,
-        title=title if title is not None else doc.title
+        title=final_title
     )
-    
+
     # Update document
     updated_doc = update_document(db, document_id, update_data)
     if not updated_doc:
         return {"error": "Failed to update document"}
-    
+
     return {
         "id": updated_doc.id,
-        "title": updated_doc.title,
+        "title": updated_doc.title or doc.title or "Sem título",
         "content": updated_doc.content,
         "status": updated_doc.status,
         "message": f"Document updated successfully using {edit_type} mode"
@@ -576,10 +578,14 @@ async def generate_image_tool(
     project_id: str,
     prompt: str,
     aspect_ratio: str = "1:1",
-    attach_to_document_id: Optional[str] = None
+    attach_to_document_id: Optional[str] = None,
+    skip_visual_context: bool = False,
+    skip_prompt_enrichment: bool = False
 ) -> Dict[str, Any]:
     """
     Generate an image using AI and optionally attach it to a document.
+    Automatically injects visual context references if enabled for the project.
+    Enriches the prompt with brand context and best practices (Feature 016).
 
     Args:
         db: Database session
@@ -587,12 +593,15 @@ async def generate_image_tool(
         prompt: Image description
         aspect_ratio: Image aspect ratio (default: "1:1")
         attach_to_document_id: Optional ID of document to attach image to
+        skip_visual_context: If True, skip visual context injection (default: False)
+        skip_prompt_enrichment: If True, skip prompt enrichment (default: False)
 
     Returns:
         Dictionary with image URL and metadata
     """
     from models import DocumentAttachment
     import uuid
+    from services.prompt_enrichment_service import PromptEnrichmentService, get_brand_context_for_project
 
     print(f"\n{'='*60}")
     print(f"🖼️ GENERATE IMAGE TOOL STARTED")
@@ -602,12 +611,65 @@ async def generate_image_tool(
     print(f"Aspect Ratio: {aspect_ratio}")
     print(f"Attach to Document ID: {attach_to_document_id}")
 
+    # Feature 016: Enrich the prompt with brand context
+    original_prompt = prompt
+    enriched_prompt = prompt
+    prompt_enrichment_info = None
+
+    if not skip_prompt_enrichment:
+        try:
+            print(f"🎨 Enriching prompt with brand context...")
+            brand_context = await get_brand_context_for_project(db, project_id)
+            enrichment_service = PromptEnrichmentService(db)
+            result = await enrichment_service.enrich_prompt(
+                prompt=prompt,
+                project_id=project_id,
+                brand_context=brand_context
+            )
+            enriched_prompt = result["enriched_prompt"]
+            prompt_enrichment_info = {
+                "original_prompt": original_prompt,
+                "enriched_prompt": enriched_prompt,
+                "brand_context_applied": result["brand_context_applied"],
+                "model_used": result["model_used"]
+            }
+            print(f"✨ Prompt enriched: {enriched_prompt[:100]}...")
+        except Exception as enrich_error:
+            print(f"⚠️ Prompt enrichment failed: {enrich_error}")
+            # Continue with original prompt
+            enriched_prompt = prompt
+
+    # T041: Fetch visual context for the project
+    reference_image_urls = []
+    visual_context_asset_ids = []
+    visual_context_info = None
+
+    if not skip_visual_context:
+        try:
+            visual_context = visual_asset_service.get_visual_context(db, project_id)
+            if visual_context.is_enabled and visual_context.assets:
+                reference_image_urls = [asset.file_url for asset in visual_context.assets if asset.file_url]
+                visual_context_asset_ids = [asset.id for asset in visual_context.assets]
+                visual_context_info = {
+                    "mode": visual_context.mode.value if visual_context.mode else None,
+                    "asset_count": len(visual_context.assets),
+                    "asset_ids": visual_context_asset_ids
+                }
+                print(f"📎 Visual context enabled: {len(reference_image_urls)} reference images")
+                for url in reference_image_urls:
+                    print(f"   - {url[:80]}...")
+        except Exception as vc_error:
+            print(f"⚠️ Failed to fetch visual context: {vc_error}")
+            # Continue without visual context
+
     try:
-        # Generate and store image
+        # Generate and store image with visual context
+        # Use enriched prompt if available (Feature 016)
         result = await generate_and_store_image(
-            prompt=prompt,
+            prompt=enriched_prompt,
             project_id=project_id,
-            aspect_ratio=aspect_ratio
+            aspect_ratio=aspect_ratio,
+            reference_image_urls=reference_image_urls if reference_image_urls else None
         )
 
         image_url = result["file_url"]
@@ -616,21 +678,26 @@ async def generate_image_tool(
 
         # Create a Document record for the generated image
         # Images are stored as documents with media_type='image'
-        # Generate AI title for the image
-        image_title = await generate_image_title(prompt)
+        # Generate AI title for the image (use original prompt for title)
+        image_title = await generate_image_title(original_prompt)
         print(f"📝 Generated title: {image_title}")
         image_doc_id = str(uuid.uuid4())
         print(f"📄 Creating image document with ID: {image_doc_id}")
 
+        # Build generation metadata with enrichment info (Feature 016)
+        generation_metadata = result.get("generation_metadata", {})
+        if prompt_enrichment_info:
+            generation_metadata["prompt_enrichment"] = prompt_enrichment_info
+
         image_doc = Document(
             id=image_doc_id,
             title=image_title,
-            content=prompt,  # Store prompt as content for reference
+            content=original_prompt,  # Store ORIGINAL prompt as content for reference
             project_id=project_id,
             media_type="image",
             file_url=image_url,
             thumbnail_url=thumbnail_url,
-            generation_metadata=result.get("generation_metadata", {}),
+            generation_metadata=generation_metadata,
             status="art_ok"
         )
         db.add(image_doc)
@@ -642,9 +709,32 @@ async def generate_image_tool(
             "image_url": image_url,
             "thumbnail_url": thumbnail_url,
             "image_document_id": image_doc.id,
-            "prompt": prompt,
+            "prompt": original_prompt,
+            "enriched_prompt": enriched_prompt if enriched_prompt != original_prompt else None,
             "message": "Image generated successfully"
         }
+
+        # Add prompt enrichment info to response if used
+        if prompt_enrichment_info and prompt_enrichment_info.get("brand_context_applied"):
+            response["message"] += " (with brand context)"
+
+        # Add visual context info to response if used
+        if visual_context_info:
+            response["visual_context"] = visual_context_info
+            response["message"] += f" (using {visual_context_info['asset_count']} visual references)"
+
+        # T052: Record asset usage for rotation algorithm
+        if visual_context_asset_ids:
+            try:
+                visual_asset_service.record_asset_usage(
+                    db=db,
+                    asset_ids=visual_context_asset_ids,
+                    generation_id=image_doc.id
+                )
+                print(f"📊 Recorded usage for {len(visual_context_asset_ids)} visual assets")
+            except Exception as usage_error:
+                print(f"⚠️ Failed to record asset usage: {usage_error}")
+                # Don't fail the generation for usage tracking errors
 
         # Attach to document if requested (using DocumentAttachment relation)
         if attach_to_document_id:

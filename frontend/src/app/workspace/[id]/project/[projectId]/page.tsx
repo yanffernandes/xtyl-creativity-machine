@@ -111,6 +111,7 @@ export default function ProjectPage() {
     const [showAttachImageModal, setShowAttachImageModal] = useState(false)
     const [attachmentsRefreshKey, setAttachmentsRefreshKey] = useState(0)
     const [isSavingDocument, setIsSavingDocument] = useState(false)
+    const [isCreatingDocument, setIsCreatingDocument] = useState(false)
 
     const { session, isLoading: authLoading } = useAuthStore()
     const router = useRouter()
@@ -188,27 +189,24 @@ export default function ProjectPage() {
         }
 
         // Handle document edits - refresh the current document if it was edited
-        if (toolName === 'edit_document' && toolResult?.document_id && selectedDoc?.id === toolResult.document_id) {
-            // Fetch the updated content directly
-            try {
-                const response = await api.get(`/documents/${toolResult.document_id}`)
-                const updatedDoc = response.data
-                if (updatedDoc && selectedDoc) {
-                    const newContent = updatedDoc.content || ""
-                    // Always update the editor when AI edits the current document
-                    const updatedSelectedDoc: Document = {
-                        ...selectedDoc,
-                        content: newContent,
-                        title: updatedDoc.title || selectedDoc.title
-                    }
-                    setSelectedDoc(updatedSelectedDoc)
-                    setSavedContent(newContent)
-                    setCurrentContent(newContent)
-                    setCreations(prev => prev.map(d => d.id === toolResult.document_id ? { ...d, content: newContent, title: updatedDoc.title || d.title } : d))
-                }
-            } catch (error) {
-                console.error("Failed to fetch updated document after edit_document", error)
+        // Note: edit_document tool returns { id, title, content, status, message }
+        if (toolName === 'edit_document' && toolResult?.id && selectedDoc?.id === toolResult.id) {
+            // Use the content directly from the tool result (already have it)
+            const newContent = toolResult.content || ""
+            // Preserve existing title if tool result doesn't provide one
+            // (toolResult.title can be null/undefined if not explicitly changed)
+            const newTitle = toolResult.title ?? selectedDoc.title
+
+            // Update editor with the new content immediately
+            const updatedSelectedDoc: Document = {
+                ...selectedDoc,
+                content: newContent,
+                title: newTitle
             }
+            setSelectedDoc(updatedSelectedDoc)
+            setSavedContent(newContent)
+            setCurrentContent(newContent)
+            setCreations(prev => prev.map(d => d.id === toolResult.id ? { ...d, content: newContent, title: newTitle } : d))
         }
 
         // Refresh attachments when images are generated or attached
@@ -223,6 +221,9 @@ export default function ProjectPage() {
     useEffect(() => {
         const fetchDocumentContent = async () => {
             if (!selectedDoc?.id) return
+
+            // Skip fetch for temp documents (being created in background)
+            if (selectedDoc.id.startsWith('temp-')) return
 
             try {
                 const response = await api.get(`/documents/${selectedDoc.id}`)
@@ -532,7 +533,31 @@ export default function ProjectPage() {
     }
 
     const handleCreateCreation = async () => {
+        // Prevent multiple clicks with debounce
+        if (isCreatingDocument) return
+        setIsCreatingDocument(true)
+
+        // Generate a temporary ID for optimistic UI
+        const tempId = `temp-${Date.now()}`
+        const tempDoc: Document = {
+            id: tempId,
+            title: "Nova Criação",
+            content: "",
+            status: "draft",
+            type: "creation",
+            is_context: false,
+            created_at: new Date().toISOString()
+        }
+
+        // INSTANT FEEDBACK: Add temp doc to list and select it immediately
+        // This provides <200ms feedback to the user
+        setCreations(prev => [tempDoc, ...prev])
+        setSelectedDoc(tempDoc)
+        setSavedContent("")
+        setCurrentContent("")
+
         try {
+            // Create document in background
             const newDocData = {
                 title: "Nova Criação",
                 content: "",
@@ -542,17 +567,29 @@ export default function ProjectPage() {
             const response = await api.post(`/documents/projects/${projectId}/documents`, newDocData)
             const newDoc = { ...response.data, type: "creation" as const, is_context: false }
 
-            setCreations(prev => [newDoc, ...prev])
+            // Replace temp doc with real doc in list
+            setCreations(prev => prev.map(d => d.id === tempId ? newDoc : d))
 
-            // Small delay to ensure state is updated before navigating
-            setTimeout(() => {
-                handleSelectDocument(newDoc)
-            }, 100)
+            // Update selected doc to real doc (seamless transition)
+            setSelectedDoc(newDoc)
 
             toast({ title: "Criado", description: "Nova criação iniciada." })
         } catch (error) {
             console.error("Failed to create document", error)
-            toast({ title: "Erro", description: "Falha ao criar documento", variant: "destructive" })
+
+            // Remove temp doc on error
+            setCreations(prev => prev.filter(d => d.id !== tempId))
+
+            // Clear selection and show error
+            setSelectedDoc(null)
+
+            toast({
+                title: "Erro",
+                description: "Falha ao criar documento. Tente novamente.",
+                variant: "destructive"
+            })
+        } finally {
+            setIsCreatingDocument(false)
         }
     }
 
@@ -772,6 +809,28 @@ export default function ProjectPage() {
 
                 <div className="flex-1 overflow-y-auto p-6">
                     {selectedDoc ? (
+                        // Show loading skeleton for temp documents being created
+                        selectedDoc.id.startsWith('temp-') ? (
+                            <div className="h-full flex flex-col gap-4">
+                                <div className="flex justify-between items-center">
+                                    <div className="flex items-center gap-3">
+                                        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                                        <h2 className="text-xl font-semibold text-muted-foreground">
+                                            Criando documento...
+                                        </h2>
+                                    </div>
+                                </div>
+                                <div className="flex-1 border rounded-lg overflow-hidden">
+                                    <div className="h-full flex flex-col p-6 gap-4">
+                                        <div className="h-6 bg-gray-200 dark:bg-gray-800 rounded animate-pulse w-3/4" />
+                                        <div className="h-4 bg-gray-200 dark:bg-gray-800 rounded animate-pulse w-full" />
+                                        <div className="h-4 bg-gray-200 dark:bg-gray-800 rounded animate-pulse w-5/6" />
+                                        <div className="h-4 bg-gray-200 dark:bg-gray-800 rounded animate-pulse w-4/6" />
+                                        <div className="h-4 bg-gray-200 dark:bg-gray-800 rounded animate-pulse w-2/3" />
+                                    </div>
+                                </div>
+                            </div>
+                        ) : (
                         <div className="h-full flex flex-col gap-4">
                             <div className="flex justify-between items-center">
                                 {editingTitle === selectedDoc.id ? (
@@ -887,6 +946,7 @@ export default function ProjectPage() {
                                 )}
                             </div>
                         </div>
+                        )
                     ) : (
                         <div className="h-full overflow-hidden">
                             <>
@@ -899,9 +959,17 @@ export default function ProjectPage() {
                                                 <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
                                             )}
                                         </div>
-                                        <Button onClick={handleCreateCreation} className="gap-2">
-                                            <Plus className="h-4 w-4" />
-                                            Nova Criação
+                                        <Button
+                                            onClick={handleCreateCreation}
+                                            className="gap-2"
+                                            disabled={isCreatingDocument}
+                                        >
+                                            {isCreatingDocument ? (
+                                                <Loader2 className="h-4 w-4 animate-spin" />
+                                            ) : (
+                                                <Plus className="h-4 w-4" />
+                                            )}
+                                            {isCreatingDocument ? "Criando..." : "Nova Criação"}
                                         </Button>
                                     </div>
 

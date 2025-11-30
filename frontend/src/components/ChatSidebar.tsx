@@ -3,11 +3,12 @@
 import { useState, useEffect, useRef } from "react"
 import { useAuthStore } from "@/lib/store"
 import api from "@/lib/api"
+import { getModelsCache, setModelsCache, isModelsCacheStale, type CachedModel } from "@/lib/models-cache"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Send, Bot, User as UserIcon, Settings, FileText, ChevronDown, ChevronUp, Trash2, Check, ChevronsUpDown, Paperclip, RotateCcw, Sparkles, Folder, Search, X, History, ExternalLink, Image, MoreVertical, Plus } from "lucide-react"
+import { Send, Bot, User as UserIcon, Settings, FileText, ChevronDown, ChevronUp, Trash2, Check, ChevronsUpDown, Paperclip, RotateCcw, Sparkles, Folder, Search, X, History, ExternalLink, Image, MoreVertical, Plus, Loader2 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/components/ui/use-toast"
 import ReactMarkdown from "react-markdown"
@@ -35,6 +36,9 @@ import TaskListCard, { TaskItem } from "@/components/TaskListCard"
 import { useUserPreferences } from "@/hooks/useUserPreferences"
 import ConversationsList from "@/components/ConversationsList"
 import { conversationService } from "@/lib/supabase/conversations"
+import { getVisualContext, type VisualContextResponse } from "@/lib/api"
+import VisualContextSelector from "@/components/visual-assets/VisualContextSelector"
+import AdvancedVisualSettingsModal from "@/components/visual-assets/AdvancedVisualSettingsModal"
 
 // Generate a title from the first user message (truncate at ~50 chars on word boundary)
 function generateTitleFromMessage(content: string): string {
@@ -143,7 +147,8 @@ export default function ChatSidebar({
     const [input, setInput] = useState("")
     const [isLoading, setIsLoading] = useState(false)
     const [models, setModels] = useState<Model[]>([])
-    const [selectedModel, setSelectedModel] = useState(defaultModel || "openai/gpt-4o-mini")
+    // SSR-safe: Start with defaultModel or empty, load from cache after mount
+    const [selectedModel, setSelectedModel] = useState(defaultModel || "")
     const [useRag, setUseRag] = useState(true)
     const [openModelSelect, setOpenModelSelect] = useState(false)
     const [isContextExpanded, setIsContextExpanded] = useState(false)
@@ -165,6 +170,10 @@ export default function ChatSidebar({
     const [currentConversationId, setCurrentConversationId] = useState<string | null>(null)
     const [createdDocuments, setCreatedDocuments] = useState<CreatedDocument[]>([])
 
+    // Visual context state (T045)
+    const [visualContext, setVisualContext] = useState<VisualContextResponse | null>(null)
+    const [showAdvancedVisualSettings, setShowAdvancedVisualSettings] = useState(false)
+
     const messagesEndRef = useRef<HTMLDivElement>(null)
     const fileInputRef = useRef<HTMLInputElement>(null)
     const contextRef = useRef<HTMLDivElement>(null)
@@ -180,13 +189,47 @@ export default function ChatSidebar({
     const { data: templatesData } = useTemplates(workspaceId)
     const templates = (templatesData ?? []).slice(0, 10) // Top 10 templates
 
-    // Fetch models only on client side with token
+    // SSR-safe: Load models from cache after mount, then refresh if stale
+    const [hasMounted, setHasMounted] = useState(false)
+    const [isModelsRefreshing, setIsModelsRefreshing] = useState(false)
+
     useEffect(() => {
-        if (authLoading) return
-        if (typeof window !== 'undefined' && token) {
+        // Load cached models immediately after mount (client-only)
+        const cached = getModelsCache()
+        if (cached && cached.length > 0) {
+            setModels(cached)
+        }
+        setHasMounted(true)
+    }, [])
+
+    // Fetch fresh models after mount if cache is stale or empty
+    useEffect(() => {
+        if (!hasMounted || authLoading || !token) return
+
+        const shouldRefresh = isModelsCacheStale() || models.length === 0
+        if (shouldRefresh) {
             fetchModels()
         }
-    }, [token, authLoading])
+    }, [hasMounted, token, authLoading])
+
+    // T045: Fetch visual context when projectId changes
+    const loadVisualContext = async () => {
+        if (!projectId || !token) {
+            setVisualContext(null)
+            return
+        }
+        try {
+            const context = await getVisualContext(projectId)
+            setVisualContext(context)
+        } catch (error) {
+            console.error("Failed to load visual context:", error)
+            setVisualContext(null)
+        }
+    }
+
+    useEffect(() => {
+        loadVisualContext()
+    }, [projectId, token])
 
 
     // Scroll to bottom when messages change
@@ -201,12 +244,15 @@ export default function ChatSidebar({
         }
     }, [currentStreamingContent, toolExecutions, isLoading])
 
-    // Update selected model when defaultModel prop changes
+    // Update selected model when defaultModel prop changes or when models load
     useEffect(() => {
         if (defaultModel && defaultModel !== selectedModel) {
             setSelectedModel(defaultModel)
+        } else if (!selectedModel && models.length > 0) {
+            // If no model selected and models are available, select the first one
+            setSelectedModel(models[0].id)
         }
-    }, [defaultModel])
+    }, [defaultModel, models, selectedModel])
 
     // Close context dropdown when clicking outside
     useEffect(() => {
@@ -226,11 +272,17 @@ export default function ChatSidebar({
     }, [isContextExpanded])
 
     const fetchModels = async () => {
+        setIsModelsRefreshing(true)
         try {
             const response = await api.get("/chat/models")
-            setModels(response.data)
+            const fetchedModels: CachedModel[] = response.data
+            setModels(fetchedModels)
+            // Save to localStorage cache
+            setModelsCache(fetchedModels)
         } catch (error) {
             console.error("Failed to fetch models", error)
+        } finally {
+            setIsModelsRefreshing(false)
         }
     }
 
@@ -756,6 +808,13 @@ export default function ChatSidebar({
                                             title: event.result.title || "Nova imagem",
                                             type: "image"
                                         }])
+                                        // T046: Show visual context feedback
+                                        if (event.result?.visual_context?.asset_count) {
+                                            toast({
+                                                title: "Contexto Visual Aplicado",
+                                                description: `${event.result.visual_context.asset_count} assets visuais foram usados como referência na geração.`,
+                                            })
+                                        }
                                     }
                                     break
 
@@ -942,12 +1001,47 @@ export default function ChatSidebar({
                                     <CommandList>
                                         <CommandEmpty>Nenhum modelo encontrado.</CommandEmpty>
 
-                                        {/* Recommended Models (Available in Workspace) */}
-                                        {availableModels.length > 0 && (
+                                        {/* Loading state when models haven't loaded yet */}
+                                        {models.length === 0 ? (
+                                            <div className="py-6 text-center text-sm text-muted-foreground">
+                                                <Loader2 className="h-4 w-4 animate-spin mx-auto mb-2" />
+                                                Carregando modelos...
+                                            </div>
+                                        ) : (
                                             <>
-                                                <CommandGroup heading="Recomendados">
+                                                {/* Recommended Models (Available in Workspace) */}
+                                                {availableModels.length > 0 && (
+                                                    <>
+                                                        <CommandGroup heading="Recomendados">
+                                                            {models
+                                                                .filter(model => availableModels.includes(model.id))
+                                                                .map((model) => (
+                                                                    <CommandItem
+                                                                        key={model.id}
+                                                                        value={model.name}
+                                                                        onSelect={() => {
+                                                                            setSelectedModel(model.id === selectedModel ? "" : model.id)
+                                                                            setOpenModelSelect(false)
+                                                                        }}
+                                                                    >
+                                                                        <Check
+                                                                            className={cn(
+                                                                                "mr-2 h-4 w-4",
+                                                                                selectedModel === model.id ? "opacity-100" : "opacity-0"
+                                                                            )}
+                                                                        />
+                                                                        {model.name}
+                                                                    </CommandItem>
+                                                                ))}
+                                                        </CommandGroup>
+                                                        <CommandSeparator />
+                                                    </>
+                                                )}
+
+                                                {/* All Other Models */}
+                                                <CommandGroup heading={availableModels.length > 0 ? "Todos os Modelos" : undefined}>
                                                     {models
-                                                        .filter(model => availableModels.includes(model.id))
+                                                        .filter(model => !availableModels.includes(model.id))
                                                         .map((model) => (
                                                             <CommandItem
                                                                 key={model.id}
@@ -967,33 +1061,8 @@ export default function ChatSidebar({
                                                             </CommandItem>
                                                         ))}
                                                 </CommandGroup>
-                                                <CommandSeparator />
                                             </>
                                         )}
-
-                                        {/* All Other Models */}
-                                        <CommandGroup heading={availableModels.length > 0 ? "Todos os Modelos" : undefined}>
-                                            {models
-                                                .filter(model => !availableModels.includes(model.id))
-                                                .map((model) => (
-                                                    <CommandItem
-                                                        key={model.id}
-                                                        value={model.name}
-                                                        onSelect={() => {
-                                                            setSelectedModel(model.id === selectedModel ? "" : model.id)
-                                                            setOpenModelSelect(false)
-                                                        }}
-                                                    >
-                                                        <Check
-                                                            className={cn(
-                                                                "mr-2 h-4 w-4",
-                                                                selectedModel === model.id ? "opacity-100" : "opacity-0"
-                                                            )}
-                                                        />
-                                                        {model.name}
-                                                    </CommandItem>
-                                                ))}
-                                        </CommandGroup>
                                     </CommandList>
                                 </Command>
                             </PopoverContent>
@@ -1055,6 +1124,9 @@ export default function ChatSidebar({
                                     ? `Editando + ${selectedContextIds.length} docs + ${selectedFolderIds.length} pastas`
                                     : `${selectedContextIds.length} docs + ${selectedFolderIds.length} pastas`
                             ) : "Desligado"}
+                            {visualContext?.is_enabled && visualContext.assets && visualContext.assets.length > 0 && (
+                                ` + ${visualContext.assets.length} assets`
+                            )}
                         </div>
                         {isContextExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
                     </div>
@@ -1149,11 +1221,33 @@ export default function ChatSidebar({
                                             </div>
                                         )}
                                     </div>
+
+                                    {/* Visual Context Section */}
+                                    {projectId && (
+                                        <>
+                                            <div className="border-t border-border/50 my-3" />
+                                            <VisualContextSelector
+                                                projectId={projectId}
+                                                onSettingsChange={loadVisualContext}
+                                                onOpenAdvancedSettings={() => setShowAdvancedVisualSettings(true)}
+                                            />
+                                        </>
+                                    )}
                                 </>
                             )}
                         </div>
                     )}
                 </div>
+
+                {/* Advanced Visual Settings Modal */}
+                {projectId && (
+                    <AdvancedVisualSettingsModal
+                        projectId={projectId}
+                        open={showAdvancedVisualSettings}
+                        onOpenChange={setShowAdvancedVisualSettings}
+                        onSettingsSaved={loadVisualContext}
+                    />
+                )}
             </div >
 
             <div className="flex-1 overflow-y-auto p-4 space-y-4">

@@ -89,9 +89,21 @@ class ImageService:
             return {}
 
     def image_to_base64(self, file_path: str, max_size: tuple[int, int] = (1024, 1024)) -> Optional[str]:
-        """Convert image to base64 for API transmission (with optional resize)"""
+        """Convert image to base64 for API transmission (with optional resize)
+
+        Supports both local file paths and remote URLs (http/https)
+        """
         try:
-            with Image.open(file_path) as img:
+            # Check if it's a URL
+            if file_path.startswith('http://') or file_path.startswith('https://'):
+                import requests
+                response = requests.get(file_path, timeout=30)
+                response.raise_for_status()
+                img = Image.open(io.BytesIO(response.content))
+            else:
+                img = Image.open(file_path)
+
+            with img:
                 # Resize if too large
                 if img.width > max_size[0] or img.height > max_size[1]:
                     img.thumbnail(max_size, Image.Resampling.LANCZOS)

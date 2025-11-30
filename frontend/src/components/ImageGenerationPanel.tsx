@@ -24,9 +24,10 @@ import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Loader2, Sparkles, Image as ImageIcon, Download, Plus, X, Check, Link } from "lucide-react"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import api from "@/lib/api"
+import api, { getVisualContext, type VisualContextResponse } from "@/lib/api"
 import { useToast } from "@/components/ui/use-toast"
 import AssetSelectorModal from "@/components/AssetSelectorModal"
+import VisualContextPreview from "@/components/visual-assets/VisualContextPreview"
 
 interface ImageModel {
   id: string
@@ -103,6 +104,8 @@ export default function ImageGenerationPanel({
   const [showAssetSelector, setShowAssetSelector] = useState(false)
   const [isAttaching, setIsAttaching] = useState(false)
   const [isAttached, setIsAttached] = useState(false)
+  const [visualContext, setVisualContext] = useState<VisualContextResponse | null>(null)
+  const [skipVisualContext, setSkipVisualContext] = useState(false)
   const { toast } = useToast()
 
   const isRefinementMode = !!documentId
@@ -114,6 +117,7 @@ export default function ImageGenerationPanel({
     if (open) {
       loadModels()
       loadTextModels()
+      loadVisualContext()
       // In refinement mode, start with empty prompt for new instructions
       // In normal mode, use existingPrompt if provided
       if (!isRefinementMode && existingPrompt) {
@@ -123,6 +127,17 @@ export default function ImageGenerationPanel({
       }
     }
   }, [open, existingPrompt, isRefinementMode])
+
+  const loadVisualContext = async () => {
+    if (!projectId) return
+    try {
+      const context = await getVisualContext(projectId)
+      setVisualContext(context)
+    } catch (error) {
+      console.error("Failed to load visual context:", error)
+      // Don't show error toast - visual context is optional
+    }
+  }
 
   const loadModels = async () => {
     try {
@@ -263,6 +278,8 @@ Retorne APENAS o prompt de geração de imagem, sem explicações adicionais.`
         })
       } else {
         // Generate new image
+        // Skip visual context if manual references are selected OR if user explicitly disabled it
+        const shouldSkipVisualContext = selectedReferenceAssets.length > 0 || skipVisualContext
         response = await api.post("/image-generation/generate", {
           prompt,
           project_id: projectId,
@@ -274,7 +291,8 @@ Retorne APENAS o prompt de geração de imagem, sem explicações adicionais.`
           folder_id: folderId || undefined,
           reference_assets: selectedReferenceAssets.length > 0
             ? selectedReferenceAssets.map(a => ({ id: a.id, usage_mode: a.usage_mode }))
-            : undefined
+            : undefined,
+          skip_visual_context: shouldSkipVisualContext
         })
       }
 
@@ -515,6 +533,36 @@ Retorne APENAS o prompt de geração de imagem, sem explicações adicionais.`
                   className="mt-1"
                   disabled={isGenerating}
                 />
+              </div>
+            )}
+
+            {/* Visual Context Preview - T044 */}
+            {!isRefinementMode && visualContext?.is_enabled && visualContext.assets && visualContext.assets.length > 0 && selectedReferenceAssets.length === 0 && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm">Contexto Visual Automático</Label>
+                  <label className="flex items-center gap-2 text-xs cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={skipVisualContext}
+                      onChange={(e) => setSkipVisualContext(e.target.checked)}
+                      className="rounded border-gray-300"
+                      disabled={isGenerating}
+                    />
+                    <span className="text-muted-foreground">Desabilitar para esta geração</span>
+                  </label>
+                </div>
+                {!skipVisualContext && (
+                  <VisualContextPreview
+                    projectId={projectId}
+                    compact
+                  />
+                )}
+                {skipVisualContext && (
+                  <p className="text-xs text-muted-foreground italic">
+                    Contexto visual desabilitado para esta geração
+                  </p>
+                )}
               </div>
             )}
 
@@ -778,11 +826,22 @@ Retorne APENAS o prompt de geração de imagem, sem explicações adicionais.`
                     </div>
                   ) : generatedImage ? (
                     <div className="flex flex-col gap-3 w-full">
-                      <img
-                        src={generatedImage.file_url}
-                        alt={generatedImage.title}
-                        className="w-full h-auto rounded-lg border max-h-[400px] object-contain bg-black/5"
-                      />
+                      <div className="relative">
+                        <img
+                          src={generatedImage.file_url}
+                          alt={generatedImage.title}
+                          className="w-full h-auto rounded-lg border max-h-[400px] object-contain bg-black/5"
+                        />
+                        {/* Refinement count badge (Feature 016) */}
+                        {generatedImage.generation_metadata?.refinement_count > 0 && (
+                          <Badge
+                            variant="secondary"
+                            className="absolute top-2 right-2 bg-black/60 text-white border-none"
+                          >
+                            {generatedImage.generation_metadata.refinement_count}x refinado
+                          </Badge>
+                        )}
+                      </div>
 
                       {/* Refinement Input Area */}
                       <div className="flex flex-col gap-2 mt-2 p-3 bg-background rounded-lg border shadow-sm">

@@ -2,7 +2,13 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { useDropzone } from "react-dropzone"
-import api from "@/lib/api"
+import api, {
+    classifyAsset,
+    updateAssetMetadata,
+    getVisualAssetsSummary,
+    type AssetCategory,
+    type VisualAssetsSummary,
+} from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -46,7 +52,11 @@ import {
     Loader2,
     X,
     FileImage,
+    Sparkles,
+    RefreshCw,
 } from "lucide-react"
+import CategoryBadge from "./visual-assets/CategoryBadge"
+import AssetUploadModal from "./visual-assets/AssetUploadModal"
 
 interface VisualAsset {
     id: string
@@ -63,6 +73,10 @@ interface VisualAsset {
         color_mode: string
         tags: string[]
     }
+    // Smart Visual Assets fields (Feature 011)
+    asset_category?: AssetCategory
+    asset_tags?: string[]
+    ai_description?: string
     folder_id?: string
     created_at: string
     updated_at?: string
@@ -72,12 +86,24 @@ interface VisualAssetsLibraryProps {
     projectId: string
 }
 
+// Legacy asset types (keeping for backwards compatibility)
 const ASSET_TYPES = [
     { value: "logo", label: "Logo", icon: "🎨" },
     { value: "background", label: "Background", icon: "🖼️" },
     { value: "person", label: "Pessoa", icon: "👤" },
     { value: "reference", label: "Referência", icon: "📐" },
     { value: "other", label: "Outro", icon: "📁" },
+]
+
+// Smart category filters (Feature 011)
+const SMART_CATEGORIES: { value: AssetCategory | "all" | "unclassified"; label: string }[] = [
+    { value: "all", label: "Todas categorias" },
+    { value: "Logo", label: "Logo" },
+    { value: "Pessoa", label: "Pessoa" },
+    { value: "Background", label: "Background" },
+    { value: "Produto", label: "Produto" },
+    { value: "Outro", label: "Outro" },
+    { value: "unclassified", label: "Não classificados" },
 ]
 
 export default function VisualAssetsLibrary({ projectId }: VisualAssetsLibraryProps) {
@@ -87,6 +113,7 @@ export default function VisualAssetsLibrary({ projectId }: VisualAssetsLibraryPr
     const [isLoadingMore, setIsLoadingMore] = useState(false)
     const [isUploading, setIsUploading] = useState(false)
     const [selectedAssetType, setSelectedAssetType] = useState<string>("all")
+    const [selectedCategory, setSelectedCategory] = useState<string>("all")
     const [searchQuery, setSearchQuery] = useState("")
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
     const [assetToDelete, setAssetToDelete] = useState<VisualAsset | null>(null)
@@ -97,6 +124,10 @@ export default function VisualAssetsLibrary({ projectId }: VisualAssetsLibraryPr
     const [totalAssets, setTotalAssets] = useState(0)
     const [currentOffset, setCurrentOffset] = useState(0)
     const [hasMore, setHasMore] = useState(true)
+    // Feature 011: Smart Visual Assets
+    const [uploadModalOpen, setUploadModalOpen] = useState(false)
+    const [categorySummary, setCategorySummary] = useState<VisualAssetsSummary | null>(null)
+    const [classifyingAssetId, setClassifyingAssetId] = useState<string | null>(null)
     const { toast } = useToast()
 
     const LIMIT = 20 // Load 20 assets at a time
@@ -140,17 +171,70 @@ export default function VisualAssetsLibrary({ projectId }: VisualAssetsLibraryPr
         fetchAssets(currentOffset, true)
     }
 
+    // Fetch category summary for smart filtering
+    const fetchCategorySummary = async () => {
+        try {
+            const summary = await getVisualAssetsSummary(projectId)
+            setCategorySummary(summary)
+        } catch (error) {
+            console.error("Failed to fetch category summary:", error)
+        }
+    }
+
+    // Classify an asset with AI
+    const handleClassifyAsset = async (assetId: string) => {
+        setClassifyingAssetId(assetId)
+        try {
+            const result = await classifyAsset(assetId, true) // force reclassify
+
+            // Update the asset in local state
+            await updateAssetMetadata(assetId, {
+                category: result.suggested_category,
+                tags: result.suggested_tags,
+                ai_description: result.ai_description
+            })
+
+            toast({
+                title: "Asset classificado!",
+                description: `Classificado como "${result.suggested_category}"`
+            })
+
+            // Refresh assets list
+            fetchAssets()
+            fetchCategorySummary()
+        } catch (error: any) {
+            console.error("Classification failed:", error)
+            toast({
+                title: "Erro na classificação",
+                description: error.response?.data?.detail || "Não foi possível classificar o asset",
+                variant: "destructive"
+            })
+        } finally {
+            setClassifyingAssetId(null)
+        }
+    }
+
     useEffect(() => {
         fetchAssets()
+        fetchCategorySummary()
     }, [projectId])
 
     // Filter assets
     useEffect(() => {
         let filtered = assets
 
-        // Filter by asset type
+        // Filter by asset type (legacy)
         if (selectedAssetType !== "all") {
             filtered = filtered.filter((asset) => asset.asset_type === selectedAssetType)
+        }
+
+        // Filter by smart category (Feature 011)
+        if (selectedCategory !== "all") {
+            if (selectedCategory === "unclassified") {
+                filtered = filtered.filter((asset) => !asset.asset_category)
+            } else {
+                filtered = filtered.filter((asset) => asset.asset_category === selectedCategory)
+            }
         }
 
         // Filter by search query
@@ -160,12 +244,16 @@ export default function VisualAssetsLibrary({ projectId }: VisualAssetsLibraryPr
                     asset.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                     asset.asset_metadata?.tags?.some((tag) =>
                         tag.toLowerCase().includes(searchQuery.toLowerCase())
-                    )
+                    ) ||
+                    asset.asset_tags?.some((tag) =>
+                        tag.toLowerCase().includes(searchQuery.toLowerCase())
+                    ) ||
+                    asset.ai_description?.toLowerCase().includes(searchQuery.toLowerCase())
             )
         }
 
         setFilteredAssets(filtered)
-    }, [assets, selectedAssetType, searchQuery])
+    }, [assets, selectedAssetType, selectedCategory, searchQuery])
 
     // Upload asset
     const handleUpload = async (files: File[], assetType: string) => {
@@ -339,12 +427,17 @@ export default function VisualAssetsLibrary({ projectId }: VisualAssetsLibraryPr
     // Asset card component
     const AssetCard = ({ asset }: { asset: VisualAsset }) => {
         const typeInfo = ASSET_TYPES.find((t) => t.value === asset.asset_type)
+        const isClassifying = classifyingAssetId === asset.id
+        const isClassified = !!asset.asset_category
+
+        // Use smart tags (asset_tags) if available, fallback to legacy metadata tags
+        const displayTags = asset.asset_tags?.length ? asset.asset_tags : asset.asset_metadata?.tags
 
         return (
             <Card className="overflow-hidden group hover:shadow-md transition-shadow">
                 {/* Image with checkerboard background */}
                 <div
-                    className="aspect-square relative"
+                    className="aspect-square relative overflow-hidden"
                     style={{
                         backgroundImage: `
                             linear-gradient(45deg, #f0f0f0 25%, transparent 25%),
@@ -362,48 +455,76 @@ export default function VisualAssetsLibrary({ projectId }: VisualAssetsLibraryPr
                         alt={asset.title}
                         className="w-full h-full object-contain p-2"
                     />
+                    {/* Classifying overlay */}
+                    {isClassifying && (
+                        <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center">
+                            <Loader2 className="h-8 w-8 animate-spin text-white mb-2" />
+                            <span className="text-white text-sm">Classificando...</span>
+                        </div>
+                    )}
                     {/* Overlay on hover */}
-                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                        <Button
-                            size="sm"
-                            variant="secondary"
-                            onClick={() => handleDownload(asset)}
-                        >
-                            <Download className="h-4 w-4" />
-                        </Button>
-                        <Button
-                            size="sm"
-                            variant="secondary"
-                            onClick={() => {
-                                setEditingAsset(asset)
-                                setEditTitle(asset.title)
-                                setEditTags(asset.asset_metadata?.tags?.join(", ") || "")
-                                setEditAssetType(asset.asset_type)
-                            }}
-                        >
-                            <Edit2 className="h-4 w-4" />
-                        </Button>
-                        <Button
-                            size="sm"
-                            variant="destructive"
-                            onClick={() => {
-                                setAssetToDelete(asset)
-                                setDeleteDialogOpen(true)
-                            }}
-                        >
-                            <Trash2 className="h-4 w-4" />
-                        </Button>
-                    </div>
+                    {!isClassifying && (
+                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center p-4">
+                            <div className="flex flex-wrap items-center justify-center gap-2">
+                                <Button
+                                    size="sm"
+                                    variant="secondary"
+                                    onClick={() => handleDownload(asset)}
+                                    title="Download"
+                                >
+                                    <Download className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                    size="sm"
+                                    variant="secondary"
+                                    onClick={() => handleClassifyAsset(asset.id)}
+                                    title={isClassified ? "Reclassificar com IA" : "Classificar com IA"}
+                                >
+                                    <Sparkles className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                    size="sm"
+                                    variant="secondary"
+                                    onClick={() => {
+                                        setEditingAsset(asset)
+                                        setEditTitle(asset.title)
+                                        setEditTags(displayTags?.join(", ") || "")
+                                        setEditAssetType(asset.asset_type)
+                                    }}
+                                    title="Editar"
+                                >
+                                    <Edit2 className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                    size="sm"
+                                    variant="destructive"
+                                    onClick={() => {
+                                        setAssetToDelete(asset)
+                                        setDeleteDialogOpen(true)
+                                    }}
+                                    title="Arquivar"
+                                >
+                                    <Trash2 className="h-4 w-4" />
+                                </Button>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* Info */}
                 <div className="p-3">
                     <div className="flex items-start justify-between gap-2 mb-2">
                         <h4 className="font-medium text-sm truncate flex-1">{asset.title}</h4>
-                        <Badge variant="secondary" className="text-xs shrink-0">
-                            {typeInfo?.icon} {typeInfo?.label}
-                        </Badge>
+                        {/* Show smart category badge (Feature 011) */}
+                        <CategoryBadge category={asset.asset_category} size="sm" showIcon={false} />
                     </div>
+
+                    {/* AI Description preview */}
+                    {asset.ai_description && (
+                        <p className="text-xs text-muted-foreground line-clamp-2 mb-2">
+                            {asset.ai_description}
+                        </p>
+                    )}
 
                     {/* Metadata */}
                     <div className="text-xs text-muted-foreground space-y-1">
@@ -415,16 +536,16 @@ export default function VisualAssetsLibrary({ projectId }: VisualAssetsLibraryPr
                     </div>
 
                     {/* Tags */}
-                    {asset.asset_metadata?.tags && asset.asset_metadata.tags.length > 0 && (
+                    {displayTags && displayTags.length > 0 && (
                         <div className="flex flex-wrap gap-1 mt-2">
-                            {asset.asset_metadata.tags.slice(0, 3).map((tag, idx) => (
+                            {displayTags.slice(0, 3).map((tag, idx) => (
                                 <Badge key={idx} variant="outline" className="text-xs">
                                     {tag}
                                 </Badge>
                             ))}
-                            {asset.asset_metadata.tags.length > 3 && (
+                            {displayTags.length > 3 && (
                                 <Badge variant="outline" className="text-xs">
-                                    +{asset.asset_metadata.tags.length - 3}
+                                    +{displayTags.length - 3}
                                 </Badge>
                             )}
                         </div>
@@ -443,36 +564,61 @@ export default function VisualAssetsLibrary({ projectId }: VisualAssetsLibraryPr
                     <p className="text-sm text-muted-foreground">
                         Logos, backgrounds e referências para usar nas gerações de imagem
                     </p>
-                </div>
-                <Button
-                    onClick={() => document.getElementById("asset-upload-input")?.click()}
-                    disabled={isUploading}
-                    className="gap-2"
-                >
-                    {isUploading ? (
-                        <>
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                            Enviando...
-                        </>
-                    ) : (
-                        <>
-                            <Upload className="h-4 w-4" />
-                            Fazer Upload
-                        </>
+                    {/* Category summary */}
+                    {categorySummary && (
+                        <div className="flex gap-2 mt-2 flex-wrap">
+                            {Object.entries(categorySummary.by_category)
+                                .filter(([_, count]) => count > 0)
+                                .map(([cat, count]) => (
+                                    <Badge key={cat} variant="outline" className="text-xs">
+                                        {cat}: {count}
+                                    </Badge>
+                                ))}
+                        </div>
                     )}
-                </Button>
-                <input
-                    id="asset-upload-input"
-                    type="file"
-                    accept="image/png,image/jpeg,image/webp"
-                    multiple
-                    className="hidden"
-                    onChange={(e) => {
-                        if (e.target.files && e.target.files.length > 0) {
-                            handleUpload(Array.from(e.target.files), "other")
-                        }
-                    }}
-                />
+                </div>
+                <div className="flex gap-2">
+                    {/* Legacy upload button (hidden input) */}
+                    <input
+                        id="asset-upload-input"
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp"
+                        multiple
+                        className="hidden"
+                        onChange={(e) => {
+                            if (e.target.files && e.target.files.length > 0) {
+                                handleUpload(Array.from(e.target.files), "other")
+                            }
+                        }}
+                    />
+                    {/* Smart Upload button with AI classification (Feature 011) */}
+                    <Button
+                        onClick={() => setUploadModalOpen(true)}
+                        className="gap-2"
+                    >
+                        <Sparkles className="h-4 w-4" />
+                        Upload com IA
+                    </Button>
+                    {/* Legacy upload button */}
+                    <Button
+                        variant="outline"
+                        onClick={() => document.getElementById("asset-upload-input")?.click()}
+                        disabled={isUploading}
+                        className="gap-2"
+                    >
+                        {isUploading ? (
+                            <>
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                                Enviando...
+                            </>
+                        ) : (
+                            <>
+                                <Upload className="h-4 w-4" />
+                                Upload Simples
+                            </>
+                        )}
+                    </Button>
+                </div>
             </div>
 
             {/* Filters */}
@@ -480,12 +626,26 @@ export default function VisualAssetsLibrary({ projectId }: VisualAssetsLibraryPr
                 <div className="relative flex-1">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
-                        placeholder="Buscar por nome ou tags..."
+                        placeholder="Buscar por nome, tags ou descrição..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         className="pl-9"
                     />
                 </div>
+                {/* Smart Category Filter (Feature 011) */}
+                <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                    <SelectTrigger className="w-[180px]">
+                        <SelectValue placeholder="Categoria IA" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {SMART_CATEGORIES.map((cat) => (
+                            <SelectItem key={cat.value} value={cat.value}>
+                                {cat.label}
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+                {/* Legacy Asset Type Filter */}
                 <AssetTypeFilter />
             </div>
 
@@ -614,6 +774,17 @@ export default function VisualAssetsLibrary({ projectId }: VisualAssetsLibraryPr
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
+
+            {/* Smart Upload Modal with AI Classification (Feature 011) */}
+            <AssetUploadModal
+                open={uploadModalOpen}
+                onOpenChange={setUploadModalOpen}
+                projectId={projectId}
+                onUploadComplete={() => {
+                    fetchAssets()
+                    fetchCategorySummary()
+                }}
+            />
         </div>
     )
 }

@@ -20,6 +20,8 @@ import os
 import uuid
 import secrets
 from export_service import export_to_pdf, export_to_docx, export_to_markdown
+from storage_service import delete_file as delete_from_storage, R2_PUBLIC_URL
+from schemas import DeleteImagePermanentResponse, DetachImageResponse
 
 router = APIRouter(
     prefix="/documents",
@@ -28,6 +30,27 @@ router = APIRouter(
 
 UPLOAD_DIR = "/tmp/xtyl_uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+
+def extract_object_key_from_url(url: str) -> Optional[str]:
+    """Extract the R2 object key from a public URL."""
+    if not url:
+        return None
+
+    # Handle R2 public URL format
+    if R2_PUBLIC_URL and url.startswith(R2_PUBLIC_URL):
+        return url[len(R2_PUBLIC_URL):].lstrip('/')
+
+    # Fallback: try to extract path after the bucket name or domain
+    # URL format: https://domain.com/path/to/file.ext
+    from urllib.parse import urlparse
+    parsed = urlparse(url)
+    if parsed.path:
+        # Remove leading slash
+        return parsed.path.lstrip('/')
+
+    return None
+
 
 @router.post("/upload/{project_id}")
 async def upload_document(
@@ -502,20 +525,25 @@ async def attach_image_to_document(
     return db_attachment
 
 
-@router.delete("/{document_id}/attachments/{attachment_id}")
+@router.delete("/{document_id}/attachments/{attachment_id}", response_model=DetachImageResponse)
 async def remove_image_attachment(
     document_id: str,
     attachment_id: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Remove an image attachment from a document"""
+    """
+    Detach an image from a document (keeps image in library).
+
+    This only removes the attachment link - the image remains in storage
+    and can be reattached or used elsewhere.
+    """
     # Verify document exists
     doc = get_document(db, document_id)
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
 
-    # Find and delete attachment
+    # Find attachment
     attachment = db.query(DocumentAttachment).filter(
         DocumentAttachment.id == attachment_id,
         DocumentAttachment.document_id == document_id
@@ -524,10 +552,16 @@ async def remove_image_attachment(
     if not attachment:
         raise HTTPException(status_code=404, detail="Attachment not found")
 
+    image_id = attachment.image_id
+
     db.delete(attachment)
     db.commit()
 
-    return {"message": "Attachment removed successfully", "id": attachment_id}
+    return DetachImageResponse(
+        success=True,
+        message="Image detached from document (still available in library)",
+        image_id=image_id
+    )
 
 
 @router.put("/{document_id}/attachments/{attachment_id}", response_model=DocumentAttachmentSchema)
@@ -573,3 +607,104 @@ async def update_image_attachment(
     db.refresh(attachment)
 
     return attachment
+
+
+@router.delete("/{document_id}/attachments/{attachment_id}/permanent", response_model=DeleteImagePermanentResponse)
+async def delete_image_permanent(
+    document_id: str,
+    attachment_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Permanently delete an attached image from the document AND from storage.
+
+    This action:
+    1. Removes the attachment record
+    2. Deletes the image document record
+    3. Deletes the actual file(s) from R2 storage
+
+    WARNING: This is a destructive action that cannot be undone.
+
+    Validation:
+    - Will fail if this image is used as original_image_id by another document
+      (to prevent breaking refinement chains)
+    """
+    # Verify parent document exists
+    doc = get_document(db, document_id)
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    # Find attachment
+    attachment = db.query(DocumentAttachment).filter(
+        DocumentAttachment.id == attachment_id,
+        DocumentAttachment.document_id == document_id
+    ).first()
+
+    if not attachment:
+        raise HTTPException(status_code=404, detail="Attachment not found")
+
+    # Get the image document
+    image_doc = db.query(Document).filter(Document.id == attachment.image_id).first()
+    if not image_doc:
+        # Attachment exists but image is gone - just clean up the attachment
+        db.delete(attachment)
+        db.commit()
+        return DeleteImagePermanentResponse(
+            success=True,
+            message="Attachment removed (image was already deleted)",
+            deleted_files=[]
+        )
+
+    # Check if this image is used as original_image_id by another document
+    # This prevents breaking refinement chains
+    dependent_doc = db.query(Document).filter(
+        Document.original_image_id == image_doc.id,
+        Document.id != image_doc.id  # Exclude self-reference
+    ).first()
+
+    if dependent_doc:
+        raise HTTPException(
+            status_code=409,
+            detail="Cannot delete: this image is the original reference for another refined image. Delete the refined image first."
+        )
+
+    # Collect files to delete
+    deleted_files = []
+    storage_errors = []
+
+    # Delete files from R2 storage
+    for url_attr in ['file_url', 'thumbnail_url']:
+        url = getattr(image_doc, url_attr, None)
+        if url:
+            object_key = extract_object_key_from_url(url)
+            if object_key:
+                try:
+                    delete_from_storage(object_key)
+                    deleted_files.append(object_key)
+                except Exception as e:
+                    # Log but don't fail - file might not exist
+                    storage_errors.append(f"{url_attr}: {str(e)}")
+
+    # Delete the attachment record
+    db.delete(attachment)
+
+    # Delete any other attachments pointing to this image
+    db.query(DocumentAttachment).filter(
+        DocumentAttachment.image_id == image_doc.id
+    ).delete()
+
+    # Delete the image document itself
+    db.delete(image_doc)
+
+    db.commit()
+
+    message = "Image permanently deleted from document and storage"
+    if storage_errors:
+        message += f" (storage warnings: {', '.join(storage_errors)})"
+
+    return DeleteImagePermanentResponse(
+        success=True,
+        message=message,
+        deleted_files=deleted_files
+    )
