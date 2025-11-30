@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/dialog"
 import { useFolders, useCreateFolder, useUpdateFolder, useArchiveFolder, useMoveFolder } from "@/hooks/use-folders"
 import { useMoveDocument } from "@/hooks/use-documents"
+import { useConfirm } from "@/components/confirm-dialog"
 import type { Folder as FolderType } from "@/types/supabase"
 
 interface Document {
@@ -73,6 +74,7 @@ export default function FolderTree({
   const archiveFolder = useArchiveFolder()
   const moveFolder = useMoveFolder()
   const moveDocument = useMoveDocument()
+  const confirm = useConfirm()
 
   const buildTree = (): TreeNode[] => {
     const tree: TreeNode[] = []
@@ -176,8 +178,15 @@ export default function FolderTree({
     )
   }
 
-  const handleDeleteFolder = (folder: FolderType) => {
-    if (!confirm(`Arquivar pasta "${folder.name}" e todo seu conteúdo?`)) return
+  const handleDeleteFolder = async (folder: FolderType) => {
+    const confirmed = await confirm({
+      title: "Arquivar pasta",
+      description: `Arquivar pasta "${folder.name}" e todo seu conteúdo?`,
+      confirmLabel: "Arquivar",
+      cancelLabel: "Cancelar",
+      variant: "destructive",
+    })
+    if (!confirmed) return
 
     archiveFolder.mutate(
       { id: folder.id, cascade: true },

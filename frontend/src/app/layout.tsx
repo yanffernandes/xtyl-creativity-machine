@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { ThemeProvider } from "@/components/theme-provider";
 import { GradientBackground } from "@/components/GradientBackground";
 import { QueryProvider } from "@/components/providers/QueryProvider";
+import { ConfirmDialogProvider } from "@/components/confirm-dialog";
 
 /**
  * Inter Variable Font - Premium Typography
@@ -44,9 +45,11 @@ export default function RootLayout({
             enableSystem
             disableTransitionOnChange={false}
           >
-            <GradientBackground />
-            {children}
-            <Toaster />
+            <ConfirmDialogProvider>
+              <GradientBackground />
+              {children}
+              <Toaster />
+            </ConfirmDialogProvider>
           </ThemeProvider>
         </QueryProvider>
       </body>

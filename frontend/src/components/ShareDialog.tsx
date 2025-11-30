@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useToast } from "@/hooks/use-toast"
+import { useConfirm } from "@/components/confirm-dialog"
 import { Copy, Check, Share2, X, ExternalLink } from "lucide-react"
 import api from "@/lib/api"
 
@@ -26,6 +27,7 @@ export default function ShareDialog({ open, onOpenChange, documentId, documentTi
     const [isLoading, setIsLoading] = useState(false)
     const [expirationDays, setExpirationDays] = useState<string>("never")
     const { toast } = useToast()
+    const confirm = useConfirm()
 
     useEffect(() => {
         if (open && documentId) {
@@ -97,9 +99,14 @@ export default function ShareDialog({ open, onOpenChange, documentId, documentTi
     const handleRevokeShare = async () => {
         if (!documentId) return
 
-        if (!confirm("Tem certeza que deseja revogar o compartilhamento? O link atual deixará de funcionar.")) {
-            return
-        }
+        const confirmed = await confirm({
+            title: "Revogar compartilhamento",
+            description: "Tem certeza que deseja revogar o compartilhamento? O link atual deixará de funcionar.",
+            confirmLabel: "Revogar",
+            cancelLabel: "Cancelar",
+            variant: "destructive",
+        })
+        if (!confirmed) return
 
         setIsLoading(true)
         try {

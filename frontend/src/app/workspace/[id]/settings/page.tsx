@@ -19,6 +19,7 @@ import WorkspaceSidebar from "@/components/WorkspaceSidebar"
 import Breadcrumbs from "@/components/Breadcrumbs"
 import { Home, SettingsIcon } from "lucide-react"
 import { useWorkspace, useUpdateWorkspace, useWorkspaceMembers, useRemoveWorkspaceMember } from "@/hooks/use-workspaces"
+import { useConfirm } from "@/components/confirm-dialog"
 
 interface Workspace {
     id: string
@@ -52,6 +53,7 @@ export default function SettingsPage() {
     const { session, isLoading: authLoading } = useAuthStore()
     const { toast } = useToast()
     const { theme, setTheme } = useTheme()
+    const confirm = useConfirm()
 
     // Supabase hooks for workspace and members
     const { data: workspace, isLoading: workspaceLoading } = useWorkspace(workspaceId)
@@ -154,8 +156,15 @@ export default function SettingsPage() {
         }
     }
 
-    const handleRemoveMember = (memberId: string) => {
-        if (!confirm("Tem certeza que deseja remover este membro?")) return
+    const handleRemoveMember = async (memberId: string) => {
+        const confirmed = await confirm({
+            title: "Remover membro",
+            description: "Tem certeza que deseja remover este membro?",
+            confirmLabel: "Remover",
+            cancelLabel: "Cancelar",
+            variant: "destructive",
+        })
+        if (!confirmed) return
 
         removeMember.mutate({ workspaceId, userId: memberId })
     }

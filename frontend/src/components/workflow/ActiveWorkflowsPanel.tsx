@@ -14,6 +14,8 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { toast } from "@/components/ui/use-toast";
+import { useConfirm } from "@/components/confirm-dialog";
 import api from "@/lib/api";
 import { useRouter } from "next/navigation";
 
@@ -42,6 +44,7 @@ export default function ActiveWorkflowsPanel({
   workspaceId,
 }: ActiveWorkflowsPanelProps) {
   const router = useRouter();
+  const confirm = useConfirm();
   const [executions, setExecutions] = useState<ActiveExecution[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -75,7 +78,11 @@ export default function ActiveWorkflowsPanel({
       await fetchActiveExecutions();
     } catch (error) {
       console.error("Error pausing execution:", error);
-      alert("Failed to pause workflow");
+      toast({
+        title: "Erro",
+        description: "Falha ao pausar workflow",
+        variant: "destructive",
+      });
     }
   };
 
@@ -85,21 +92,34 @@ export default function ActiveWorkflowsPanel({
       await fetchActiveExecutions();
     } catch (error) {
       console.error("Error resuming execution:", error);
-      alert("Failed to resume workflow");
+      toast({
+        title: "Erro",
+        description: "Falha ao retomar workflow",
+        variant: "destructive",
+      });
     }
   };
 
   const handleStop = async (executionId: string) => {
-    if (!confirm("Are you sure you want to stop this workflow? This action cannot be undone.")) {
-      return;
-    }
+    const confirmed = await confirm({
+      title: "Parar Workflow",
+      description: "Tem certeza que deseja parar este workflow? Esta ação não pode ser desfeita.",
+      confirmLabel: "Parar",
+      cancelLabel: "Cancelar",
+      variant: "destructive",
+    });
+    if (!confirmed) return;
 
     try {
       await api.post(`/workflows/executions/${executionId}/stop`);
       await fetchActiveExecutions();
     } catch (error) {
       console.error("Error stopping execution:", error);
-      alert("Failed to stop workflow");
+      toast({
+        title: "Erro",
+        description: "Falha ao parar workflow",
+        variant: "destructive",
+      });
     }
   };
 

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useWorkflowExecution } from "@/hooks/useWorkflowExecution";
 import ExecutionProgress from "@/components/workflow/ExecutionProgress";
+import { useConfirm } from "@/components/confirm-dialog";
 
 export default function ExecutionDetailPage() {
   const params = useParams();
@@ -14,6 +15,7 @@ export default function ExecutionDetailPage() {
   const executionId = params.executionId as string;
 
   const { executionState, pauseExecution, resumeExecution, stopExecution } = useWorkflowExecution(executionId);
+  const confirm = useConfirm();
 
   const handlePause = async () => {
     await pauseExecution(executionId);
@@ -24,9 +26,14 @@ export default function ExecutionDetailPage() {
   };
 
   const handleStop = async () => {
-    if (!confirm("Are you sure you want to stop this workflow? This action cannot be undone.")) {
-      return;
-    }
+    const confirmed = await confirm({
+      title: "Stop Workflow",
+      description: "Are you sure you want to stop this workflow? This action cannot be undone.",
+      confirmLabel: "Stop",
+      cancelLabel: "Cancel",
+      variant: "destructive",
+    });
+    if (!confirmed) return;
     await stopExecution(executionId);
   };
 

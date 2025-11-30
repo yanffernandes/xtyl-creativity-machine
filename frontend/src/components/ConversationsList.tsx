@@ -28,6 +28,7 @@ import {
   useDeleteConversation,
   useArchiveConversation,
 } from "@/hooks/use-conversations";
+import { useConfirm } from "@/components/confirm-dialog";
 
 interface ConversationsListProps {
   workspaceId: string;
@@ -51,6 +52,7 @@ export default function ConversationsList({
   const { data: archivedConversations, isLoading: archivedLoading } = useArchivedConversations();
   const deleteConversation = useDeleteConversation();
   const archiveConversation = useArchiveConversation();
+  const confirm = useConfirm();
 
   // Determine which conversations to show based on filters
   const conversations = useMemo(() => {
@@ -65,9 +67,16 @@ export default function ConversationsList({
 
   const loading = showArchived ? archivedLoading : (projectId ? projectLoading : workspaceLoading);
 
-  const handleDelete = (conversationId: string, e: React.MouseEvent) => {
+  const handleDelete = async (conversationId: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!confirm("Tem certeza que deseja excluir esta conversa?")) return;
+    const confirmed = await confirm({
+      title: "Excluir conversa",
+      description: "Tem certeza que deseja excluir esta conversa?",
+      confirmLabel: "Excluir",
+      cancelLabel: "Cancelar",
+      variant: "destructive",
+    });
+    if (!confirmed) return;
     deleteConversation.mutate(conversationId);
   };
 

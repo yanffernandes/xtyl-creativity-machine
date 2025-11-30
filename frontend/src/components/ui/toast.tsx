@@ -23,13 +23,19 @@ const ToastViewport = React.forwardRef<
 ToastViewport.displayName = ToastPrimitives.Viewport.displayName
 
 const toastVariants = cva(
-    "group pointer-events-auto relative flex w-full items-center justify-between space-x-4 overflow-hidden rounded-md border p-6 pr-8 shadow-lg transition-all data-[swipe=cancel]:translate-x-0 data-[swipe=end]:translate-x-[var(--radix-toast-swipe-end-x)] data-[swipe=move]:translate-x-[var(--radix-toast-swipe-move-x)] data-[swipe=move]:transition-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[swipe=end]:animate-out data-[state=closed]:fade-out-80 data-[state=closed]:slide-out-to-right-full data-[state=open]:slide-in-from-top-full data-[state=open]:sm:slide-in-from-bottom-full",
+    "group pointer-events-auto relative flex w-full items-center justify-between space-x-4 overflow-hidden rounded-xl border p-6 pr-8 shadow-2xl backdrop-blur-xl transition-all data-[swipe=cancel]:translate-x-0 data-[swipe=end]:translate-x-[var(--radix-toast-swipe-end-x)] data-[swipe=move]:translate-x-[var(--radix-toast-swipe-move-x)] data-[swipe=move]:transition-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[swipe=end]:animate-out data-[state=closed]:fade-out-80 data-[state=closed]:slide-out-to-right-full data-[state=open]:slide-in-from-top-full data-[state=open]:sm:slide-in-from-bottom-full",
     {
         variants: {
             variant: {
-                default: "border bg-background text-foreground",
+                default: "border border-white/20 bg-white/80 dark:bg-gray-900/80 text-foreground",
                 destructive:
-                    "destructive group border-destructive bg-destructive text-destructive-foreground",
+                    "destructive group border-red-500/30 bg-red-50/80 dark:bg-red-950/80 text-red-900 dark:text-red-100",
+                success:
+                    "success group border-green-500/30 bg-green-50/80 dark:bg-green-950/80 text-green-900 dark:text-green-100",
+                warning:
+                    "warning group border-amber-500/30 bg-amber-50/80 dark:bg-amber-950/80 text-amber-900 dark:text-amber-100",
+                info:
+                    "info group border-blue-500/30 bg-blue-50/80 dark:bg-blue-950/80 text-blue-900 dark:text-blue-100",
             },
         },
         defaultVariants: {

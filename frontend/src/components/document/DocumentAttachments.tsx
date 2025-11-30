@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Star, Trash2, Image as ImageIcon, Plus, Expand, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { useConfirm } from "@/components/confirm-dialog";
 import api from "@/lib/api";
 
 interface ImageAttachment {
@@ -36,6 +37,7 @@ export default function DocumentAttachments({
   const [attachments, setAttachments] = useState<ImageAttachment[]>([]);
   const [loading, setLoading] = useState(true);
   const [viewingImage, setViewingImage] = useState<ImageAttachment | null>(null);
+  const confirm = useConfirm();
 
   const fetchAttachments = async () => {
     try {
@@ -65,7 +67,14 @@ export default function DocumentAttachments({
   };
 
   const handleRemove = async (attachmentId: string) => {
-    if (!confirm("Remove this image from the document?")) return;
+    const confirmed = await confirm({
+      title: "Remove Image",
+      description: "Remove this image from the document?",
+      confirmLabel: "Remove",
+      cancelLabel: "Cancel",
+      variant: "destructive",
+    });
+    if (!confirmed) return;
 
     try {
       await api.delete(`/documents/${documentId}/attachments/${attachmentId}`);

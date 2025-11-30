@@ -7,6 +7,7 @@ import { X, Download, Maximize2, Minimize2, ZoomIn, ZoomOut, Sparkles, ChevronLe
 import { cn } from "@/lib/utils"
 import api from "@/lib/api"
 import { useToast } from "@/hooks/use-toast"
+import { useConfirm } from "@/components/confirm-dialog"
 
 interface ImageDocument {
   id: string
@@ -32,6 +33,7 @@ export default function ImageViewer({ image, onClose, onRefine, onArchive, allIm
   const [isEditingTitle, setIsEditingTitle] = useState(false)
   const [editedTitle, setEditedTitle] = useState(image?.title || "")
   const { toast } = useToast()
+  const confirm = useConfirm()
 
   if (!image) return null
 
@@ -67,7 +69,14 @@ export default function ImageViewer({ image, onClose, onRefine, onArchive, allIm
   }
 
   const handleArchive = async () => {
-    if (!confirm("Tem certeza que deseja arquivar esta imagem?")) return
+    const confirmed = await confirm({
+      title: "Arquivar imagem",
+      description: "Tem certeza que deseja arquivar esta imagem?",
+      confirmLabel: "Arquivar",
+      cancelLabel: "Cancelar",
+      variant: "destructive",
+    })
+    if (!confirmed) return
 
     try {
       await api.delete(`/documents/${image.id}`)

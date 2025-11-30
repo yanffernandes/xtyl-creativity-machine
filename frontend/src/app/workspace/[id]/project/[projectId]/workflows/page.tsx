@@ -12,6 +12,7 @@ import WorkspaceSidebar from "@/components/WorkspaceSidebar";
 import Breadcrumbs from "@/components/Breadcrumbs";
 import LoadingSkeleton from "@/components/LoadingSkeleton";
 import EmptyState from "@/components/EmptyState";
+import { useConfirm } from "@/components/confirm-dialog";
 import { Workflow } from "lucide-react";
 
 interface WorkflowTemplate {
@@ -39,6 +40,7 @@ export default function ProjectWorkflowsPage() {
 
   const { session, isLoading: authLoading } = useAuthStore();
   const { toast } = useToast();
+  const confirm = useConfirm();
 
   useEffect(() => {
     if (authLoading) return;
@@ -121,7 +123,14 @@ export default function ProjectWorkflowsPage() {
   };
 
   const handleDeleteWorkflow = async (workflowId: string) => {
-    if (!confirm("Tem certeza que deseja excluir este workflow?")) return;
+    const confirmed = await confirm({
+      title: "Excluir workflow",
+      description: "Tem certeza que deseja excluir este workflow?",
+      confirmLabel: "Excluir",
+      cancelLabel: "Cancelar",
+      variant: "destructive",
+    });
+    if (!confirmed) return;
 
     try {
       await api.delete(`/workflows/${workflowId}`);

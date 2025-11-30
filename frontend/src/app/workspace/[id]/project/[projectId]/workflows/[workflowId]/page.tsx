@@ -16,6 +16,7 @@ import LoadingSkeleton from "@/components/LoadingSkeleton";
 import { cn } from "@/lib/utils";
 import { floatingGlassSidebarClasses } from "@/lib/glass-utils";
 import { WorkflowNode, WorkflowEdge, NodeType } from "@/lib/workflow-schema";
+import { useConfirm } from "@/components/confirm-dialog";
 
 interface WorkflowTemplate {
   id: string;
@@ -48,6 +49,7 @@ export default function WorkflowEditorPage() {
 
   const { session, isLoading: authLoading } = useAuthStore();
   const { toast } = useToast();
+  const confirm = useConfirm();
 
   const {
     nodes,
@@ -397,7 +399,14 @@ export default function WorkflowEditorPage() {
   }, [executionState.executionId, stopExecution]);
 
   const handleDelete = useCallback(async () => {
-    if (!confirm("Are you sure you want to delete this workflow?")) return;
+    const confirmed = await confirm({
+      title: "Delete Workflow",
+      description: "Are you sure you want to delete this workflow?",
+      confirmLabel: "Delete",
+      cancelLabel: "Cancel",
+      variant: "destructive",
+    });
+    if (!confirmed) return;
 
     try {
       await api.delete(`/workflows/${workflowId}`);
@@ -414,7 +423,7 @@ export default function WorkflowEditorPage() {
         variant: "destructive",
       });
     }
-  }, [workflowId, workspaceId, projectId, router, toast]);
+  }, [workflowId, workspaceId, projectId, router, toast, confirm]);
 
   if (isLoading) {
     return (

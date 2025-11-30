@@ -15,7 +15,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Card } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { useToast } from "@/components/ui/use-toast"
-import { Loader2, Plus, Upload, FileText, MoreHorizontal, Trash, X, Star, FolderOpen, Home, Sparkles, ImageIcon, Download, FileType, Share2, Workflow, ArrowRight, Settings } from "lucide-react"
+import { Loader2, Plus, Upload, FileText, MoreHorizontal, Trash, X, Star, FolderOpen, Home, Sparkles, Download, FileType, Share2, Workflow, ArrowRight, Settings } from "lucide-react"
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -51,6 +51,7 @@ import ShareDialog from "@/components/ShareDialog"
 import VisualAssetsLibrary from "@/components/VisualAssetsLibrary"
 import DocumentAttachments from "@/components/document/DocumentAttachments"
 import AttachImageModal from "@/components/document/AttachImageModal"
+import { useConfirm } from "@/components/confirm-dialog"
 
 interface DocumentAttachment {
     id: string
@@ -114,12 +115,13 @@ export default function ProjectPage() {
     const { session, isLoading: authLoading } = useAuthStore()
     const router = useRouter()
     const { toast } = useToast()
+    const confirm = useConfirm()
 
     // Use Supabase hooks for workspace, projects, and documents
     // These MUST be declared before any useEffects that use their data
     const { data: workspace } = useWorkspace(workspaceId)
     const { data: projects = [] } = useProjects(workspaceId)
-    const { data: documents = [], isLoading: docsLoading, refetch: refetchDocuments } = useDocuments(projectId)
+    const { data: documents = [], isLoading: docsLoading, isRefreshing: docsRefreshing, isInitialLoad: docsInitialLoad, refetch: refetchDocuments } = useDocuments(projectId)
     const { data: contextFiles = [], isLoading: contextLoading, refetch: refetchContextFiles } = useContextFiles(projectId)
     const toggleContextMutation = useToggleContext()
 
@@ -572,7 +574,14 @@ export default function ProjectPage() {
 
     const handleDelete = async (e: React.MouseEvent, doc: Document) => {
         e.stopPropagation()
-        if (!confirm("Tem certeza que deseja excluir este item?")) return
+        const confirmed = await confirm({
+            title: "Excluir documento",
+            description: "Tem certeza que deseja excluir este item?",
+            confirmLabel: "Excluir",
+            cancelLabel: "Cancelar",
+            variant: "destructive",
+        })
+        if (!confirmed) return
 
         try {
             await api.delete(`/documents/${doc.id}`)
@@ -884,7 +893,12 @@ export default function ProjectPage() {
                             {tab === "creations" ? (
                                 <div className="h-full flex flex-col gap-6">
                                     <div className="flex items-center justify-between">
-                                        <h3 className="font-bold text-lg">Criações</h3>
+                                        <div className="flex items-center gap-2">
+                                            <h3 className="font-bold text-lg">Criações</h3>
+                                            {docsRefreshing && (
+                                                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                                            )}
+                                        </div>
                                         <Button onClick={handleCreateCreation} className="gap-2">
                                             <Plus className="h-4 w-4" />
                                             Nova Criação
@@ -892,7 +906,7 @@ export default function ProjectPage() {
                                     </div>
 
                                     <div className="flex-1 overflow-x-auto">
-                                        {isLoading ? (
+                                        {docsInitialLoad ? (
                                             <LoadingSkeleton type="kanban" />
                                         ) : creations.length === 0 ? (
                                             <EmptyState

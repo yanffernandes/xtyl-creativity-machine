@@ -12,6 +12,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
+import { toast } from "@/components/ui/use-toast";
 import api from "@/lib/api";
 
 interface Image {
@@ -89,7 +90,11 @@ export default function AttachImageModal({
       newSelected.delete(imageId);
     } else {
       if (newSelected.size >= 20) {
-        alert("Maximum 20 images can be attached");
+        toast({
+          title: "Limite atingido",
+          description: "Máximo de 20 imagens podem ser anexadas",
+          variant: "warning",
+        });
         return;
       }
       newSelected.add(imageId);
@@ -99,7 +104,11 @@ export default function AttachImageModal({
 
   const handleAttach = async () => {
     if (selectedImages.size === 0) {
-      alert("Please select at least one image");
+      toast({
+        title: "Seleção vazia",
+        description: "Selecione pelo menos uma imagem",
+        variant: "warning",
+      });
       return;
     }
 
@@ -112,7 +121,11 @@ export default function AttachImageModal({
       );
 
       if (newImageIds.length === 0) {
-        alert("All selected images are already attached");
+        toast({
+          title: "Imagens já anexadas",
+          description: "Todas as imagens selecionadas já estão anexadas",
+          variant: "info",
+        });
         return;
       }
 
@@ -130,7 +143,11 @@ export default function AttachImageModal({
       onSuccess(); // Call after closing to trigger parent refresh
     } catch (error) {
       console.error("Error attaching images:", error);
-      alert("Failed to attach images. Please try again.");
+      toast({
+        title: "Erro",
+        description: "Falha ao anexar imagens. Tente novamente.",
+        variant: "destructive",
+      });
     } finally {
       setAttaching(false);
     }
