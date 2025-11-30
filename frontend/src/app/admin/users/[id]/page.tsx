@@ -1,5 +1,8 @@
 'use client';
 
+// Prevent static generation - requires runtime environment variables
+export const dynamic = 'force-dynamic';
+
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { AdminHeader } from '@/components/admin/AdminHeader';

@@ -1,5 +1,8 @@
 'use client';
 
+// Prevent static generation - requires runtime environment variables
+export const dynamic = 'force-dynamic';
+
 import { useState, useCallback } from 'react';
 import { AdminHeader } from '@/components/admin/AdminHeader';
 import { WorkspaceTable } from '@/components/admin/WorkspaceTable';
