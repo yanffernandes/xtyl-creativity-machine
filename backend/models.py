@@ -1,5 +1,5 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, Boolean, DateTime, Text, Numeric
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy import Column, Integer, String, ForeignKey, Boolean, DateTime, Text, Numeric, ARRAY
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from database import Base
@@ -9,16 +9,27 @@ def generate_uuid():
     return str(uuid.uuid4())
 
 class User(Base):
+    """
+    User model - synced from Supabase Auth via database trigger.
+    The id matches auth.users.id from Supabase.
+    Password management is handled by Supabase Auth, not stored here.
+    """
     __tablename__ = "users"
 
-    id = Column(String, primary_key=True, default=generate_uuid)
-    email = Column(String, unique=True, index=True)
-    hashed_password = Column(String)
-    full_name = Column(String)
-    is_active = Column(Boolean, default=True)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    email = Column(String, unique=True, index=True, nullable=False)
+    full_name = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    # Admin Panel fields (Feature 015)
+    is_super_admin = Column(Boolean, default=False, index=True)
+    is_blocked = Column(Boolean, default=False, index=True)
+    blocked_at = Column(DateTime(timezone=True), nullable=True)
+    blocked_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
 
     workspaces = relationship("WorkspaceUser", back_populates="user")
+    blocker = relationship("User", remote_side=[id], foreign_keys=[blocked_by])
 
 class Workspace(Base):
     __tablename__ = "workspaces"
@@ -52,6 +63,7 @@ class Project(Base):
     name = Column(String, index=True)
     description = Column(Text, nullable=True)
     workspace_id = Column(String, ForeignKey("workspaces.id"))
+    settings = Column(JSONB, default=dict)  # Project settings for AI context
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     workspace = relationship("Workspace", back_populates="projects")
@@ -79,7 +91,7 @@ class Document(Base):
     id = Column(String, primary_key=True, default=generate_uuid)
     title = Column(String)
     content = Column(Text) # Markdown content
-    status = Column(String, default="draft") # draft, review, approved, production
+    status = Column(String, default="draft") # draft, text_ok, art_ok, done, published
     project_id = Column(String, ForeignKey("projects.id"))
     folder_id = Column(String, ForeignKey("folders.id"), nullable=True)
 
@@ -99,12 +111,26 @@ class Document(Base):
     share_token = Column(String, unique=True, nullable=True, index=True)
     share_expires_at = Column(DateTime(timezone=True), nullable=True)
 
+    # Context file for RAG (reference material, not a creation)
+    is_context = Column(Boolean, default=False)
+
+    # Smart Visual Assets fields (Feature 011)
+    asset_category = Column(String(20), nullable=True)  # Logo, Pessoa, Background, Produto, Outro
+    asset_tags = Column(ARRAY(Text), nullable=True)  # Array of descriptive tags
+    ai_description = Column(Text, nullable=True)  # AI-generated description (max 500 chars)
+
+    # Image Refinement fields (Feature 016 - V1 Polish)
+    original_image_id = Column(String, ForeignKey("documents.id"), nullable=True)  # Reference to original image for refinements
+    refinement_history = Column(JSONB, nullable=True, default=list)  # Array of {prompt, applied_at}
+
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     deleted_at = Column(DateTime(timezone=True), nullable=True)
 
     project = relationship("Project", back_populates="documents")
     folder = relationship("Folder", back_populates="documents")
+    attachments = relationship("DocumentAttachment", foreign_keys="[DocumentAttachment.document_id]", back_populates="document")
+    original_image = relationship("Document", remote_side="Document.id", foreign_keys=[original_image_id])  # Self-reference for refinements
 
 class ActivityLog(Base):
     __tablename__ = "activity_log"
@@ -189,3 +215,298 @@ class Template(Base):
     # Relationships
     workspace = relationship("Workspace")
     user = relationship("User")
+
+# ============================================================================
+# WORKFLOW SYSTEM MODELS
+# ============================================================================
+
+class WorkflowTemplate(Base):
+    """Reusable workflow definition with nodes and edges"""
+    __tablename__ = "workflow_templates"
+
+    id = Column(String, primary_key=True, default=generate_uuid)
+    workspace_id = Column(String, ForeignKey("workspaces.id"), nullable=True, index=True)  # NULL for system templates
+    project_id = Column(String, ForeignKey("projects.id"), nullable=True, index=True)  # NULL for workspace/system templates
+    name = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+    category = Column(String, nullable=True, index=True)  # social_media, paid_ads, blog, email, seo
+
+    # Workflow definition (ReactFlow format)
+    nodes_json = Column(JSONB, nullable=False, default=list)  # Array of {id, type, data, position}
+    edges_json = Column(JSONB, nullable=False, default=list)  # Array of {id, source, target}
+    default_params_json = Column(JSONB, nullable=True, default=dict)  # Default configuration
+
+    # Template metadata
+    is_system = Column(Boolean, default=False, index=True)  # System template vs custom
+    is_recommended = Column(Boolean, default=False, index=True)  # Featured in template library
+    usage_count = Column(Integer, default=0)
+    version = Column(String, default="1.0")  # Workflow schema version
+    created_by = Column(String, ForeignKey("users.id"), nullable=True)
+
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    # Relationships
+    workspace = relationship("Workspace")
+    project = relationship("Project")
+    creator = relationship("User", foreign_keys=[created_by])
+    executions = relationship("WorkflowExecution", back_populates="template")
+
+class WorkflowExecution(Base):
+    """Running instance of a workflow template"""
+    __tablename__ = "workflow_executions"
+
+    id = Column(String, primary_key=True, default=generate_uuid)
+    template_id = Column(String, ForeignKey("workflow_templates.id"), nullable=False, index=True)
+    project_id = Column(String, ForeignKey("projects.id"), nullable=False, index=True)
+    workspace_id = Column(String, ForeignKey("workspaces.id"), nullable=False, index=True)
+    user_id = Column(String, ForeignKey("users.id"), nullable=False)
+
+    # Execution state
+    status = Column(String, nullable=False, default="pending", index=True)  # pending, running, paused, completed, failed, stopped
+    config_json = Column(JSONB, nullable=True, default=dict)  # User-provided execution parameters
+    execution_context = Column(JSONB, nullable=True, default=dict)  # Current variable values, loop state
+    progress_percent = Column(Integer, default=0)
+    current_node_id = Column(String, nullable=True)  # Current executing node
+    celery_task_id = Column(String, nullable=True, index=True)  # Celery task ID for pause/resume/cancel
+
+    # Results and errors
+    error_message = Column(Text, nullable=True)
+    total_cost = Column(Numeric(10, 6), default=0.0)  # Total USD cost
+    total_tokens_used = Column(Integer, default=0)  # Sum of all AI API tokens
+    generated_document_ids = Column(JSONB, nullable=True, default=list)  # Array of Document IDs created
+
+    # Timing
+    started_at = Column(DateTime(timezone=True), nullable=True)
+    completed_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    # Relationships
+    template = relationship("WorkflowTemplate", back_populates="executions")
+    project = relationship("Project")
+    workspace = relationship("Workspace")
+    user = relationship("User")
+    agent_jobs = relationship("AgentJob", back_populates="execution")
+    node_outputs = relationship("NodeOutput", back_populates="execution")
+
+class AgentJob(Base):
+    """Individual AI task within a workflow execution"""
+    __tablename__ = "agent_jobs"
+
+    id = Column(String, primary_key=True, default=generate_uuid)
+    execution_id = Column(String, ForeignKey("workflow_executions.id"), nullable=False, index=True)
+    node_id = Column(String, nullable=False)  # Node ID from workflow template
+    job_type = Column(String, nullable=False)  # generate_copy, generate_image, attach, review
+
+    # Job state
+    status = Column(String, nullable=False, default="pending", index=True)  # pending, running, completed, failed, skipped
+    input_data_json = Column(JSONB, nullable=True)
+    output_data_json = Column(JSONB, nullable=True)
+    error_message = Column(Text, nullable=True)
+
+    # Usage tracking
+    tokens_used = Column(Integer, default=0)
+
+    # Timing
+    started_at = Column(DateTime(timezone=True), nullable=True)
+    completed_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    # Relationships
+    execution = relationship("WorkflowExecution", back_populates="agent_jobs")
+
+class NodeOutput(Base):
+    """Stores outputs from each node execution for variable resolution and execution history"""
+    __tablename__ = "node_outputs"
+
+    id = Column(String, primary_key=True, default=generate_uuid)
+    execution_id = Column(String, ForeignKey("workflow_executions.id", ondelete="CASCADE"), nullable=False, index=True)
+
+    # Node identification
+    node_id = Column(String, nullable=False, index=True)  # Node ID from workflow definition
+    node_name = Column(String, nullable=False)  # Human-readable node name for debugging
+    node_type = Column(String, nullable=False)  # start, text_generation, image_generation, etc.
+
+    # Output data (supports structured outputs via OutputParser)
+    outputs = Column(JSONB, nullable=False)  # Structured output data with parsed fields
+
+    # Metadata
+    execution_order = Column(Integer, nullable=False)  # Sequence number in execution
+    iteration_number = Column(Integer, default=0)  # Loop iteration (0 if not in loop)
+
+    # Timing
+    started_at = Column(DateTime(timezone=True), nullable=True)
+    completed_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    # Relationships
+    execution = relationship("WorkflowExecution", back_populates="node_outputs")
+
+class UserPreferences(Base):
+    """Stores AI assistant preferences per user"""
+    __tablename__ = "user_preferences"
+
+    id = Column(String, primary_key=True, default=generate_uuid)
+    user_id = Column(String, ForeignKey("users.id"), unique=True, nullable=False, index=True)
+    autonomous_mode = Column(Boolean, default=False, nullable=False)
+    max_iterations = Column(Integer, default=15, nullable=False)
+    default_model = Column(String(100), nullable=True)
+    use_rag_by_default = Column(Boolean, default=True, nullable=False)
+    settings = Column(JSONB, default=dict, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    # Relationships
+    user = relationship("User")
+
+
+class ChatConversation(Base):
+    """Stores chat conversation history for users"""
+    __tablename__ = "chat_conversations"
+
+    id = Column(String, primary_key=True, default=generate_uuid)
+    user_id = Column(String, ForeignKey("users.id"), nullable=False, index=True)
+    project_id = Column(String, ForeignKey("projects.id"), nullable=True, index=True)
+    workspace_id = Column(String, ForeignKey("workspaces.id"), nullable=False, index=True)
+
+    # Conversation metadata
+    title = Column(String, nullable=True)  # Auto-generated from first message or user-defined
+    summary = Column(Text, nullable=True)  # Brief summary of conversation
+    messages_json = Column(JSONB, nullable=False, default=list)  # Array of {role, content, toolExecutions?, taskList?}
+
+    # Context used in conversation
+    model_used = Column(String, nullable=True)
+    document_ids_context = Column(JSONB, nullable=True, default=list)  # IDs of documents used as context
+    folder_ids_context = Column(JSONB, nullable=True, default=list)  # IDs of folders used as context
+
+    # Documents created during conversation
+    created_document_ids = Column(JSONB, nullable=True, default=list)  # IDs of documents created by AI
+
+    # Status
+    is_archived = Column(Boolean, default=False)
+    message_count = Column(Integer, default=0)
+
+    # Timestamps
+    last_message_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    # Relationships
+    user = relationship("User")
+    project = relationship("Project")
+    workspace = relationship("Workspace")
+
+
+class DocumentAttachment(Base):
+    """Many-to-many relationship between documents (copies) and images"""
+    __tablename__ = "document_attachments"
+
+    id = Column(String, primary_key=True, default=generate_uuid)
+    document_id = Column(String, ForeignKey("documents.id"), nullable=False, index=True)
+    image_id = Column(String, ForeignKey("documents.id"), nullable=False, index=True)  # Images are also documents
+
+    # Attachment metadata
+    is_primary = Column(Boolean, default=False)  # Only one primary per document
+    attachment_order = Column(Integer, default=0)
+    created_by_workflow_id = Column(String, ForeignKey("workflow_executions.id"), nullable=True)  # Track if created by workflow
+
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    # Relationships
+    document = relationship("Document", foreign_keys=[document_id])
+    image = relationship("Document", foreign_keys=[image_id])
+
+
+# ============================================================================
+# SMART VISUAL ASSETS MODELS (Feature 011)
+# ============================================================================
+
+class AssistantVisualSettings(Base):
+    """Per-project visual context settings for AI assistant"""
+    __tablename__ = "assistant_visual_settings"
+
+    id = Column(String, primary_key=True, default=generate_uuid)
+    project_id = Column(String, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, unique=True, index=True)
+    is_enabled = Column(Boolean, nullable=False, default=False)
+    mode = Column(String(10), nullable=False, default="manual")  # 'manual' or 'auto'
+    assets_per_category = Column(Integer, nullable=False, default=2)  # 1-5 for auto mode
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    # Relationships
+    project = relationship("Project")
+    selections = relationship("AssistantAssetSelection", back_populates="settings", cascade="all, delete-orphan")
+
+
+class AssistantAssetSelection(Base):
+    """Manual mode: tracks which assets are selected for visual context"""
+    __tablename__ = "assistant_asset_selection"
+
+    id = Column(String, primary_key=True, default=generate_uuid)
+    settings_id = Column(String, ForeignKey("assistant_visual_settings.id", ondelete="CASCADE"), nullable=False, index=True)
+    asset_id = Column(String, ForeignKey("documents.id", ondelete="CASCADE"), nullable=False, index=True)
+    is_enabled = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    # Relationships
+    settings = relationship("AssistantVisualSettings", back_populates="selections")
+    asset = relationship("Document")
+
+    __table_args__ = (
+        # Unique constraint on (settings_id, asset_id)
+        {'extend_existing': True},
+    )
+
+
+class AssetUsageHistory(Base):
+    """Tracks asset usage for rotation algorithm (30-day retention)"""
+    __tablename__ = "asset_usage_history"
+
+    id = Column(String, primary_key=True, default=generate_uuid)
+    asset_id = Column(String, ForeignKey("documents.id", ondelete="CASCADE"), nullable=False, index=True)
+    generation_id = Column(String, nullable=True)  # Reference to image generation
+    used_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    # Relationships
+    asset = relationship("Document")
+
+
+# ============================================================================
+# ADMIN PANEL MODELS (Feature 015)
+# ============================================================================
+
+class SystemConfig(Base):
+    """System-wide configuration stored in JSONB format"""
+    __tablename__ = "system_config"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    key = Column(String(100), unique=True, nullable=False, index=True)  # 'ai_models', 'global_limits', 'feature_flags', 'api_keys'
+    value = Column(JSONB, nullable=False)
+    description = Column(Text, nullable=True)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    updated_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+
+    # Relationships
+    updater = relationship("User", foreign_keys=[updated_by])
+
+
+class AdminAuditLog(Base):
+    """Tracks all administrative actions for compliance and debugging"""
+    __tablename__ = "admin_audit_log"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    admin_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
+    action = Column(String(100), nullable=False, index=True)  # 'update_ai_models', 'block_user', etc.
+    entity_type = Column(String(50), nullable=True)  # 'user', 'workspace', 'system_config'
+    entity_id = Column(String(255), nullable=True)
+    old_value = Column(JSONB, nullable=True)
+    new_value = Column(JSONB, nullable=True)
+    extra_data = Column("metadata", JSONB, nullable=True)  # 'metadata' is reserved in SQLAlchemy
+    ip_address = Column(String(45), nullable=True)
+    user_agent = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+
+    # Relationships
+    admin = relationship("User", foreign_keys=[admin_id])

@@ -1,94 +1,77 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { useParams } from "next/navigation"
-import api from "@/lib/api"
+import { useMemo, useState } from "react"
+import { useParams, useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { Search, Plus, Copy, Eye } from "lucide-react"
+import { Search, Plus, Copy, Eye, ArrowLeft, Home, FileText } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
-
-interface Template {
-  id: string
-  name: string
-  description: string
-  category: string
-  icon: string
-  prompt: string
-  tags: string[]
-  is_system: boolean
-  usage_count: number
-}
+import { useTemplates } from "@/hooks/use-templates"
+import { templateService } from "@/lib/supabase/templates"
+import type { Template } from "@/types/supabase"
+import WorkspaceSidebar from "@/components/WorkspaceSidebar"
+import Breadcrumbs from "@/components/Breadcrumbs"
+import { useWorkspace } from "@/hooks/use-workspaces"
 
 export default function TemplatesPage() {
   const params = useParams()
+  const router = useRouter()
   const workspaceId = params.id as string
   const { toast } = useToast()
 
-  const [templates, setTemplates] = useState<Template[]>([])
-  const [filteredTemplates, setFilteredTemplates] = useState<Template[]>([])
+  const { data: workspace } = useWorkspace(workspaceId)
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("all")
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null)
-  const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    fetchTemplates()
-  }, [workspaceId])
+  // Use Supabase hook for templates
+  const { data: templates, isLoading: loading } = useTemplates(workspaceId)
+  const templateList = templates ?? []
 
-  useEffect(() => {
-    filterTemplates()
-  }, [searchQuery, selectedCategory, templates])
+  const breadcrumbItems = [
+    { label: workspace?.name || "Workspace", href: `/workspace/${workspaceId}`, icon: <Home className="h-3.5 w-3.5" /> },
+    { label: "Templates", icon: <FileText className="h-3.5 w-3.5" /> },
+  ]
 
-  const fetchTemplates = async () => {
-    try {
-      setLoading(true)
-      const response = await api.get(`/templates?workspace_id=${workspaceId}&include_system=true`)
-      setTemplates(response.data)
-    } catch (error) {
-      console.error("Failed to fetch templates", error)
-      toast({ title: "Erro", description: "Falha ao carregar templates", variant: "destructive" })
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const filterTemplates = () => {
-    let filtered = templates
+  // Filter templates using useMemo for performance
+  const filteredTemplates = useMemo(() => {
+    let filtered = templateList
 
     if (selectedCategory !== "all") {
       filtered = filtered.filter(t => t.category === selectedCategory)
     }
 
     if (searchQuery) {
+      const query = searchQuery.toLowerCase()
       filtered = filtered.filter(t =>
-        t.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        t.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        t.tags?.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
+        t.name.toLowerCase().includes(query) ||
+        t.description?.toLowerCase().includes(query) ||
+        t.tags?.some((tag: string) => tag.toLowerCase().includes(query))
       )
     }
 
-    setFilteredTemplates(filtered)
-  }
+    return filtered
+  }, [templateList, selectedCategory, searchQuery])
 
-  const categories = [
-    { id: "all", name: "Todos", count: templates.length },
-    { id: "ads", name: "Anúncios", count: templates.filter(t => t.category === "ads").length },
-    { id: "landing_page", name: "Landing Pages", count: templates.filter(t => t.category === "landing_page").length },
-    { id: "email", name: "Email Marketing", count: templates.filter(t => t.category === "email").length },
-    { id: "social_media", name: "Social Media", count: templates.filter(t => t.category === "social_media").length },
-    { id: "seo", name: "SEO & Blog", count: templates.filter(t => t.category === "seo").length },
-    { id: "creative", name: "Criativo", count: templates.filter(t => t.category === "creative").length },
-  ]
+  const categories = useMemo(() => [
+    { id: "all", name: "Todos", count: templateList.length },
+    { id: "ads", name: "Anúncios", count: templateList.filter(t => t.category === "ads").length },
+    { id: "landing_page", name: "Landing Pages", count: templateList.filter(t => t.category === "landing_page").length },
+    { id: "email", name: "Email Marketing", count: templateList.filter(t => t.category === "email").length },
+    { id: "social_media", name: "Social Media", count: templateList.filter(t => t.category === "social_media").length },
+    { id: "seo", name: "SEO & Blog", count: templateList.filter(t => t.category === "seo").length },
+    { id: "creative", name: "Criativo", count: templateList.filter(t => t.category === "creative").length },
+  ], [templateList])
 
   const copyToClipboard = async (template: Template) => {
     try {
-      await navigator.clipboard.writeText(template.prompt)
-      await api.post(`/templates/${template.id}/use`)
+      await navigator.clipboard.writeText(template.prompt || '')
+      // Increment usage count via Supabase
+      await templateService.incrementUsageCount(template.id)
       toast({ title: "Copiado!", description: "Template copiado para área de transferência" })
     } catch (error) {
       toast({ title: "Erro", description: "Falha ao copiar template", variant: "destructive" })
@@ -96,22 +79,41 @@ export default function TemplatesPage() {
   }
 
   return (
-    <div className="p-8 space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Templates de Marketing</h1>
-          <p className="text-muted-foreground">Templates profissionais para tráfego pago e marketing digital</p>
-        </div>
-        <Button>
-          <Plus className="h-4 w-4 mr-2" />
-          Criar Template
-        </Button>
+    <div className="flex h-screen overflow-hidden relative">
+      <div className="p-3 pr-0">
+        <WorkspaceSidebar className="h-[calc(100vh-24px)]" />
       </div>
 
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Header */}
+        <div className="px-6 py-6 border-b border-white/10">
+          <Breadcrumbs items={breadcrumbItems} className="mb-3" />
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight">Templates de Marketing</h1>
+              <p className="text-sm text-text-secondary mt-2">
+                Templates profissionais para tráfego pago e marketing digital
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => router.push(`/workspace/${workspaceId}`)}>
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Voltar
+              </Button>
+              <Button>
+                <Plus className="h-4 w-4 mr-2" />
+                Criar Template
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-6">
+
       {/* Search */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+      <div className="relative max-w-7xl mx-auto">
+        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-text-secondary" />
         <Input
           placeholder="Buscar templates por nome, descrição ou tags..."
           value={searchQuery}
@@ -121,7 +123,7 @@ export default function TemplatesPage() {
       </div>
 
       {/* Categories */}
-      <Tabs value={selectedCategory} onValueChange={setSelectedCategory}>
+      <Tabs value={selectedCategory} onValueChange={setSelectedCategory} className="max-w-7xl mx-auto">
         <TabsList className="grid grid-cols-7 w-full">
           {categories.map(cat => (
             <TabsTrigger key={cat.id} value={cat.id} className="text-xs">
@@ -135,15 +137,15 @@ export default function TemplatesPage() {
           {loading ? (
             <div>Carregando...</div>
           ) : filteredTemplates.length === 0 ? (
-            <Card>
-              <CardContent className="p-12 text-center text-muted-foreground">
+            <Card glass>
+              <CardContent className="p-12 text-center text-text-secondary">
                 Nenhum template encontrado
               </CardContent>
             </Card>
           ) : (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
               {filteredTemplates.map(template => (
-                <Card key={template.id} className="hover:shadow-lg transition-shadow cursor-pointer">
+                <Card key={template.id} glass clickable>
                   <CardHeader>
                     <div className="flex items-start justify-between">
                       <div className="flex items-center gap-2">
@@ -212,6 +214,8 @@ export default function TemplatesPage() {
           )}
         </TabsContent>
       </Tabs>
+        </div>
+      </div>
     </div>
   )
 }

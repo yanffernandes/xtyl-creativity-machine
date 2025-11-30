@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useCallback } from "react"
-import { Upload, X, Image as ImageIcon, Loader2 } from "lucide-react"
+import { Upload, X, Image as ImageIcon, Loader2, FileText } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
@@ -14,6 +14,29 @@ interface ImageUploadProps {
   className?: string
 }
 
+// Helper to check if accept includes non-image types
+const acceptsNonImages = (accept: string): boolean => {
+  return accept.includes('.pdf') || accept.includes('.txt') || accept.includes('.md') || accept.includes('.doc')
+}
+
+// Get allowed extensions from accept string
+const getAllowedExtensions = (accept: string): string[] => {
+  const extensions: string[] = []
+  if (accept.includes('.pdf')) extensions.push('.pdf')
+  if (accept.includes('.txt')) extensions.push('.txt')
+  if (accept.includes('.md')) extensions.push('.md')
+  if (accept.includes('.doc')) extensions.push('.doc', '.docx')
+  if (accept.includes('image') || accept.includes('.png') || accept.includes('.jpg') || accept.includes('.jpeg')) {
+    extensions.push('.png', '.jpg', '.jpeg', '.gif', '.webp')
+  }
+  return extensions
+}
+
+// Check if file is an image
+const isImageFile = (file: File): boolean => {
+  return file.type.startsWith('image/')
+}
+
 export default function ImageUpload({
   onUpload,
   accept = "image/*",
@@ -22,18 +45,36 @@ export default function ImageUpload({
 }: ImageUploadProps) {
   const [isDragging, setIsDragging] = useState(false)
   const [preview, setPreview] = useState<string | null>(null)
+  const [fileName, setFileName] = useState<string | null>(null)
   const [isUploading, setIsUploading] = useState(false)
+  const [isImage, setIsImage] = useState(true)
   const { toast } = useToast()
 
+  const isMultiType = acceptsNonImages(accept)
+
   const validateFile = (file: File): boolean => {
-    // Check file type
-    if (!file.type.startsWith('image/')) {
-      toast({
-        title: "Erro",
-        description: "Por favor, selecione apenas imagens",
-        variant: "destructive"
-      })
-      return false
+    // If we accept non-images, validate by extension
+    if (isMultiType) {
+      const allowedExt = getAllowedExtensions(accept)
+      const fileExt = '.' + file.name.split('.').pop()?.toLowerCase()
+      if (!allowedExt.some(ext => fileExt === ext || file.type.startsWith('image/'))) {
+        toast({
+          title: "Erro",
+          description: `Tipo de arquivo não suportado. Permitidos: ${allowedExt.join(', ')}`,
+          variant: "destructive"
+        })
+        return false
+      }
+    } else {
+      // Only images allowed
+      if (!file.type.startsWith('image/')) {
+        toast({
+          title: "Erro",
+          description: "Por favor, selecione apenas imagens",
+          variant: "destructive"
+        })
+        return false
+      }
     }
 
     // Check file size
@@ -41,7 +82,7 @@ export default function ImageUpload({
     if (sizeMB > maxSizeMB) {
       toast({
         title: "Erro",
-        description: `Imagem muito grande. Tamanho máximo: ${maxSizeMB}MB`,
+        description: `Arquivo muito grande. Tamanho máximo: ${maxSizeMB}MB`,
         variant: "destructive"
       })
       return false
@@ -53,12 +94,21 @@ export default function ImageUpload({
   const handleFile = async (file: File) => {
     if (!validateFile(file)) return
 
-    // Create preview
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      setPreview(e.target?.result as string)
+    const fileIsImage = isImageFile(file)
+    setIsImage(fileIsImage)
+    setFileName(file.name)
+
+    // Create preview only for images
+    if (fileIsImage) {
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        setPreview(e.target?.result as string)
+      }
+      reader.readAsDataURL(file)
+    } else {
+      // For non-images, just set preview to a placeholder
+      setPreview('file')
     }
-    reader.readAsDataURL(file)
 
     // Upload file
     setIsUploading(true)
@@ -66,14 +116,15 @@ export default function ImageUpload({
       await onUpload(file)
       toast({
         title: "Sucesso",
-        description: "Imagem enviada com sucesso!"
+        description: isMultiType ? "Arquivo enviado com sucesso!" : "Imagem enviada com sucesso!"
       })
       setPreview(null)
+      setFileName(null)
     } catch (error) {
       console.error("Upload failed", error)
       toast({
         title: "Erro",
-        description: "Falha no upload da imagem",
+        description: isMultiType ? "Falha no upload do arquivo" : "Falha no upload da imagem",
         variant: "destructive"
       })
     } finally {
@@ -144,11 +195,19 @@ export default function ImageUpload({
             >
               <X className="h-4 w-4" />
             </Button>
-            <img
-              src={preview}
-              alt="Preview"
-              className="w-full h-auto max-h-96 object-contain rounded-lg"
-            />
+            {isImage && preview !== 'file' ? (
+              <img
+                src={preview}
+                alt="Preview"
+                className="w-full h-auto max-h-96 object-contain rounded-lg"
+              />
+            ) : (
+              <div className="flex flex-col items-center justify-center py-8">
+                <FileText className="h-16 w-16 text-primary mb-4" />
+                <p className="text-sm font-medium text-foreground">{fileName}</p>
+                <p className="text-xs text-muted-foreground mt-1">Enviando arquivo...</p>
+              </div>
+            )}
             {isUploading && (
               <div className="absolute inset-0 flex items-center justify-center bg-background/80 rounded-lg">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -163,18 +222,26 @@ export default function ImageUpload({
             <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
               {isUploading ? (
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              ) : isMultiType ? (
+                <FileText className="h-8 w-8 text-primary" />
               ) : (
                 <Upload className="h-8 w-8 text-primary" />
               )}
             </div>
             <p className="text-lg font-semibold mb-2">
-              {isDragging ? "Solte a imagem aqui" : "Enviar imagem"}
+              {isDragging
+                ? (isMultiType ? "Solte o arquivo aqui" : "Solte a imagem aqui")
+                : (isMultiType ? "Enviar arquivo" : "Enviar imagem")
+              }
             </p>
             <p className="text-sm text-muted-foreground text-center">
               Arraste e solte ou clique para selecionar
             </p>
             <p className="text-xs text-muted-foreground mt-2">
-              PNG, JPG, GIF até {maxSizeMB}MB
+              {isMultiType
+                ? `PDF, TXT, MD, PNG, JPG até ${maxSizeMB}MB`
+                : `PNG, JPG, GIF até ${maxSizeMB}MB`
+              }
             </p>
           </label>
         )}

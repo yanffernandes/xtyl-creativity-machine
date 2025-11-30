@@ -58,10 +58,10 @@ export default function SharedDocumentPage() {
 
     if (loading) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted/20">
+            <div className="min-h-screen flex items-center justify-center relative">
                 <div className="text-center">
-                    <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
-                    <p className="text-muted-foreground">Carregando documento...</p>
+                    <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-accent-primary" />
+                    <p className="text-text-secondary">Carregando documento...</p>
                 </div>
             </div>
         )
@@ -69,29 +69,29 @@ export default function SharedDocumentPage() {
 
     if (error || !document) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted/20">
-                <Card className="max-w-md p-8 text-center">
+            <div className="min-h-screen flex items-center justify-center relative">
+                <Card glass className="max-w-md p-8 text-center">
                     <div className="mb-4">
-                        <Lock className="h-12 w-12 mx-auto text-muted-foreground" />
+                        <Lock className="h-12 w-12 mx-auto text-accent-primary/50" />
                     </div>
                     <h1 className="text-2xl font-bold mb-2">Acesso Negado</h1>
-                    <p className="text-muted-foreground">{error}</p>
+                    <p className="text-text-secondary">{error}</p>
                 </Card>
             </div>
         )
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-background to-muted/20">
+        <div className="min-h-screen relative">
             {/* Header */}
-            <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-10">
+            <header className="border-b border-white/10 backdrop-blur-2xl sticky top-0 z-10">
                 <div className="container max-w-4xl mx-auto px-4 py-4">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                            <FileText className="h-5 w-5 text-primary" />
+                            <FileText className="h-5 w-5 text-accent-primary" />
                             <span className="font-semibold">Documento Compartilhado</span>
                         </div>
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <div className="flex items-center gap-2 text-sm text-text-secondary">
                             <Lock className="h-4 w-4" />
                             <span>Somente Leitura</span>
                         </div>
@@ -101,7 +101,7 @@ export default function SharedDocumentPage() {
 
             {/* Content */}
             <main className="container max-w-4xl mx-auto px-4 py-8">
-                <Card className="p-8 md:p-12 shadow-lg">
+                <Card glass className="p-8 md:p-12">
                     {/* Document Title */}
                     <div className="mb-8 pb-6 border-b">
                         <h1 className="text-3xl md:text-4xl font-bold mb-4 leading-tight">
@@ -200,7 +200,7 @@ export default function SharedDocumentPage() {
                 </Card>
 
                 {/* Footer */}
-                <div className="text-center mt-8 text-sm text-muted-foreground">
+                <div className="text-center mt-8 text-sm text-text-secondary">
                     <p>Este é um documento compartilhado publicamente em modo somente leitura</p>
                 </div>
             </main>

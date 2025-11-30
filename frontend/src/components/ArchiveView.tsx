@@ -43,8 +43,9 @@ export default function ArchiveView({ projectId, onRestore }: ArchiveViewProps) 
         foldersApi.listArchived(projectId)
       ])
 
-      setArchivedDocuments(docsResponse.documents || [])
-      setArchivedFolders(foldersResponse.folders || [])
+      // APIs now return arrays directly (migrated to Supabase)
+      setArchivedDocuments(Array.isArray(docsResponse) ? docsResponse : (docsResponse as any).documents || [])
+      setArchivedFolders(Array.isArray(foldersResponse) ? foldersResponse : (foldersResponse as any).folders || [])
     } catch (error) {
       console.error("Failed to load archived items", error)
       toast({

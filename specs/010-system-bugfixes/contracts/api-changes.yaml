@@ -1,0 +1,217 @@
+# API Changes for 010-system-bugfixes
+# Date: 2025-11-29
+
+openapi: 3.0.3
+info:
+  title: System Bugfixes API Changes
+  version: 1.0.0
+
+paths:
+  # NEW ENDPOINT: List conversations (for history sidebar)
+  /conversations:
+    get:
+      summary: List user's conversations
+      description: Returns paginated list of conversations for scroll infinito
+      tags:
+        - Conversations
+      parameters:
+        - name: project_id
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+          description: Filter by project (optional)
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 1
+        - name: page_size
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 20
+            maximum: 50
+      responses:
+        '200':
+          description: List of conversations
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ConversationListItem'
+                  total:
+                    type: integer
+                  page:
+                    type: integer
+                  page_size:
+                    type: integer
+                  has_more:
+                    type: boolean
+
+  # NEW ENDPOINT: Get full conversation
+  /conversations/{conversation_id}:
+    get:
+      summary: Get conversation with all messages
+      tags:
+        - Conversations
+      parameters:
+        - name: conversation_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Full conversation with messages
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConversationFull'
+        '404':
+          description: Conversation not found
+
+  # EXISTING ENDPOINT: Behavior change
+  /projects/{project_id}/settings:
+    put:
+      summary: Update project settings (MODIFIED)
+      description: |
+        Updates project settings.
+        **NEW BEHAVIOR**: Also updates project.name when client_name changes.
+      tags:
+        - Projects
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProjectSettings'
+      responses:
+        '200':
+          description: Updated settings AND project.name
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  settings:
+                    $ref: '#/components/schemas/ProjectSettings'
+                  project_name:
+                    type: string
+                    description: The synchronized project name
+
+  # EXISTING ENDPOINT: Verify returns email
+  /auth/me:
+    get:
+      summary: Get current user profile
+      description: Must return email field for profile display
+      tags:
+        - Auth
+      responses:
+        '200':
+          description: User profile
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  email:
+                    type: string
+                    format: email
+                    description: REQUIRED - must be present for profile page
+                  full_name:
+                    type: string
+
+components:
+  schemas:
+    ConversationListItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+          nullable: true
+        summary:
+          type: string
+          nullable: true
+        message_count:
+          type: integer
+        last_message_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+
+    ConversationFull:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+          nullable: true
+        messages:
+          type: array
+          items:
+            type: object
+            properties:
+              role:
+                type: string
+                enum: [user, assistant]
+              content:
+                type: string
+              timestamp:
+                type: string
+                format: date-time
+        model_used:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+
+    ProjectSettings:
+      type: object
+      required:
+        - client_name
+      properties:
+        client_name:
+          type: string
+          maxLength: 255
+        description:
+          type: string
+          maxLength: 1000
+        target_audience:
+          type: string
+          maxLength: 500
+        brand_voice:
+          type: string
+          enum: [professional, casual, friendly, authoritative, playful, custom]
+        brand_voice_custom:
+          type: string
+          maxLength: 500
+        key_messages:
+          type: array
+          items:
+            type: string
+        competitors:
+          type: string
+          maxLength: 500
+        custom_notes:
+          type: string
+          maxLength: 2000

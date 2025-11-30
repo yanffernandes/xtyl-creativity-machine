@@ -1,9 +1,8 @@
 "use client"
 
 import { useState } from "react"
-import { useRouter } from "next/navigation"
 import Link from "next/link"
-import api from "@/lib/api"
+import { useAuthStore } from "@/lib/store"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
@@ -16,7 +15,7 @@ export default function ForgotPasswordPage() {
     const [error, setError] = useState("")
     const [success, setSuccess] = useState(false)
     const [loading, setLoading] = useState(false)
-    const router = useRouter()
+    const resetPassword = useAuthStore((state) => state.resetPassword)
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -25,7 +24,13 @@ export default function ForgotPasswordPage() {
         setLoading(true)
 
         try {
-            await api.post("/auth/password-reset/request", { email })
+            const result = await resetPassword(email)
+
+            if (result.error) {
+                setError(result.error)
+                return
+            }
+
             setSuccess(true)
         } catch (err) {
             setError("Ocorreu um erro. Tente novamente.")
@@ -35,32 +40,32 @@ export default function ForgotPasswordPage() {
     }
 
     return (
-        <div className="flex items-center justify-center min-h-screen bg-background">
-            <Card className="w-[450px]">
+        <div className="flex items-center justify-center min-h-screen relative">
+            <Card glass className="w-[450px]">
                 <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                        <Link href="/login" className="hover:text-primary transition-colors">
+                    <CardTitle className="flex items-center gap-3 text-2xl">
+                        <Link href="/login" className="hover:text-accent-primary transition-colors">
                             <ArrowLeft className="h-5 w-5" />
                         </Link>
                         Recuperar Senha
                     </CardTitle>
-                    <CardDescription>
-                        Digite seu email para receber o link de recuperação
+                    <CardDescription className="text-text-secondary mt-2">
+                        Digite seu email para receber o link de recuperacao
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
                     {success ? (
-                        <Alert className="border-green-500 bg-green-50 dark:bg-green-950">
+                        <Alert className="border-green-500/20 bg-green-500/10">
                             <CheckCircle2 className="h-4 w-4 text-green-600" />
-                            <AlertDescription className="text-green-800 dark:text-green-200">
-                                Se o email estiver cadastrado, você receberá um link de recuperação em instantes.
+                            <AlertDescription className="text-green-700 dark:text-green-300">
+                                Se o email estiver cadastrado, voce recebera um link de recuperacao em instantes.
                                 Verifique sua caixa de entrada e spam.
                             </AlertDescription>
                         </Alert>
                     ) : (
-                        <form onSubmit={handleSubmit} className="space-y-4">
+                        <form onSubmit={handleSubmit} className="space-y-6">
                             <div className="space-y-2">
-                                <Label htmlFor="email">Email</Label>
+                                <Label htmlFor="email" className="text-sm font-medium">Email</Label>
                                 <Input
                                     id="email"
                                     type="email"
@@ -71,14 +76,18 @@ export default function ForgotPasswordPage() {
                                     disabled={loading}
                                 />
                             </div>
-                            {error && <p className="text-red-500 text-sm">{error}</p>}
-                            <Button type="submit" className="w-full" disabled={loading}>
-                                {loading ? "Enviando..." : "Enviar Link de Recuperação"}
+                            {error && (
+                                <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20">
+                                    <p className="text-red-500 text-sm">{error}</p>
+                                </div>
+                            )}
+                            <Button type="submit" className="w-full" size="lg" disabled={loading}>
+                                {loading ? "Enviando..." : "Enviar Link de Recuperacao"}
                             </Button>
                             <div className="text-center">
                                 <Link
                                     href="/login"
-                                    className="text-sm text-muted-foreground hover:text-primary transition-colors"
+                                    className="text-sm text-accent-primary hover:text-accent-primary/80 transition-colors font-medium"
                                 >
                                     Voltar para o login
                                 </Link>

@@ -20,10 +20,12 @@ from image_generation_service import (
     get_available_models,
     DEFAULT_MODEL
 )
+from image_naming_service import generate_image_title
 from ai_usage_service import log_ai_usage
-from pricing_config import calculate_image_cost
-from auth import get_current_user
+from pricing_service import calculate_image_cost, fetch_generation_cost
+from supabase_auth import get_current_user
 from models import User, Project
+from services.visual_asset_service import visual_asset_service
 import time
 import json
 
@@ -49,6 +51,7 @@ class ImageGenerationRequest(BaseModel):
     style: Optional[str] = None
     folder_id: Optional[str] = None
     reference_assets: Optional[List[ReferenceAsset]] = None  # Reference assets with individual usage modes
+    skip_visual_context: bool = False  # T042: Skip automatic visual context injection
 
 
 class ImageRefinementRequest(BaseModel):
@@ -59,6 +62,7 @@ class ImageRefinementRequest(BaseModel):
     aspect_ratio: Optional[str] = None
     quality: str = "standard"
     style: Optional[str] = None
+    reference_assets: Optional[List[ReferenceAsset]] = None  # Additional reference assets for refinement
 
 
 class ImageGenerationResponse(BaseModel):
@@ -116,6 +120,8 @@ async def generate_image(
         # Fetch reference assets if provided
         reference_image_urls = []
         asset_usage_instructions = []
+        visual_context_asset_ids = []  # T042: Track asset IDs for usage recording
+        visual_context_used = False
 
         if request.reference_assets:
             # Limit to 5 references
@@ -131,6 +137,7 @@ async def generate_image(
 
                 if asset and asset.file_url:
                     reference_image_urls.append(asset.file_url)
+                    visual_context_asset_ids.append(asset.id)
 
                     # Build instruction for this specific asset
                     asset_title = asset.title or "reference image"
@@ -142,6 +149,20 @@ async def generate_image(
                         asset_usage_instructions.append(f"use '{asset_title}' as the base")
                 else:
                     print(f"Warning: Asset {ref_asset.id} not found or invalid")
+
+        # T042: Auto-inject visual context if no manual references and not skipped
+        elif not request.skip_visual_context:
+            try:
+                visual_context = visual_asset_service.get_visual_context(db, request.project_id)
+                if visual_context.is_enabled and visual_context.assets:
+                    for asset in visual_context.assets:
+                        if asset.file_url:
+                            reference_image_urls.append(asset.file_url)
+                            visual_context_asset_ids.append(asset.id)
+                    visual_context_used = True
+                    print(f"📎 Visual context auto-injected: {len(reference_image_urls)} reference images")
+            except Exception as vc_error:
+                print(f"⚠️ Failed to fetch visual context: {vc_error}")
 
         # Build enhanced prompt with individual asset instructions
         enhanced_prompt = request.prompt
@@ -167,12 +188,25 @@ async def generate_image(
                 {"id": ra.id, "usage_mode": ra.usage_mode}
                 for ra in request.reference_assets
             ]
+        # T042: Add visual context info to metadata if auto-injected
+        elif visual_context_used and visual_context_asset_ids:
+            generation_metadata["visual_context"] = {
+                "auto_injected": True,
+                "asset_ids": visual_context_asset_ids,
+                "asset_count": len(visual_context_asset_ids)
+            }
+
+        # Generate title using AI if not provided
+        if request.title:
+            image_title = request.title
+        else:
+            image_title = await generate_image_title(request.prompt)
 
         document = models.Document(
-            title=request.title or f"Generated Image - {request.model}",
+            title=image_title,
             content=request.prompt,  # Store the ORIGINAL prompt as content
             media_type="image",
-            status="approved",
+            status="art_ok",
             project_id=request.project_id,
             folder_id=request.folder_id,
             file_url=result["file_url"],
@@ -184,23 +218,45 @@ async def generate_image(
         db.commit()
         db.refresh(document)
 
+        # T052: Record asset usage for rotation algorithm
+        if visual_context_asset_ids:
+            try:
+                visual_asset_service.record_asset_usage(
+                    db=db,
+                    asset_ids=visual_context_asset_ids,
+                    generation_id=document.id
+                )
+                print(f"📊 Recorded usage for {len(visual_context_asset_ids)} visual assets")
+            except Exception as usage_error:
+                print(f"⚠️ Failed to record asset usage: {usage_error}")
+
         # Log AI usage
         try:
             duration_ms = int((time.time() - start_time) * 1000)
-            cost = calculate_image_cost(request.model, request.aspect_ratio, request.quality)
+
+            # Fetch actual cost from OpenRouter
+            cost = None
+            generation_id = result.get("generation_id")
+            if generation_id:
+                cost = await fetch_generation_cost(generation_id)
+                if cost is not None:
+                    print(f"💰 OpenRouter actual image cost: ${cost:.8f}")
+                else:
+                    print(f"⚠️ Could not fetch cost for generation {generation_id}")
 
             # Create metadata JSON for image generation details
             image_metadata = {
                 "aspect_ratio": request.aspect_ratio,
                 "quality": request.quality,
                 "style": request.style,
-                "has_references": bool(request.reference_assets),
-                "num_references": len(request.reference_assets) if request.reference_assets else 0
+                "has_references": bool(request.reference_assets) or visual_context_used,
+                "num_references": len(request.reference_assets) if request.reference_assets else len(visual_context_asset_ids),
+                "visual_context_auto": visual_context_used
             }
 
             log_ai_usage(
                 db=db,
-                user_id=current_user.id,
+                user_id=str(current_user.id),
                 workspace_id=get_workspace_id_from_project(db, request.project_id),
                 project_id=request.project_id,
                 model=request.model,
@@ -264,12 +320,65 @@ async def refine_image(
                 detail="Document is not an image"
             )
 
-        # Get the base image URL for refinement
-        base_image_url = existing_doc.file_url
+        # QUALITY FIX (Feature 016): Always use the ORIGINAL image as base
+        # This prevents quality degradation from successive refinements
+        original_image_id = existing_doc.original_image_id
+        if original_image_id:
+            # This is a refined image - find the original
+            original_doc = db.query(models.Document).filter(
+                models.Document.id == original_image_id
+            ).first()
+            if original_doc and original_doc.file_url:
+                base_image_url = original_doc.file_url
+                print(f"🔄 Refining from original image: {original_image_id}")
+            else:
+                # Fallback to current if original not found
+                base_image_url = existing_doc.file_url
+                print(f"⚠️ Original image {original_image_id} not found, using current")
+        else:
+            # This is an original image
+            base_image_url = existing_doc.file_url
+            original_image_id = existing_doc.id  # The current image IS the original
 
-        # Use refinement prompt directly (not combined with original)
-        # The model will see the image and the new instructions
+        # Get existing refinement history and accumulate prompts
+        existing_history = existing_doc.refinement_history or []
+        refinement_count = len(existing_history)
+
+        # Process reference assets if provided
+        reference_image_urls = []
+        asset_usage_instructions = []
+
+        if request.reference_assets:
+            # Limit to 5 references
+            ref_assets = request.reference_assets[:5]
+
+            for ref_asset in ref_assets:
+                asset = db.query(models.Document).filter(
+                    models.Document.id == ref_asset.id,
+                    models.Document.project_id == existing_doc.project_id,
+                    models.Document.is_reference_asset == True,
+                    models.Document.deleted_at == None
+                ).first()
+
+                if asset and asset.file_url:
+                    reference_image_urls.append(asset.file_url)
+
+                    # Build instruction for this specific asset
+                    asset_title = asset.title or "reference image"
+                    if ref_asset.usage_mode == "style":
+                        asset_usage_instructions.append(f"use the visual style from '{asset_title}'")
+                    elif ref_asset.usage_mode == "compose":
+                        asset_usage_instructions.append(f"incorporate elements from '{asset_title}'")
+                    elif ref_asset.usage_mode == "base":
+                        asset_usage_instructions.append(f"use '{asset_title}' as the base")
+                else:
+                    print(f"Warning: Asset {ref_asset.id} not found or invalid")
+
+        # Build enhanced prompt with individual asset instructions
         refinement_prompt = request.refinement_prompt
+        if asset_usage_instructions:
+            instructions = ", ".join(asset_usage_instructions)
+            refinement_prompt = f"{request.refinement_prompt}. Reference instructions: {instructions}"
 
         # Use same model and aspect_ratio if not specified
         model = request.model or existing_doc.generation_metadata.get("model", DEFAULT_MODEL) if existing_doc.generation_metadata else DEFAULT_MODEL
@@ -285,24 +394,44 @@ async def refine_image(
             aspect_ratio=aspect_ratio,
             quality=request.quality,
             style=request.style,
-            base_image_url=base_image_url  # Pass the previous image!
+            base_image_url=base_image_url,  # Pass the previous image!
+            reference_image_urls=reference_image_urls if reference_image_urls else None
         )
 
+        # Build accumulated refinement history (Feature 016)
+        from datetime import datetime
+        new_history_entry = {
+            "prompt": request.refinement_prompt,
+            "applied_at": datetime.utcnow().isoformat()
+        }
+        accumulated_history = existing_history + [new_history_entry]
+
         # Create new document for the refined version
+        generation_metadata = {
+            **result["generation_metadata"],
+            "refined_from": existing_doc.id,
+            "refinement_prompt": request.refinement_prompt,
+            "refinement_count": refinement_count + 1
+        }
+        if request.reference_assets:
+            generation_metadata["reference_assets"] = [
+                {"id": ra.id, "usage_mode": ra.usage_mode}
+                for ra in request.reference_assets
+            ]
+
         new_document = models.Document(
             title=f"{existing_doc.title} (Refined)",
-            content=refinement_prompt,  # Save only the refinement instructions
+            content=request.refinement_prompt,  # Save only the original refinement instructions (not enhanced)
             media_type="image",
-            status="approved",
+            status="art_ok",
             project_id=existing_doc.project_id,
             folder_id=existing_doc.folder_id,
             file_url=result["file_url"],
             thumbnail_url=result["thumbnail_url"],
-            generation_metadata={
-                **result["generation_metadata"],
-                "refined_from": existing_doc.id,
-                "refinement_prompt": request.refinement_prompt
-            }
+            generation_metadata=generation_metadata,
+            # Feature 016: Track original image and refinement history
+            original_image_id=original_image_id,
+            refinement_history=accumulated_history
         )
 
         db.add(new_document)
@@ -312,7 +441,16 @@ async def refine_image(
         # Log AI usage
         try:
             duration_ms = int((time.time() - start_time) * 1000)
-            cost = calculate_image_cost(model, aspect_ratio, request.quality)
+
+            # Fetch actual cost from OpenRouter
+            cost = None
+            generation_id = result.get("generation_id")
+            if generation_id:
+                cost = await fetch_generation_cost(generation_id)
+                if cost is not None:
+                    print(f"💰 OpenRouter actual refinement cost: ${cost:.8f}")
+                else:
+                    print(f"⚠️ Could not fetch cost for generation {generation_id}")
 
             # Create metadata JSON for image refinement details
             image_metadata = {
@@ -325,7 +463,7 @@ async def refine_image(
 
             log_ai_usage(
                 db=db,
-                user_id=current_user.id,
+                user_id=str(current_user.id),
                 workspace_id=get_workspace_id_from_project(db, existing_doc.project_id),
                 project_id=existing_doc.project_id,
                 model=model,

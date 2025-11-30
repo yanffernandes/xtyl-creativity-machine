@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from typing import Optional, List
 from pydantic import BaseModel
 from database import get_db
-from auth import get_current_user
+from supabase_auth import get_current_user
 from models import User, ActivityLog
 from crud import get_entity_activity, list_archived_documents, restore_document
 
@@ -120,7 +120,7 @@ async def get_user_recent_activity(
 ):
     """Get recent activity by a specific user"""
     # Check if requesting own activity or user is admin
-    if user_id != current_user.id:
+    if user_id != str(current_user.id):
         # Add admin check here if you have admin roles
         pass
 

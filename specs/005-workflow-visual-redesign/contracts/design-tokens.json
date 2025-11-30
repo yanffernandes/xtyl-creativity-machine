@@ -1,0 +1,143 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Workflow Visual Redesign - Design Tokens Contract",
+  "description": "Design tokens específicos para o redesign visual da tela de workflows",
+  "version": "1.0.0",
+  "date": "2025-11-27",
+
+  "glassEffect": {
+    "sidebar": {
+      "background": {
+        "light": "rgba(255, 255, 255, 0.03)",
+        "dark": "rgba(255, 255, 255, 0.02)"
+      },
+      "backdropFilter": "blur(24px) saturate(150%)",
+      "border": "1px solid rgba(255, 255, 255, 0.1)",
+      "borderRadius": "16px",
+      "shadow": {
+        "light": "0 8px 32px -8px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(255, 255, 255, 0.05) inset",
+        "dark": "0 8px 32px -8px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.03) inset"
+      }
+    },
+    "node": {
+      "background": {
+        "light": "rgba(255, 255, 255, 0.6)",
+        "dark": "rgba(255, 255, 255, 0.05)"
+      },
+      "backdropFilter": "blur(12px)",
+      "border": "1px solid rgba(255, 255, 255, 0.2)",
+      "borderRadius": "12px"
+    }
+  },
+
+  "spacing": {
+    "sidebarMargin": "12px",
+    "nodeGap": "16px",
+    "handleOffset": "0px"
+  },
+
+  "handles": {
+    "position": {
+      "input": "left",
+      "output": "right"
+    },
+    "size": "10px",
+    "colors": {
+      "default": "#5B8DEF",
+      "connected": "#4A7AD9",
+      "invalid": "#EF4444",
+      "hover": "#7AA5F5"
+    }
+  },
+
+  "nodeTypes": {
+    "start": {
+      "icon": "Play",
+      "color": "#10B981",
+      "inputTypes": [],
+      "outputType": "any"
+    },
+    "finish": {
+      "icon": "Square",
+      "color": "#EF4444",
+      "inputTypes": ["text", "json", "image", "any"],
+      "outputType": "any"
+    },
+    "text_generation": {
+      "icon": "Type",
+      "color": "#8B5CF6",
+      "inputTypes": ["text", "json", "any"],
+      "outputType": "text"
+    },
+    "image_generation": {
+      "icon": "Image",
+      "color": "#EC4899",
+      "inputTypes": ["text"],
+      "outputType": "image"
+    },
+    "conditional": {
+      "icon": "GitBranch",
+      "color": "#F59E0B",
+      "inputTypes": ["text", "json", "any"],
+      "outputType": "any"
+    },
+    "loop": {
+      "icon": "Repeat",
+      "color": "#3B82F6",
+      "inputTypes": ["json", "any"],
+      "outputType": "any"
+    },
+    "context_retrieval": {
+      "icon": "Database",
+      "color": "#EAB308",
+      "inputTypes": ["text", "any"],
+      "outputType": "json"
+    },
+    "processing": {
+      "icon": "Cpu",
+      "color": "#06B6D4",
+      "inputTypes": ["text", "json", "image", "any"],
+      "outputType": "any"
+    },
+    "attach_creative": {
+      "icon": "Paperclip",
+      "color": "#6366F1",
+      "inputTypes": ["image", "text", "json"],
+      "outputType": "json"
+    }
+  },
+
+  "templateBadge": {
+    "system": {
+      "label": "Template",
+      "background": "#5B8DEF20",
+      "color": "#5B8DEF",
+      "border": "1px solid #5B8DEF40"
+    },
+    "user": {
+      "label": "Editável",
+      "background": "#10B98120",
+      "color": "#10B981",
+      "border": "1px solid #10B98140"
+    }
+  },
+
+  "navigation": {
+    "breadcrumb": {
+      "separator": "/",
+      "activeColor": "#5B8DEF",
+      "inactiveColor": "#9CA3AF"
+    },
+    "backButton": {
+      "icon": "ArrowLeft",
+      "position": "header-left"
+    }
+  },
+
+  "tailwindClasses": {
+    "floatingGlassSidebar": "bg-white/[0.03] dark:bg-white/[0.02] backdrop-blur-2xl backdrop-saturate-150 border border-white/[0.1] rounded-2xl shadow-[0_8px_32px_-8px_rgba(0,0,0,0.15),0_0_0_1px_rgba(255,255,255,0.05)_inset] dark:shadow-[0_8px_32px_-8px_rgba(0,0,0,0.4),0_0_0_1px_rgba(255,255,255,0.03)_inset]",
+    "glassNode": "bg-white/60 dark:bg-white/[0.05] backdrop-blur-md border border-white/20 dark:border-white/10 rounded-xl",
+    "handleDefault": "!bg-primary !w-2.5 !h-2.5 !border-2 !border-white",
+    "handleInvalid": "!bg-red-500 !border-red-300"
+  }
+}

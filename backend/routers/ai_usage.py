@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from database import get_db
 from models import User
 from schemas import AIUsageLog, AIUsageStats, AIUsageSummary
-from auth import get_current_user
+from supabase_auth import get_current_user
 from ai_usage_service import get_usage_stats, get_usage_logs, get_daily_usage_trend
 
 router = APIRouter(
@@ -34,7 +34,7 @@ def get_stats(
     """
     return get_usage_stats(
         db=db,
-        user_id=current_user.id,
+        user_id=str(current_user.id),
         workspace_id=workspace_id,
         project_id=project_id,
         start_date=start_date,
@@ -60,7 +60,7 @@ def get_summary(
     # Get stats for each period
     today_stats = get_usage_stats(
         db=db,
-        user_id=current_user.id,
+        user_id=str(current_user.id),
         workspace_id=workspace_id,
         project_id=project_id,
         start_date=today_start,
@@ -69,7 +69,7 @@ def get_summary(
 
     week_stats = get_usage_stats(
         db=db,
-        user_id=current_user.id,
+        user_id=str(current_user.id),
         workspace_id=workspace_id,
         project_id=project_id,
         start_date=week_start,
@@ -78,7 +78,7 @@ def get_summary(
 
     month_stats = get_usage_stats(
         db=db,
-        user_id=current_user.id,
+        user_id=str(current_user.id),
         workspace_id=workspace_id,
         project_id=project_id,
         start_date=month_start,
@@ -87,7 +87,7 @@ def get_summary(
 
     all_time_stats = get_usage_stats(
         db=db,
-        user_id=current_user.id,
+        user_id=str(current_user.id),
         workspace_id=workspace_id,
         project_id=project_id
     )
@@ -126,7 +126,7 @@ def get_logs(
     """
     return get_usage_logs(
         db=db,
-        user_id=current_user.id,
+        user_id=str(current_user.id),
         workspace_id=workspace_id,
         project_id=project_id,
         start_date=start_date,
@@ -158,7 +158,7 @@ def get_trend(
     return get_daily_usage_trend(
         db=db,
         days=days,
-        user_id=current_user.id,
+        user_id=str(current_user.id),
         workspace_id=workspace_id,
         project_id=project_id
     )

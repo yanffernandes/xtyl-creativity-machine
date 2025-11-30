@@ -1,0 +1,94 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Production Environment Configuration",
+  "description": "Required environment variables for production deployment",
+  "type": "object",
+  "required": [
+    "DATABASE_URL",
+    "SUPABASE_JWT_SECRET",
+    "NEXT_PUBLIC_SUPABASE_URL",
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+    "R2_ENDPOINT",
+    "R2_ACCESS_KEY",
+    "R2_SECRET_KEY",
+    "R2_BUCKET",
+    "R2_PUBLIC_URL",
+    "NEXT_PUBLIC_API_URL",
+    "OPENROUTER_API_KEY"
+  ],
+  "properties": {
+    "DATABASE_URL": {
+      "type": "string",
+      "description": "Supabase PostgreSQL connection string",
+      "pattern": "^postgresql://.*supabase.*$",
+      "examples": ["postgresql://postgres.[ref]:[password]@aws-0-us-east-1.pooler.supabase.com:6543/postgres"]
+    },
+    "SUPABASE_JWT_SECRET": {
+      "type": "string",
+      "description": "JWT secret from Supabase project settings",
+      "minLength": 32
+    },
+    "NEXT_PUBLIC_SUPABASE_URL": {
+      "type": "string",
+      "format": "uri",
+      "description": "Supabase project URL",
+      "pattern": "^https://.*\\.supabase\\.co$"
+    },
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY": {
+      "type": "string",
+      "description": "Supabase anonymous/public key",
+      "pattern": "^eyJ.*$"
+    },
+    "R2_ENDPOINT": {
+      "type": "string",
+      "format": "uri",
+      "description": "Cloudflare R2 S3-compatible endpoint",
+      "pattern": "^https://.*\\.r2\\.cloudflarestorage\\.com$"
+    },
+    "R2_ACCESS_KEY": {
+      "type": "string",
+      "description": "Cloudflare R2 access key ID",
+      "minLength": 16
+    },
+    "R2_SECRET_KEY": {
+      "type": "string",
+      "description": "Cloudflare R2 secret access key",
+      "minLength": 32
+    },
+    "R2_BUCKET": {
+      "type": "string",
+      "description": "R2 bucket name",
+      "pattern": "^[a-z0-9-]+$"
+    },
+    "R2_PUBLIC_URL": {
+      "type": "string",
+      "format": "uri",
+      "description": "Public URL for R2 bucket access",
+      "examples": ["https://pub-xxx.r2.dev", "https://cdn.yourdomain.com"]
+    },
+    "REDIS_URL": {
+      "type": "string",
+      "description": "Redis connection URL (internal Docker network)",
+      "default": "redis://redis:6379/0"
+    },
+    "NEXT_PUBLIC_API_URL": {
+      "type": "string",
+      "format": "uri",
+      "description": "Backend API URL accessible from browser"
+    },
+    "OPENROUTER_API_KEY": {
+      "type": "string",
+      "description": "OpenRouter API key for LLM access",
+      "pattern": "^sk-or-.*$"
+    },
+    "BREVO_API_KEY": {
+      "type": "string",
+      "description": "Brevo API key for transactional emails (optional)",
+      "pattern": "^xkeysib-.*$"
+    },
+    "TAVILY_API_KEY": {
+      "type": "string",
+      "description": "Tavily API key for web search (optional)"
+    }
+  }
+}

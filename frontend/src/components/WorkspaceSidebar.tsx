@@ -1,18 +1,26 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+/**
+ * Workspace Sidebar Component
+ *
+ * Displays cached workspace projects and documents with background refresh.
+ * Features: instant cache load, loading indicator, smooth animations.
+ *
+ * Feature: 013-sidebar-cache
+ */
+
+import { useState, useEffect, useMemo, useCallback } from "react"
 import { useRouter, useParams } from "next/navigation"
-import api from "@/lib/api"
 import { useAuthStore } from "@/lib/store"
+import { useSidebarCache } from "@/hooks/use-sidebar-cache"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
+import { motion, AnimatePresence } from "framer-motion"
 import {
   ChevronLeft,
   ChevronRight,
-  ChevronDown,
-  Plus,
   MoreHorizontal,
   User,
   LogOut,
@@ -25,8 +33,8 @@ import {
   FileText,
   FileImage,
   List,
-  Image as ImageIcon,
-  Palette
+  Workflow,
+  Loader2
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import {
@@ -37,14 +45,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import ProjectTreeItem from "./ProjectTreeItem"
-
-interface Workspace {
-  id: string
-  name: string
-  description?: string
-}
 
 interface SidebarDocument {
   id: string
@@ -59,7 +61,7 @@ interface SidebarDocument {
 interface Project {
   id: string
   name: string
-  description?: string
+  description?: string | null
   documents?: SidebarDocument[]
   visualAssets?: SidebarDocument[]
 }
@@ -69,83 +71,55 @@ interface WorkspaceSidebarProps {
   onDocumentNavigate?: (url: string) => void
 }
 
+// T027/T028: Animation variants for smooth enter/exit
+const projectItemVariants = {
+  initial: { opacity: 0, y: -10 },
+  animate: { opacity: 1, y: 0 },
+  exit: { opacity: 0, y: -10, transition: { duration: 0.15 } }
+}
+
 export default function WorkspaceSidebar({ className, onDocumentNavigate }: WorkspaceSidebarProps) {
-  const [workspace, setWorkspace] = useState<Workspace | null>(null)
-  const [projects, setProjects] = useState<Project[]>([])
   const [isCollapsed, setIsCollapsed] = useState(false)
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set())
   const [searchQuery, setSearchQuery] = useState("")
   const [mediaFilter, setMediaFilter] = useState<"all" | "text" | "image">("all")
-  const { token, logout, user, fetchUser } = useAuthStore()
+  const { token, logout, user, fetchUser, isLoading: authLoading } = useAuthStore()
   const router = useRouter()
   const params = useParams()
   const workspaceId = params.id as string
   const projectId = params.projectId as string
 
-  useEffect(() => {
-    if (token && workspaceId) {
-      fetchWorkspaceData()
-      // Refresh data every 5 seconds to catch document title changes
-      const interval = setInterval(() => {
-        fetchWorkspaceData()
-      }, 5000)
-      return () => clearInterval(interval)
-    }
-  }, [token, workspaceId])
+  // T013-T016: Use sidebar cache hook instead of direct hooks
+  const {
+    workspace,
+    projects: projectsWithDocs,
+    isRefreshing,
+    isInitialLoad,
+    invalidate
+  } = useSidebarCache(workspaceId)
+
+  // T024: Wire invalidate to handleRefresh
+  const handleRefresh = useCallback(() => {
+    invalidate()
+  }, [invalidate])
 
   // Fetch user data on mount
   useEffect(() => {
+    if (authLoading) return
     if (token && !user) {
       fetchUser()
     }
-  }, [token, user, fetchUser])
+  }, [token, authLoading, user, fetchUser])
 
   // Auto-expand active project
   useEffect(() => {
-    if (projectId && !expandedProjects.has(projectId)) {
-      setExpandedProjects(prev => new Set([...prev, projectId]))
+    if (projectId) {
+      setExpandedProjects(prev => {
+        if (prev.has(projectId)) return prev
+        return new Set([...prev, projectId])
+      })
     }
   }, [projectId])
-
-  const fetchWorkspaceData = async () => {
-    try {
-      const workspacesRes = await api.get("/workspaces/")
-      const currentWorkspace = workspacesRes.data.find((w: Workspace) => w.id === workspaceId)
-      setWorkspace(currentWorkspace)
-
-      const projectsRes = await api.get(`/workspaces/${workspaceId}/projects`)
-      const projectsData = projectsRes.data
-
-      // Fetch documents AND visual assets for each project
-      const projectsWithDocs = await Promise.all(
-        projectsData.map(async (project: Project) => {
-          try {
-            // Fetch regular documents
-            const docsRes = await api.get(`/documents/projects/${project.id}/documents`)
-            const regularDocs = (docsRes.data || []).filter((doc: any) => !doc.is_reference_asset)
-
-            // Fetch visual assets
-            let assets: SidebarDocument[] = []
-            try {
-              const assetsRes = await api.get(`/projects/${project.id}/assets`)
-              assets = assetsRes.data.assets || []
-            } catch (assetError) {
-              console.error(`Failed to fetch assets for project ${project.id}`, assetError)
-            }
-
-            return { ...project, documents: regularDocs, visualAssets: assets }
-          } catch (error) {
-            console.error(`Failed to fetch documents for project ${project.id}`, error)
-            return { ...project, documents: [], visualAssets: [] }
-          }
-        })
-      )
-
-      setProjects(projectsWithDocs)
-    } catch (error) {
-      console.error("Failed to fetch workspace data", error)
-    }
-  }
 
   const toggleProject = (projectId: string) => {
     setExpandedProjects(prev => {
@@ -160,7 +134,7 @@ export default function WorkspaceSidebar({ className, onDocumentNavigate }: Work
   }
 
   const filteredProjects = useMemo(() => {
-    let result = projects
+    let result = projectsWithDocs as Project[]
 
     // Apply media type filter
     if (mediaFilter !== "all") {
@@ -183,18 +157,67 @@ export default function WorkspaceSidebar({ className, onDocumentNavigate }: Work
         doc.title.toLowerCase().includes(query)
       )
       return projectMatches || docMatches
-    }).map(project => {
-      // If searching, expand projects with matches
-      if (searchQuery && !expandedProjects.has(project.id)) {
-        setExpandedProjects(prev => new Set([...prev, project.id]))
-      }
-      return project
     })
-  }, [projects, searchQuery, mediaFilter])
+  }, [projectsWithDocs, searchQuery, mediaFilter])
+
+  // Auto-expand projects with search matches
+  useEffect(() => {
+    if (!searchQuery.trim()) return
+
+    const allProjectIds = projectsWithDocs.map(p => p.id)
+    setExpandedProjects(prev => {
+      const newSet = new Set([...prev, ...allProjectIds])
+      if (newSet.size === prev.size) return prev
+      return newSet
+    })
+  }, [searchQuery, projectsWithDocs])
+
+  // T018: Show skeleton only on initial load (no cache)
+  if (isInitialLoad) {
+    return (
+      <div
+        className={cn(
+          "flex flex-col transition-smooth overflow-hidden",
+          "bg-white/[0.03] dark:bg-white/[0.02]",
+          "backdrop-blur-2xl backdrop-saturate-150",
+          "border border-white/[0.1]",
+          "rounded-2xl",
+          "shadow-[0_8px_32px_-8px_rgba(0,0,0,0.15),0_0_0_1px_rgba(255,255,255,0.05)_inset]",
+          "dark:shadow-[0_8px_32px_-8px_rgba(0,0,0,0.4),0_0_0_1px_rgba(255,255,255,0.03)_inset]",
+          className
+        )}
+        style={{ width: "var(--sidebar-width)" }}
+      >
+        {/* Skeleton Header */}
+        <div className="p-4 flex justify-between items-center border-b border-white/[0.06]">
+          <div className="flex-1 min-w-0 space-y-2">
+            <div className="h-5 bg-muted/30 rounded animate-pulse w-32" />
+            <div className="h-3 bg-muted/20 rounded animate-pulse w-24" />
+          </div>
+        </div>
+        {/* Skeleton Projects */}
+        <div className="p-3 space-y-2">
+          <div className="h-4 bg-muted/20 rounded animate-pulse w-20 mb-4" />
+          {[1, 2, 3].map(i => (
+            <div key={i} className="h-10 bg-muted/10 rounded-lg animate-pulse" />
+          ))}
+        </div>
+      </div>
+    )
+  }
 
   if (isCollapsed) {
     return (
-      <div className={cn("w-16 border-r bg-card/50 backdrop-blur-sm flex flex-col items-center py-4 transition-smooth", className)}>
+      <div className={cn(
+        "w-16 flex flex-col items-center py-4 transition-smooth",
+        "bg-white/[0.03] dark:bg-white/[0.02]",
+        "backdrop-blur-2xl backdrop-saturate-150",
+        "border border-white/[0.1]",
+        "rounded-2xl",
+        "shadow-[0_8px_32px_-8px_rgba(0,0,0,0.15),0_0_0_1px_rgba(255,255,255,0.05)_inset]",
+        "dark:shadow-[0_8px_32px_-8px_rgba(0,0,0,0.4),0_0_0_1px_rgba(255,255,255,0.03)_inset]",
+        className
+      )}>
         <Button
           variant="ghost"
           size="icon"
@@ -205,7 +228,7 @@ export default function WorkspaceSidebar({ className, onDocumentNavigate }: Work
         </Button>
         <Separator className="mb-4 w-8" />
         <div className="flex flex-col gap-2 flex-1 overflow-y-auto w-full px-2">
-          {projects.map((project) => (
+          {projectsWithDocs.map((project) => (
             <Button
               key={project.id}
               variant={projectId === project.id ? "default" : "ghost"}
@@ -233,9 +256,21 @@ export default function WorkspaceSidebar({ className, onDocumentNavigate }: Work
   }
 
   return (
-    <div className={cn("flex flex-col border-r bg-card/50 backdrop-blur-sm transition-smooth overflow-x-hidden", className)} style={{ width: "var(--sidebar-width)" }}>
+    <div
+      className={cn(
+        "flex flex-col transition-smooth overflow-hidden",
+        "bg-white/[0.03] dark:bg-white/[0.02]",
+        "backdrop-blur-2xl backdrop-saturate-150",
+        "border border-white/[0.1]",
+        "rounded-2xl",
+        "shadow-[0_8px_32px_-8px_rgba(0,0,0,0.15),0_0_0_1px_rgba(255,255,255,0.05)_inset]",
+        "dark:shadow-[0_8px_32px_-8px_rgba(0,0,0,0.4),0_0_0_1px_rgba(255,255,255,0.03)_inset]",
+        className
+      )}
+      style={{ width: "var(--sidebar-width)" }}
+    >
       {/* Header */}
-      <div className="p-4 flex justify-between items-center border-b bg-gradient-to-br from-primary/5 to-transparent">
+      <div className="p-4 flex justify-between items-center border-b border-white/[0.06] bg-gradient-to-b from-white/[0.03] to-transparent">
         <div className="flex-1 min-w-0">
           <h2 className="font-bold text-base truncate">{workspace?.name || "Workspace"}</h2>
           {workspace?.description && (
@@ -253,7 +288,7 @@ export default function WorkspaceSidebar({ className, onDocumentNavigate }: Work
       </div>
 
       {/* Search */}
-      <div className="p-3 border-b space-y-2">
+      <div className="p-3 border-b border-white/[0.06] space-y-2">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -280,29 +315,41 @@ export default function WorkspaceSidebar({ className, onDocumentNavigate }: Work
           <Button
             variant={mediaFilter === "all" ? "default" : "ghost"}
             size="sm"
-            className="h-7 px-2 text-xs"
+            className={cn(
+              "h-7 text-xs transition-all",
+              mediaFilter === "all" ? "px-2.5" : "px-2 w-8"
+            )}
             onClick={() => setMediaFilter("all")}
+            title="Todos"
           >
-            <List className="h-3 w-3 mr-1" />
-            Todos
+            <List className={cn("h-3.5 w-3.5", mediaFilter === "all" && "mr-1.5")} />
+            {mediaFilter === "all" && "Todos"}
           </Button>
           <Button
             variant={mediaFilter === "text" ? "default" : "ghost"}
             size="sm"
-            className="h-7 px-2 text-xs"
+            className={cn(
+              "h-7 text-xs transition-all",
+              mediaFilter === "text" ? "px-2.5" : "px-2 w-8"
+            )}
             onClick={() => setMediaFilter("text")}
+            title="Textos"
           >
-            <FileText className="h-3 w-3 mr-1" />
-            Textos
+            <FileText className={cn("h-3.5 w-3.5", mediaFilter === "text" && "mr-1.5")} />
+            {mediaFilter === "text" && "Textos"}
           </Button>
           <Button
             variant={mediaFilter === "image" ? "default" : "ghost"}
             size="sm"
-            className="h-7 px-2 text-xs"
+            className={cn(
+              "h-7 text-xs transition-all",
+              mediaFilter === "image" ? "px-2.5" : "px-2 w-8"
+            )}
             onClick={() => setMediaFilter("image")}
+            title="Imagens"
           >
-            <FileImage className="h-3 w-3 mr-1" />
-            Imagens
+            <FileImage className={cn("h-3.5 w-3.5", mediaFilter === "image" && "mr-1.5")} />
+            {mediaFilter === "image" && "Imagens"}
           </Button>
         </div>
       </div>
@@ -310,10 +357,26 @@ export default function WorkspaceSidebar({ className, onDocumentNavigate }: Work
       {/* Projects Tree */}
       <ScrollArea className="flex-1 scrollbar-thin overflow-x-hidden">
         <div className="p-3 space-y-1 overflow-hidden">
+          {/* T019-T023: Projects header with loading indicator */}
           <div className="flex justify-between items-center mb-3 px-2">
-            <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-              Projetos ({filteredProjects.length})
-            </h3>
+            <div className="flex items-center gap-2">
+              <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                Projetos ({filteredProjects.length})
+              </h3>
+              {/* T022-T023: Loading indicator during background refresh */}
+              <AnimatePresence>
+                {isRefreshing && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.8 }}
+                    transition={{ duration: 0.15 }}
+                  >
+                    <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
             <Button
               variant="ghost"
               size="icon"
@@ -333,25 +396,39 @@ export default function WorkspaceSidebar({ className, onDocumentNavigate }: Work
             </div>
           )}
 
-          {filteredProjects.map((project) => (
-            <ProjectTreeItem
-              key={project.id}
-              project={project}
-              workspaceId={workspaceId}
-              isActive={projectId === project.id}
-              isExpanded={expandedProjects.has(project.id)}
-              onToggle={() => toggleProject(project.id)}
-              documentCount={project.documents?.length || 0}
-              visualAssets={project.visualAssets || []}
-              onDocumentNavigate={onDocumentNavigate}
-              onRefresh={fetchWorkspaceData}
-            />
-          ))}
+          {/* T027: AnimatePresence wrapper for smooth enter/exit */}
+          <AnimatePresence mode="popLayout">
+            {filteredProjects.map((project) => (
+              // T028: motion.div with fade animation
+              <motion.div
+                key={project.id}
+                variants={projectItemVariants}
+                initial="initial"
+                animate="animate"
+                exit="exit"
+                layout
+                transition={{ duration: 0.2, ease: "easeOut" }}
+              >
+                {/* T025-T026: Pass invalidate to onRefresh, stable key */}
+                <ProjectTreeItem
+                  project={project}
+                  workspaceId={workspaceId}
+                  isActive={projectId === project.id}
+                  isExpanded={expandedProjects.has(project.id)}
+                  onToggle={() => toggleProject(project.id)}
+                  documentCount={project.documents?.length || 0}
+                  visualAssets={project.visualAssets || []}
+                  onDocumentNavigate={onDocumentNavigate}
+                  onRefresh={handleRefresh}
+                />
+              </motion.div>
+            ))}
+          </AnimatePresence>
         </div>
       </ScrollArea>
 
       {/* User Menu */}
-      <div className="p-3 border-t mt-auto bg-gradient-to-t from-primary/5 to-transparent">
+      <div className="p-3 border-t border-white/[0.06] mt-auto bg-gradient-to-t from-white/[0.02] to-transparent">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
@@ -389,6 +466,10 @@ export default function WorkspaceSidebar({ className, onDocumentNavigate }: Work
             <DropdownMenuItem onClick={() => router.push(`/workspace/${workspaceId}/templates`)}>
               <Sparkles className="mr-2 h-4 w-4" />
               <span>Templates</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => router.push(`/workspace/${workspaceId}/workflows`)}>
+              <Workflow className="mr-2 h-4 w-4" />
+              <span>Workflow Templates</span>
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => router.push(`/workspace/${workspaceId}/ai-usage`)}>
               <Activity className="mr-2 h-4 w-4" />

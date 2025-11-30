@@ -1,0 +1,524 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://xtyl.io/schemas/workflow-v1.json",
+  "title": "XTYL Workflow Definition Schema v1.0",
+  "description": "JSON schema for workflow definitions in the XTYL Creativity Machine. Defines nodes, edges, and configuration for visual automation workflows.",
+  "type": "object",
+  "required": ["version", "nodes", "edges"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "const": "1.0",
+      "description": "Workflow schema version"
+    },
+    "nodes": {
+      "type": "array",
+      "description": "Array of workflow nodes defining actions and control flow",
+      "items": {
+        "$ref": "#/definitions/WorkflowNode"
+      },
+      "minItems": 2
+    },
+    "edges": {
+      "type": "array",
+      "description": "Array of edges connecting nodes to define data flow",
+      "items": {
+        "$ref": "#/definitions/WorkflowEdge"
+      }
+    }
+  },
+  "definitions": {
+    "WorkflowNode": {
+      "type": "object",
+      "required": ["id", "type", "position", "data"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z_]+-[0-9]+$",
+          "description": "Unique node identifier (e.g., 'start-1', 'textgen-2')"
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "start",
+            "finish",
+            "text_generation",
+            "image_generation",
+            "conditional",
+            "loop",
+            "context_retrieval",
+            "processing"
+          ],
+          "description": "Node type determining behavior and configuration"
+        },
+        "position": {
+          "type": "object",
+          "required": ["x", "y"],
+          "properties": {
+            "x": {
+              "type": "number",
+              "description": "X coordinate on canvas"
+            },
+            "y": {
+              "type": "number",
+              "description": "Y coordinate on canvas"
+            }
+          }
+        },
+        "data": {
+          "description": "Node-specific configuration (see node type definitions)",
+          "oneOf": [
+            {"$ref": "#/definitions/StartNodeData"},
+            {"$ref": "#/definitions/FinishNodeData"},
+            {"$ref": "#/definitions/TextGenerationNodeData"},
+            {"$ref": "#/definitions/ImageGenerationNodeData"},
+            {"$ref": "#/definitions/ConditionalNodeData"},
+            {"$ref": "#/definitions/LoopNodeData"},
+            {"$ref": "#/definitions/ContextRetrievalNodeData"},
+            {"$ref": "#/definitions/ProcessingNodeData"}
+          ]
+        }
+      }
+    },
+    "WorkflowEdge": {
+      "type": "object",
+      "required": ["id", "source", "target"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^e[0-9]+$",
+          "description": "Unique edge identifier (e.g., 'e1', 'e2')"
+        },
+        "source": {
+          "type": "string",
+          "description": "Source node ID"
+        },
+        "target": {
+          "type": "string",
+          "description": "Target node ID"
+        },
+        "sourceHandle": {
+          "type": "string",
+          "default": "output",
+          "description": "Source connection point (output, true, false)"
+        },
+        "targetHandle": {
+          "type": "string",
+          "default": "input",
+          "description": "Target connection point (input)"
+        },
+        "type": {
+          "type": "string",
+          "default": "smoothstep",
+          "enum": ["smoothstep", "straight", "step"],
+          "description": "Edge rendering style"
+        },
+        "label": {
+          "type": "string",
+          "description": "Optional edge label"
+        }
+      }
+    },
+    "StartNodeData": {
+      "type": "object",
+      "required": ["label"],
+      "properties": {
+        "label": {
+          "type": "string",
+          "default": "Start"
+        },
+        "inputVariables": {
+          "type": "array",
+          "description": "Variables to prompt user for at execution start",
+          "items": {
+            "type": "object",
+            "required": ["name", "type"],
+            "properties": {
+              "name": {
+                "type": "string",
+                "pattern": "^[a-zA-Z_][a-zA-Z0-9_]*$",
+                "description": "Variable name (alphanumeric + underscore)"
+              },
+              "type": {
+                "type": "string",
+                "enum": ["text", "number", "boolean"],
+                "description": "Variable data type"
+              },
+              "required": {
+                "type": "boolean",
+                "default": true,
+                "description": "Whether variable is required"
+              },
+              "default": {
+                "description": "Default value if not provided",
+                "oneOf": [
+                  {"type": "string"},
+                  {"type": "number"},
+                  {"type": "boolean"}
+                ]
+              },
+              "description": {
+                "type": "string",
+                "description": "Help text shown to user"
+              }
+            }
+          }
+        }
+      }
+    },
+    "FinishNodeData": {
+      "type": "object",
+      "required": ["label"],
+      "properties": {
+        "label": {
+          "type": "string",
+          "default": "Finish"
+        },
+        "saveToProject": {
+          "type": "boolean",
+          "default": true,
+          "description": "Save generated content as documents in project"
+        },
+        "documentTitle": {
+          "type": "string",
+          "description": "Title for generated document (supports {{variables}})"
+        },
+        "notifyUser": {
+          "type": "boolean",
+          "default": true,
+          "description": "Send notification when workflow completes"
+        }
+      }
+    },
+    "TextGenerationNodeData": {
+      "type": "object",
+      "required": ["label", "prompt", "model"],
+      "properties": {
+        "label": {
+          "type": "string",
+          "description": "Node display name"
+        },
+        "prompt": {
+          "type": "string",
+          "minLength": 1,
+          "description": "AI prompt template (supports {{node.variable}} syntax)"
+        },
+        "model": {
+          "type": "string",
+          "description": "OpenRouter model ID (e.g., 'openai/gpt-4-turbo')"
+        },
+        "maxTokens": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100000,
+          "default": 1000,
+          "description": "Maximum tokens to generate"
+        },
+        "temperature": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 2,
+          "default": 0.7,
+          "description": "Sampling temperature (0=deterministic, 2=creative)"
+        },
+        "systemPrompt": {
+          "type": "string",
+          "description": "Optional system prompt for model context"
+        }
+      }
+    },
+    "ImageGenerationNodeData": {
+      "type": "object",
+      "required": ["label", "prompt", "model"],
+      "properties": {
+        "label": {
+          "type": "string",
+          "description": "Node display name"
+        },
+        "prompt": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Image generation prompt (supports {{variables}})"
+        },
+        "model": {
+          "type": "string",
+          "description": "OpenRouter image model ID (e.g., 'openai/dall-e-3')"
+        },
+        "size": {
+          "type": "string",
+          "enum": ["256x256", "512x512", "1024x1024", "1024x1792", "1792x1024"],
+          "default": "1024x1024",
+          "description": "Image dimensions"
+        },
+        "style": {
+          "type": "string",
+          "enum": ["vivid", "natural"],
+          "default": "vivid",
+          "description": "Image style (DALL-E specific)"
+        },
+        "quality": {
+          "type": "string",
+          "enum": ["standard", "hd"],
+          "default": "standard",
+          "description": "Image quality (DALL-E specific)"
+        }
+      }
+    },
+    "ConditionalNodeData": {
+      "type": "object",
+      "required": ["label", "condition"],
+      "properties": {
+        "label": {
+          "type": "string",
+          "description": "Node display name"
+        },
+        "condition": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Boolean expression to evaluate (e.g., '{{textgen.word_count}} > 100')"
+        }
+      }
+    },
+    "LoopNodeData": {
+      "type": "object",
+      "required": ["label"],
+      "oneOf": [
+        {
+          "required": ["iterations"]
+        },
+        {
+          "required": ["condition"]
+        }
+      ],
+      "properties": {
+        "label": {
+          "type": "string",
+          "description": "Node display name"
+        },
+        "iterations": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "description": "Fixed number of iterations"
+        },
+        "condition": {
+          "type": "string",
+          "description": "Exit condition (loop until condition is true)"
+        },
+        "maxIterations": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "default": 10,
+          "description": "Safety limit to prevent infinite loops"
+        }
+      }
+    },
+    "ContextRetrievalNodeData": {
+      "type": "object",
+      "required": ["label"],
+      "properties": {
+        "label": {
+          "type": "string",
+          "description": "Node display name"
+        },
+        "filters": {
+          "type": "object",
+          "description": "Filters for document retrieval",
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": ["draft", "review", "approved", "production"],
+              "description": "Document status filter"
+            },
+            "asset_type": {
+              "type": "string",
+              "enum": ["logo", "background", "person", "reference", "other"],
+              "description": "Asset type filter (for reference assets)"
+            },
+            "tags": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Document tags to match"
+            },
+            "media_type": {
+              "type": "string",
+              "enum": ["text", "image", "pdf"],
+              "description": "Media type filter"
+            }
+          }
+        },
+        "maxResults": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "default": 10,
+          "description": "Maximum documents to retrieve"
+        },
+        "searchQuery": {
+          "type": "string",
+          "description": "Optional text search query (supports {{variables}})"
+        },
+        "sortBy": {
+          "type": "string",
+          "enum": ["created_at", "updated_at", "relevance"],
+          "default": "created_at",
+          "description": "Sort order for results"
+        }
+      }
+    },
+    "ProcessingNodeData": {
+      "type": "object",
+      "required": ["label", "prompt", "model"],
+      "properties": {
+        "label": {
+          "type": "string",
+          "description": "Node display name"
+        },
+        "prompt": {
+          "type": "string",
+          "minLength": 1,
+          "description": "AI processing prompt (supports {{variables}})"
+        },
+        "model": {
+          "type": "string",
+          "description": "OpenRouter model ID for processing"
+        },
+        "outputFormat": {
+          "type": "string",
+          "enum": ["text", "json", "markdown"],
+          "default": "text",
+          "description": "Expected output format"
+        },
+        "maxTokens": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100000,
+          "default": 1000,
+          "description": "Maximum tokens to generate"
+        },
+        "temperature": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 2,
+          "default": 0.3,
+          "description": "Sampling temperature (lower for structured output)"
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "version": "1.0",
+      "nodes": [
+        {
+          "id": "start-1",
+          "type": "start",
+          "position": {"x": 100, "y": 100},
+          "data": {
+            "label": "Start",
+            "inputVariables": [
+              {
+                "name": "campaign_theme",
+                "type": "text",
+                "required": true,
+                "description": "Main theme for the campaign"
+              },
+              {
+                "name": "target_audience",
+                "type": "text",
+                "required": false,
+                "default": "general audience"
+              }
+            ]
+          }
+        },
+        {
+          "id": "textgen-2",
+          "type": "text_generation",
+          "position": {"x": 300, "y": 100},
+          "data": {
+            "label": "Generate Headline",
+            "prompt": "Create an engaging headline for a {{start.campaign_theme}} campaign targeting {{start.target_audience}}. Keep it under 10 words.",
+            "model": "openai/gpt-4-turbo",
+            "maxTokens": 100,
+            "temperature": 0.8
+          }
+        },
+        {
+          "id": "conditional-3",
+          "type": "conditional",
+          "position": {"x": 500, "y": 100},
+          "data": {
+            "label": "Check Length",
+            "condition": "{{textgen-2.word_count}} <= 10"
+          }
+        },
+        {
+          "id": "imagegen-4",
+          "type": "image_generation",
+          "position": {"x": 700, "y": 50},
+          "data": {
+            "label": "Create Hero Image",
+            "prompt": "Create a vibrant hero image for: {{textgen-2.content}}",
+            "model": "openai/dall-e-3",
+            "size": "1024x1024",
+            "style": "vivid"
+          }
+        },
+        {
+          "id": "finish-5",
+          "type": "finish",
+          "position": {"x": 900, "y": 50},
+          "data": {
+            "label": "Save Campaign",
+            "saveToProject": true,
+            "documentTitle": "{{textgen-2.content}}",
+            "notifyUser": true
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "e1",
+          "source": "start-1",
+          "target": "textgen-2",
+          "sourceHandle": "output",
+          "targetHandle": "input"
+        },
+        {
+          "id": "e2",
+          "source": "textgen-2",
+          "target": "conditional-3",
+          "sourceHandle": "output",
+          "targetHandle": "input"
+        },
+        {
+          "id": "e3",
+          "source": "conditional-3",
+          "target": "imagegen-4",
+          "sourceHandle": "true",
+          "targetHandle": "input",
+          "label": "Valid"
+        },
+        {
+          "id": "e4",
+          "source": "conditional-3",
+          "target": "textgen-2",
+          "sourceHandle": "false",
+          "targetHandle": "input",
+          "label": "Retry"
+        },
+        {
+          "id": "e5",
+          "source": "imagegen-4",
+          "target": "finish-5",
+          "sourceHandle": "output",
+          "targetHandle": "input"
+        }
+      ]
+    }
+  ]
+}

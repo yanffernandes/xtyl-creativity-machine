@@ -1,0 +1,311 @@
+openapi: 3.0.3
+info:
+  title: Agent Tools Enhancement API
+  description: API contracts for user preferences and enhanced chat tools
+  version: 1.0.0
+
+paths:
+  /preferences:
+    get:
+      summary: Get user preferences
+      description: Retrieve the current user's AI assistant preferences
+      tags:
+        - Preferences
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: User preferences retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserPreferences'
+        '401':
+          description: Unauthorized
+        '404':
+          description: Preferences not found (returns defaults)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserPreferences'
+
+    put:
+      summary: Update user preferences
+      description: Update the current user's AI assistant preferences
+      tags:
+        - Preferences
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserPreferencesUpdate'
+      responses:
+        '200':
+          description: Preferences updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserPreferences'
+        '400':
+          description: Invalid request body
+        '401':
+          description: Unauthorized
+
+  /chat/completion-stream:
+    post:
+      summary: Stream chat completion with tools
+      description: Enhanced endpoint with autonomous mode and task list support
+      tags:
+        - Chat
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatCompletionRequest'
+      responses:
+        '200':
+          description: SSE stream of chat events
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                description: Server-Sent Events stream
+
+  /chat/tool-cancel:
+    post:
+      summary: Cancel a running tool
+      description: Cancel a tool that is currently executing
+      tags:
+        - Chat
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ToolCancelRequest'
+      responses:
+        '200':
+          description: Tool cancelled successfully
+        '404':
+          description: Tool execution not found
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    UserPreferences:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        autonomous_mode:
+          type: boolean
+          default: false
+          description: Execute all tools automatically without approval
+        max_iterations:
+          type: integer
+          minimum: 1
+          maximum: 50
+          default: 15
+          description: Maximum iterations per conversation
+        default_model:
+          type: string
+          nullable: true
+          description: Preferred LLM model
+        use_rag_by_default:
+          type: boolean
+          default: true
+          description: Enable RAG context by default
+        settings:
+          type: object
+          additionalProperties: true
+          description: Additional extensible settings
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    UserPreferencesUpdate:
+      type: object
+      properties:
+        autonomous_mode:
+          type: boolean
+        max_iterations:
+          type: integer
+          minimum: 1
+          maximum: 50
+        default_model:
+          type: string
+          nullable: true
+        use_rag_by_default:
+          type: boolean
+        settings:
+          type: object
+          additionalProperties: true
+
+    ChatCompletionRequest:
+      type: object
+      required:
+        - messages
+        - project_id
+      properties:
+        messages:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChatMessage'
+        project_id:
+          type: string
+          format: uuid
+        model:
+          type: string
+          default: "anthropic/claude-3.5-sonnet"
+        autonomous_mode:
+          type: boolean
+          default: false
+          description: Override user preference for this request
+        context_document_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        context_folder_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        use_rag:
+          type: boolean
+          default: true
+        editing_document_id:
+          type: string
+          format: uuid
+          nullable: true
+
+    ChatMessage:
+      type: object
+      required:
+        - role
+        - content
+      properties:
+        role:
+          type: string
+          enum: [system, user, assistant]
+        content:
+          type: string
+
+    ToolCancelRequest:
+      type: object
+      required:
+        - execution_id
+      properties:
+        execution_id:
+          type: string
+          description: ID of the tool execution to cancel
+
+    # SSE Event Schemas (for documentation)
+    TaskListEvent:
+      type: object
+      required:
+        - type
+        - tasks
+      properties:
+        type:
+          type: string
+          enum: [task_list]
+        tasks:
+          type: array
+          items:
+            $ref: '#/components/schemas/TaskItem'
+
+    TaskItem:
+      type: object
+      required:
+        - id
+        - description
+        - status
+      properties:
+        id:
+          type: string
+        description:
+          type: string
+        tool_name:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [pending, in_progress, completed, failed, skipped]
+
+    TaskUpdateEvent:
+      type: object
+      required:
+        - type
+        - task_id
+        - status
+      properties:
+        type:
+          type: string
+          enum: [task_update]
+        task_id:
+          type: string
+        status:
+          type: string
+          enum: [pending, in_progress, completed, failed, skipped]
+        error:
+          type: string
+          nullable: true
+        duration_ms:
+          type: integer
+          nullable: true
+
+    ToolRetryEvent:
+      type: object
+      required:
+        - type
+        - tool_name
+        - attempt
+        - max_attempts
+      properties:
+        type:
+          type: string
+          enum: [tool_retry]
+        tool_name:
+          type: string
+        attempt:
+          type: integer
+        max_attempts:
+          type: integer
+        reason:
+          type: string
+
+    ToolTimeoutEvent:
+      type: object
+      required:
+        - type
+        - tool_name
+        - timeout_seconds
+      properties:
+        type:
+          type: string
+          enum: [tool_timeout]
+        tool_name:
+          type: string
+        timeout_seconds:
+          type: integer

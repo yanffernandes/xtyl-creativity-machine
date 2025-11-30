@@ -9,8 +9,15 @@ from typing import BinaryIO
 from docx import Document
 from docx.shared import Pt, RGBColor, Inches
 from docx.enum.text import WD_ALIGN_PARAGRAPH
-from weasyprint import HTML, CSS
-from weasyprint.text.fonts import FontConfiguration
+try:
+    from weasyprint import HTML, CSS
+    from weasyprint.text.fonts import FontConfiguration
+    WEASYPRINT_AVAILABLE = True
+except (ImportError, OSError):
+    WEASYPRINT_AVAILABLE = False
+    HTML = None
+    CSS = None
+    FontConfiguration = None
 import re
 
 
@@ -207,6 +214,9 @@ def export_to_pdf(content: str, title: str) -> bytes:
         margin: 1em 0;
     }
     """
+
+    if not WEASYPRINT_AVAILABLE:
+        raise NotImplementedError("PDF export is not available. Missing system dependencies (weasyprint/cairo).")
 
     # Generate PDF
     font_config = FontConfiguration()

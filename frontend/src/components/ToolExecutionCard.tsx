@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import api from "@/lib/api"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -17,11 +18,15 @@ import {
     X,
     Loader2,
     Copy,
-    Globe
+    Globe,
+    Pencil,
+    FolderOpen,
+    StopCircle
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 interface ToolExecutionCardProps {
+    id: string
     tool: string
     args?: Record<string, any>
     result?: any
@@ -45,7 +50,10 @@ const TOOL_ICONS: Record<string, any> = {
     move_folder: Move,
     delete_file: Trash2,
     delete_folder: Trash2,
-    web_search: Globe
+    web_search: Globe,
+    rename_document: Pencil,
+    rename_folder: Pencil,
+    get_folder_contents: FolderOpen
 }
 
 // Map tool names to friendly labels
@@ -61,10 +69,14 @@ const TOOL_LABELS: Record<string, string> = {
     move_folder: "Mover Pasta",
     delete_file: "Deletar Arquivo",
     delete_folder: "Deletar Pasta",
-    web_search: "Buscar na Web"
+    web_search: "Buscar na Web",
+    rename_document: "Renomear Documento",
+    rename_folder: "Renomear Pasta",
+    get_folder_contents: "Listar Conteúdo da Pasta"
 }
 
 export default function ToolExecutionCard({
+    id,
     tool,
     args,
     result,
@@ -75,6 +87,35 @@ export default function ToolExecutionCard({
     total
 }: ToolExecutionCardProps) {
     const [isExpanded, setIsExpanded] = useState(false)
+    const [elapsedTime, setElapsedTime] = useState(0)
+    const [isCancelling, setIsCancelling] = useState(false)
+
+    // Timer for executing state
+    useEffect(() => {
+        let interval: NodeJS.Timeout
+        if (status === "executing") {
+            const startTime = Date.now()
+            setElapsedTime(0)
+            interval = setInterval(() => {
+                setElapsedTime(Date.now() - startTime)
+            }, 100)
+        }
+        return () => clearInterval(interval)
+    }, [status])
+
+    const handleCancel = async (e: React.MouseEvent) => {
+        e.stopPropagation()
+        if (isCancelling) return
+
+        setIsCancelling(true)
+        try {
+            await api.post("/chat/tool-cancel", { tool_call_id: id })
+        } catch (error) {
+            console.error("Failed to cancel tool", error)
+        } finally {
+            setIsCancelling(false)
+        }
+    }
 
     const Icon = TOOL_ICONS[tool] || FileText
     const label = TOOL_LABELS[tool] || tool
@@ -146,6 +187,29 @@ export default function ToolExecutionCard({
                             )}
                         </div>
                     </div>
+
+                    {/* Timer and Cancel Button */}
+                    {status === "executing" && (
+                        <div className="flex items-center gap-2 mr-2">
+                            <span className="text-xs font-mono text-muted-foreground w-12 text-right">
+                                {(elapsedTime / 1000).toFixed(1)}s
+                            </span>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={handleCancel}
+                                disabled={isCancelling}
+                                className="h-6 w-6 p-0 hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-900/30"
+                                title="Cancelar execução"
+                            >
+                                {isCancelling ? (
+                                    <Loader2 className="h-3 w-3 animate-spin" />
+                                ) : (
+                                    <StopCircle className="h-3 w-3" />
+                                )}
+                            </Button>
+                        </div>
+                    )}
 
                     {/* Actions */}
                     <div className="flex items-center gap-1">

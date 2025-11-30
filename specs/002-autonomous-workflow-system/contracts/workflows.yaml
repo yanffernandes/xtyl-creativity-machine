@@ -1,0 +1,836 @@
+openapi: 3.0.3
+info:
+  title: Workflow Templates API
+  description: API for managing workflow templates in the autonomous workflow system
+  version: 1.0.0
+  contact:
+    name: XTYL Creativity Machine
+
+servers:
+  - url: /api/workflows
+    description: Workflow template operations
+
+tags:
+  - name: Templates
+    description: Workflow template CRUD operations
+
+paths:
+  /templates:
+    get:
+      summary: List workflow templates
+      description: Retrieve all workflow templates, optionally filtered by category and workspace
+      operationId: listWorkflowTemplates
+      tags:
+        - Templates
+      parameters:
+        - name: category
+          in: query
+          description: Filter templates by category
+          required: false
+          schema:
+            type: string
+            enum:
+              - social_media
+              - paid_ads
+              - organic_content
+              - email
+              - seo
+              - all
+        - name: workspace_id
+          in: query
+          description: Filter templates by workspace (returns both system and workspace-specific templates)
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: include_system
+          in: query
+          description: Include system-provided templates
+          required: false
+          schema:
+            type: boolean
+            default: true
+      responses:
+        '200':
+          description: Successfully retrieved templates
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  templates:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/WorkflowTemplateSummary'
+                  total:
+                    type: integer
+                    description: Total number of templates
+                  categories:
+                    type: object
+                    description: Count of templates per category
+                    additionalProperties:
+                      type: integer
+              examples:
+                success:
+                  value:
+                    templates:
+                      - id: "550e8400-e29b-41d4-a716-446655440000"
+                        name: "Facebook Ads Campaign"
+                        description: "Generate multiple ad variations with images"
+                        category: "paid_ads"
+                        node_count: 5
+                        estimated_time_minutes: 8
+                        usage_count: 234
+                        success_rate: 0.96
+                        is_system_template: true
+                        thumbnail_url: "https://example.com/thumbnails/facebook-ads.png"
+                        created_at: "2025-01-15T10:00:00Z"
+                      - id: "660e8400-e29b-41d4-a716-446655440001"
+                        name: "Instagram Carousel Post"
+                        description: "Create carousel copy with matching images"
+                        category: "social_media"
+                        node_count: 4
+                        estimated_time_minutes: 5
+                        usage_count: 156
+                        success_rate: 0.94
+                        is_system_template: true
+                        thumbnail_url: "https://example.com/thumbnails/instagram-carousel.png"
+                        created_at: "2025-01-15T10:00:00Z"
+                    total: 2
+                    categories:
+                      paid_ads: 1
+                      social_media: 1
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    post:
+      summary: Create custom workflow template
+      description: Create a new custom workflow template from scratch or modified clone
+      operationId: createWorkflowTemplate
+      tags:
+        - Templates
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateWorkflowTemplateRequest'
+            examples:
+              simple_workflow:
+                value:
+                  name: "Blog Post with Social Snippets"
+                  description: "Generate blog post and 5 social media snippets"
+                  category: "organic_content"
+                  workspace_id: "770e8400-e29b-41d4-a716-446655440002"
+                  nodes:
+                    - id: "node-1"
+                      type: "generate_copy"
+                      label: "Generate Blog Post"
+                      position: { x: 100, y: 100 }
+                      config:
+                        prompt_template: "Write a blog post about {{topic}} for {{target_audience}}"
+                        quantity: 1
+                        temperature: 0.7
+                        output_status: "draft"
+                    - id: "node-2"
+                      type: "generate_copy"
+                      label: "Generate Social Snippets"
+                      position: { x: 100, y: 300 }
+                      config:
+                        prompt_template: "Create 5 social media snippets from this blog post: {{previous_output}}"
+                        quantity: 5
+                        temperature: 0.8
+                        output_status: "draft"
+                  edges:
+                    - id: "edge-1"
+                      source: "node-1"
+                      target: "node-2"
+                      type: "default"
+      responses:
+        '201':
+          description: Template created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkflowTemplateDetail'
+              examples:
+                created:
+                  value:
+                    id: "880e8400-e29b-41d4-a716-446655440003"
+                    name: "Blog Post with Social Snippets"
+                    description: "Generate blog post and 5 social media snippets"
+                    category: "organic_content"
+                    workspace_id: "770e8400-e29b-41d4-a716-446655440002"
+                    is_system_template: false
+                    nodes:
+                      - id: "node-1"
+                        type: "generate_copy"
+                        label: "Generate Blog Post"
+                        position: { x: 100, y: 100 }
+                        config:
+                          prompt_template: "Write a blog post about {{topic}} for {{target_audience}}"
+                          quantity: 1
+                          temperature: 0.7
+                          output_status: "draft"
+                      - id: "node-2"
+                        type: "generate_copy"
+                        label: "Generate Social Snippets"
+                        position: { x: 100, y: 300 }
+                        config:
+                          prompt_template: "Create 5 social media snippets from this blog post: {{previous_output}}"
+                          quantity: 5
+                          temperature: 0.8
+                          output_status: "draft"
+                    edges:
+                      - id: "edge-1"
+                        source: "node-1"
+                        target: "node-2"
+                        type: "default"
+                    node_count: 2
+                    estimated_time_minutes: 3
+                    usage_count: 0
+                    success_rate: null
+                    created_at: "2025-11-25T14:30:00Z"
+                    updated_at: "2025-11-25T14:30:00Z"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          description: Validation error (invalid nodes, cycles detected, etc.)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+              examples:
+                cycle_detected:
+                  value:
+                    error: "validation_error"
+                    message: "Workflow contains cycles"
+                    details:
+                      issues:
+                        - code: "cycle_detected"
+                          message: "Cycle detected: node-1 → node-2 → node-1"
+                          path: ["edges"]
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /templates/{id}:
+    get:
+      summary: Get workflow template detail
+      description: Retrieve complete details of a specific workflow template including all nodes and edges
+      operationId: getWorkflowTemplate
+      tags:
+        - Templates
+      parameters:
+        - name: id
+          in: path
+          description: Template ID
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Successfully retrieved template
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkflowTemplateDetail'
+              examples:
+                facebook_ads:
+                  value:
+                    id: "550e8400-e29b-41d4-a716-446655440000"
+                    name: "Facebook Ads Campaign"
+                    description: "Generate multiple ad variations with images"
+                    category: "paid_ads"
+                    workspace_id: null
+                    is_system_template: true
+                    nodes:
+                      - id: "node-1"
+                        type: "generate_copy"
+                        label: "Generate Ad Headlines"
+                        position: { x: 100, y: 100 }
+                        config:
+                          prompt_template: "Create {{quantity}} Facebook ad headlines for {{topic}}"
+                          quantity: 10
+                          temperature: 0.9
+                          output_status: "draft"
+                      - id: "node-2"
+                        type: "generate_copy"
+                        label: "Generate Ad Body Copy"
+                        position: { x: 100, y: 250 }
+                        config:
+                          prompt_template: "Write ad body copy for headline: {{previous_output}}"
+                          quantity: 10
+                          temperature: 0.8
+                          output_status: "draft"
+                      - id: "node-3"
+                        type: "generate_image"
+                        label: "Create Ad Images"
+                        position: { x: 100, y: 400 }
+                        config:
+                          prompt_template: "Ad creative for: {{previous_output}}"
+                          quantity: 10
+                          style: "professional_marketing"
+                          dimensions: "1080x1080"
+                      - id: "node-4"
+                        type: "attach_to_document"
+                        label: "Attach Images to Copies"
+                        position: { x: 100, y: 550 }
+                        config:
+                          attachment_strategy: "one_to_one"
+                          match_by: "position"
+                    edges:
+                      - id: "edge-1"
+                        source: "node-1"
+                        target: "node-2"
+                        type: "default"
+                      - id: "edge-2"
+                        source: "node-2"
+                        target: "node-3"
+                        type: "default"
+                      - id: "edge-3-a"
+                        source: "node-2"
+                        target: "node-4"
+                        type: "default"
+                      - id: "edge-3-b"
+                        source: "node-3"
+                        target: "node-4"
+                        type: "default"
+                    node_count: 4
+                    estimated_time_minutes: 8
+                    usage_count: 234
+                    success_rate: 0.96
+                    created_at: "2025-01-15T10:00:00Z"
+                    updated_at: "2025-01-15T10:00:00Z"
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    put:
+      summary: Update workflow template
+      description: Update an existing custom workflow template (system templates cannot be modified)
+      operationId: updateWorkflowTemplate
+      tags:
+        - Templates
+      parameters:
+        - name: id
+          in: path
+          description: Template ID
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateWorkflowTemplateRequest'
+      responses:
+        '200':
+          description: Template updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkflowTemplateDetail'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Cannot modify system templates
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                system_template:
+                  value:
+                    error: "forbidden"
+                    message: "Cannot modify system templates. Clone it first to create a custom version."
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    delete:
+      summary: Delete workflow template
+      description: Delete a custom workflow template (system templates cannot be deleted)
+      operationId: deleteWorkflowTemplate
+      tags:
+        - Templates
+      parameters:
+        - name: id
+          in: path
+          description: Template ID
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Template deleted successfully
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Cannot delete system templates
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                system_template:
+                  value:
+                    error: "forbidden"
+                    message: "Cannot delete system templates"
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Template is in use
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                in_use:
+                  value:
+                    error: "conflict"
+                    message: "Cannot delete template with active executions. Wait for executions to complete or stop them first."
+                    details:
+                      active_execution_count: 3
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /templates/{id}/clone:
+    post:
+      summary: Clone workflow template
+      description: Create a copy of an existing template for customization
+      operationId: cloneWorkflowTemplate
+      tags:
+        - Templates
+      parameters:
+        - name: id
+          in: path
+          description: Template ID to clone
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: Name for the cloned template
+                  minLength: 1
+                  maxLength: 100
+                description:
+                  type: string
+                  description: Description for the cloned template
+                  maxLength: 500
+                workspace_id:
+                  type: string
+                  format: uuid
+                  description: Workspace to create the clone in
+              required:
+                - name
+                - workspace_id
+            examples:
+              clone_request:
+                value:
+                  name: "Custom Facebook Ads - Summer Campaign"
+                  description: "Modified Facebook ads workflow for summer promotions"
+                  workspace_id: "770e8400-e29b-41d4-a716-446655440002"
+      responses:
+        '201':
+          description: Template cloned successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkflowTemplateDetail'
+              examples:
+                cloned:
+                  value:
+                    id: "990e8400-e29b-41d4-a716-446655440004"
+                    name: "Custom Facebook Ads - Summer Campaign"
+                    description: "Modified Facebook ads workflow for summer promotions"
+                    category: "paid_ads"
+                    workspace_id: "770e8400-e29b-41d4-a716-446655440002"
+                    is_system_template: false
+                    nodes:
+                      - id: "node-1-cloned"
+                        type: "generate_copy"
+                        label: "Generate Ad Headlines"
+                        position: { x: 100, y: 100 }
+                        config:
+                          prompt_template: "Create {{quantity}} Facebook ad headlines for {{topic}}"
+                          quantity: 10
+                          temperature: 0.9
+                          output_status: "draft"
+                    edges: []
+                    node_count: 4
+                    estimated_time_minutes: 8
+                    usage_count: 0
+                    success_rate: null
+                    created_at: "2025-11-25T14:35:00Z"
+                    updated_at: "2025-11-25T14:35:00Z"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+components:
+  schemas:
+    WorkflowTemplateSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        category:
+          type: string
+          enum:
+            - social_media
+            - paid_ads
+            - organic_content
+            - email
+            - seo
+        node_count:
+          type: integer
+          description: Number of nodes in workflow
+        estimated_time_minutes:
+          type: integer
+          description: Estimated execution time in minutes
+        usage_count:
+          type: integer
+          description: Number of times this template has been executed
+        success_rate:
+          type: number
+          format: float
+          nullable: true
+          description: Success rate (0-1) based on completed vs failed executions
+        is_system_template:
+          type: boolean
+          description: Whether this is a system-provided template
+        thumbnail_url:
+          type: string
+          format: uri
+          nullable: true
+          description: Preview thumbnail URL
+        created_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - name
+        - description
+        - category
+        - node_count
+        - estimated_time_minutes
+        - usage_count
+        - is_system_template
+        - created_at
+
+    WorkflowTemplateDetail:
+      allOf:
+        - $ref: '#/components/schemas/WorkflowTemplateSummary'
+        - type: object
+          properties:
+            workspace_id:
+              type: string
+              format: uuid
+              nullable: true
+              description: Workspace ID (null for system templates)
+            nodes:
+              type: array
+              items:
+                $ref: '#/components/schemas/WorkflowNode'
+            edges:
+              type: array
+              items:
+                $ref: '#/components/schemas/WorkflowEdge'
+            updated_at:
+              type: string
+              format: date-time
+          required:
+            - workspace_id
+            - nodes
+            - edges
+            - updated_at
+
+    WorkflowNode:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique node identifier within workflow
+        type:
+          type: string
+          enum:
+            - generate_copy
+            - generate_image
+            - attach_to_document
+            - review
+            - conditional
+            - parallel
+        label:
+          type: string
+          description: Display name for the node
+        position:
+          type: object
+          properties:
+            x:
+              type: number
+            y:
+              type: number
+          required:
+            - x
+            - y
+        config:
+          type: object
+          description: Node-specific configuration (schema varies by node type)
+          additionalProperties: true
+      required:
+        - id
+        - type
+        - label
+        - position
+        - config
+
+    WorkflowEdge:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique edge identifier
+        source:
+          type: string
+          description: Source node ID
+        target:
+          type: string
+          description: Target node ID
+        type:
+          type: string
+          enum:
+            - default
+            - conditional
+          default: default
+        label:
+          type: string
+          nullable: true
+          description: Edge label (used for conditional branches)
+      required:
+        - id
+        - source
+        - target
+        - type
+
+    CreateWorkflowTemplateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        description:
+          type: string
+          maxLength: 500
+        category:
+          type: string
+          enum:
+            - social_media
+            - paid_ads
+            - organic_content
+            - email
+            - seo
+        workspace_id:
+          type: string
+          format: uuid
+        nodes:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkflowNode'
+          minItems: 1
+          maxItems: 100
+        edges:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkflowEdge'
+      required:
+        - name
+        - description
+        - category
+        - workspace_id
+        - nodes
+        - edges
+
+    UpdateWorkflowTemplateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        description:
+          type: string
+          maxLength: 500
+        category:
+          type: string
+          enum:
+            - social_media
+            - paid_ads
+            - organic_content
+            - email
+            - seo
+        nodes:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkflowNode'
+          minItems: 1
+          maxItems: 100
+        edges:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkflowEdge'
+
+    ValidationError:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "validation_error"
+        message:
+          type: string
+          example: "Workflow validation failed"
+        details:
+          type: object
+          properties:
+            issues:
+              type: array
+              items:
+                type: object
+                properties:
+                  code:
+                    type: string
+                  message:
+                    type: string
+                  path:
+                    type: array
+                    items:
+                      type: string
+      required:
+        - error
+        - message
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+        details:
+          type: object
+          nullable: true
+      required:
+        - error
+        - message
+
+  responses:
+    BadRequest:
+      description: Bad request - invalid input
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            bad_request:
+              value:
+                error: "bad_request"
+                message: "Invalid request parameters"
+
+    Unauthorized:
+      description: Unauthorized - authentication required
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            unauthorized:
+              value:
+                error: "unauthorized"
+                message: "Authentication required"
+
+    Forbidden:
+      description: Forbidden - insufficient permissions
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            forbidden:
+              value:
+                error: "forbidden"
+                message: "You don't have permission to access this resource"
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            not_found:
+              value:
+                error: "not_found"
+                message: "Template not found"
+
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            server_error:
+              value:
+                error: "internal_server_error"
+                message: "An unexpected error occurred"
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+security:
+  - BearerAuth: []

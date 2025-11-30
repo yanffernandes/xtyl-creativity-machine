@@ -4,8 +4,21 @@ import { useSortable } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { FileText, GripVertical, Star, Trash2 } from "lucide-react"
+import { FileText, GripVertical, Star, Trash2, Image as ImageIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
+
+interface ImageAttachment {
+  id: string
+  image_id: string
+  is_primary: boolean
+  attachment_order: number
+  image?: {
+    id: string
+    title: string
+    file_url?: string
+    thumbnail_url?: string
+  }
+}
 
 interface Document {
   id: string
@@ -15,6 +28,7 @@ interface Document {
   type: "creation" | "context"
   content?: string
   is_context?: boolean
+  attachments?: ImageAttachment[]
 }
 
 interface KanbanCardProps {
@@ -101,6 +115,40 @@ export default function KanbanCard({
           </div>
         </div>
         <p className="font-semibold text-sm line-clamp-2 mb-3">{document.title}</p>
+
+        {/* Image Attachments Preview */}
+        {document.attachments && document.attachments.length > 0 && (
+          <div className="mb-3 flex gap-1.5 flex-wrap">
+            {document.attachments.slice(0, 3).map((attachment) => (
+              <div
+                key={attachment.id}
+                className="relative w-12 h-12 rounded border border-border overflow-hidden bg-muted flex-shrink-0"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {attachment.image?.file_url ? (
+                  <img
+                    src={attachment.image.thumbnail_url || attachment.image.file_url}
+                    alt={attachment.image.title || 'Attached image'}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <ImageIcon className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                )}
+                {attachment.is_primary && (
+                  <div className="absolute top-0.5 right-0.5 w-2 h-2 bg-primary rounded-full border border-white" />
+                )}
+              </div>
+            ))}
+            {document.attachments.length > 3 && (
+              <div className="w-12 h-12 rounded border border-border bg-muted flex items-center justify-center text-xs text-muted-foreground font-medium">
+                +{document.attachments.length - 3}
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="flex items-center justify-between text-xs text-muted-foreground">
           <span>{new Date(document.created_at).toLocaleDateString('pt-BR')}</span>
           {document.is_context && (

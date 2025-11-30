@@ -22,11 +22,12 @@ import {
 } from "@/components/ui/dialog"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Loader2, Sparkles, Image as ImageIcon, Download, Plus, X } from "lucide-react"
+import { Loader2, Sparkles, Image as ImageIcon, Download, Plus, X, Check, Link } from "lucide-react"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import api from "@/lib/api"
+import api, { getVisualContext, type VisualContextResponse } from "@/lib/api"
 import { useToast } from "@/components/ui/use-toast"
 import AssetSelectorModal from "@/components/AssetSelectorModal"
+import VisualContextPreview from "@/components/visual-assets/VisualContextPreview"
 
 interface ImageModel {
   id: string
@@ -66,9 +67,11 @@ interface ImageGenerationPanelProps {
   projectId: string
   folderId?: string
   onImageGenerated?: () => void
-  documentId?: string // For refinement mode
+  documentId?: string // For refinement mode (the image being refined)
   existingPrompt?: string
   documents?: Document[] // Available documents to choose from
+  attachToDocumentId?: string // Document to attach the generated image to (text document)
+  attachToDocumentTitle?: string // Title of the document for display
 }
 
 export default function ImageGenerationPanel({
@@ -79,7 +82,9 @@ export default function ImageGenerationPanel({
   onImageGenerated,
   documentId,
   existingPrompt,
-  documents = []
+  documents = [],
+  attachToDocumentId,
+  attachToDocumentTitle
 }: ImageGenerationPanelProps) {
   const [models, setModels] = useState<ImageModel[]>([])
   const [textModels, setTextModels] = useState<TextModel[]>([])
@@ -97,6 +102,10 @@ export default function ImageGenerationPanel({
   const [useAgent, setUseAgent] = useState(false)
   const [selectedReferenceAssets, setSelectedReferenceAssets] = useState<Array<{id: string, usage_mode: string, [key: string]: any}>>([])
   const [showAssetSelector, setShowAssetSelector] = useState(false)
+  const [isAttaching, setIsAttaching] = useState(false)
+  const [isAttached, setIsAttached] = useState(false)
+  const [visualContext, setVisualContext] = useState<VisualContextResponse | null>(null)
+  const [skipVisualContext, setSkipVisualContext] = useState(false)
   const { toast } = useToast()
 
   const isRefinementMode = !!documentId
@@ -108,11 +117,27 @@ export default function ImageGenerationPanel({
     if (open) {
       loadModels()
       loadTextModels()
-      if (existingPrompt) {
+      loadVisualContext()
+      // In refinement mode, start with empty prompt for new instructions
+      // In normal mode, use existingPrompt if provided
+      if (!isRefinementMode && existingPrompt) {
         setPrompt(existingPrompt)
+      } else if (isRefinementMode) {
+        setPrompt("") // Clear prompt for refinement instructions
       }
     }
-  }, [open, existingPrompt])
+  }, [open, existingPrompt, isRefinementMode])
+
+  const loadVisualContext = async () => {
+    if (!projectId) return
+    try {
+      const context = await getVisualContext(projectId)
+      setVisualContext(context)
+    } catch (error) {
+      console.error("Failed to load visual context:", error)
+      // Don't show error toast - visual context is optional
+    }
+  }
 
   const loadModels = async () => {
     try {
@@ -233,7 +258,10 @@ Retorne APENAS o prompt de geração de imagem, sem explicações adicionais.`
           model: selectedModel,
           aspect_ratio: aspectRatio,
           quality,
-          style: style || undefined
+          style: style || undefined,
+          reference_assets: selectedReferenceAssets.length > 0
+            ? selectedReferenceAssets.map(a => ({ id: a.id, usage_mode: a.usage_mode }))
+            : undefined
         })
       } else if (generatedImage) {
         // Refine the currently generated image
@@ -243,10 +271,15 @@ Retorne APENAS o prompt de geração de imagem, sem explicações adicionais.`
           model: selectedModel,
           aspect_ratio: aspectRatio,
           quality,
-          style: style || undefined
+          style: style || undefined,
+          reference_assets: selectedReferenceAssets.length > 0
+            ? selectedReferenceAssets.map(a => ({ id: a.id, usage_mode: a.usage_mode }))
+            : undefined
         })
       } else {
         // Generate new image
+        // Skip visual context if manual references are selected OR if user explicitly disabled it
+        const shouldSkipVisualContext = selectedReferenceAssets.length > 0 || skipVisualContext
         response = await api.post("/image-generation/generate", {
           prompt,
           project_id: projectId,
@@ -258,11 +291,15 @@ Retorne APENAS o prompt de geração de imagem, sem explicações adicionais.`
           folder_id: folderId || undefined,
           reference_assets: selectedReferenceAssets.length > 0
             ? selectedReferenceAssets.map(a => ({ id: a.id, usage_mode: a.usage_mode }))
-            : undefined
+            : undefined,
+          skip_visual_context: shouldSkipVisualContext
         })
       }
 
       setGeneratedImage(response.data)
+
+      // Reset attached state when a new image is generated (including refinements)
+      setIsAttached(false)
 
       // Add to conversation history
       setConversationHistory(prev => [
@@ -308,7 +345,54 @@ Retorne APENAS o prompt de geração de imagem, sem explicações adicionais.`
     setConversationHistory([])
     setSelectedDocument("")
     setUseAgent(false)
+    setIsAttached(false)
     onOpenChange(false)
+  }
+
+  const handleAttachToDocument = async () => {
+    if (!generatedImage || !attachToDocumentId) return
+
+    setIsAttaching(true)
+    try {
+      await api.post(`/documents/${attachToDocumentId}/attachments`, {
+        document_id: attachToDocumentId,
+        image_id: generatedImage.document_id,
+        is_primary: false,
+        attachment_order: 0
+      })
+
+      setIsAttached(true)
+      toast({
+        title: "Imagem anexada!",
+        description: `Imagem anexada ao documento "${attachToDocumentTitle || 'selecionado'}"`
+      })
+
+      // Notify parent to refresh
+      if (onImageGenerated) {
+        onImageGenerated()
+      }
+    } catch (error: any) {
+      console.error("Failed to attach image:", error)
+      // Handle error detail which might be an object or string
+      let errorMessage = "Não foi possível anexar a imagem"
+      if (error.response?.data?.detail) {
+        const detail = error.response.data.detail
+        if (typeof detail === 'string') {
+          errorMessage = detail
+        } else if (Array.isArray(detail)) {
+          errorMessage = detail.map((d: any) => d.msg || d.message || String(d)).join(', ')
+        } else if (typeof detail === 'object') {
+          errorMessage = detail.msg || detail.message || JSON.stringify(detail)
+        }
+      }
+      toast({
+        title: "Erro ao anexar",
+        description: errorMessage,
+        variant: "destructive"
+      })
+    } finally {
+      setIsAttaching(false)
+    }
   }
 
   const handleRefine = () => {
@@ -411,6 +495,14 @@ Retorne APENAS o prompt de geração de imagem, sem explicações adicionais.`
               </Button>
             )}
 
+            {/* Show original prompt as reference in refinement mode */}
+            {isRefinementMode && existingPrompt && (
+              <div className="p-3 bg-secondary/30 rounded-lg border">
+                <Label className="text-xs text-muted-foreground mb-1 block">Prompt Original (referência)</Label>
+                <p className="text-sm text-muted-foreground line-clamp-3">{existingPrompt}</p>
+              </div>
+            )}
+
             <div>
               <Label htmlFor="prompt">
                 {isRefinementMode ? "Instruções de Refinamento" : "Descrição da Imagem"}
@@ -444,9 +536,38 @@ Retorne APENAS o prompt de geração de imagem, sem explicações adicionais.`
               </div>
             )}
 
-            {/* Reference Assets Section */}
-            {!isRefinementMode && (
-              <div className="space-y-3">
+            {/* Visual Context Preview - T044 */}
+            {!isRefinementMode && visualContext?.is_enabled && visualContext.assets && visualContext.assets.length > 0 && selectedReferenceAssets.length === 0 && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm">Contexto Visual Automático</Label>
+                  <label className="flex items-center gap-2 text-xs cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={skipVisualContext}
+                      onChange={(e) => setSkipVisualContext(e.target.checked)}
+                      className="rounded border-gray-300"
+                      disabled={isGenerating}
+                    />
+                    <span className="text-muted-foreground">Desabilitar para esta geração</span>
+                  </label>
+                </div>
+                {!skipVisualContext && (
+                  <VisualContextPreview
+                    projectId={projectId}
+                    compact
+                  />
+                )}
+                {skipVisualContext && (
+                  <p className="text-xs text-muted-foreground italic">
+                    Contexto visual desabilitado para esta geração
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Reference Assets Section - Available in both creation and refinement modes */}
+            <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <Label>Imagens de Referência (opcional)</Label>
                   <Button
@@ -545,8 +666,7 @@ Retorne APENAS o prompt de geração de imagem, sem explicações adicionais.`
                     </div>
                   </>
                 )}
-              </div>
-            )}
+            </div>
 
             <div>
               <Label htmlFor="model">Modelo de IA</Label>
@@ -706,11 +826,22 @@ Retorne APENAS o prompt de geração de imagem, sem explicações adicionais.`
                     </div>
                   ) : generatedImage ? (
                     <div className="flex flex-col gap-3 w-full">
-                      <img
-                        src={generatedImage.file_url}
-                        alt={generatedImage.title}
-                        className="w-full h-auto rounded-lg border max-h-[400px] object-contain bg-black/5"
-                      />
+                      <div className="relative">
+                        <img
+                          src={generatedImage.file_url}
+                          alt={generatedImage.title}
+                          className="w-full h-auto rounded-lg border max-h-[400px] object-contain bg-black/5"
+                        />
+                        {/* Refinement count badge (Feature 016) */}
+                        {generatedImage.generation_metadata?.refinement_count > 0 && (
+                          <Badge
+                            variant="secondary"
+                            className="absolute top-2 right-2 bg-black/60 text-white border-none"
+                          >
+                            {generatedImage.generation_metadata.refinement_count}x refinado
+                          </Badge>
+                        )}
+                      </div>
 
                       {/* Refinement Input Area */}
                       <div className="flex flex-col gap-2 mt-2 p-3 bg-background rounded-lg border shadow-sm">
@@ -741,15 +872,51 @@ Retorne APENAS o prompt de geração de imagem, sem explicações adicionais.`
                         </div>
                       </div>
 
-                      <div className="flex gap-2 justify-end">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => window.open(generatedImage.file_url, '_blank')}
-                        >
-                          <Download className="h-4 w-4 mr-2" />
-                          Download
-                        </Button>
+                      {/* Action Buttons */}
+                      <div className="flex flex-col gap-2 p-3 bg-secondary/30 rounded-lg border">
+                        <div className="flex flex-wrap gap-2 items-center">
+                          {/* Attach to document button - primary action when document is selected */}
+                          {attachToDocumentId && (
+                            <Button
+                              size="sm"
+                              variant={isAttached ? "outline" : "default"}
+                              onClick={handleAttachToDocument}
+                              disabled={isAttaching || isAttached}
+                            >
+                              {isAttaching ? (
+                                <>
+                                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                  Anexando...
+                                </>
+                              ) : isAttached ? (
+                                <>
+                                  <Check className="h-4 w-4 mr-2 text-green-600" />
+                                  Anexado ao documento
+                                </>
+                              ) : (
+                                <>
+                                  <Link className="h-4 w-4 mr-2" />
+                                  Anexar ao documento
+                                </>
+                              )}
+                            </Button>
+                          )}
+
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => window.open(generatedImage.file_url, '_blank')}
+                          >
+                            <Download className="h-4 w-4 mr-2" />
+                            Download
+                          </Button>
+                        </div>
+
+                        <p className="text-xs text-muted-foreground">
+                          💡 A imagem já foi salva no projeto automaticamente.
+                          {attachToDocumentId && !isAttached && ` Use "Anexar" para vinculá-la ao documento "${attachToDocumentTitle}".`}
+                          {isAttached && " Você pode continuar refinando - cada versão é uma nova imagem."}
+                        </p>
                       </div>
                     </div>
                   ) : conversationHistory.length === 0 ? (

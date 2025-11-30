@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import Editor, { DiffEditor, Monaco } from '@monaco-editor/react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -14,6 +14,7 @@ interface SmartEditorProps {
     onAcceptSuggestion?: () => void
     onRejectSuggestion?: () => void
     onChange?: (content: string) => void
+    isSaving?: boolean
 }
 
 export default function SmartEditor({
@@ -22,15 +23,19 @@ export default function SmartEditor({
     suggestedContent,
     onAcceptSuggestion,
     onRejectSuggestion,
-    onChange
+    onChange,
+    isSaving = false
 }: SmartEditorProps) {
     const [content, setContent] = useState(initialContent)
     const [isDiffMode, setIsDiffMode] = useState(false)
     const [showEditor, setShowEditor] = useState(true) // Control editor visibility for clean unmount
+    const [isTransitioning, setIsTransitioning] = useState(false) // Prevent race conditions
+    const [diffEditorKey, setDiffEditorKey] = useState(0) // Force new instance on each diff mode entry
     const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null)
     const monacoRef = useRef<Monaco | null>(null)
     const diffEditorRef = useRef<editor.IStandaloneDiffEditor | null>(null)
     const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+    const isDisposingRef = useRef(false) // Track if we're already disposing
 
     // Update content when initialContent changes (e.g. from AI sync)
     useEffect(() => {
@@ -55,40 +60,65 @@ export default function SmartEditor({
         }
     }, [initialContent, isDiffMode])
 
+    // Safe cleanup function for diff editor
+    const cleanupDiffEditor = useCallback(() => {
+        if (isDisposingRef.current) return
+        isDisposingRef.current = true
+
+        // Clear ref first to prevent any further access
+        const editorToCleanup = diffEditorRef.current
+        diffEditorRef.current = null
+
+        // Monaco DiffEditor cleanup is handled by the @monaco-editor/react library
+        // We should NOT manually dispose it as that causes the "TextModel got disposed" error
+        // The library's internal cleanup will handle model disposal in the correct order
+
+        isDisposingRef.current = false
+    }, [])
+
     // Handle suggested content with proper cleanup
     useEffect(() => {
-        if (suggestedContent && monacoRef.current) {
+        if (isTransitioning) return // Prevent re-entry during transitions
+
+        if (suggestedContent && monacoRef.current && !isDiffMode) {
+            setIsTransitioning(true)
             // Force unmount current editor before showing diff
             setShowEditor(false)
             setTimeout(() => {
+                // Increment key to force a completely new DiffEditor instance
+                setDiffEditorKey(prev => prev + 1)
                 setIsDiffMode(true)
                 setShowEditor(true)
-            }, 50) // Small delay to ensure cleanup
-        } else if (!suggestedContent) {
-            // When exiting diff mode, dispose diff editor first
-            if (diffEditorRef.current) {
-                try {
-                    diffEditorRef.current.dispose()
-                } catch (error) {
-                    // Ignore dispose errors silently
-                    console.debug('DiffEditor dispose:', error)
-                }
-                diffEditorRef.current = null
-            }
+                setIsTransitioning(false)
+            }, 100) // Increased delay to ensure cleanup
+        } else if (!suggestedContent && isDiffMode && !isTransitioning) {
+            setIsTransitioning(true)
 
-            // Then unmount diff editor if in diff mode
-            if (isDiffMode) {
-                setShowEditor(false)
+            // Clean up diff editor ref (but don't dispose - let React handle it)
+            cleanupDiffEditor()
+
+            // Hide the editor to trigger React unmount
+            setShowEditor(false)
+
+            // Use longer delay to ensure Monaco has fully cleaned up
+            setTimeout(() => {
+                setIsDiffMode(false)
+
+                // Show the regular editor after ensuring diff is fully unmounted
                 setTimeout(() => {
-                    setIsDiffMode(false)
                     setShowEditor(true)
-                }, 50)
-            }
+                    setIsTransitioning(false)
+                }, 150)
+            }, 100)
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [suggestedContent])
+    }, [suggestedContent, isDiffMode, cleanupDiffEditor])
 
-    // Cleanup on unmount - cancel any pending saves and dispose editors
+    // Cleanup on unmount - cancel any pending saves
+    // Note: We do NOT manually dispose Monaco editors here.
+    // The @monaco-editor/react library handles disposal internally.
+    // Manual disposal causes the "TextModel got disposed before DiffEditorWidget" error
+    // because it disrupts the library's cleanup order.
     useEffect(() => {
         return () => {
             if (saveTimeoutRef.current) {
@@ -96,25 +126,7 @@ export default function SmartEditor({
                 saveTimeoutRef.current = null
             }
 
-            // Dispose diff editor if exists
-            if (diffEditorRef.current) {
-                try {
-                    diffEditorRef.current.dispose()
-                } catch (error) {
-                    console.debug('DiffEditor cleanup:', error)
-                }
-            }
-
-            // Dispose regular editor if exists
-            if (editorRef.current) {
-                try {
-                    editorRef.current.dispose()
-                } catch (error) {
-                    console.debug('Editor cleanup:', error)
-                }
-            }
-
-            // Clear refs
+            // Clear refs without disposing - let the library handle cleanup
             editorRef.current = null
             diffEditorRef.current = null
             monacoRef.current = null
@@ -152,26 +164,51 @@ export default function SmartEditor({
     }
 
     const handleAccept = () => {
+        if (isTransitioning) return // Prevent double-clicks during transition
+
         if (suggestedContent) {
-            setContent(suggestedContent)
-            if (editorRef.current) {
-                editorRef.current.setValue(suggestedContent)
+            // Store the content we want to save
+            const contentToSave = suggestedContent
+
+            // Mark as transitioning
+            setIsTransitioning(true)
+
+            // First hide the editor to allow proper unmount
+            setShowEditor(false)
+
+            // Then update state and call callbacks after Monaco has cleaned up
+            setTimeout(() => {
+                setContent(contentToSave)
+                onSave(contentToSave)
+
+                // Call the accept callback which should clear suggestedContent in parent
+                // The useEffect will then handle transitioning back to regular editor
+                if (onAcceptSuggestion) {
+                    onAcceptSuggestion()
+                }
+            }, 100)
+        } else {
+            if (onAcceptSuggestion) {
+                onAcceptSuggestion()
             }
-            onSave(suggestedContent)
         }
-        if (onAcceptSuggestion) {
-            onAcceptSuggestion()
-        }
-        // Trigger the cleanup via suggestedContent becoming null
-        // The useEffect will handle the transition
     }
 
     const handleReject = () => {
-        if (onRejectSuggestion) {
-            onRejectSuggestion()
-        }
-        // Trigger the cleanup via suggestedContent becoming null
-        // The useEffect will handle the transition
+        if (isTransitioning) return // Prevent double-clicks during transition
+
+        // Mark as transitioning
+        setIsTransitioning(true)
+
+        // First hide the editor to allow proper unmount
+        setShowEditor(false)
+
+        // Then call the callback after Monaco has cleaned up
+        setTimeout(() => {
+            if (onRejectSuggestion) {
+                onRejectSuggestion()
+            }
+        }, 100)
     }
 
     const handleManualSave = () => {
@@ -221,9 +258,18 @@ export default function SmartEditor({
                             <span className="text-xs">Refazer</span>
                         </Button>
                         <div className="w-px h-4 bg-border mx-1" />
-                        <Button size="sm" onClick={handleManualSave}>
-                            <Save className="w-4 h-4 mr-1" />
-                            Salvar
+                        <Button size="sm" onClick={handleManualSave} disabled={isSaving}>
+                            {isSaving ? (
+                                <>
+                                    <div className="w-4 h-4 mr-1 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                                    Salvando...
+                                </>
+                            ) : (
+                                <>
+                                    <Save className="w-4 h-4 mr-1" />
+                                    Salvar
+                                </>
+                            )}
                         </Button>
                     </div>
                 )}
@@ -234,7 +280,7 @@ export default function SmartEditor({
                     <>
                         {isDiffMode && suggestedContent ? (
                             <DiffEditor
-                                key="diff-editor"
+                                key={`diff-editor-${diffEditorKey}`}
                                 height="100%"
                                 language="markdown"
                                 theme="vs-dark"
