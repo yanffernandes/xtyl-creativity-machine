@@ -219,15 +219,28 @@ export default function ProjectPage() {
 
     // Fetch full content when document is selected
     useEffect(() => {
+        const docId = selectedDoc?.id
+        if (!docId) return
+
+        // Skip fetch for temp documents (being created in background)
+        if (docId.startsWith('temp-')) return
+
+        let cancelled = false
+
         const fetchDocumentContent = async () => {
-            if (!selectedDoc?.id) return
-
-            // Skip fetch for temp documents (being created in background)
-            if (selectedDoc.id.startsWith('temp-')) return
-
+            console.log(`📄 Fetching document content for: ${docId}`)
             try {
-                const response = await api.get(`/documents/${selectedDoc.id}`)
+                const response = await api.get(`/documents/${docId}`)
+
+                // Check if this request was cancelled (user selected another doc)
+                if (cancelled) {
+                    console.log(`📄 Fetch cancelled for: ${docId} (user selected another doc)`)
+                    return
+                }
+
                 if (response.data) {
+                    console.log(`📄 Document fetched successfully: ${docId}`, response.data.title)
+
                     // Check if it's an image
                     if (response.data.media_type === 'image') {
                         setViewingImage(response.data)
@@ -236,17 +249,29 @@ export default function ProjectPage() {
                     }
 
                     const content = response.data.content || ""
-                    setSelectedDoc(prev => prev?.id === response.data.id ? { ...prev, ...response.data } : prev)
+                    // Always update if the response matches the current request
+                    setSelectedDoc(prev => {
+                        if (prev?.id !== docId) {
+                            console.log(`📄 Skipping update - selected doc changed from ${docId} to ${prev?.id}`)
+                            return prev
+                        }
+                        return { ...prev, ...response.data }
+                    })
                     setSavedContent(content)
                     setCurrentContent(content)
                 }
             } catch (error) {
-                console.error("Failed to fetch document content", error)
+                if (!cancelled) {
+                    console.error("Failed to fetch document content", error)
+                }
             }
         }
 
-        if (selectedDoc?.id) {
-            fetchDocumentContent()
+        fetchDocumentContent()
+
+        // Cleanup function to cancel if doc changes
+        return () => {
+            cancelled = true
         }
     }, [selectedDoc?.id])
 
