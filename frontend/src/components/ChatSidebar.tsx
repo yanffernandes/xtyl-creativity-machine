@@ -593,14 +593,15 @@ export default function ChatSidebar({
             let currentContent = ""
             let localToolExecutions: ToolExecution[] = []
             let localTaskList: TaskItem[] = []
+            let streamDone = false
 
             if (!reader) throw new Error("No reader available")
 
             console.log('📖 Starting to read stream...')
 
-            while (true) {
+            while (!streamDone) {
                 const { done, value } = await reader.read()
-                if (done) {
+                if (done || streamDone) {
                     console.log('✅ Stream completed')
                     break
                 }
@@ -840,6 +841,15 @@ export default function ChatSidebar({
                                     break
 
                                 case 'done':
+                                    // IMMEDIATELY mark stream as done and update UI
+                                    streamDone = true
+                                    setIsLoading(false)
+                                    setStreamingStatus(null)
+                                    setCurrentStreamingContent("")
+                                    setToolExecutions([])
+                                    setTaskList([])
+                                    console.log('🔓 isLoading set to false - stream done')
+
                                     // Add final message to history with tool executions and task list
                                     const newAssistantMessage = {
                                         role: "assistant" as const,
@@ -853,7 +863,7 @@ export default function ChatSidebar({
                                         setMessages((prev) => [...prev, newAssistantMessage])
                                     }
 
-                                    // Save conversation to database
+                                    // Save conversation to database (async, non-blocking)
                                     if (workspaceId) {
                                         const allMessages = [...messages, userMessage]
                                         if (currentContent.trim() || localToolExecutions.length > 0) {
@@ -866,58 +876,50 @@ export default function ChatSidebar({
                                             taskList: m.taskList
                                         }))
 
-                                        try {
-                                            if (currentConversationId) {
-                                                // Update existing conversation
-                                                await conversationService.update(currentConversationId, {
-                                                    messages_json: chatMessages,
-                                                    model_used: selectedModel,
-                                                    message_count: chatMessages.length,
-                                                    last_message_at: new Date().toISOString()
-                                                })
-                                            } else {
-                                                // Create new conversation with auto-generated title
-                                                const firstUserMsg = chatMessages.find(m => m.role === 'user')
-                                                const title = firstUserMsg ? generateTitleFromMessage(firstUserMsg.content) : undefined
-                                                const { data, error } = await conversationService.create({
-                                                    workspace_id: workspaceId,
-                                                    project_id: projectId || null,
-                                                    title,
-                                                    messages_json: chatMessages,
-                                                    model_used: selectedModel,
-                                                    document_ids_context: selectedContextIds,
-                                                    folder_ids_context: selectedFolderIds,
-                                                    message_count: chatMessages.length,
-                                                    last_message_at: new Date().toISOString()
-                                                })
-                                                if (!error && data) {
-                                                    setCurrentConversationId(data.id)
+                                        // Fire and forget - don't block UI
+                                        ;(async () => {
+                                            try {
+                                                if (currentConversationId) {
+                                                    await conversationService.update(currentConversationId, {
+                                                        messages_json: chatMessages,
+                                                        model_used: selectedModel,
+                                                        message_count: chatMessages.length,
+                                                        last_message_at: new Date().toISOString()
+                                                    })
+                                                } else {
+                                                    const firstUserMsg = chatMessages.find(m => m.role === 'user')
+                                                    const title = firstUserMsg ? generateTitleFromMessage(firstUserMsg.content) : undefined
+                                                    const { data, error } = await conversationService.create({
+                                                        workspace_id: workspaceId,
+                                                        project_id: projectId || null,
+                                                        title,
+                                                        messages_json: chatMessages,
+                                                        model_used: selectedModel,
+                                                        document_ids_context: selectedContextIds,
+                                                        folder_ids_context: selectedFolderIds,
+                                                        message_count: chatMessages.length,
+                                                        last_message_at: new Date().toISOString()
+                                                    })
+                                                    if (!error && data) {
+                                                        setCurrentConversationId(data.id)
+                                                    }
                                                 }
+                                            } catch (saveError) {
+                                                console.error("Failed to save conversation:", saveError)
                                             }
-                                        } catch (saveError) {
-                                            console.error("Failed to save conversation:", saveError)
-                                        }
+                                        })()
                                     }
 
-                                    setStreamingStatus(null)
-                                    setCurrentStreamingContent("")  // Clear streaming content
-                                    setToolExecutions([])  // Clear tool executions (now stored in message)
-                                    setTaskList([])  // Clear task list (now stored in message)
-                                    setIsLoading(false)
-                                    console.log('🔓 isLoading set to false')
-
-                                    // Trigger document update only if edit_document was used on the current document
+                                    // Trigger document update (async, non-blocking)
                                     const editedCurrentDoc = localToolExecutions.some(
                                         exec => exec.tool === 'edit_document' &&
                                                exec.status === 'completed' &&
                                                exec.args?.document_id === currentDocument?.id
                                     )
                                     if (editedCurrentDoc && currentDocument?.id && onDocumentUpdate) {
-                                        try {
-                                            await onDocumentUpdate(currentDocument.id)
-                                        } catch (updateErr) {
+                                        onDocumentUpdate(currentDocument.id).catch(updateErr => {
                                             console.error('Failed to update document after edit:', updateErr)
-                                        }
+                                        })
                                     }
                                     break
 

@@ -14,6 +14,7 @@ import {
   AlertCircle,
   Check,
   RefreshCw,
+  Construction,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -120,6 +121,20 @@ export default function AdminSettingsPage() {
             </div>
           </div>
         )}
+
+        {/* Work in Progress Notice */}
+        <div className="mb-6 rounded-lg border border-amber-500/20 bg-amber-500/10 p-4">
+          <div className="flex items-start gap-3">
+            <Construction className="h-5 w-5 text-amber-400 mt-0.5" />
+            <div>
+              <p className="text-sm font-medium text-amber-400">Work in Progress</p>
+              <p className="text-sm text-amber-400/70 mt-1">
+                These settings are saved but not yet enforced by the system.
+                Limits and feature flags will be applied in a future update.
+              </p>
+            </div>
+          </div>
+        </div>
 
         {/* Loading State */}
         {isLoading && !settings && (

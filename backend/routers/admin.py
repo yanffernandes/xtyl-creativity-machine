@@ -536,17 +536,24 @@ async def list_workspaces(
             .filter(Project.workspace_id == w.id)
             .count()
         )
+        # Get owner from WorkspaceUser table (role="owner")
+        owner_relation = (
+            db.query(WorkspaceUser)
+            .filter(WorkspaceUser.workspace_id == w.id, WorkspaceUser.role == "owner")
+            .first()
+        )
+        owner = owner_relation.user if owner_relation else None
         items.append({
             "id": str(w.id),
             "name": w.name,
             "description": w.description,
-            "owner_id": str(w.owner_id) if w.owner_id else None,
-            "owner_email": w.owner.email if w.owner else None,
-            "owner_name": w.owner.full_name if w.owner else None,
+            "owner_id": str(owner.id) if owner else None,
+            "owner_email": owner.email if owner else None,
+            "owner_name": owner.full_name if owner else None,
             "member_count": member_count,
             "project_count": project_count,
             "created_at": w.created_at.isoformat() if w.created_at else None,
-            "updated_at": w.updated_at.isoformat() if w.updated_at else None,
+            "updated_at": None,  # Workspace model doesn't have updated_at
         })
 
     return {
@@ -578,41 +585,47 @@ async def get_workspace_details(
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid workspace ID format")
 
-    workspace = db.query(Workspace).filter(Workspace.id == workspace_uuid).first()
+    workspace = db.query(Workspace).filter(Workspace.id == str(workspace_uuid)).first()
     if not workspace:
         raise HTTPException(status_code=404, detail="Workspace not found")
 
-    stats = admin_service.get_workspace_stats(workspace_uuid)
+    stats = admin_service.get_workspace_stats(str(workspace_uuid))
 
     # Get members
     members = (
         db.query(WorkspaceUser)
-        .filter(WorkspaceUser.workspace_id == workspace_uuid)
+        .filter(WorkspaceUser.workspace_id == str(workspace_uuid))
         .all()
     )
     member_list = [
         {
-            "id": str(m.id),
             "user_id": str(m.user_id),
             "email": m.user.email if m.user else None,
             "full_name": m.user.full_name if m.user else None,
             "role": m.role,
-            "joined_at": m.created_at.isoformat() if m.created_at else None,
         }
         for m in members
     ]
+
+    # Get owner from WorkspaceUser table (role="owner")
+    owner_relation = (
+        db.query(WorkspaceUser)
+        .filter(WorkspaceUser.workspace_id == str(workspace_uuid), WorkspaceUser.role == "owner")
+        .first()
+    )
+    owner = owner_relation.user if owner_relation else None
 
     return {
         "id": str(workspace.id),
         "name": workspace.name,
         "description": workspace.description,
-        "owner_id": str(workspace.owner_id) if workspace.owner_id else None,
-        "owner_email": workspace.owner.email if workspace.owner else None,
-        "owner_name": workspace.owner.full_name if workspace.owner else None,
+        "owner_id": str(owner.id) if owner else None,
+        "owner_email": owner.email if owner else None,
+        "owner_name": owner.full_name if owner else None,
         "member_count": stats.get("member_count", len(member_list)),
         "project_count": stats.get("project_count", 0),
         "created_at": workspace.created_at.isoformat() if workspace.created_at else None,
-        "updated_at": workspace.updated_at.isoformat() if workspace.updated_at else None,
+        "updated_at": None,  # Workspace model doesn't have updated_at
         "members": member_list,
         "stats": {
             "document_count": stats.get("document_count", 0),
@@ -646,12 +659,17 @@ async def remove_workspace_member(
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid ID format")
 
-    workspace = db.query(Workspace).filter(Workspace.id == workspace_uuid).first()
+    workspace = db.query(Workspace).filter(Workspace.id == str(workspace_uuid)).first()
     if not workspace:
         raise HTTPException(status_code=404, detail="Workspace not found")
 
-    # Check if user is the owner
-    if workspace.owner_id == user_uuid:
+    # Check if user is the owner (via WorkspaceUser role)
+    owner_relation = (
+        db.query(WorkspaceUser)
+        .filter(WorkspaceUser.workspace_id == str(workspace_uuid), WorkspaceUser.role == "owner")
+        .first()
+    )
+    if owner_relation and str(owner_relation.user_id) == str(user_uuid):
         raise HTTPException(
             status_code=400,
             detail="Cannot remove workspace owner. Transfer ownership first.",
@@ -661,8 +679,8 @@ async def remove_workspace_member(
     membership = (
         db.query(WorkspaceUser)
         .filter(
-            WorkspaceUser.workspace_id == workspace_uuid,
-            WorkspaceUser.user_id == user_uuid,
+            WorkspaceUser.workspace_id == str(workspace_uuid),
+            WorkspaceUser.user_id == str(user_uuid),
         )
         .first()
     )
@@ -721,7 +739,7 @@ async def transfer_workspace_ownership(
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid ID format")
 
-    workspace = db.query(Workspace).filter(Workspace.id == workspace_uuid).first()
+    workspace = db.query(Workspace).filter(Workspace.id == str(workspace_uuid)).first()
     if not workspace:
         raise HTTPException(status_code=404, detail="Workspace not found")
 
@@ -729,8 +747,8 @@ async def transfer_workspace_ownership(
     new_owner_membership = (
         db.query(WorkspaceUser)
         .filter(
-            WorkspaceUser.workspace_id == workspace_uuid,
-            WorkspaceUser.user_id == new_owner_uuid,
+            WorkspaceUser.workspace_id == str(workspace_uuid),
+            WorkspaceUser.user_id == str(new_owner_uuid),
         )
         .first()
     )
@@ -741,25 +759,21 @@ async def transfer_workspace_ownership(
             detail="New owner must be an existing member of the workspace",
         )
 
-    old_owner_id = str(workspace.owner_id) if workspace.owner_id else None
+    # Get current owner from WorkspaceUser table
+    current_owner_relation = (
+        db.query(WorkspaceUser)
+        .filter(WorkspaceUser.workspace_id == str(workspace_uuid), WorkspaceUser.role == "owner")
+        .first()
+    )
+    old_owner_id = str(current_owner_relation.user_id) if current_owner_relation else None
 
-    # Transfer ownership
-    workspace.owner_id = new_owner_uuid
-
-    # Update roles - new owner becomes owner, old owner becomes admin
+    # Transfer ownership by updating roles in WorkspaceUser table
+    # New owner becomes owner
     new_owner_membership.role = "owner"
 
-    if old_owner_id:
-        old_owner_membership = (
-            db.query(WorkspaceUser)
-            .filter(
-                WorkspaceUser.workspace_id == workspace_uuid,
-                WorkspaceUser.user_id == UUID(old_owner_id),
-            )
-            .first()
-        )
-        if old_owner_membership:
-            old_owner_membership.role = "admin"
+    # Old owner becomes admin
+    if current_owner_relation and current_owner_relation.user_id != new_owner_uuid:
+        current_owner_relation.role = "admin"
 
     db.commit()
 

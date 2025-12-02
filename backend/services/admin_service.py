@@ -165,20 +165,23 @@ class AdminService:
             "document_count": document_count,
         }
 
-    def get_workspace_stats(self, workspace_id: UUID) -> Dict[str, Any]:
+    def get_workspace_stats(self, workspace_id) -> Dict[str, Any]:
         """
         Get statistics for a specific workspace.
 
         Args:
-            workspace_id: UUID of the workspace
+            workspace_id: UUID or string ID of the workspace
 
         Returns:
             Dictionary containing workspace statistics
         """
-        # Count members
+        # Ensure workspace_id is a string for comparison
+        ws_id = str(workspace_id)
+
+        # Count members (WorkspaceUser has composite PK, no 'id' column)
         member_count = (
-            self.db.query(func.count(WorkspaceUser.id))
-            .filter(WorkspaceUser.workspace_id == workspace_id)
+            self.db.query(func.count(WorkspaceUser.user_id))
+            .filter(WorkspaceUser.workspace_id == ws_id)
             .scalar()
             or 0
         )
@@ -186,7 +189,7 @@ class AdminService:
         # Count projects
         project_count = (
             self.db.query(func.count(Project.id))
-            .filter(Project.workspace_id == workspace_id)
+            .filter(Project.workspace_id == ws_id)
             .scalar()
             or 0
         )
@@ -195,7 +198,7 @@ class AdminService:
         document_count = (
             self.db.query(func.count(Document.id))
             .join(Project, Document.project_id == Project.id)
-            .filter(Project.workspace_id == workspace_id)
+            .filter(Project.workspace_id == ws_id)
             .scalar()
             or 0
         )
