@@ -5,7 +5,12 @@
     "category": "ads",
     "icon": "🎯",
     "prompt": "Escreva um anúncio do Google Search usando o framework AIDA para {{service_name}} que enfatiza {{key_benefit}}.\n\nEstrutura:\n- Atenção: Crie um título atraente (máx. 30 caracteres)\n- Interesse: Escreva uma descrição (máx. 90 caracteres)\n- Desejo: Enfatize o benefício-chave\n- Ação: Inclua CTA clara: {{call_to_action}}\n\nFormato:\nTítulo 1-3: [máx. 30 caracteres cada]\nDescrição: [máx. 90 caracteres]",
-    "tags": ["google-ads", "aida", "anuncios-pagos", "servicos"]
+    "tags": [
+      "google-ads",
+      "aida",
+      "anuncios-pagos",
+      "servicos"
+    ]
   },
   {
     "name": "Google Responsive Search Ad (RSA)",
@@ -13,7 +18,12 @@
     "category": "ads",
     "icon": "🔄",
     "prompt": "Crie um Google Responsive Search Ad completo para {{product_service}}.\n\nGere:\n**15 Headlines** (máx. 30 caracteres cada):\n- 5 headlines focados em benefício: {{main_benefit}}\n- 5 headlines focados em features: {{key_features}}\n- 5 headlines com CTA/urgência: {{urgency_element}}\n\n**5 Descrições** (máx. 90 caracteres cada):\n- 2 descrições explicando solução\n- 2 descrições com prova social: {{social_proof}}\n- 1 descrição com CTA: {{call_to_action}}\n\nPúblico: {{target_audience}}\nTom: {{brand_voice}}",
-    "tags": ["google-ads", "rsa", "responsive", "performance"]
+    "tags": [
+      "google-ads",
+      "rsa",
+      "responsive",
+      "performance"
+    ]
   },
   {
     "name": "Google Performance Max Campaign",
@@ -21,7 +31,12 @@
     "category": "ads",
     "icon": "⚡",
     "prompt": "Crie assets para Google Performance Max de {{product_service}}.\n\n**Headlines Curtos** (5x até 30 caracteres)\n**Headlines Longos** (5x até 90 caracteres)\n**Descrições** (5x até 90 caracteres)\n**Business Name**: {{business_name}}\n\nFoco:\n- Benefício principal: {{main_benefit}}\n- Público: {{target_audience}}\n- CTA: {{call_to_action}}\n- Urgência: {{urgency_element}}\n\nOtimize para conversão em Search, Display, YouTube e Discovery.",
-    "tags": ["google-ads", "pmax", "omnichannel", "automation"]
+    "tags": [
+      "google-ads",
+      "pmax",
+      "omnichannel",
+      "automation"
+    ]
   },
   {
     "name": "Google Display Ad - PAS Framework",
@@ -29,7 +44,12 @@
     "category": "ads",
     "icon": "🖼️",
     "prompt": "Escreva Google Display Ad usando PAS para {{product_name}}.\n\n**Problema**: Identifique {{customer_pain_point}}\n**Agitação**: Intensifique consequências de não resolver\n**Solução**: {{product_name}} como resposta\n\n**Elementos**:\n- Título curto: 30 caracteres\n- Título longo: 90 caracteres\n- Descrição: 90 caracteres\n- CTA: {{call_to_action}}\n\nPúblico: {{target_audience}}\nTom: Empático mas urgente",
-    "tags": ["google-display", "pas", "remarketing", "awareness"]
+    "tags": [
+      "google-display",
+      "pas",
+      "remarketing",
+      "awareness"
+    ]
   },
   {
     "name": "Google Shopping Ad - Product Optimization",
@@ -37,7 +57,12 @@
     "category": "ads",
     "icon": "🛍️",
     "prompt": "Otimize listing do Google Shopping para {{product_name}}.\n\n**Product Title** (máx. 150 caracteres):\nIncluir: Marca + Produto + Atributo-chave + Modelo/Tamanho\n\n**Description** (máx. 5000 caracteres):\n- Features técnicas: {{product_features}}\n- Benefícios: {{main_benefits}}\n- Uso/aplicação: {{use_cases}}\n- Specs: {{specifications}}\n\n**Keywords prioritárias**: {{target_keywords}}\n**Diferencial**: {{unique_selling_point}}\n\nOtimize para intenção de compra e comparação de preços.",
-    "tags": ["google-shopping", "ecommerce", "produto", "otimizacao"]
+    "tags": [
+      "google-shopping",
+      "ecommerce",
+      "produto",
+      "otimizacao"
+    ]
   },
   {
     "name": "Facebook Feed Ad - Emotional Hook",
@@ -45,7 +70,12 @@
     "category": "ads",
     "icon": "📱",
     "prompt": "Escreva Facebook Feed Ad com gancho emocional para {{product_name}}.\n\n**Hook Emocional** (primeiras 2 linhas):\nFoque na emoção: {{emotional_trigger}}\n\n**Corpo** (100-150 palavras):\n- Conecte emoção ao problema: {{pain_point}}\n- Apresente solução: {{product_name}}\n- Benefício: {{main_benefit}}\n- Social proof: {{testimonial}}\n\n**CTA**: {{call_to_action}}\n**Urgência**: {{urgency_element}}\n\nPúblico: {{target_audience}}\nTom: {{brand_voice}}",
-    "tags": ["facebook-ads", "feed", "emocional", "ecommerce"]
+    "tags": [
+      "facebook-ads",
+      "feed",
+      "emocional",
+      "ecommerce"
+    ]
   },
   {
     "name": "Instagram Story Ad - Value Proposition",
@@ -53,7 +83,12 @@
     "category": "ads",
     "icon": "📲",
     "prompt": "Crie Instagram Story Ad (15 segundos) para {{offer_name}}.\n\n**Frame 1 (0-3s)**: Hook visual\nTexto: {{attention_grabber}}\n\n**Frame 2 (3-7s)**: Proposta de valor\nBenefício: {{main_benefit}}\n\n**Frame 3 (7-12s)**: Urgência\nOferta: {{offer_details}}\nPrazo: {{deadline}}\n\n**Frame 4 (12-15s)**: CTA\nAção: {{call_to_action}}\n\n**Elementos visuais**: {{visual_suggestions}}\nPúblico: {{target_audience}}",
-    "tags": ["instagram-stories", "story-ad", "flash-sale", "urgencia"]
+    "tags": [
+      "instagram-stories",
+      "story-ad",
+      "flash-sale",
+      "urgencia"
+    ]
   },
   {
     "name": "Instagram Reels Ad - Native Format",
@@ -61,7 +96,12 @@
     "category": "ads",
     "icon": "🎬",
     "prompt": "Escreva script para Instagram Reels Ad (15-30s) de {{product_name}}.\n\n**Hook (0-3s)**: Pare o scroll\n{{hook_concept}}\n\n**Demo (3-20s)**: Mostre produto em ação\n- Problema antes: {{before_scenario}}\n- Solução com produto: {{after_scenario}}\n- Benefício visual: {{visual_benefit}}\n\n**CTA (20-30s)**: {{call_to_action}}\n\n**Overlay Text**: 3-5 palavras por cena\n**Áudio**: {{audio_suggestion}}\n**Transições**: Rápidas e dinâmicas\n\nTom: Natural, não-vendedor",
-    "tags": ["instagram-reels", "video", "nativo", "demo"]
+    "tags": [
+      "instagram-reels",
+      "video",
+      "nativo",
+      "demo"
+    ]
   },
   {
     "name": "Facebook Carousel Ad - Feature Showcase",
@@ -69,7 +109,12 @@
     "category": "ads",
     "icon": "🎠",
     "prompt": "Crie Facebook Carousel Ad para {{product_service}}.\n\n**Card 1 (Intro)**:\nHeadline: {{value_proposition}}\nDescrição: Apresente problema {{pain_point}}\n\n**Cards 2-N (Features/Produtos)**:\nPara cada {{feature}}:\n- Headline: Nome da feature (40 caracteres)\n- Descrição: Benefício específico (125 caracteres)\n- Imagem: {{image_description}}\n\n**Card Final (CTA)**:\nHeadline: {{call_to_action}}\nDescrição: Urgência {{urgency_element}}\n\nNúmero de cards: {{card_count}}\nPúblico: {{target_audience}}",
-    "tags": ["facebook-carousel", "features", "multi-produto", "comparacao"]
+    "tags": [
+      "facebook-carousel",
+      "features",
+      "multi-produto",
+      "comparacao"
+    ]
   },
   {
     "name": "Meta Lead Generation Ad",
@@ -77,7 +122,12 @@
     "category": "ads",
     "icon": "🎯",
     "prompt": "Crie Meta Lead Generation Ad para {{lead_magnet}}.\n\n**Ad Copy**:\n- Headline: Promessa do lead magnet (40 caracteres)\n- Texto: Valor que receberão (125 palavras)\n- Benefícios de {{lead_magnet}}:\n  ✅ {{benefit_1}}\n  ✅ {{benefit_2}}\n  ✅ {{benefit_3}}\n\n**Instant Form**:\n- Form Title: {{form_headline}}\n- Intro Text: {{form_intro}}\n- CTA Button: {{form_cta}}\n\n**Privacy**: Garantia de uso de dados\n**Follow-up**: Mensagem pós-envio\n\nPúblico: {{target_audience}}",
-    "tags": ["meta-ads", "lead-generation", "b2b", "formulario"]
+    "tags": [
+      "meta-ads",
+      "lead-generation",
+      "b2b",
+      "formulario"
+    ]
   },
   {
     "name": "Meta Retargeting Ad - Objection Handling",
@@ -85,7 +135,12 @@
     "category": "ads",
     "icon": "🔁",
     "prompt": "Crie Meta Retargeting Ad superando objeções de {{product_name}}.\n\n**Audiência**: {{retargeting_segment}}\n**Objeção provável**: {{likely_objection}}\n\n**Copy Structure**:\n**Reconhecimento**: \"Vimos que você {{user_action}}\"\n\n**Superar Objeção**:\n- Se preço: {{price_justification}}\n- Se dúvida: {{social_proof}}\n- Se timing: {{urgency_incentive}}\n\n**Incentivo**: {{offer}}\n**Garantia**: {{risk_reversal}}\n**CTA**: {{call_to_action}}\n\nTom: Empático, não insistente",
-    "tags": ["retargeting", "objecoes", "carrinho-abandonado", "remarketing"]
+    "tags": [
+      "retargeting",
+      "objecoes",
+      "carrinho-abandonado",
+      "remarketing"
+    ]
   },
   {
     "name": "LinkedIn Sponsored Content - Thought Leadership",
@@ -93,7 +148,12 @@
     "category": "ads",
     "icon": "💼",
     "prompt": "Escreva LinkedIn Sponsored Content para {{topic}}.\n\n**Hook Profissional** (primeiras 2 linhas):\nEstablish credibilidade e relevância\n\n**Insight/Trend** (150 palavras):\n- Desafio do setor: {{industry_challenge}}\n- Dados/estatística: {{stat}}\n- Nossa perspectiva: {{unique_insight}}\n\n**Solução Sutil**:\nComo {{product_service}} aborda isso\nSem venda direta - educacional\n\n**CTA Soft**: {{cta}}\n(ex: \"Baixar whitepaper\", \"Ler case study\")\n\nPúblico: {{job_titles}}\nTom: Profissional, consultivo, autoritativo",
-    "tags": ["linkedin", "thought-leadership", "b2b", "expertise"]
+    "tags": [
+      "linkedin",
+      "thought-leadership",
+      "b2b",
+      "expertise"
+    ]
   },
   {
     "name": "LinkedIn InMail - Personalized Outreach",
@@ -101,7 +161,12 @@
     "category": "ads",
     "icon": "✉️",
     "prompt": "Escreva LinkedIn InMail para {{prospect_title}} em {{company}}.\n\n**Subject Line**: Personalizado com contexto relevante\n\n**Opening**: Referência específica\n- Conexão mútua / Grupo comum\n- Conteúdo que publicaram\n- Desafio específico do setor deles\n\n**Value Proposition** (50 palavras):\n{{specific_companies}} alcançaram {{specific_result}} com {{solution}}\n\n**Pergunta Consultiva**:\n\"{{prospect_name}}, como vocês em {{company}} estão lidando com {{challenge}}?\"\n\n**CTA Suave**: {{low_pressure_cta}}\n(ex: \"15 minutos para trocar ideias?\")\n\nTom: Personalizado, consultivo, respeitoso",
-    "tags": ["linkedin-inmail", "outreach", "b2b", "personalizacao"]
+    "tags": [
+      "linkedin-inmail",
+      "outreach",
+      "b2b",
+      "personalizacao"
+    ]
   },
   {
     "name": "LinkedIn Video Ad - Case Study",
@@ -109,7 +174,12 @@
     "category": "ads",
     "icon": "🎥",
     "prompt": "Escreva script para LinkedIn Video Ad (30-60s) com case study.\n\n**Cliente Featured**: {{client_name}} ({{client_industry}})\n\n**Estrutura**:\n**0-10s**: Problema do cliente\n\"{{client_name}} enfrentava {{challenge}}\"\n\n**10-30s**: Solução implementada\n- Como usaram {{product_service}}\n- Processo/abordagem\n\n**30-50s**: Resultados mensuráveis\n✅ {{metric_1}}: {{result_1}}\n✅ {{metric_2}}: {{result_2}}\n✅ {{metric_3}}: {{result_3}}\n\n**50-60s**: CTA\n\"Resultados similares para sua empresa?\"\n{{call_to_action}}\n\n**Visual**: Depoimento do cliente\nPúblico: {{target_companies}}",
-    "tags": ["linkedin-video", "case-study", "prova-social", "b2b"]
+    "tags": [
+      "linkedin-video",
+      "case-study",
+      "prova-social",
+      "b2b"
+    ]
   },
   {
     "name": "LinkedIn Carousel Ad - Educational Value",
@@ -117,6 +187,482 @@
     "category": "ads",
     "icon": "📊",
     "prompt": "Crie LinkedIn Carousel Ad para {{content_asset}}.\n\n**Card 1**: Problema/Desafio\nHeadline: {{industry_pain_point}}\nStat: {{compelling_statistic}}\n\n**Cards 2-5**: Key Insights\nPara cada insight de {{content_asset}}:\n- Título: Takeaway principal\n- Visual: Gráfico/dado\n- Descrição: 1-2 frases\n\n**Card 6**: Benefício de ler completo\nO que mais aprenderão em {{content_asset}}\n\n**Card 7**: CTA\n\"Baixar {{content_asset}} completo\"\n{{call_to_action}}\n\nTom: Educacional, autoritativo\nPúblico: {{job_titles}}",
-    "tags": ["linkedin-carousel", "educacional", "whitepaper", "lead-gen"]
+    "tags": [
+      "linkedin-carousel",
+      "educacional",
+      "whitepaper",
+      "lead-gen"
+    ]
+  },
+  {
+    "name": "Post Instagram - Transformação (BAB)",
+    "description": "Crie legendas para Instagram usando o framework BAB (Antes, Depois, Ponte). Perfeito para produtos de transformação (fitness, beleza, educação).",
+    "category": "social_media",
+    "icon": "📸",
+    "prompt": "Escreva legenda Instagram usando BAB para {{product_name}}.\n\n**Antes**: Descreva {{before_situation}}\n**Depois**: Mostre {{after_result}}\n**Ponte**: {{bridge_solution}} conecta os dois\n\n**Hook** (primeiras 2 linhas): Crucial para engajamento\n**CTA**: {{cta}}\n**Hashtags**: {{hashtags}}\n**Tom**: {{brand_voice}}\n\nComprimento: 150-300 palavras\nUse quebras de linha e emojis estrategicamente",
+    "tags": [
+      "instagram",
+      "bab",
+      "transformacao",
+      "redes-sociais"
+    ]
+  },
+  {
+    "name": "Instagram Reels Script - Hook + Value",
+    "description": "Scripts para Reels virais de 15-30 segundos. Foco em hook forte nos primeiros 3 segundos e entrega de valor rápido.",
+    "category": "social_media",
+    "icon": "🎥",
+    "prompt": "Crie script Instagram Reels (15-30s) sobre {{topic}}.\n\n**0-3s HOOK**: Pare o scroll imediatamente\n{{hook_concept}}\n\n**3-25s VALUE**: Entregue valor rapidamente\n{{value_points}} (3-5 pontos)\n\n**25-30s CTA**: {{call_to_action}}\n\n**On-screen text**: Máx 5 palavras por frame\n**Transições**: Dinâmicas, rápidas\n**Áudio**: {{music_vibe}}\n**Trend**: {{trend_reference}}\n\nTom: Casual, autêntico, educativo",
+    "tags": [
+      "reels",
+      "viral",
+      "instagram",
+      "short-form"
+    ]
+  },
+  {
+    "name": "Facebook Community Post - Conversational",
+    "description": "Posts conversacionais para grupos e páginas do Facebook. Foco em engajamento e construção de comunidade.",
+    "category": "social_media",
+    "icon": "💬",
+    "prompt": "Escreva post conversacional do Facebook para {{community_topic}}.\n\n**Opening Question**: Faça pergunta envolvente sobre {{question_topic}}\n\n**Context** (100-150 palavras):\n- Compartilhe experiência pessoal ou insight\n- Relate com {{audience_pain_point}}\n- Seja vulnerável e autêntico\n\n**Engage**:\n\"E você? {{follow_up_question}}\"\n\n**CTA**: Comente abaixo / Reaja / Compartilhe\n\nTom: Conversacional, amigável, inclusivo\nEvite: Linguagem corporativa, vendas diretas",
+    "tags": [
+      "facebook",
+      "comunidade",
+      "engajamento",
+      "conversacional"
+    ]
+  },
+  {
+    "name": "LinkedIn Thought Leadership Post",
+    "description": "Posts profissionais do LinkedIn que posicionam expertise. Ideal para CEOs, consultores e líderes de pensamento.",
+    "category": "social_media",
+    "icon": "💡",
+    "prompt": "Escreva LinkedIn post de thought leadership sobre {{industry_topic}}.\n\n**Hook** (primeiras 2 linhas): Insight provocativo ou stat surpreendente\n\n**Trend/Observation** (150-200 palavras):\n- Tendência que você está vendo: {{trend}}\n- Por que isso importa: {{impact}}\n- Sua perspectiva única: {{insight}}\n\n**Personal Story** (opcional): Experiência relevante\n\n**Takeaway**: Lição prática para {{target_audience}}\n\n**CTA**: Pergunta para discussão\n\nTom: Profissional mas pessoal, autoritativo mas acessível\nEvite: Jargões, autopromoção óbvia",
+    "tags": [
+      "linkedin",
+      "thought-leadership",
+      "profissional",
+      "b2b"
+    ]
+  },
+  {
+    "name": "Twitter Thread - Storytelling",
+    "description": "Threads do Twitter/X com storytelling envolvente. 5-10 tweets que contam história completa e entregam valor.",
+    "category": "social_media",
+    "icon": "🧵",
+    "prompt": "Crie Twitter thread (5-10 tweets) sobre {{story_topic}}.\n\n**Tweet 1 - Hook**: Promise do thread\n\"{{hook_statement}}\n\nThread 🧵👇\"\n\n**Tweets 2-8 - Story**:\nConte {{story_arc}}:\n- Setup: Contexto/situação inicial\n- Conflict: Desafio/problema\n- Resolution: Como resolveu\n- Lesson: O que aprendeu\n\n**Tweet Final - CTA**:\nResumo + ação\n\"Se achou útil:\n• Retweet o primeiro tweet\n• Follow para mais {{content_type}}\"\n\nCada tweet: Máx 280 caracteres\nUse quebras de linha para legibilidade",
+    "tags": [
+      "twitter",
+      "thread",
+      "storytelling",
+      "viral"
+    ]
+  },
+  {
+    "name": "Instagram Stories Sequence (5 Stories)",
+    "description": "Sequência estratégica de 5 stories para lançamento de produto, promoção ou campanha. Usa táticas de FOMO e urgência.",
+    "category": "social_media",
+    "icon": "📱",
+    "prompt": "Crie sequência de 5 Instagram Stories para {{campaign_goal}}.\n\n**Story 1 - Teaser**: Mistério/curiosidade\n{{teaser_concept}}\nSticker: Poll ou Question\n\n**Story 2 - Reveal**: Mostra {{product_offer}}\nBenefício principal visível\n\n**Story 3 - Social Proof**: Depoimentos/results\n{{testimonial}}\n\n**Story 4 - Urgência**: Deadline/escassez\n\"Termina em {{deadline}}\"\nCountdown sticker\n\n**Story 5 - CTA Final**: Swipe up/link\n{{call_to_action}}\n\n**Visual style**: {{visual_guidelines}}\n**Music**: {{music_mood}}",
+    "tags": [
+      "instagram-stories",
+      "sequence",
+      "campanha",
+      "urgencia"
+    ]
+  },
+  {
+    "name": "UGC Request Post",
+    "description": "Posts pedindo User Generated Content para construir prova social e engajamento. Incentiva clientes a compartilharem experiências.",
+    "category": "social_media",
+    "icon": "📸",
+    "prompt": "Crie post pedindo UGC (User Generated Content) sobre {{product_experience}}.\n\n**Hook**: Comemore comunidade\n\"Queremos ver VOCÊ usando {{product_name}}!\"\n\n**Instructions** (clear & simple):\n1. {{action_step_1}}\n2. Tag {{brand_handle}}\n3. Use hashtag: {{campaign_hashtag}}\n\n**Incentive**:\n\"As melhores fotos serão:\n- Repostadas no nosso feed\n- {{reward}}\" (desconto, feature, sorteio)\n\n**Inspiration**: Mostre exemplo\n\"Como essa foto incrível de @{{example_user}}\"\n\n**Deadline**: {{submission_deadline}}\n\nTom: Entusiástico, apreciativo, inclusivo",
+    "tags": [
+      "ugc",
+      "user-generated-content",
+      "comunidade",
+      "prova-social"
+    ]
+  },
+  {
+    "name": "Sequência de E-mail - Boas-vindas (3 E-mails)",
+    "description": "Sequência de 3 e-mails de boas-vindas para novos assinantes. Constrói relacionamento, entrega valor e conduz para primeira oferta.",
+    "category": "email",
+    "icon": "📧",
+    "prompt": "Crie sequência de 3 e-mails de boas-vindas para {{subscriber_name}}.\n\n**E-mail 1 (Dia 0) - Boas-vindas**:\n- Assunto: {{welcome_subject}}\n- Agradeça pela inscrição\n- Entregue {{lead_magnet}}\n- Apresente {{brand_story}} brevemente\n- Estabeleça expectativas de comunicação\n\n**E-mail 2 (Dia 3) - Valor**:\n- Assunto: {{value_subject}}\n- Entregue {{value_promise}}\n- Construa credibilidade sem vender\n- CTA soft: explorar conteúdo\n\n**E-mail 3 (Dia 7) - Primeira Oferta**:\n- Assunto: {{offer_subject}}\n- Apresente {{first_offer}}\n- Explique como resolve {{pain_points}}\n- CTA claro: {{next_steps}}\n\nTom: {{tone_of_voice}}\nComprimento: 200-400 palavras por e-mail",
+    "tags": [
+      "email-marketing",
+      "boas-vindas",
+      "sequencia",
+      "nurture"
+    ]
+  },
+  {
+    "name": "E-mail Promocional - Escassez + Urgência",
+    "description": "E-mails promocionais usando táticas de escassez e urgência para maximizar conversões em ofertas limitadas.",
+    "category": "email",
+    "icon": "⏰",
+    "prompt": "Escreva e-mail promocional para {{offer_name}}.\n\n**Assunto**: Urgência + benefício\nEx: \"{{deadline_hours}}h restantes: {{main_benefit}}\"\n\n**Pre-header**: Reforce urgência\n\n**Abertura**: Hook com FOMO\n\"{{scarcity_statement}}\"\n\n**Oferta** (100 palavras):\n- O que é: {{offer_details}}\n- Valor: {{discount_percentage}}\n- Por que agora: {{reason_urgency}}\n\n**Social Proof**: {{testimonial}}\n\n**Urgência Visual**:\n- Countdown timer\n- Estoque limitado: \"Apenas {{units_left}} unidades\"\n\n**CTA Principal**: {{call_to_action}}\n**CTA Secundário**: Aprenda mais\n\n**Footer**: Lembrete de deadline\n\nTom: Urgente mas não desesperado",
+    "tags": [
+      "email-promo",
+      "urgencia",
+      "escassez",
+      "ofertas"
+    ]
+  },
+  {
+    "name": "E-mail de Carrinho Abandonado",
+    "description": "Sequência de recuperação de carrinho abandonado. 3 e-mails com timing estratégico para recuperar vendas perdidas.",
+    "category": "email",
+    "icon": "🛒",
+    "prompt": "Crie sequência de recuperação de carrinho para {{product_name}}.\n\n**E-mail 1 (1 hora depois) - Lembrete Amigável**:\nAssunto: \"Esqueceu algo? {{product_name}} está te esperando\"\n- Mostre itens do carrinho\n- CTA: \"Finalizar Compra\"\n- Sem pressão\n\n**E-mail 2 (24h depois) - Incentivo**:\nAssunto: \"{{discount}}% OFF no seu carrinho!\"\n- Ofereça desconto: {{incentive_offer}}\n- Depoimento de cliente satisfeito\n- Garantia: {{guarantee}}\n- CTA urgente\n\n**E-mail 3 (72h depois) - Última Chance**:\nAssunto: \"Última chance: seu carrinho expira em breve\"\n- Urgência final\n- FAQ sobre objeções comuns\n- Suporte disponível: {{support_contact}}\n- CTA: Comprar agora\n\n**Elementos**: Imagens dos produtos, preço total, frete grátis se aplicável",
+    "tags": [
+      "carrinho-abandonado",
+      "recuperacao",
+      "ecommerce",
+      "conversao"
+    ]
+  },
+  {
+    "name": "Newsletter Semanal - Value-First",
+    "description": "Newsletter semanal focada em valor para manter engajamento. 80% conteúdo útil, 20% promocional.",
+    "category": "email",
+    "icon": "📰",
+    "prompt": "Escreva newsletter semanal para {{audience}}.\n\n**Assunto**: Curiosidade + valor\n\"{{intriguing_headline}}\"\n\n**Intro** (50 palavras):\nCumprimento pessoal + contexto da semana\n\n**Seção 1 - Conteúdo Principal** (200 palavras):\n{{main_topic}}:\n- Insight prático\n- Exemplo ou case\n- Takeaway acionável\n\n**Seção 2 - Quick Tips**:\n3-5 dicas rápidas sobre {{secondary_topic}}\n\n**Seção 3 - Curadoria**:\n\"Leituras da semana\"\n- Artigo recomendado: {{article_link}}\n- Tool útil: {{tool_recommendation}}\n- Stat interessante: {{statistic}}\n\n**Seção 4 - Soft Promo** (20% do conteúdo):\nMencione {{product_service}} naturalmente\nCTA suave: {{soft_cta}}\n\n**Footer**: P.S. pessoal ou behind-the-scenes\n\nTom: Amigável, útil, pessoal",
+    "tags": [
+      "newsletter",
+      "value-first",
+      "engajamento",
+      "conteudo"
+    ]
+  },
+  {
+    "name": "E-mail de Re-engajamento (Win-back)",
+    "description": "E-mail para reativar assinantes inativos. Reconquista atenção com oferta especial e redescoberta de valor.",
+    "category": "email",
+    "icon": "💔",
+    "prompt": "Crie e-mail de re-engajamento para assinantes inativos há {{inactive_period}}.\n\n**Assunto**: Honesto e direto\n\"Sentimos sua falta, {{subscriber_name}}\"\nou \"Ainda quer receber nossos e-mails?\"\n\n**Abertura**: Reconhecimento\n\"Notamos que faz tempo que você não {{desired_action}}\"\n\n**Value Reminder** (100 palavras):\nRelembre o que eles estão perdendo:\n- {{benefit_1}}\n- {{benefit_2}}\n- {{benefit_3}}\n\n**What's New**: Mostre novidades desde que pararam de engajar\n{{new_features}}\n\n**Win-back Offer**:\n\"Volte com {{special_offer}}\"\nCTA: {{reactivation_cta}}\n\n**Alternative CTA**:\n\"Prefere ajustar preferências de e-mail?\"\n[Gerenciar Preferências]\n\n**Last Resort**:\n\"Não quer mais receber? [Descadastrar]\"\n(Seja transparente)\n\nTom: Humilde, honesto, generoso",
+    "tags": [
+      "re-engajamento",
+      "winback",
+      "reativacao",
+      "inativos"
+    ]
+  },
+  {
+    "name": "E-mail de Lançamento de Produto",
+    "description": "E-mail anunciando novo produto com storytelling e antecipação. Cria excitement e drive para vendas iniciais.",
+    "category": "email",
+    "icon": "🚀",
+    "prompt": "Escreva e-mail de lançamento para {{new_product}}.\n\n**Assunto**: Mystery + excitement\n\"{{teaser_subject}}\" (não revele tudo)\n\n**Pre-header**: \"Você está entre os primeiros a saber...\"\n\n**Storytelling Opening** (150 palavras):\nConte história de por que criaram {{new_product}}:\n- Problema que identificaram: {{origin_story}}\n- Jornada de criação\n- Paixão por resolver {{customer_pain_point}}\n\n**The Reveal**:\n\"Apresentamos: {{new_product}}\"\nImagem hero do produto\n\n**Key Features** (3-5 bullet points):\nFoco em benefícios, não especificações\n✨ {{feature_benefit_1}}\n✨ {{feature_benefit_2}}\n✨ {{feature_benefit_3}}\n\n**Early Bird Offer**:\n\"Exclusivo para assinantes: {{launch_offer}}\"\nVálido até: {{deadline}}\n\n**CTA**: \"Seja um dos primeiros\"\n{{purchase_link}}\n\n**P.S.**: Behind-the-scenes ou easter egg\n\nTom: Entusiasmado, storytelling, exclusivo",
+    "tags": [
+      "lancamento",
+      "produto-novo",
+      "excitement",
+      "early-access"
+    ]
+  },
+  {
+    "name": "E-mail Educacional - Tutorial/How-to",
+    "description": "E-mail tutorial ensinando como fazer algo relevante. Estabelece autoridade e gera confiança através de educação.",
+    "category": "email",
+    "icon": "🎓",
+    "prompt": "Crie e-mail tutorial sobre \"Como {{tutorial_goal}}\".\n\n**Assunto**: Promessa clara\n\"Como {{achieve_result}} em {{timeframe}}\"\n\n**Intro**: Por que isso importa\n\"Se você {{struggle}}, este guia é para você.\"\n\n**Tutorial em Passos** (300-400 palavras):\n\n**Passo 1**: {{step_1_title}}\n- O que fazer: {{step_1_action}}\n- Por quê: {{step_1_reasoning}}\n- Exemplo: {{step_1_example}}\n\n**Passo 2**: {{step_2_title}}\n[mesma estrutura]\n\n**Passo 3**: {{step_3_title}}\n[mesma estrutura]\n\n**Pro Tips**:\n💡 {{bonus_tip_1}}\n💡 {{bonus_tip_2}}\n\n**Common Mistakes**: O que evitar\n\n**Tools Needed**: {{required_tools}}\n\n**CTA Natural**:\n\"Quer {{tutorial_goal}} no autopilot? {{product_service}} faz isso por você.\"\n[Soft sell, não agressivo]\n\n**Next Steps**: O que fazer depois\n\nTom: Educativo, passo-a-passo, empoderador",
+    "tags": [
+      "educacional",
+      "tutorial",
+      "how-to",
+      "autoridade"
+    ]
+  },
+  {
+    "name": "E-mail de Feedback/Pesquisa",
+    "description": "E-mail pedindo feedback de clientes. Mostra que você se importa e coleta insights valiosos para melhorias.",
+    "category": "email",
+    "icon": "📋",
+    "prompt": "Escreva e-mail de pesquisa de satisfação para {{customer_segment}}.\n\n**Assunto**: Pessoal e direto\n\"{{subscriber_name}}, sua opinião importa\"\n\n**Abertura**: Gratidão\n\"Obrigado por ser cliente/assinante há {{relationship_duration}}\"\n\n**Why We're Asking** (50 palavras):\n\"Queremos melhorar {{aspect}} e sua opinião é essencial\"\n\n**The Ask**:\n\"Leva apenas {{estimated_time}} minutos\"\n\n**Questões principais**:\n1. Como avalia {{product_service}}? (1-10)\n2. O que você mais gosta?\n3. O que podemos melhorar?\n4. Recomendaria para um amigo? (NPS)\n5. {{custom_question}}\n\n**Incentive** (opcional):\n\"Como agradecimento: {{reward}}\"\n(desconto, conteúdo exclusivo, sorteio)\n\n**CTA**: [Responder Pesquisa] - botão grande\n\n**Privacy**: \"Suas respostas são confidenciais\"\n\n**Alternative CTA**: \"Prefere feedback por e-mail? Responda diretamente\"\n\nTom: Genuíno, agradecido, respeitoso do tempo",
+    "tags": [
+      "feedback",
+      "pesquisa",
+      "nps",
+      "customer-success"
+    ]
+  },
+  {
+    "name": "Artigo de Blog SEO - Guia Completo",
+    "description": "Conteúdo pilar SEO otimizado (2000-3000 palavras) que rankeia para palavras-chave competitivas. Estrutura H1/H2/H3 e featured snippets.",
+    "category": "seo",
+    "icon": "📝",
+    "prompt": "Escreva artigo SEO de {{word_count}} palavras sobre {{main_keyword}} para {{target_audience}}.\n\n**Título H1**: Incluir {{main_keyword}} no início (50-60 caracteres)\n\n**Introdução** (150-200 palavras):\n- Hook que prende o leitor\n- Promessa clara do que aprenderão\n- Incluir {{main_keyword}} naturalmente\n\n**Corpo Principal**:\nCubra estes subtópicos com H2:\n{{subtopics}}\n\nPara cada H2:\n- Use H3 para sub-pontos\n- Inclua exemplos práticos\n- Adicione listas/bullet points\n- Otimize para featured snippets\n\n**Otimização SEO**:\n- Densidade palavra-chave: 1-2% para {{main_keyword}}\n- Palavras-chave relacionadas: {{related_keywords}}\n- Links internos: {{internal_links}}\n- Links externos para fontes autoritativas\n\n**Conclusão** (100-150 palavras):\n- Resumir pontos-chave\n- CTA: {{call_to_action}}\n\n**Meta Description** (155-160 caracteres)\n\nTom: Educativo, autoritativo, acessível\nLegibilidade: Parágrafos curtos (2-4 linhas)",
+    "tags": [
+      "seo",
+      "blog",
+      "conteudo-pilar",
+      "long-form"
+    ]
+  },
+  {
+    "name": "Title Tag SEO - 10 Variações",
+    "description": "Gere 10 variações de title tags otimizadas para CTR máximo. Testa diferentes ângulos para mesma keyword.",
+    "category": "seo",
+    "icon": "📌",
+    "prompt": "Crie 10 title tags otimizadas para {{main_keyword}}.\n\n**Keyword target**: {{main_keyword}}\n**Intenção de busca**: {{search_intent}} (informacional/comercial/transacional)\n**Limite**: 50-60 caracteres cada\n\n**Variações usando diferentes ângulos**:\n\n1. **Número/Lista**: \"{{number}} Formas de {{main_keyword}}\"\n2. **Ano**: \"{{main_keyword}}: Guia Completo {{current_year}}\"\n3. **Como fazer**: \"Como {{action_verb}} {{main_keyword}}\"\n4. **Best/Top**: \"Melhores {{main_keyword}} para {{audience}}\"\n5. **Versus**: \"{{option_a}} vs {{option_b}}: {{main_keyword}}\"\n6. **Guia**: \"Guia Definitivo de {{main_keyword}}\"\n7. **Grátis/Valor**: \"{{main_keyword}} Grátis: {{benefit}}\"\n8. **Rápido**: \"{{main_keyword}} em {{timeframe}}\"\n9. **Problema-Solução**: \"{{problem}}? {{main_keyword}} Resolve\"\n10. **Emocional**: \"{{emotional_trigger}} {{main_keyword}}\"\n\nInclua modificadores de CTR quando possível:\n- Números\n- Ano atual\n- Palavras poderosas (definitivo, completo, grátis)\n- Parênteses para contexto adicional\n\nTom: Claro, específico, clickável",
+    "tags": [
+      "seo",
+      "title-tag",
+      "serp",
+      "ctr"
+    ]
+  },
+  {
+    "name": "Meta Description - Conversão Máxima",
+    "description": "Meta descriptions otimizadas para CTR nos resultados de busca. 155-160 caracteres com call-to-action clara.",
+    "category": "seo",
+    "icon": "✍️",
+    "prompt": "Escreva meta description para página sobre {{page_topic}}.\n\n**Keyword principal**: {{main_keyword}}\n**Limite**: 155-160 caracteres (CRÍTICO)\n**URL da página**: {{page_url}}\n\n**Estrutura em 3 partes**:\n\n1. **Hook** (40 caracteres): Benefício ou promessa\n   Exemplo: \"Aprenda {{main_keyword}} em {{timeframe}}\"\n\n2. **Valor** (60-70 caracteres): O que encontrarão\n   \"Descubra {{benefit_1}}, {{benefit_2}} e {{benefit_3}}\"\n\n3. **CTA** (30 caracteres): Ação clara\n   \"Leia o guia completo →\" ou \"Começar agora\"\n\n**Elementos que aumentam CTR**:\n✅ Incluir {{main_keyword}} naturalmente\n✅ Usar número se relevante\n✅ Adicionar ano: {{current_year}}\n✅ Criar urgência/curiosidade\n✅ Mencionar \"grátis\" se aplicável\n\n**Evite**:\n❌ Ultrapassar 160 caracteres (será cortado)\n❌ Keyword stuffing\n❌ Promessas vazias\n❌ Pontos finais no meio (quebra visualmente)\n\nEscreva 3 variações para teste A/B.\n\nTom: Persuasivo, específico, acionável",
+    "tags": [
+      "seo",
+      "meta-description",
+      "serp",
+      "snippet"
+    ]
+  },
+  {
+    "name": "Post How-To SEO - Featured Snippet",
+    "description": "Artigos how-to otimizados para capturar featured snippets. Formato passo-a-passo que Google adora.",
+    "category": "seo",
+    "icon": "📋",
+    "prompt": "Escreva post how-to otimizado para featured snippet sobre \"Como {{goal}}\".\n\n**Keyword long-tail**: \"como {{goal}}\"\n**Tamanho**: 800-1200 palavras\n\n**Estrutura para Featured Snippet**:\n\n**Resposta Rápida** (40-60 palavras):\nParágrafo conciso respondendo diretamente a pergunta\nColoque logo após o H1, antes de qualquer coisa\n\n**Lista de Passos** (formato numerado):\n\n**1. {{step_1_title}}** (H2 ou H3)\n- Explicação: {{step_1_details}} (100-150 palavras)\n- Dica extra: {{step_1_tip}}\n- Tempo necessário: {{step_1_time}}\n\n**2. {{step_2_title}}**\n[mesma estrutura]\n\n**3. {{step_3_title}}**\n[mesma estrutura]\n\nContinue até {{total_steps}}\n\n**Seção FAQ** (ajuda featured snippet):\n**P: {{related_question_1}}**\nR: Resposta direta em 40-50 palavras\n\n**P: {{related_question_2}}**\nR: Resposta direta\n\n**Tools/Materiais Necessários**:\nLista em bullet points\n\n**Conclusão com schema markup sugerido**:\nSugira HowTo schema markup para rich results\n\nTom: Claro, passo-a-passo, didático\nFormato: Listas numeradas, headers claros, respostas diretas",
+    "tags": [
+      "seo",
+      "how-to",
+      "featured-snippet",
+      "tutorial"
+    ]
+  },
+  {
+    "name": "Listicle SEO - Top Rankings",
+    "description": "Artigos em lista otimizados para SEO e engajamento. Formato escaneável que rankeia bem e gera compartilhamentos.",
+    "category": "seo",
+    "icon": "📃",
+    "prompt": "Escreva listicle SEO: \"{{number}} {{main_topic}} para {{target_audience}}\".\n\n**Keyword**: \"melhores {{main_topic}}\" ou \"top {{main_topic}}\"\n**Tamanho**: 1500-2500 palavras\n\n**Título H1**: {{number}} Melhores {{main_topic}} [{{current_year}}]\n\n**Introdução** (150 palavras):\n- Por que {{main_topic}} importa\n- Critérios de seleção\n- O que você aprenderá\n\n**Estrutura para cada item da lista**:\n\n**{{item_number}}. {{item_name}}** (H2)\n\n**Resumo** (1 frase): Posicionamento único\n\n**Prós**:\n✅ {{pro_1}}\n✅ {{pro_2}}\n✅ {{pro_3}}\n\n**Contras**:\n❌ {{con_1}}\n❌ {{con_2}}\n\n**Melhor para**: {{ideal_use_case}}\n**Preço**: {{pricing_info}}\n**Link**: {{affiliate_link}} (se aplicável)\n\n**Nossa avaliação**: ⭐⭐⭐⭐⭐ (X/5)\n\n[Repita para todos {{number}} itens]\n\n**Comparação em Tabela**:\nCrie tabela comparativa com principais features\n\n**FAQ**:\n3-5 perguntas comuns sobre {{main_topic}}\n\n**Conclusão**: Recomendação final baseada em diferentes necessidades\n\nTom: Objetivo, detalhado, útil\nOtimize para: Escaneabilidade, featured snippets, compartilhamentos",
+    "tags": [
+      "seo",
+      "listicle",
+      "comparacao",
+      "review"
+    ]
+  },
+  {
+    "name": "Post de Comparação - Bottom of Funnel",
+    "description": "Conteúdo de comparação para intenção comercial. Captura usuários prontos para comprar comparando opções.",
+    "category": "seo",
+    "icon": "⚖️",
+    "prompt": "Escreva post de comparação: \"{{product_a}} vs {{product_b}} [{{current_year}}]\".\n\n**Keywords**: \"{{product_a}} vs {{product_b}}\", \"{{product_a}} ou {{product_b}}\"\n**Intenção**: Comercial - usuário pronto para decisão\n\n**Título H1**: {{product_a}} vs {{product_b}}: Qual Escolher em {{current_year}}?\n\n**Introdução** (100 palavras):\n- Reconheça a dúvida comum\n- Preview da recomendação final\n- Quem deveria ler isto\n\n**Tabela de Comparação Rápida**:\n| Feature | {{product_a}} | {{product_b}} |\n|---------|---------------|---------------|\n| Preço   | $X            | $Y            |\n| etc...  |               |               |\n\n**Seção 1: {{product_a}} em Detalhes** (H2)\n- O que é\n- Principais features\n- Prós e contras\n- Preço e planos\n- Para quem é ideal\n\n**Seção 2: {{product_b}} em Detalhes** (H2)\n[mesma estrutura]\n\n**Comparação Direta** (H2):\n**Preço**: Análise custo-benefício\n**Features**: Qual tem mais/melhor\n**Facilidade de uso**: {{comparison}}\n**Suporte**: {{comparison}}\n**Integrações**: {{comparison}}\n\n**Veredito Final** (H2):\n**Escolha {{product_a}} se**: {{scenario_a}}\n**Escolha {{product_b}} se**: {{scenario_b}}\n\n**Alternativas**: Mencione {{alternative_product}} se nenhum servir\n\n**FAQ**:\n- \"Qual é melhor para {{use_case}}?\"\n- \"Qual é mais barato?\"\n- \"Posso usar os dois juntos?\"\n\nTom: Imparcial, analítico, decisivo\nCTA: Links afiliados ou calls para ação relevantes",
+    "tags": [
+      "seo",
+      "comparacao",
+      "versus",
+      "bottom-funnel"
+    ]
+  },
+  {
+    "name": "SEO Local - Páginas de Localização",
+    "description": "Páginas otimizadas para SEO local. Template para negócios multi-localização rankarem em buscas geográficas.",
+    "category": "seo",
+    "icon": "📍",
+    "prompt": "Crie página SEO local para {{service_type}} em {{city}}.\n\n**Keyword principal**: \"{{service_type}} em {{city}}\"\n**Keywords secundárias**: \"{{service_type}} {{neighborhood}}\", \"melhor {{service_type}} {{city}}\"\n\n**Título H1**: {{service_type}} em {{city}} - {{unique_selling_point}}\n\n**Introdução** (150 palavras):\n- Foco geográfico claro\n- Benefício local: \"Atendemos {{city}} e região há {{years}}\"\n- Mencione bairros: {{neighborhoods_list}}\n\n**Seções obrigatórias**:\n\n**H2: Por que Escolher {{business_name}} em {{city}}**:\n- Conhecimento local\n- Tempo de resposta: \"Chegamos em {{city}} em até {{time}}\"\n- Cases locais\n\n**H2: Áreas Atendidas em {{city}}**:\nLista de bairros (com links internos):\n- {{neighborhood_1}}\n- {{neighborhood_2}}\n- {{neighborhood_3}}\n\n**H2: {{service_type}} Perto de Você**:\nMencione landmarks locais:\n\"Próximo a {{landmark_1}}, {{landmark_2}}\"\n\n**H2: Diferenciais Locais**:\n- {{local_advantage_1}}\n- {{local_advantage_2}}\n- Conhecimento de {{local_regulation}}\n\n**Avaliações Locais**:\nEmbedded Google reviews\n\"⭐ 4.9/5 - {{review_count}} avaliações no Google\"\n\n**Schema Markup**: LocalBusiness + Service\n\n**Mapa**: Google Maps embed\n\n**CTA Local**:\n\"Agende {{service_type}} em {{city}}\"\nTelefone: {{phone}}\nWhatsApp: {{whatsapp}}\n\nTom: Local, confiável, acessível\nDensidade geográfica: Mencione {{city}} 5-8x naturalmente",
+    "tags": [
+      "seo-local",
+      "local-business",
+      "geo-targeting",
+      "gmb"
+    ]
+  },
+  {
+    "name": "Hero Section - AIDA Framework",
+    "description": "Seção hero de landing page usando AIDA. Headline, subheadline, CTA e trust elements para conversão máxima.",
+    "category": "landing_page",
+    "icon": "🚀",
+    "prompt": "Escreva hero section para {{product_service}} usando AIDA.\n\n**Headline Principal** (5-8 palavras):\n- Foco em {{main_benefit}}\n- Claro, específico, orientado a resultados\n- Incluir {{value_proposition}}\n\n**Subheadline** (10-15 palavras):\n- Expandir promessa do headline\n- Explicar como resolve {{customer_pain_points}}\n- Construir interesse\n\n**Texto de Suporte** (2-3 frases):\n- Criar desejo mostrando transformação\n- Destacar {{unique_selling_proposition}}\n- Social proof sutil: \"Confiado por {{customer_count}} clientes\"\n\n**Botão CTA Principal**:\n- Texto: {{primary_cta}} (orientado a ação)\n  Exemplos: \"Começar Teste Grátis\", \"Ver Planos\", \"Agendar Demo\"\n- Cor: Contrastar com fundo\n- Tamanho: Grande, impossível de perder\n\n**CTA Secundário** (opcional):\nAção de baixo comprometimento\n\"Assistir Demo\" ou \"Ler Case Study\"\n\n**Elementos de Confiança**:\n- Badge: {{trust_badge}} (\"Garantia 30 dias\", \"SSL Seguro\", \"GDPR Compliant\")\n- Logos de clientes se disponível\n- Rating: \"⭐ 4.8/5 ({{review_count}} avaliações)\"\n\n**Descrição da Imagem Hero**:\n{{hero_image_description}}\n- Mostre produto em uso ou resultado desejado\n- Faces humanas aumentam confiança (+35% conversão)\n- Alta qualidade, profissional\n\nTom: {{brand_voice}}\nMobile-first: Otimize para mobile antes de desktop",
+    "tags": [
+      "landing-page",
+      "hero-section",
+      "aida",
+      "above-fold"
+    ]
+  },
+  {
+    "name": "Value Proposition Section - FAB",
+    "description": "Seção de proposta de valor usando FAB (Features, Advantages, Benefits). Transforma specs em valor percebido.",
+    "category": "landing_page",
+    "icon": "💎",
+    "prompt": "Crie seção de proposta de valor para {{product_service}} usando FAB.\n\n**Headline da Seção**: \"Por que {{product_service}}?\"\n\n**Feature → Advantage → Benefit** (3-5 blocos):\n\n**1. {{feature_1_name}}** 🎯\n**Feature**: O que é tecnicamente\n\"{{technical_description}}\"\n\n**Advantage**: Como funciona melhor que alternativas\n\"{{competitive_advantage}}\"\n\n**Benefit**: Resultado tangível para cliente\n\"{{customer_outcome}}\"\n\n**2. {{feature_2_name}}** ⚡\n[mesma estrutura]\n\n**3. {{feature_3_name}}** 🛡️\n[mesma estrutura]\n\n**Formato Visual**:\n- Ícone relevante para cada feature\n- Layout em 3 colunas (desktop) / 3 cards (mobile)\n- Micro-interação ao hover\n\n**Prova Social por Feature**:\nPara cada feature, adicione:\n\"{{company_name}} aumentou {{metric}} em {{percentage}} com {{feature_name}}\"\n\n**CTA da Seção**:\n\"Veja {{product_service}} em ação\"\nLink para demo/vídeo\n\nTom: Claro, orientado a resultados, sem jargão\nFoco: Sempre responder \"E daí? Por que isso importa para MIM?\"\n\nTemplate de card:\n```\n[Ícone]\n**Feature**: Nome curto\n\"Vantagem em 1 frase\"\n\nBenefício: Como isso melhora a vida do cliente em 15-20 palavras.\n\n[Prova social mini]\n```",
+    "tags": [
+      "landing-page",
+      "value-prop",
+      "fab",
+      "features"
+    ]
+  },
+  {
+    "name": "Social Proof Section",
+    "description": "Seção de prova social com depoimentos, logos, stats e case studies. Constrói confiança e credibilidade.",
+    "category": "landing_page",
+    "icon": "⭐",
+    "prompt": "Crie seção de social proof para {{product_service}}.\n\n**Headline**: \"Empresas que Confiam em {{product_name}}\"\nou \"Mais de {{customer_count}} Clientes Satisfeitos\"\n\n**1. Logo Cloud** (se B2B):\nLogos de {{company_count}} clientes principais\nOrdem: Mais conhecidos primeiro\nGrayscale para uniformidade\n\n**2. Estatísticas Impressionantes** (3-4 métricas):\n\n**{{metric_1}}**\n\"{{number}}+ {{metric_name}}\"\nSubtítulo: \"e crescendo\"\n\n**{{metric_2}}**\n\"{{percentage}}% {{achievement}}\"\nSubtítulo: \"desde {{year}}\"\n\n**{{metric_3}}**\n\"{{rating}}/5 estrelas\"\nSubtítulo: \"baseado em {{review_count}} avaliações\"\n\n**3. Depoimentos em Destaque** (3 testemunhos):\n\n**Depoimento 1 - Resultado Específico**:\n\"{{quote}}\"\n- Nome: {{customer_name}}\n- Cargo: {{job_title}} na {{company}}\n- Foto: Professional headshot\n- Métrica: \"Resultado: {{specific_metric}}\"\n\n**Depoimento 2 - Transformação**:\nFoco em antes/depois\n[mesma estrutura]\n\n**Depoimento 3 - Facilidade de Uso**:\nFoco em experiência do produto\n[mesma estrutura]\n\n**4. Trust Badges**:\n- Certificações: {{certifications}}\n- Prêmios: {{awards}}\n- \"Featured in\": {{media_mentions}}\n- Segurança: \"SSL\", \"GDPR\", etc\n\n**5. Case Study Teaser** (opcional):\n\"Como {{company}} alcançou {{result}} com {{product_name}}\"\n[Ler Case Study Completo →]\n\n**6. Video Testimonial** (se disponível):\nThumbnail com play button\nDuração: \"2 min\"\n\nTom: Autêntico, específico, diversificado\nEvite: Depoimentos genéricos, fotos stock",
+    "tags": [
+      "landing-page",
+      "social-proof",
+      "testimonials",
+      "trust"
+    ]
+  },
+  {
+    "name": "Pricing Section - Objection Handling",
+    "description": "Seção de preços otimizada para conversão. Trata objeções, destaca melhor valor e facilita decisão.",
+    "category": "landing_page",
+    "icon": "💰",
+    "prompt": "Crie seção de pricing para {{product_service}}.\n\n**Headline**: \"Planos que Cabem no seu Orçamento\"\nou \"Invista em {{outcome}}, Não em Software\"\n\n**Planos** (2-4 opções):\n\n**PLANO 1: {{plan_name_1}}** (ex: Starter)\nPreço: {{price_1}}/{{billing_period}}\nBest for: {{target_user_1}}\n\nFeatures incluídas:\n✅ {{feature_1}}\n✅ {{feature_2}}\n✅ {{feature_3}}\n❌ {{excluded_feature}} (marca em plano superior)\n\nCTA: \"Começar Grátis\" ou \"Experimentar {{plan_name_1}}\"\n\n**PLANO 2: {{plan_name_2}}** (ex: Professional)\n⭐ MAIS POPULAR\nPreço: ~~{{original_price}}~~ {{discounted_price}}/mês\nEconomize: \"{{savings}} por ano\"\n\nFeatures incluídas:\n✅ Tudo do {{plan_name_1}}\n✅ {{exclusive_feature_1}}\n✅ {{exclusive_feature_2}}\n✅ {{exclusive_feature_3}}\n\nBadge: \"Melhor Custo-Benefício\"\nCTA: \"Começar Agora\" (cor destaque)\n\n**PLANO 3: {{plan_name_3}}** (ex: Enterprise)\nPreço: \"Personalizado\"\nBest for: {{target_user_3}}\n\nFeatures: \"Tudo do Professional +\"\n🎯 {{enterprise_feature_1}}\n🎯 {{enterprise_feature_2}}\n🎯 Suporte dedicado\n\nCTA: \"Falar com Vendas\"\n\n**Comparison Table** (abaixo dos cards):\nTabela detalhada com todas features\n\n**Trust Builders**:\n💳 \"Teste 14 dias grátis - Sem cartão de crédito\"\n🔒 \"Cancele quando quiser\"\n✅ \"Garantia de 30 dias\"\n🏆 \"{{upgrade_stat}}% dos clientes fazem upgrade\"\n\n**FAQ de Pricing**:\n- \"Posso trocar de plano depois?\"\n- \"O que acontece se ultrapassar o limite?\"\n- \"Vocês oferecem desconto para nonprofits/educação?\"\n\n**Ancora de Valor**:\n\"Custa menos que {{comparison}}\"\n\"ROI médio de {{roi_stat}}x em {{timeframe}}\"\n\nTom: Transparente, justo, focado em valor",
+    "tags": [
+      "landing-page",
+      "pricing",
+      "planos",
+      "conversion"
+    ]
+  },
+  {
+    "name": "Lead Magnet Landing Page",
+    "description": "Landing page focada em captura de leads com lead magnet (ebook, template, trial). Maximiza inscrições.",
+    "category": "landing_page",
+    "icon": "🎁",
+    "prompt": "Crie landing page de lead magnet para {{lead_magnet_name}}.\n\n**Hero Section**:\nHeadline: \"Baixe Grátis: {{lead_magnet_name}}\"\nSubheadline: \"{{value_promise}} em {{format}} de {{pages}} páginas\"\n\nImagem: Mockup do ebook/template (3D, professional)\n\nForm (above fold):\n- Nome\n- Email\n- [Baixar Grátis Agora] - botão grande\n\n**Seção: O que Você Vai Aprender** (Bullet Benefits):\n✨ {{benefit_1}}\n✨ {{benefit_2}}\n✨ {{benefit_3}}\n✨ {{benefit_4}}\n✨ {{benefit_5}}\n\n**Seção: Para Quem É Este {{lead_magnet_type}}**:\nEste guia é perfeito se você:\n✅ {{pain_point_1}}\n✅ {{pain_point_2}}\n✅ {{pain_point_3}}\n\n**Preview de Conteúdo**:\n\"Aqui está o que está dentro:\"\n\n**Capítulo 1**: {{chapter_1}}\n**Capítulo 2**: {{chapter_2}}\n**Capítulo 3**: {{chapter_3}}\n[...]\n\n**Social Proof**:\n\"{{download_count}}+ downloads\"\n\"⭐ {{rating}}/5 - {{review_count}} avaliações\"\n\nMini-testimonials:\n\"{{quote_snippet}}\" - {{name}}, {{title}}\n\n**Seção: Sobre o Autor** (Credibilidade):\nFoto + bio curta\n\"{{author_name}} é {{credentials}}\"\nAutoridade: {{expertise_proof}}\n\n**Trust Elements**:\n🔒 \"Seu email está seguro. Sem spam.\"\n📧 \"Cancele a inscrição quando quiser\"\n✅ \"100% gratuito, sempre\"\n\n**Exit Intent Popup** (script):\n\"Espere! Não perca {{lead_magnet_name}}\"\nOferta: \"Baixe agora + bônus: {{bonus_item}}\"\n\n**Thank You Page** (após envio):\n\"Check seu email!\"\n\"{{lead_magnet_name}} está a caminho\"\nNext step: \"Enquanto espera, {{additional_cta}}\"\n\nTom: Generoso, educacional, sem vendas diretas\nFoco: Valor percebido do lead magnet",
+    "tags": [
+      "landing-page",
+      "lead-magnet",
+      "lead-gen",
+      "ebook"
+    ]
+  },
+  {
+    "name": "Webinar Registration Page",
+    "description": "Landing page para registro em webinars e eventos online. Cria antecipação e maximiza inscrições.",
+    "category": "landing_page",
+    "icon": "🎓",
+    "prompt": "Crie landing page de registro para webinar \"{{webinar_title}}\".\n\n**Hero Section**:\nBadge: \"🔴 WEBINAR GRATUITO\"\nHeadline: \"{{webinar_title}}\"\nSubheadline: \"Descubra {{value_promise}} em {{duration}} minutos\"\n\nData/Hora: \"{{date}} às {{time}} ({{timezone}})\"\nCountdown: Timer até o evento\n\nForm (Simples):\n- Nome\n- Email\n- [Garantir Vaga Grátis] CTA\n\n**Você Vai Aprender**:\n✅ {{learning_outcome_1}}\n✅ {{learning_outcome_2}}\n✅ {{learning_outcome_3}}\n✅ Bônus: {{bonus_content}}\n✅ Q&A ao vivo\n\n**Agenda do Webinar** (Timeline):\n**00:00 - 05:00**: Introdução e overview\n**05:00 - 20:00**: {{topic_1}}\n**20:00 - 35:00**: {{topic_2}}\n**35:00 - 50:00**: {{topic_3}}\n**50:00 - 60:00**: Q&A e próximos passos\n\n**Sobre o Palestrante**:\n{{speaker_name}}\n{{speaker_title}} na {{company}}\n\nCredenciais:\n- {{achievement_1}}\n- {{achievement_2}}\n- {{featured_in}}\n\nFoto profissional + LinkedIn link\n\n**Social Proof**:\n\"{{registered_count}}+ pessoas já se registraram\"\n\"Vagas limitadas: {{spots_left}} vagas restantes\"\n\nDepoimentos de webinars anteriores:\n\"{{quote}}\" - {{attendee}}\n\n**O Que Você Receberá**:\n📧 Email de confirmação imediato\n📅 Convite de calendário (Google/Outlook)\n📊 Slides do webinar (após evento)\n🎁 Bônus exclusivo: {{bonus_resource}}\n\n**FAQ**:\n- \"Será gravado?\" → {{answer}}\n- \"Preciso aparecer na câmera?\" → Não\n- \"Posso fazer perguntas?\" → Sim, Q&A ao vivo\n- \"E se eu não puder participar ao vivo?\" → {{recording_policy}}\n\n**Urgency Tactics**:\n\"Registre-se até {{deadline}} e ganhe {{early_bird_bonus}}\"\n\"Apenas {{days_left}} dias até o webinar!\"\n\n**Repeat Form** (fim da página):\nFormulário simplificado novamente\nCTA: \"Não perca! Registre-se agora\"\n\n**Thank You Page**:\n\"Você está dentro! 🎉\"\n\"Check seu email para detalhes\"\n\"Adicione ao calendário\" [botões Google/Outlook]\n\"Enquanto espera:\" Links para conteúdo relacionado\n\nTom: Educacional, entusiástico, FOMO sutil",
+    "tags": [
+      "landing-page",
+      "webinar",
+      "evento",
+      "registration"
+    ]
+  },
+  {
+    "name": "Long-Form Sales Page - 4Ps",
+    "description": "Sales page longa usando 4Ps (Promise, Picture, Proof, Push). Para produtos high-ticket que precisam de persuasão extensa.",
+    "category": "landing_page",
+    "icon": "📜",
+    "prompt": "Crie long-form sales page para {{product_name}} ({{price_point}}) usando 4Ps.\n\n**PROMISE (Promessa)**:\n\nHero Headline: \"{{big_promise}}\"\nSubheadline: \"Como {{target_audience}} estão {{achieving_outcome}} usando {{product_name}}\"\n\nVideo Sales Letter (VSL): {{video_url}}\nou\nLead com história: \"Há {{timeframe}} atrás, {{story_hook}}...\"\n\n**PICTURE (Imagem do Resultado)**:\n\n\"Imagine acordar e...\"\nPaint vivid picture de {{desired_outcome}}:\n- Emocionalmente: Como se sentirão\n- Praticamente: O que poderão fazer\n- Socialmente: Como outros os verão\n\n\"Isso é possível com {{product_name}}\"\n\n**Agitate o Problema** (antes da solução):\n\"Mas você provavelmente está lidando com:\"\n❌ {{pain_point_1}}\n❌ {{pain_point_2}}\n❌ {{pain_point_3}}\n\n\"E tentou {{failed_solution_1}} e {{failed_solution_2}}, mas não funcionou porque...\"\n\n**PROOF (Prova)**:\n\n1. **Origin Story**:\n\"Por que criamos {{product_name}}\"\n{{founder_story}}\n\n2. **Como Funciona** (Reveal do Sistema):\nSeção detalhada explicando metodologia\n{{methodology_name}} em {{number}} passos\n\n3. **Case Studies** (3-5 detalhados):\nCada um com:\n- Foto/vídeo do cliente\n- Situação antes\n- Como usaram produto\n- Resultados específicos (números)\n- Quote impactante\n\n4. **Comparação**:\nTable: {{product_name}} vs {{competitor}} vs DIY\n\n5. **Credentials**:\n- {{expert_background}}\n- Featured in: {{media_logos}}\n- {{certifications}}\n\n**PUSH (Empurrão)**:\n\n**Oferta Irresistível**:\n\"Normalmente {{original_price}}\"\n\"Hoje: {{discounted_price}}\"\n\"Economize: {{savings}}\"\n\n**Stack de Valor**:\n{{product_name}} - Valor: {{value_1}}\n+ Bônus 1: {{bonus_1}} - Valor: {{value_2}}\n+ Bônus 2: {{bonus_2}} - Valor: {{value_3}}\n+ Bônus 3: {{bonus_3}} - Valor: {{value_4}}\n___________________________________________\nValor Total: {{total_value}}\n**Seu Investimento Hoje: {{price}}**\n\n**Garantia Absurda**:\n\"{{guarantee_period}} dias de garantia incondicional\"\n\"Se não {{specific_result}}, reembolso completo + {{bonus_for_trying}}\"\n\n**Scarcity/Urgency**:\n\"Apenas {{spots_left}} vagas disponíveis\"\nou \"Oferta termina em:\" [Countdown]\n\n**Risk Reversal**:\n\"Todo o risco é nosso\"\nLista tudo que garante\n\n**CTA Principal** (repetido 3-5x na página):\n\"Sim! Quero {{main_benefit}}\"\n[botão gigante]\n\n**FAQ Extensa** (20-30 perguntas):\nAntecipa TODAS objeções\n\n**Final CTA + Recap**:\nResumo da oferta\nÚltimo push\n\"PS: {{final_persuasion}}\"\n\n**Comprimento**: 3000-5000 palavras\nTom: Storytelling, persuasivo, específico, emocional",
+    "tags": [
+      "landing-page",
+      "sales-page",
+      "4ps",
+      "long-form",
+      "high-ticket"
+    ]
+  },
+  {
+    "name": "História da Marca - StoryBrand",
+    "description": "História da marca usando framework StoryBrand de Donald Miller. Cliente como herói, marca como guia.",
+    "category": "creative",
+    "icon": "✨",
+    "prompt": "Escreva história da marca usando StoryBrand para {{brand_name}}.\n\n**1. O Herói (Cliente)**:\nDescreva {{customer_hero}}:\n- Quem são\n- O que desejam alcançar\n- Por que isso importa para eles\n\n**2. O Problema** (3 níveis):\n{{problem_faced}}\n\n**Externo**: Problema físico, tangível\nEx: \"Falta de tempo para criar conteúdo\"\n\n**Interno**: Como os faz sentir\nEx: \"Frustração, sensação de inadequação\"\n\n**Filosófico**: Por que é injusto\nEx: \"Criar conteúdo não deveria ser tão difícil\"\n\n**3. O Guia (Sua Marca)**:\nPosicione {{brand_as_guide}} com:\n\n**Empatia**: \"Entendemos exatamente como você se sente\"\nConte como você passou pelo mesmo\n\n**Autoridade**: {{credentials}}\n- Anos de experiência: {{years}}\n- Clientes atendidos: {{customer_count}}\n- Resultados comprovados: {{key_results}}\n\n**4. O Plano**:\nApresente {{plan_solution}} em 3 passos simples:\n\n**Passo 1**: {{step_1}} (ação inicial fácil)\n**Passo 2**: {{step_2}} (processo/método)\n**Passo 3**: {{step_3}} (resultado desejado)\n\n**5. Chamada à Ação**:\n\n**CTA Direto**: {{direct_cta}}\nEx: \"Agendar Consulta\", \"Começar Agora\"\n\n**CTA Transitório**: {{transitional_cta}}\nEx: \"Baixar Guia Gratuito\", \"Assistir Demo\"\n\n**6. Evitar Falha**:\nPinte o custo de NÃO agir:\n\"Se você não resolver {{problem_faced}}...\"\n- Consequência 1: {{negative_outcome_1}}\n- Consequência 2: {{negative_outcome_2}}\n- Consequência 3: {{negative_outcome_3}}\n\nEnfatize dor de permanecer no status quo\n\n**7. Sucesso**:\nVisualize {{success_vision}}:\n\n\"Com {{brand_name}}, você vai:\"\n- {{positive_outcome_1}}\n- {{positive_outcome_2}}\n- {{positive_outcome_3}}\n\nPintar imagem vívida e emocional do futuro desejado\n\nTom: Empático, inspirador, centrado no cliente\nComprimento: 500-800 palavras\nPerspectiva: Segunda pessoa (\"você\")",
+    "tags": [
+      "storybrand",
+      "brand-story",
+      "sobre",
+      "posicionamento"
+    ]
+  },
+  {
+    "name": "Product Description - E-commerce FAB",
+    "description": "Descrições de produto para e-commerce usando FAB. Transforma specs técnicas em benefícios que vendem.",
+    "category": "creative",
+    "icon": "🛒",
+    "prompt": "Escreva descrição de produto e-commerce para {{product_name}} usando FAB.\n\n**Título do Produto**: {{product_name}} - {{key_benefit}}\n\n**Gancho de Abertura** (1-2 frases):\nBenefício emocional imediato\n\"Imagine {{desired_scenario}}...\"\n\n**FEATURES → ADVANTAGES → BENEFITS**:\n\n**Feature 1: {{technical_feature_1}}**\nAdvantage: {{why_better_1}}\nBenefit: \"Isso significa que você {{customer_outcome_1}}\"\n\n**Feature 2: {{technical_feature_2}}**\nAdvantage: {{why_better_2}}\nBenefit: \"Você vai {{customer_outcome_2}}\"\n\n**Feature 3: {{technical_feature_3}}**\nAdvantage: {{why_better_3}}\nBenefit: \"Permitindo que você {{customer_outcome_3}}\"\n\n**Specs Técnicas** (lista em bullet):\n- Material: {{material}}\n- Dimensões: {{dimensions}}\n- Peso: {{weight}}\n- Cor: {{color_options}}\n- Garantia: {{warranty}}\n\n**O que está incluído**:\n📦 {{item_1}}\n📦 {{item_2}}\n📦 {{item_3}}\n\n**Para quem é este produto**:\n✅ Perfeito se você {{use_case_1}}\n✅ Ideal para {{target_customer_type}}\n✅ Ótimo para {{scenario}}\n\n**Para quem NÃO é**:\n❌ Não recomendado se {{wrong_use_case}}\n\n**Social Proof na Descrição**:\n\"⭐ {{rating}}/5 estrelas ({{review_count}} avaliações)\"\n\"{{best_seller_badge}}\"\n\n**Comparação com Alternativas**:\nPor que escolher {{product_name}} em vez de {{competitor}}:\n- {{differentiator_1}}\n- {{differentiator_2}}\n\n**Urgência/Escassez**:\n\"🔥 {{units_sold}} vendidos esta semana\"\n\"⚡ Apenas {{stock_left}} em estoque\"\n\n**Garantia**:\n\"{{guarantee_period}} de garantia contra defeitos\"\n\"Satisfação garantida ou seu dinheiro de volta\"\n\n**FAQ do Produto**:\nP: {{common_question_1}}\nR: {{answer_1}}\n\nP: {{common_question_2}}\nR: {{answer_2}}\n\n**CTA Final**:\n\"Adicionar ao Carrinho\"\n\"Comprar Agora com {{payment_options}}\"\n\nComprimento: 250-400 palavras\nTom: Descritivo, persuasivo, específico\nSEO: Incluir {{target_keywords}} naturalmente",
+    "tags": [
+      "ecommerce",
+      "produto",
+      "fab",
+      "descricao"
+    ]
+  },
+  {
+    "name": "Product Description - Storytelling Premium",
+    "description": "Descrições de produto premium usando storytelling. Para produtos high-end que vendem estilo de vida.",
+    "category": "creative",
+    "icon": "👑",
+    "prompt": "Escreva descrição premium com storytelling para {{luxury_product}}.\n\n**Não comece com specs. Comece com EMOÇÃO.**\n\n**Opening Story** (100 palavras):\n\"{{sensory_opening}}\"\n\nPaint um cenário:\n- Visual: {{visual_description}}\n- Tátil: {{touch_description}}\n- Emocional: {{emotional_state}}\n\n\"Este é o momento que {{luxury_product}} foi criado para proporcionar.\"\n\n**A Criação** (Craftsmanship):\n\"Cada {{luxury_product}} começa com {{origin_story}}\"\n\n- Materiais: Não diga apenas \"couro\", diga \"couro italiano curtido à mão por {{artisan}} em {{location}}\"\n- Processo: \"{{hours}} horas de trabalho artesanal\"\n- Detalhes: \"{{unique_detail}} que você só encontra em {{luxury_product}}\"\n\n**O Que Faz Único**:\nNão use bullet points. Use parágrafos narrativos.\n\n\"O {{feature_1}} não é apenas {{technical_description}}. É {{emotional_meaning}}. Quando você {{action}}, você sente {{emotion}}.\"\n\n**Filosofia do Design**:\n\"{{designer_name}} imaginou {{product_vision}}\"\n\"A inspiração veio de {{inspiration_source}}\"\n\n**Lifestyle Integration**:\n\"Para quem {{luxury_product}} foi feito:\"\n\nNão diga \"executivos\". Pinte um retrato:\n\"Para aqueles que {{lifestyle_detail_1}}, que valorizam {{value_1}}, que entendem que {{philosophy}}.\"\n\n**Herança e Tradição** (se aplicável):\n\"Desde {{year}}, {{brand_heritage}}\"\n\n**Edição/Exclusividade**:\n\"Apenas {{limited_quantity}} peças foram criadas\"\nou \"Feito sob encomenda em {{production_time}}\"\n\n**The Experience**:\nDescreva o unboxing, a primeira vez usando, o envelhecimento do produto\n\n**Investimento** (não \"preço\"):\n\"Um investimento de {{price}}\"\n\"Heirloom quality que dura gerações\"\n\n**Certificate of Authenticity**:\n\"Cada peça vem com {{certificate_details}}\"\n\n**CTA Sofisticado**:\nNão \"Compre Agora\"\nSim: \"Reserve o Seu\", \"Solicite Consultoria\", \"Agende Visualização Privada\"\n\nComprimento: 400-600 palavras\nTom: Sofisticado, sensorial, aspiracional\nEvite: Superlatives exagerados, linguagem comum\nFoco: Storytelling > Especificações",
+    "tags": [
+      "luxury",
+      "premium",
+      "storytelling",
+      "high-end"
+    ]
+  },
+  {
+    "name": "Brand Manifesto - Inspiracional",
+    "description": "Manifesto de marca inspiracional para mission-driven brands. Declare valores, missão e visão de forma emocional.",
+    "category": "creative",
+    "icon": "🔥",
+    "prompt": "Escreva manifesto de marca para {{brand_name}}.\n\n**Formato**: Frases curtas, impactantes, ritmo forte\n\n**Abertura - O Problema/Oportunidade**:\n\"O mundo precisa de {{change}}.\"\n\"Por muito tempo, {{industry}} foi {{problem}}.\"\n\"Chega.\"\n\n**Nossa Crença** (2-3 parágrafos):\n\"Acreditamos que {{core_belief}}.\"\n\n\"Acreditamos que {{ideal_1}}, não {{opposite_1}}.\"\n\"Que {{ideal_2}}, não {{opposite_2}}.\"\n\"Que {{ideal_3}}, não {{opposite_3}}.\"\n\n**Para Quem Somos** (Target Manifesto):\n\"Somos para os {{target_archetype}}.\"\n\"Para aqueles que {{characteristic_1}}.\"\n\"Que não aceitam {{what_they_reject}}.\"\n\"Que exigem {{what_they_demand}}.\"\n\n**Nossa Missão**:\n\"{{brand_name}} existe para {{mission_statement}}.\"\n\nNão corporativo. Emocional.\n\"Lutamos por {{cause}}.\"\n\"Defendemos {{value}}.\"\n\"Criamos {{offering}} que {{transformation}}.\"\n\n**Como Fazemos** (Differentiators):\n\"Não fazemos {{conventional_approach}}.\"\n\"Fazemos {{our_approach}}.\"\n\n\"Onde outros {{competitor_behavior}}, nós {{our_behavior}}.\"\n\n**Os Valores** (Declaração forte de cada):\n\n**{{value_1}}**:\n\"Sem desculpas. Sem atalhos. Apenas {{value_1}}.\"\n\n**{{value_2}}**:\n\"{{value_2}} não é opcional. É obrigatório.\"\n\n**{{value_3}}**:\n\"Escolhemos {{value_3}} sempre, mesmo quando {{hard_choice}}.\"\n\n**O Compromisso**:\n\"Prometemos {{promise_1}}.\"\n\"Garantimos {{promise_2}}.\"\n\"Nunca {{what_we_wont_do}}.\"\n\n**Call to Movement** (não call to action):\n\"Junte-se a nós.\"\n\"Porque {{shared_belief}}.\"\n\"Porque juntos, {{collective_vision}}.\"\n\n**Fecho Poderoso**:\n\"Este é {{brand_name}}.\"\n\"E estamos apenas começando.\"\n\nou\n\n\"{{tagline}}.\"\n\n**Formatação**:\n- Parágrafos curtos (1-3 frases)\n- Muito espaço em branco\n- Algumas frases sozinhas para impacto\n- Repetição intencional para ritmo\n\nComprimento: 300-500 palavras\nTom: Declarativo, apaixonado, sem medo\nInspiração: Nike, Patagonia, Apple manifestos\n\nEvite:\n❌ \"Somos líderes de mercado\"\n❌ Jargão corporativo\n❌ Falar sobre você - fale sobre o movimento",
+    "tags": [
+      "manifesto",
+      "brand-values",
+      "mission",
+      "inspiracional"
+    ]
+  },
+  {
+    "name": "Company About Page",
+    "description": "Página Sobre da empresa com autenticidade e autoridade. Humaniza marca enquanto estabelece credibilidade.",
+    "category": "creative",
+    "icon": "🏢",
+    "prompt": "Escreva página About para {{company_name}}.\n\n**Headline**: Não \"Sobre Nós\"\nSim: \"{{compelling_headline}}\"\nEx: \"Obsessed by {{mission}}\" ou \"{{value_proposition}}\"\n\n**Opening Hook** (50-100 palavras):\nNÃO comece com \"Fundada em XXXX\"\nSIM comece com WHY ou problema que resolve\n\n\"A maioria das pessoas {{common_frustration}}. Nós também. Por isso existe {{company_name}}.\"\n\nou\n\n\"Em {{year}}, percebemos que {{market_gap}}. Decidimos fazer algo sobre isso.\"\n\n**Origin Story** (200 palavras):\nConte a história humana:\n\n\"Começou quando {{founder_name}} {{triggering_event}}.\"\n\nInclua:\n- O problema específico que enfrentaram\n- A tentativa (e falha) de soluções existentes\n- O momento \"aha!\"\n- Os primeiros dias (humanizar)\n- Primeiros clientes e aprendizados\n\n**A Missão** (100 palavras):\n\"Hoje, {{company_name}} existe para {{mission}}.\"\n\nPara quem:\n\"{{target_customer}}\"\nMas não de forma genérica. Específico.\n\n**Como Fazemos Diferente**:\n\n\"Não somos como {{typical_competitor}}.\"\n\n**Eles**: {{competitor_approach}}\n**Nós**: {{our_approach}}\n\nList 3-4 differentiators reais (não genéricos como \"qualidade\")\n\n**Os Valores em Ação** (não apenas liste):\nPara cada valor, conte micro-história de como vivem ele\n\n\"**{{value_1}}**: Como quando {{real_example_1}}\"\n\"**{{value_2}}**: Por isso que {{real_example_2}}\"\n\n**O Time** (se relevante):\nFotos genuínas (não corporativas forçadas)\nMini-bios focadas em personality, não apenas credentials\n\n\"{{team_member}} | {{role}}\"\n\"Ama: {{personal_interest}}\"\n\"Especialidade: {{expertise}}\"\n\n**Prova Social e Milestones**:\nTimeline visual:\n- {{year}}: {{milestone_1}}\n- {{year}}: {{milestone_2}}\n- {{year}}: {{milestone_3}}\n- Hoje: {{current_stats}}\n\nMétricas que importam:\n\"{{customer_count}}+ clientes em {{country_count}} países\"\n\"{{impact_metric}}\" (não vanity metrics)\n\n**Featured In / Reconhecimentos**:\nLogos de mídia/prêmios\n\n**A Equipe nos Números** (se team é selling point):\n\"{{team_size}} pessoas espalhadas por {{locations}}\"\n\"{{diversity_stat}}\"\n\"{{experience_stat}}\"\n\n**Cultura** (se B2B ou recrutamento é goal):\n\"Como é trabalhar aqui:\"\n- {{culture_point_1}}\n- {{culture_point_2}}\n[Veja Vagas Abertas]\n\n**A Visão** (Future):\n\"Estamos construindo um futuro onde {{vision}}.\"\n\n**CTA**:\nPrimary: \"{{main_cta}}\" (ex: \"Ver Como Funciona\", \"Começar\")\nSecondary: \"Quer trabalhar conosco? [Careers]\"\n\n**Humanização Final**:\nFoto do founder ou team\nQuote pessoal:\n\"{{personal_note}}\" - {{founder_name}}, {{title}}\n\nComprimento: 600-1000 palavras\nTom: Autêntico, humano, competente\nLayout: Muito visual, quebra-linhas, não wall of text",
+    "tags": [
+      "about-page",
+      "sobre",
+      "company-story",
+      "autenticidade"
+    ]
+  },
+  {
+    "name": "Video Script - Brand Documentary",
+    "description": "Script para vídeo documentário de marca. Conta história da empresa de forma cinematográfica para YouTube/site.",
+    "category": "creative",
+    "icon": "🎬",
+    "prompt": "Escreva script para brand documentary (3-5 minutos) de {{company_name}}.\n\n**DURAÇÃO**: {{duration}} (ex: 3:30)\n\n**FORMATO**:\n[VISUAL] | [AUDIO/NARRAÇÃO]\n\n---\n\n**ACT 1: O MUNDO ANTES (0:00 - 1:00)**\n\n[VISUAL] {{establishing_shot}}\nB-roll de {{industry_scene}}\n\n[NARRAÇÃO]\n\"{{opening_line}}\"\n(Hook emocional ou estatística impactante)\n\n[VISUAL] {{problem_illustration}}\nMostrar o problema que a empresa resolve\n\n[NARRAÇÃO]\n\"Para {{customer_type}}, {{pain_point}} era realidade diária.\"\n\n[SOUND BITE - Customer/Expert]\n\"{{quote_about_problem}}\"\n- {{name}}, {{title}}\n\n**ACT 2: O NASCIMENTO (1:00 - 2:00)**\n\n[VISUAL] Founder em {{location}}\nPhotos de early days\n\n[NARRAÇÃO]\n\"Em {{year}}, {{founder_name}} decidiu que tinha que haver uma forma melhor.\"\n\n[SOUND BITE - Founder]\n\"{{origin_quote}}\"\n- {{founder_name}}, {{founder_title}}\n\n[VISUAL] Montage de journey:\n- Protótipos\n- Primeiros testes\n- Momentos de breakthrough\n- Celebrações de milestones\n\n[MUSIC] Crescendo\n\n**ACT 3: A SOLUÇÃO (2:00 - 3:00)**\n\n[VISUAL] Product/service em ação\nReal customers usando\n\n[NARRAÇÃO]\n\"{{company_name}} funciona assim: {{simple_explanation}}\"\n\n[VISUAL] Before/After comparisons\nResultados tangíveis\n\n[MULTIPLE SOUND BITES - Customers]\nQuick cuts de testimonials:\n\"{{result_quote_1}}\" - {{customer_1}}\n\"{{result_quote_2}}\" - {{customer_2}}\n\"{{result_quote_3}}\" - {{customer_3}}\n\n**ACT 4: O IMPACTO (3:00 - 3:30)**\n\n[VISUAL] Wide shots de scale:\n- Office/facility\n- Team working\n- Products being shipped/used globally\n\n[NARRAÇÃO]\n\"Hoje, {{impact_stats}}\"\n\n[TEXT OVERLAY]\n{{number_1}} {{metric_1}}\n{{number_2}} {{metric_2}}\n{{number_3}} {{metric_3}}\n\n**ACT 5: O FUTURO (3:30 - 4:00)**\n\n[VISUAL] Return to founder or team\nLooking towards horizon/future\n\n[SOUND BITE - Founder/CEO]\n\"{{vision_quote}}\"\n\n[NARRAÇÃO]\n\"Porque para {{company_name}}, {{mission_restatement}}.\"\n\n[VISUAL] Logo reveal\nCTA text overlay\n\n[TEXT OVERLAY]\n{{company_name}}\n{{tagline}}\n{{website}}\n\n[MUSIC] Resolution, uplifting\n\n---\n\n**PRODUCTION NOTES**:\n\n**Locations needed**:\n- {{location_1}}\n- {{location_2}}\n- {{location_3}}\n\n**Interviewees**:\n- {{founder_name}}\n- {{customer_1}} ({{customer_type}})\n- {{employee}} ({{role}})\n\n**B-roll requirements**:\n- {{broll_1}}\n- {{broll_2}}\n- {{broll_3}}\n\n**Music style**: {{music_description}}\n(ex: \"Indie folk, builds from intimate to epic\")\n\n**Color grade**: {{color_mood}}\n(ex: \"Warm, authentic, slightly desaturated\")\n\n**Tone**: Cinematic mas autêntico, inspiracional sem ser cheese",
+    "tags": [
+      "video",
+      "script",
+      "documentary",
+      "brand-film",
+      "youtube"
+    ]
+  },
+  {
+    "name": "Tagline & Slogan Generator",
+    "description": "Gerador de taglines e slogans para posicionamento de marca. Múltiplas opções testando diferentes ângulos.",
+    "category": "creative",
+    "icon": "💬",
+    "prompt": "Gere taglines/slogans para {{brand_name}}.\n\n**Brand Info**:\n- Produto/Serviço: {{offering}}\n- Target audience: {{audience}}\n- Key benefit: {{main_benefit}}\n- Brand personality: {{personality}}\n- Competitors' taglines: {{competitor_examples}}\n\n**Gere 20 opções em diferentes categorias**:\n\n**1. ASPIRATIONAL** (3-5 opções):\nFoco em quem o cliente se tornará\n- \"{{aspirational_1}}\"\n- \"{{aspirational_2}}\"\nExemplos: \"Just Do It\", \"Think Different\"\n\n**2. DESCRIPTIVE** (3-5 opções):\nExplicam o que faz claramente\n- \"{{descriptive_1}}\"\n- \"{{descriptive_2}}\"\nExemplos: \"The Ultimate Driving Machine\"\n\n**3. PROVOCATIVE** (3 opções):\nDesafiam o status quo\n- \"{{provocative_1}}\"\n- \"{{provocative_2}}\"\nExemplos: \"Impossible is Nothing\"\n\n**4. BENEFIT-FOCUSED** (3 opções):\nResultado tangível\n- \"{{benefit_1}}\"\n- \"{{benefit_2}}\"\nExemplo: \"Melts in your mouth, not in your hands\"\n\n**5. PLAYFUL/WORDPLAY** (2-3 opções):\nJogos de palavras memoráveis\n- \"{{wordplay_1}}\"\n- \"{{wordplay_2}}\"\n\n**6. EMOTIONAL** (2-3 opções):\nConectam emocionalmente\n- \"{{emotional_1}}\"\n- \"{{emotional_2}}\"\nExemplo: \"Belongs to everyone\"\n\n**7. MISSION-DRIVEN** (2 opções):\nBaseado no propósito maior\n- \"{{mission_1}}\"\n- \"{{mission_2}}\"\n\n**ANÁLISE DE CADA**:\n\nPara top 5 favoritos, analise:\n\n**\"{{tagline_option}}\"**\n✅ Pros: {{pros}}\n❌ Cons: {{cons}}\nMemorabilidade: {{score}}/10\nDiferenciação: {{score}}/10\nAdequação: {{score}}/10\n\n**TESTES SUGERIDOS**:\n\nPerguntas para testar tagline:\n1. É memorável? (Consegue lembrar 1h depois?)\n2. É único? (Poderia ser de competitor?)\n3. É relevante? (Conecta com brand promise?)\n4. É atemporal? (Funcionará em 10 anos?)\n5. É traduzível? (Se global brand)\n6. É ownable? (Pode ser registrado?)\n\n**VARIAÇÕES DE COMPRIMENTO**:\n\nVersão Long ({{tagline_long}})\nVersão Short ({{tagline_short}})\nVersão Social ({{tagline_social}} - para bio)\n\n**APLICAÇÕES**:\n\nMostre como ficaria em:\n- Logo lockup\n- Website hero\n- Email signature\n- Social media bio\n- Packaging\n\nTom: Conciso, memorável, verdadeiro ao brand",
+    "tags": [
+      "tagline",
+      "slogan",
+      "branding",
+      "positioning",
+      "copywriting"
+    ]
   }
 ]

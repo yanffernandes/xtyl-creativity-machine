@@ -1,0 +1,255 @@
+"""
+Add first 9 workflow templates (most important ones marked as recommended)
+Categories: paid_ads (3), email (3), social_media (2), content (1)
+"""
+
+import json
+import os
+
+# First 9 recommended workflow templates
+workflows_part1 = [
+    # 1. CAMPANHA META ADS COMPLETA (paid_ads) - Most comprehensive paid ads workflow
+    {
+        "name": "Campanha Completa Meta Ads",
+        "description": "Gera campanha completa para Meta (Facebook/Instagram): 15 headlines, 5 descrições, 3 imagens de anúncio e copy da landing page.",
+        "category": "paid_ads",
+        "nodes_json": [
+            {"id": "start", "type": "start", "position": {"x": 100, "y": 100}, "data": {"label": "Início", "input_variables": ["product_service", "target_audience", "main_benefit", "campaign_goal", "brand_guidelines"]}},
+            {"id": "headlines", "type": "text_generation", "position": {"x": 100, "y": 250}, "data": {"label": "Gerar Headlines", "model": "anthropic/claude-3.5-sonnet", "prompt": "Gere 15 headlines para anúncios Meta sobre {{input.product_service}} direcionados a {{input.target_audience}}. Use framework AIDA. Cada headline: 25-40 caracteres, enfatizar {{input.main_benefit}}. Siga {{input.brand_guidelines}} para tom.", "temperature": 0.8, "max_tokens": 1000}},
+            {"id": "descriptions", "type": "text_generation", "position": {"x": 100, "y": 400}, "data": {"label": "Gerar Descrições", "model": "anthropic/claude-3.5-sonnet", "prompt": "Gere 5 descrições de anúncio Meta para {{input.product_service}} complementando: {{headlines.content}}. Cada descrição: 100-125 caracteres, CTA clara, enfatizar {{input.main_benefit}}.", "temperature": 0.7, "max_tokens": 800}},
+            {"id": "images", "type": "image_generation", "position": {"x": 400, "y": 250}, "data": {"label": "Criar Imagens", "model": "openai/dall-e-3", "prompt": "Crie imagem de anúncio profissional para {{input.product_service}} direcionada a {{input.target_audience}}. Estilo: moderno, limpo. Mostrar {{input.main_benefit}} visualmente. Seguir {{input.brand_guidelines}}.", "count": 3, "size": "1024x1024"}},
+            {"id": "landing", "type": "text_generation", "position": {"x": 250, "y": 550}, "data": {"label": "Copy Landing Page", "model": "anthropic/claude-3.5-sonnet", "prompt": "Copy completo landing page: Headlines {{headlines.content}}, Descrições {{descriptions.content}}. Incluir: Hero section, benefícios, social proof. Produto: {{input.product_service}}, Objetivo: {{input.campaign_goal}}.", "temperature": 0.7, "max_tokens": 2000}},
+            {"id": "finish", "type": "finish", "position": {"x": 250, "y": 700}, "data": {"label": "Completo", "summary": "Campanha Meta Ads: 15 headlines, 5 descrições, 3 imagens, copy landing"}}
+        ],
+        "edges_json": [
+            {"id": "e1", "source": "start", "target": "headlines"},
+            {"id": "e2", "source": "headlines", "target": "descriptions"},
+            {"id": "e3", "source": "start", "target": "images"},
+            {"id": "e4", "source": "descriptions", "target": "landing"},
+            {"id": "e5", "source": "images", "target": "landing"},
+            {"id": "e6", "source": "landing", "target": "finish"}
+        ],
+        "default_params_json": {"model": "anthropic/claude-3.5-sonnet", "temperature": 0.7, "max_tokens": 1500},
+        "is_recommended": True
+    },
+
+    # 2. TESTE A/B GOOGLE ADS (paid_ads)
+    {
+        "name": "Teste A/B - Google Search Ads",
+        "description": "Cria 3 variações de anúncios Google para teste A/B. Cada variação usa framework diferente (AIDA, PAS, FAB) + guia de teste.",
+        "category": "paid_ads",
+        "nodes_json": [
+            {"id": "start", "type": "start", "position": {"x": 100, "y": 100}, "data": {"label": "Início", "input_variables": ["keyword_target", "service_offering", "unique_selling_point", "target_location"]}},
+            {"id": "var_aida", "type": "text_generation", "position": {"x": 100, "y": 250}, "data": {"label": "Variação A (AIDA)", "model": "anthropic/claude-3.5-sonnet", "prompt": "Anúncio Google Search para {{input.keyword_target}} usando AIDA. Serviço: {{input.service_offering}}, USP: {{input.unique_selling_point}}, Local: {{input.target_location}}. 3 headlines (30 chars), 2 descriptions (90 chars).", "temperature": 0.7}},
+            {"id": "var_pas", "type": "text_generation", "position": {"x": 300, "y": 250}, "data": {"label": "Variação B (PAS)", "model": "anthropic/claude-3.5-sonnet", "prompt": "Anúncio Google Search para {{input.keyword_target}} usando PAS (Problema-Agitação-Solução). Serviço: {{input.service_offering}}, USP: {{input.unique_selling_point}}. 3 headlines, 2 descriptions.", "temperature": 0.7}},
+            {"id": "var_fab", "type": "text_generation", "position": {"x": 500, "y": 250}, "data": {"label": "Variação C (FAB)", "model": "anthropic/claude-3.5-sonnet", "prompt": "Anúncio Google Search para {{input.keyword_target}} usando FAB (Features-Advantages-Benefits). Serviço: {{input.service_offering}}, USP: {{input.unique_selling_point}}. 3 headlines, 2 descriptions.", "temperature": 0.7}},
+            {"id": "guide", "type": "text_generation", "position": {"x": 300, "y": 400}, "data": {"label": "Guia de Teste", "model": "anthropic/claude-3.5-sonnet", "prompt": "Baseado nas 3 variações (AIDA: {{var_aida.content}}, PAS: {{var_pas.content}}, FAB: {{var_fab.content}}), crie guia de teste A/B: hipóteses, KPIs, tamanho amostra, duração, critérios de decisão.", "temperature": 0.6}},
+            {"id": "finish", "type": "finish", "position": {"x": 300, "y": 550}, "data": {"label": "Completo", "summary": "3 variações Google Ads (AIDA, PAS, FAB) + guia teste"}}
+        ],
+        "edges_json": [
+            {"id": "e1", "source": "start", "target": "var_aida"},
+            {"id": "e2", "source": "start", "target": "var_pas"},
+            {"id": "e3", "source": "start", "target": "var_fab"},
+            {"id": "e4", "source": "var_aida", "target": "guide"},
+            {"id": "e5", "source": "var_pas", "target": "guide"},
+            {"id": "e6", "source": "var_fab", "target": "guide"},
+            {"id": "e7", "source": "guide", "target": "finish"}
+        ],
+        "default_params_json": {"model": "anthropic/claude-3.5-sonnet", "temperature": 0.7},
+        "is_recommended": True
+    },
+
+    # 3. LINKEDIN B2B COMPLETA (paid_ads)
+    {
+        "name": "Campanha LinkedIn Ads B2B",
+        "description": "Campanha B2B completa para LinkedIn: anúncios, landing page lead gen, sequência de follow-up em 3 e-mails.",
+        "category": "paid_ads",
+        "nodes_json": [
+            {"id": "start", "type": "start", "position": {"x": 100, "y": 100}, "data": {"label": "Início", "input_variables": ["solution_type", "target_industry", "job_titles", "lead_magnet_offer", "company_credibility"]}},
+            {"id": "ads", "type": "text_generation", "position": {"x": 100, "y": 250}, "data": {"label": "Anúncios LinkedIn", "model": "anthropic/claude-3.5-sonnet", "prompt": "5 anúncios LinkedIn para {{input.solution_type}} direcionados a {{input.job_titles}} em {{input.target_industry}}. Tom B2B profissional. Headline (150 chars), texto (600 chars), CTA para {{input.lead_magnet_offer}}. Credibilidade: {{input.company_credibility}}.", "temperature": 0.7, "max_tokens": 1200}},
+            {"id": "landing", "type": "text_generation", "position": {"x": 100, "y": 400}, "data": {"label": "Landing Page", "model": "anthropic/claude-3.5-sonnet", "prompt": "Landing page B2B para {{input.job_titles}} baixarem {{input.lead_magnet_offer}}. Headline focada ROI, bullet benefits, formulário (nome, email, empresa, cargo), social proof ({{input.company_credibility}}), privacidade.", "temperature": 0.7, "max_tokens": 1500}},
+            {"id": "followup", "type": "text_generation", "position": {"x": 100, "y": 550}, "data": {"label": "Sequência Follow-up", "model": "anthropic/claude-3.5-sonnet", "prompt": "3 e-mails follow-up para leads que baixaram {{input.lead_magnet_offer}}: E-mail 1 (imediato): entregar + intro. E-mail 2 (3 dias): case study. E-mail 3 (7 dias): agendar demo de {{input.solution_type}}. Tom B2B.", "temperature": 0.7, "max_tokens": 1500}},
+            {"id": "finish", "type": "finish", "position": {"x": 100, "y": 700}, "data": {"label": "Completo", "summary": "Campanha LinkedIn B2B: 5 anúncios + landing page + 3 e-mails"}}
+        ],
+        "edges_json": [
+            {"id": "e1", "source": "start", "target": "ads"},
+            {"id": "e2", "source": "ads", "target": "landing"},
+            {"id": "e3", "source": "landing", "target": "followup"},
+            {"id": "e4", "source": "followup", "target": "finish"}
+        ],
+        "default_params_json": {"model": "anthropic/claude-3.5-sonnet", "temperature": 0.7, "max_tokens": 1500},
+        "is_recommended": True
+    },
+
+    # 4. SEQUÊNCIA DE NUTRIÇÃO 6 E-MAILS (email) - Most comprehensive email workflow
+    {
+        "name": "Sequência de Nutrição 6 E-mails",
+        "description": "Jornada completa nurturing: boas-vindas → educação → case study → pitch soft → pitch hard → última chance.",
+        "category": "email",
+        "nodes_json": [
+            {"id": "start", "type": "start", "position": {"x": 100, "y": 100}, "data": {"label": "Início", "input_variables": ["subscriber_source", "pain_points", "solution_offering", "case_studies", "offer_details", "brand_voice"]}},
+            {"id": "e1", "type": "text_generation", "position": {"x": 100, "y": 230}, "data": {"label": "E-mail 1: Boas-vindas", "model": "anthropic/claude-3.5-sonnet", "prompt": "E-mail boas-vindas para {{input.subscriber_source}}. Tom: {{input.brand_voice}}. Agradecimento, entregar conteúdo prometido, expectativas. 200-300 palavras + assunto.", "temperature": 0.7, "max_tokens": 800}},
+            {"id": "e2", "type": "text_generation", "position": {"x": 100, "y": 350}, "data": {"label": "E-mail 2: Educação", "model": "anthropic/claude-3.5-sonnet", "prompt": "E-mail educativo sobre {{input.pain_points}}. Valor sem vender. Credibilidade. Tom: {{input.brand_voice}}. CTA soft. 250-350 palavras + assunto.", "temperature": 0.7, "max_tokens": 900}},
+            {"id": "e3", "type": "text_generation", "position": {"x": 100, "y": 470}, "data": {"label": "E-mail 3: Case Study", "model": "anthropic/claude-3.5-sonnet", "prompt": "Case study de {{input.case_studies}}. Transformação antes/depois. Resultados. Introduzir {{input.solution_offering}} sutilmente. 300-400 palavras + assunto.", "temperature": 0.7, "max_tokens": 1000}},
+            {"id": "e4", "type": "text_generation", "position": {"x": 100, "y": 590}, "data": {"label": "E-mail 4: Pitch Soft", "model": "anthropic/claude-3.5-sonnet", "prompt": "Introduzir {{input.solution_offering}} consultivamente. Como funciona, benefícios, ideal para quem. CTA: saber mais. 250-350 palavras + assunto.", "temperature": 0.7, "max_tokens": 900}},
+            {"id": "e5", "type": "text_generation", "position": {"x": 100, "y": 710}, "data": {"label": "E-mail 5: Pitch Hard", "model": "anthropic/claude-3.5-sonnet", "prompt": "Oferta direta {{input.solution_offering}} com {{input.offer_details}}. Benefícios, prova social, garantia, urgência. CTA: comprar. 300-400 palavras + assunto.", "temperature": 0.7, "max_tokens": 1000}},
+            {"id": "e6", "type": "text_generation", "position": {"x": 100, "y": 830}, "data": {"label": "E-mail 6: Última Chance", "model": "anthropic/claude-3.5-sonnet", "prompt": "Última chance {{input.solution_offering}}. Urgência respeitosa. Recapitular valor, prazo, remover objeções. 200-300 palavras + assunto urgente.", "temperature": 0.7, "max_tokens": 800}},
+            {"id": "finish", "type": "finish", "position": {"x": 100, "y": 950}, "data": {"label": "Completo", "summary": "6 e-mails nurturing: boas-vindas, educação, case, soft, hard, última chance"}}
+        ],
+        "edges_json": [
+            {"id": "e1", "source": "start", "target": "e1"},
+            {"id": "e2", "source": "e1", "target": "e2"},
+            {"id": "e3", "source": "e2", "target": "e3"},
+            {"id": "e4", "source": "e3", "target": "e4"},
+            {"id": "e5", "source": "e4", "target": "e5"},
+            {"id": "e6", "source": "e5", "target": "e6"},
+            {"id": "e7", "source": "e6", "target": "finish"}
+        ],
+        "default_params_json": {"model": "anthropic/claude-3.5-sonnet", "temperature": 0.7, "max_tokens": 1000},
+        "is_recommended": True
+    },
+
+    # 5. NEWSLETTER SEMANAL (email)
+    {
+        "name": "Newsletter Semanal Automatizada",
+        "description": "Newsletter semanal completa: conteúdo principal, quick tips, curadoria de links, soft promo, P.S. pessoal.",
+        "category": "email",
+        "nodes_json": [
+            {"id": "start", "type": "start", "position": {"x": 100, "y": 100}, "data": {"label": "Início", "input_variables": ["main_topic", "secondary_topic", "audience_persona", "product_mention", "personal_touch"]}},
+            {"id": "subject", "type": "text_generation", "position": {"x": 100, "y": 230}, "data": {"label": "Assunto + Pre-header", "model": "anthropic/claude-3.5-sonnet", "prompt": "5 opções assunto sobre {{input.main_topic}} para {{input.audience_persona}}. Curioso, valor claro, 40-60 chars. Pre-header (100 chars) para cada.", "temperature": 0.8}},
+            {"id": "main", "type": "text_generation", "position": {"x": 100, "y": 350}, "data": {"label": "Conteúdo Principal", "model": "anthropic/claude-3.5-sonnet", "prompt": "Seção principal sobre {{input.main_topic}} para {{input.audience_persona}}. Insight prático, exemplo/case, takeaway acionável. Tom amigável. 200-300 palavras.", "temperature": 0.7, "max_tokens": 800}},
+            {"id": "tips", "type": "text_generation", "position": {"x": 100, "y": 470}, "data": {"label": "Quick Tips", "model": "anthropic/claude-3.5-sonnet", "prompt": "5 dicas rápidas sobre {{input.secondary_topic}} para {{input.audience_persona}}. Cada dica: 1 frase, acionável, bullet points.", "temperature": 0.7}},
+            {"id": "curated", "type": "text_generation", "position": {"x": 100, "y": 590}, "data": {"label": "Curadoria", "model": "anthropic/claude-3.5-sonnet", "prompt": "'Leituras da Semana' para {{input.audience_persona}} sobre {{input.main_topic}}: 1 artigo, 1 ferramenta, 1 estatística. Título, descrição, por quê vale.", "temperature": 0.7}},
+            {"id": "promo", "type": "text_generation", "position": {"x": 100, "y": 710}, "data": {"label": "Soft Promo + P.S.", "model": "anthropic/claude-3.5-sonnet", "prompt": "Soft promo mencionando {{input.product_mention}} naturalmente (20% conteúdo). CTA suave. P.S. pessoal: {{input.personal_touch}} ou behind-the-scenes. Autêntico.", "temperature": 0.7}},
+            {"id": "finish", "type": "finish", "position": {"x": 100, "y": 830}, "data": {"label": "Completo", "summary": "Newsletter: assuntos, conteúdo, tips, curadoria, promo, P.S."}}
+        ],
+        "edges_json": [
+            {"id": "e1", "source": "start", "target": "subject"},
+            {"id": "e2", "source": "subject", "target": "main"},
+            {"id": "e3", "source": "main", "target": "tips"},
+            {"id": "e4", "source": "tips", "target": "curated"},
+            {"id": "e5", "source": "curated", "target": "promo"},
+            {"id": "e6", "source": "promo", "target": "finish"}
+        ],
+        "default_params_json": {"model": "anthropic/claude-3.5-sonnet", "temperature": 0.7},
+        "is_recommended": True
+    },
+
+    # 6. LANÇAMENTO DE PRODUTO (email)
+    {
+        "name": "Sequência Lançamento de Produto",
+        "description": "3 e-mails para lançamento: teaser (curiosidade) → revelação (anúncio) → early bird (oferta limitada).",
+        "category": "email",
+        "nodes_json": [
+            {"id": "start", "type": "start", "position": {"x": 100, "y": 100}, "data": {"label": "Início", "input_variables": ["new_product_name", "origin_story", "key_features", "launch_offer", "launch_date"]}},
+            {"id": "teaser", "type": "text_generation", "position": {"x": 100, "y": 230}, "data": {"label": "E-mail 1: Teaser", "model": "anthropic/claude-3.5-sonnet", "prompt": "Teaser lançamento {{input.new_product_name}} em {{input.launch_date}}. NÃO revelar ainda. Mistério/expectativa. História: {{input.origin_story}}. Assunto curioso. CTA: 'primeiros a saber'. 150-250 palavras.", "temperature": 0.8}},
+            {"id": "reveal", "type": "text_generation", "position": {"x": 100, "y": 350}, "data": {"label": "E-mail 2: Revelação", "model": "anthropic/claude-3.5-sonnet", "prompt": "Revelação: 'Apresentamos {{input.new_product_name}}'! Storytelling ({{input.origin_story}}), features ({{input.key_features}}) focando benefícios. Entusiasmado. 250-350 palavras. Assunto excitement.", "temperature": 0.7, "max_tokens": 900}},
+            {"id": "early_bird", "type": "text_generation", "position": {"x": 100, "y": 470}, "data": {"label": "E-mail 3: Early Bird", "model": "anthropic/claude-3.5-sonnet", "prompt": "Oferta early bird {{input.new_product_name}}: {{input.launch_offer}}. Exclusivo assinantes. Urgência: prazo 48-72h. Social proof. Behind-the-scenes no P.S. CTA: 'Seja dos primeiros'. 200-300 palavras.", "temperature": 0.7}},
+            {"id": "finish", "type": "finish", "position": {"x": 100, "y": 590}, "data": {"label": "Completo", "summary": "Lançamento: teaser, revelação, early bird"}}
+        ],
+        "edges_json": [
+            {"id": "e1", "source": "start", "target": "teaser"},
+            {"id": "e2", "source": "teaser", "target": "reveal"},
+            {"id": "e3", "source": "reveal", "target": "early_bird"},
+            {"id": "e4", "source": "early_bird", "target": "finish"}
+        ],
+        "default_params_json": {"model": "anthropic/claude-3.5-sonnet", "temperature": 0.75},
+        "is_recommended": False
+    },
+
+    # 7. CALENDÁRIO SOCIAL 7 DIAS (social_media)
+    {
+        "name": "Calendário Social Media 7 Dias",
+        "description": "7 posts para redes sociais (Instagram/Facebook/LinkedIn) com copy + sugestões de imagem para semana completa.",
+        "category": "social_media",
+        "nodes_json": [
+            {"id": "start", "type": "start", "position": {"x": 100, "y": 100}, "data": {"label": "Início", "input_variables": ["content_pillar", "brand_voice", "target_platforms", "key_messages", "hashtag_strategy"]}},
+            {"id": "loop", "type": "loop", "position": {"x": 100, "y": 230}, "data": {"label": "Loop: 7 Dias", "iterations": 7, "item_variable": "day_number"}},
+            {"id": "post", "type": "text_generation", "position": {"x": 100, "y": 360}, "data": {"label": "Gerar Post", "model": "anthropic/claude-3.5-sonnet", "prompt": "Post Dia {{loop.current_iteration}} sobre {{input.content_pillar}} para {{input.target_platforms}}. Tom: {{input.brand_voice}}. Ângulo único. Mensagens: {{input.key_messages}}. Hook forte, espaçamento, CTA, hashtags {{input.hashtag_strategy}}. 150-300 palavras.", "temperature": 0.8, "max_tokens": 600}},
+            {"id": "visual", "type": "text_generation", "position": {"x": 350, "y": 360}, "data": {"label": "Sugestão Visual", "model": "anthropic/claude-3.5-sonnet", "prompt": "Baseado em {{post.content}}, sugira visual/imagem. Composição, cores, elementos-chave, estilo. Específico para design/geração.", "temperature": 0.7, "max_tokens": 300}},
+            {"id": "finish", "type": "finish", "position": {"x": 225, "y": 490}, "data": {"label": "Completo", "summary": "7 posts com sugestões visuais para semana"}}
+        ],
+        "edges_json": [
+            {"id": "e1", "source": "start", "target": "loop"},
+            {"id": "e2", "source": "loop", "target": "post"},
+            {"id": "e3", "source": "post", "target": "visual"},
+            {"id": "e4", "source": "visual", "target": "loop", "label": "próximo dia"},
+            {"id": "e5", "source": "loop", "target": "finish", "label": "após 7 dias"}
+        ],
+        "default_params_json": {"model": "anthropic/claude-3.5-sonnet", "temperature": 0.75, "max_tokens": 600},
+        "is_recommended": True
+    },
+
+    # 8. CONTEÚDO INSTAGRAM COMPLETO (social_media)
+    {
+        "name": "Conteúdo Instagram Completo",
+        "description": "Kit completo Instagram: post principal + carrossel (5 slides) + stories (3 frames) + reels script sobre mesmo tópico.",
+        "category": "social_media",
+        "nodes_json": [
+            {"id": "start", "type": "start", "position": {"x": 100, "y": 100}, "data": {"label": "Início", "input_variables": ["topic", "target_audience", "brand_aesthetic", "call_to_action"]}},
+            {"id": "main_post", "type": "text_generation", "position": {"x": 100, "y": 230}, "data": {"label": "Post Principal", "model": "anthropic/claude-3.5-sonnet", "prompt": "Post Instagram sobre {{input.topic}} para {{input.target_audience}}. Hook primeiras linhas, espaçamento, CTA: {{input.call_to_action}}, hashtags. Estética: {{input.brand_aesthetic}}. 200-300 palavras.", "temperature": 0.8, "max_tokens": 600}},
+            {"id": "carousel", "type": "text_generation", "position": {"x": 100, "y": 360}, "data": {"label": "Carrossel 5 Slides", "model": "anthropic/claude-3.5-sonnet", "prompt": "Carrossel Instagram sobre {{input.topic}}. 5 slides: Slide 1 (capa/hook), Slides 2-4 (conteúdo/tips), Slide 5 (CTA: {{input.call_to_action}}). Cada slide: texto + descrição visual. Estética: {{input.brand_aesthetic}}.", "temperature": 0.75, "max_tokens": 800}},
+            {"id": "stories", "type": "text_generation", "position": {"x": 100, "y": 490}, "data": {"label": "Stories 3 Frames", "model": "anthropic/claude-3.5-sonnet", "prompt": "3 stories Instagram sobre {{input.topic}}: Story 1 (attention grabber), Story 2 (conteúdo core), Story 3 (CTA + swipe up). Para cada: texto overlay + sugestão visual. Estética: {{input.brand_aesthetic}}.", "temperature": 0.75}},
+            {"id": "reels", "type": "text_generation", "position": {"x": 100, "y": 620}, "data": {"label": "Reels Script", "model": "anthropic/claude-3.5-sonnet", "prompt": "Script Reels 30-60s sobre {{input.topic}} para {{input.target_audience}}. Hook (3s), conteúdo (tips/storytelling), CTA. Incluir: texto on-screen, narração, sugestões de cenas. Trending audio compatível.", "temperature": 0.8}},
+            {"id": "finish", "type": "finish", "position": {"x": 100, "y": 750}, "data": {"label": "Completo", "summary": "Kit Instagram: post, carrossel, stories, reels"}}
+        ],
+        "edges_json": [
+            {"id": "e1", "source": "start", "target": "main_post"},
+            {"id": "e2", "source": "main_post", "target": "carousel"},
+            {"id": "e3", "source": "carousel", "target": "stories"},
+            {"id": "e4", "source": "stories", "target": "reels"},
+            {"id": "e5", "source": "reels", "target": "finish"}
+        ],
+        "default_params_json": {"model": "anthropic/claude-3.5-sonnet", "temperature": 0.77},
+        "is_recommended": True
+    },
+
+    # 9. ARTIGO SEO COMPLETO (content)
+    {
+        "name": "Artigo de Blog SEO Completo",
+        "description": "Gera artigo SEO otimizado: title tags (10 variações), meta description, outline, artigo completo 2000+ palavras, FAQ schema.",
+        "category": "content",
+        "nodes_json": [
+            {"id": "start", "type": "start", "position": {"x": 100, "y": 100}, "data": {"label": "Início", "input_variables": ["keyword_primary", "search_intent", "target_audience", "competitors_angles", "word_count_target"]}},
+            {"id": "titles", "type": "text_generation", "position": {"x": 100, "y": 230}, "data": {"label": "Title Tags", "model": "anthropic/claude-3.5-sonnet", "prompt": "10 variações title tag SEO para {{input.keyword_primary}} com intent {{input.search_intent}}. Cada: 50-60 chars, keyword incluída, click-worthy. Públicos: {{input.target_audience}}.", "temperature": 0.8}},
+            {"id": "meta", "type": "text_generation", "position": {"x": 100, "y": 350}, "data": {"label": "Meta Description", "model": "anthropic/claude-3.5-sonnet", "prompt": "Meta description para {{input.keyword_primary}}. 150-160 chars, keyword, valor claro, CTA. Melhor title: usar primeira opção de {{titles.content}}.", "temperature": 0.7}},
+            {"id": "outline", "type": "text_generation", "position": {"x": 100, "y": 470}, "data": {"label": "Outline H2/H3", "model": "anthropic/claude-3.5-sonnet", "prompt": "Outline completo artigo {{input.keyword_primary}} para {{input.word_count_target}} palavras. Estrutura H2/H3 otimizada SEO. Cobrir intent {{input.search_intent}}, superar ângulos {{input.competitors_angles}}. Incluir intro, FAQ, conclusão.", "temperature": 0.7}},
+            {"id": "article", "type": "text_generation", "position": {"x": 100, "y": 590}, "data": {"label": "Artigo Completo", "model": "anthropic/claude-3.5-sonnet", "prompt": "Escreva artigo completo seguindo outline: {{outline.content}}. Keyword: {{input.keyword_primary}}, Target: {{input.word_count_target}} palavras, Audiência: {{input.target_audience}}. Intro engajadora, parágrafos curtos, exemplos, formatação para legibilidade, internal/external link suggestions.", "temperature": 0.7, "max_tokens": 4000}},
+            {"id": "faq", "type": "text_generation", "position": {"x": 100, "y": 720}, "data": {"label": "FAQ Schema", "model": "anthropic/claude-3.5-sonnet", "prompt": "5-7 perguntas FAQ sobre {{input.keyword_primary}} baseado em {{article.content}}. Cada: pergunta (People Also Ask format) + resposta concisa (50-100 palavras). Formato JSON schema para rich snippets.", "temperature": 0.7}},
+            {"id": "finish", "type": "finish", "position": {"x": 100, "y": 850}, "data": {"label": "Completo", "summary": "Artigo SEO: 10 titles, meta, outline, artigo completo, FAQ schema"}}
+        ],
+        "edges_json": [
+            {"id": "e1", "source": "start", "target": "titles"},
+            {"id": "e2", "source": "titles", "target": "meta"},
+            {"id": "e3", "source": "meta", "target": "outline"},
+            {"id": "e4", "source": "outline", "target": "article"},
+            {"id": "e5", "source": "article", "target": "faq"},
+            {"id": "e6", "source": "faq", "target": "finish"}
+        ],
+        "default_params_json": {"model": "anthropic/claude-3.5-sonnet", "temperature": 0.7, "max_tokens": 4000},
+        "is_recommended": True
+    }
+]
+
+# Load existing and extend
+json_path = os.path.join(os.path.dirname(__file__), 'data', 'workflow_templates.json')
+with open(json_path, 'r', encoding='utf-8') as f:
+    existing = json.load(f)
+
+existing.extend(workflows_part1)
+
+with open(json_path, 'w', encoding='utf-8') as f:
+    json.dump(existing, f, ensure_ascii=False, indent=2)
+
+print(f"✅ Added {len(workflows_part1)} workflow templates (Part 1/2 - Recommended)")
+print(f"📊 Total workflows now: {len(existing)}")
+
+# Count by category
+categories = {}
+for w in existing:
+    cat = w['category']
+    categories[cat] = categories.get(cat, 0) + 1
+
+print("\n📋 Workflows by category:")
+for cat, count in sorted(categories.items()):
+    print(f"  {cat}: {count}")
