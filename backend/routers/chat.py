@@ -7,7 +7,8 @@ import asyncio
 from database import get_db, SessionLocal
 from supabase_auth import get_current_user
 from models import User, Project, Workspace, UserPreferences
-from llm_service import list_models, chat_completion, chat_completion_stream
+from llm_service import chat_completion, chat_completion_stream
+from services.model_config_service import ModelConfigService
 from crud import get_user_preferences
 from rag_service import query_knowledge_base
 from tools import TOOL_DEFINITIONS, execute_tool
@@ -132,9 +133,31 @@ class ToolApprovalResponse(BaseModel):
     approved: bool
 
 @router.get("/models")
-async def get_available_models():
-    """List available models - public endpoint (no auth required)"""
-    return await list_models()
+async def get_available_models(
+    db: Session = Depends(get_db),
+):
+    """
+    List visible text models for user selection.
+
+    Returns models from admin configuration instead of calling OpenRouter API.
+    This eliminates external API calls and provides faster response times.
+    """
+    service = ModelConfigService(db)
+    visible_model_ids = service.get_visible_text_models()
+
+    # Convert model IDs to display format
+    def format_model_name(model_id: str) -> str:
+        """Convert model ID to human-readable display name."""
+        # e.g., "anthropic/claude-sonnet-4-20250514" -> "Claude Sonnet 4 20250514"
+        name = model_id.split("/")[-1]  # Get part after provider
+        # Replace dashes with spaces and capitalize
+        name = name.replace("-", " ").title()
+        return name
+
+    return [
+        {"id": model_id, "name": format_model_name(model_id)}
+        for model_id in visible_model_ids
+    ]
 
 @router.post("/upload-attachment")
 async def upload_attachment(

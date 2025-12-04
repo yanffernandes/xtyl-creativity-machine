@@ -1,0 +1,87 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Vitest Configuration",
+  "description": "Schema for vitest.config.ts",
+  "type": "object",
+  "properties": {
+    "test": {
+      "type": "object",
+      "properties": {
+        "globals": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable global test APIs (describe, it, expect)"
+        },
+        "environment": {
+          "type": "string",
+          "enum": ["jsdom", "happy-dom", "node"],
+          "default": "jsdom",
+          "description": "Test environment"
+        },
+        "include": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": ["**/*.test.{ts,tsx}"],
+          "description": "Test file patterns"
+        },
+        "exclude": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": ["node_modules", "dist"],
+          "description": "Excluded directories"
+        },
+        "setupFiles": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": ["./src/__tests__/setup.ts"],
+          "description": "Setup files to run before tests"
+        },
+        "coverage": {
+          "type": "object",
+          "properties": {
+            "provider": {
+              "type": "string",
+              "enum": ["v8", "istanbul"],
+              "default": "v8"
+            },
+            "reporter": {
+              "type": "array",
+              "items": { "type": "string" },
+              "default": ["text", "json", "html"]
+            },
+            "thresholds": {
+              "type": "object",
+              "properties": {
+                "global": {
+                  "type": "object",
+                  "properties": {
+                    "branches": { "type": "number", "default": 80 },
+                    "functions": { "type": "number", "default": 80 },
+                    "lines": { "type": "number", "default": 80 },
+                    "statements": { "type": "number", "default": 80 }
+                  }
+                }
+              }
+            },
+            "include": {
+              "type": "array",
+              "items": { "type": "string" },
+              "default": ["src/**/*.{ts,tsx}"]
+            },
+            "exclude": {
+              "type": "array",
+              "items": { "type": "string" },
+              "default": ["src/**/*.test.{ts,tsx}", "src/__tests__/**"]
+            }
+          }
+        },
+        "testTimeout": {
+          "type": "number",
+          "default": 10000,
+          "description": "Default test timeout in ms"
+        }
+      }
+    }
+  },
+  "required": ["test"]
+}

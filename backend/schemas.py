@@ -857,14 +857,18 @@ class AIModelConfig(BaseModel):
     """AI model configuration"""
     defaults: Dict[str, str] = {}
     fallbacks: Dict[str, str] = {}
-    visible_models: List[str] = []
+    visible_models: List[str] = []  # Deprecated - use visible_text_models/visible_image_models
+    visible_text_models: List[str] = []
+    visible_image_models: List[str] = []
 
 
 class AIModelConfigUpdate(BaseModel):
     """Update AI model configuration"""
     defaults: Optional[Dict[str, str]] = None
     fallbacks: Optional[Dict[str, str]] = None
-    visible_models: Optional[List[str]] = None
+    visible_models: Optional[List[str]] = None  # Deprecated - use visible_text_models/visible_image_models
+    visible_text_models: Optional[List[str]] = None
+    visible_image_models: Optional[List[str]] = None
 
 
 class AvailableModel(BaseModel):

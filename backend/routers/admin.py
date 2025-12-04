@@ -73,11 +73,15 @@ async def get_model_config(
     service = ModelConfigService(db)
     config = service.get_all_model_config()
     visible = service.get_visible_models()
+    visible_text = service.get_visible_text_models()
+    visible_image = service.get_visible_image_models()
 
     return AIModelConfig(
         defaults=config.get("defaults", {}),
         fallbacks=config.get("fallbacks", {}),
-        visible_models=visible,
+        visible_models=visible,  # Deprecated - keep for backward compatibility
+        visible_text_models=visible_text,
+        visible_image_models=visible_image,
     )
 
 
@@ -97,7 +101,7 @@ async def update_model_config(
     All admin actions are logged for audit purposes.
     """
     print(f"[ADMIN] update_model_config called by {admin.email} (id={admin.id})")
-    print(f"[ADMIN] Update request: defaults={update.defaults}, fallbacks={update.fallbacks}, visible_models={update.visible_models}")
+    print(f"[ADMIN] Update request: defaults={update.defaults}, fallbacks={update.fallbacks}, visible_models={update.visible_models}, visible_text_models={update.visible_text_models}, visible_image_models={update.visible_image_models}")
 
     service = ModelConfigService(db)
     admin_service = AdminService(db)
@@ -105,6 +109,8 @@ async def update_model_config(
     # Get current config for audit log
     old_config = service.get_all_model_config()
     old_visible = service.get_visible_models()
+    old_visible_text = service.get_visible_text_models()
+    old_visible_image = service.get_visible_image_models()
 
     # Update configuration
     try:
@@ -115,11 +121,32 @@ async def update_model_config(
                 updated_by=admin.id,
             )
 
+        # Deprecated: update visible_models for backward compatibility
         if update.visible_models is not None:
             service.update_visible_models(
                 model_ids=update.visible_models,
                 updated_by=admin.id,
             )
+
+        # New: update visible_text_models
+        if update.visible_text_models is not None:
+            service.update_visible_text_models(
+                model_ids=update.visible_text_models,
+                updated_by=admin.id,
+            )
+
+        # New: update visible_image_models
+        if update.visible_image_models is not None:
+            service.update_visible_image_models(
+                model_ids=update.visible_image_models,
+                updated_by=admin.id,
+            )
+    except ValueError as e:
+        # Validation errors (e.g., empty model list)
+        raise HTTPException(
+            status_code=400,
+            detail=str(e)
+        )
     except Exception as e:
         print(f"[ADMIN] ERROR updating model config: {e}")
         raise HTTPException(
@@ -130,6 +157,8 @@ async def update_model_config(
     # Get new config for response and audit
     new_config = service.get_all_model_config()
     new_visible = service.get_visible_models()
+    new_visible_text = service.get_visible_text_models()
+    new_visible_image = service.get_visible_image_models()
 
     print(f"[ADMIN] Config updated successfully. New defaults: {new_config.get('defaults', {})}")
 
@@ -139,20 +168,33 @@ async def update_model_config(
         action="models.config.update",
         entity_type="model_config",
         entity_id="ai_models",
-        old_value={"config": old_config, "visible": old_visible},
-        new_value={"config": new_config, "visible": new_visible},
+        old_value={
+            "config": old_config,
+            "visible": old_visible,
+            "visible_text": old_visible_text,
+            "visible_image": old_visible_image,
+        },
+        new_value={
+            "config": new_config,
+            "visible": new_visible,
+            "visible_text": new_visible_text,
+            "visible_image": new_visible_image,
+        },
         request=request,
     )
 
     return AIModelConfig(
         defaults=new_config.get("defaults", {}),
         fallbacks=new_config.get("fallbacks", {}),
-        visible_models=new_visible,
+        visible_models=new_visible,  # Deprecated
+        visible_text_models=new_visible_text,
+        visible_image_models=new_visible_image,
     )
 
 
 @router.get("/models/available", response_model=List[AvailableModel])
 async def get_available_models(
+    type: Optional[str] = None,
     admin: User = Depends(require_admin),
 ):
     """
@@ -163,8 +205,10 @@ async def get_available_models(
 
     This is used in the admin UI to select models for configuration.
 
+    Args:
+        type: Filter by model type ("text", "image", "all"). Default is "all".
+
     Models are returned with their output modalities (text, embeddings, image).
-    The frontend can filter by modality as needed.
     """
     # Fetch both chat models and embedding models in parallel
     import asyncio
@@ -181,6 +225,12 @@ async def get_available_models(
         architecture = m.get("architecture", {})
         output_modalities = architecture.get("output_modalities", [])
 
+        # Filter by type if specified
+        if type == "text" and "text" not in output_modalities:
+            continue
+        if type == "image" and "image" not in output_modalities:
+            continue
+
         available.append(
             AvailableModel(
                 id=m.get("id", ""),
@@ -194,24 +244,25 @@ async def get_available_models(
             )
         )
 
-    # Add embedding models (they come from a separate endpoint)
-    for m in embedding_models:
-        pricing = m.get("pricing", {})
-        architecture = m.get("architecture", {})
-        output_modalities = architecture.get("output_modalities", ["embeddings"])
+    # Add embedding models (they come from a separate endpoint) - skip if filtering for image
+    if type != "image":
+        for m in embedding_models:
+            pricing = m.get("pricing", {})
+            architecture = m.get("architecture", {})
+            output_modalities = architecture.get("output_modalities", ["embeddings"])
 
-        available.append(
-            AvailableModel(
-                id=m.get("id", ""),
-                name=m.get("name", m.get("id", "")),
-                description=m.get("description"),
-                context_length=m.get("context_length"),
-                pricing_prompt=pricing.get("prompt"),
-                pricing_completion=pricing.get("completion"),
-                top_provider=m.get("top_provider", {}).get("name"),
-                output_modalities=output_modalities if output_modalities else ["embeddings"],
+            available.append(
+                AvailableModel(
+                    id=m.get("id", ""),
+                    name=m.get("name", m.get("id", "")),
+                    description=m.get("description"),
+                    context_length=m.get("context_length"),
+                    pricing_prompt=pricing.get("prompt"),
+                    pricing_completion=pricing.get("completion"),
+                    top_provider=m.get("top_provider", {}).get("name"),
+                    output_modalities=output_modalities if output_modalities else ["embeddings"],
+                )
             )
-        )
 
     return available
 

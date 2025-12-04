@@ -1,0 +1,54 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Pytest Configuration",
+  "description": "Schema for pytest.ini / pyproject.toml [tool.pytest] section",
+  "type": "object",
+  "properties": {
+    "testpaths": {
+      "type": "array",
+      "items": { "type": "string" },
+      "default": ["tests"],
+      "description": "Directories to search for tests"
+    },
+    "python_files": {
+      "type": "array",
+      "items": { "type": "string" },
+      "default": ["test_*.py"],
+      "description": "File patterns to match test files"
+    },
+    "python_functions": {
+      "type": "array",
+      "items": { "type": "string" },
+      "default": ["test_*"],
+      "description": "Function patterns to match test functions"
+    },
+    "asyncio_mode": {
+      "type": "string",
+      "enum": ["auto", "strict"],
+      "default": "auto",
+      "description": "Async test mode"
+    },
+    "addopts": {
+      "type": "string",
+      "default": "-v --tb=short --strict-markers",
+      "description": "Default command line options"
+    },
+    "markers": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Custom pytest markers",
+      "default": [
+        "unit: Unit tests (fast, isolated)",
+        "integration: Integration tests (may use database)",
+        "slow: Tests that take > 1 second"
+      ]
+    },
+    "filterwarnings": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Warning filters",
+      "default": ["ignore::DeprecationWarning"]
+    }
+  },
+  "required": ["testpaths"]
+}

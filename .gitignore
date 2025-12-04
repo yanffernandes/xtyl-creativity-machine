@@ -48,3 +48,11 @@ logs/
 
 # Docker
 docker-compose.override.yml
+
+# Test Coverage
+htmlcov/
+coverage/
+.coverage
+*.cover
+.pytest_cache/
+.nyc_output/

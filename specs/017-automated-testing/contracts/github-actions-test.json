@@ -1,0 +1,112 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "GitHub Actions Test Workflow",
+  "description": "Schema for .github/workflows/test.yml",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "default": "Test Suite"
+    },
+    "on": {
+      "type": "object",
+      "properties": {
+        "push": {
+          "type": "object",
+          "properties": {
+            "branches": {
+              "type": "array",
+              "items": { "type": "string" },
+              "default": ["main"]
+            }
+          }
+        },
+        "pull_request": {
+          "type": "object",
+          "properties": {
+            "branches": {
+              "type": "array",
+              "items": { "type": "string" },
+              "default": ["main"]
+            }
+          }
+        }
+      }
+    },
+    "jobs": {
+      "type": "object",
+      "properties": {
+        "test-backend": {
+          "type": "object",
+          "properties": {
+            "runs-on": { "type": "string", "default": "ubuntu-latest" },
+            "defaults": {
+              "type": "object",
+              "properties": {
+                "run": {
+                  "type": "object",
+                  "properties": {
+                    "working-directory": { "type": "string", "default": "backend" }
+                  }
+                }
+              }
+            },
+            "services": {
+              "type": "object",
+              "properties": {
+                "postgres": {
+                  "type": "object",
+                  "description": "PostgreSQL service container for integration tests"
+                },
+                "redis": {
+                  "type": "object",
+                  "description": "Redis service container for cache tests"
+                }
+              }
+            },
+            "steps": {
+              "type": "array",
+              "description": "Job steps",
+              "items": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "test-frontend": {
+          "type": "object",
+          "properties": {
+            "runs-on": { "type": "string", "default": "ubuntu-latest" },
+            "defaults": {
+              "type": "object",
+              "properties": {
+                "run": {
+                  "type": "object",
+                  "properties": {
+                    "working-directory": { "type": "string", "default": "frontend" }
+                  }
+                }
+              }
+            },
+            "steps": {
+              "type": "array",
+              "description": "Job steps",
+              "items": {
+                "type": "object"
+              }
+            }
+          }
+        }
+      }
+    },
+    "env": {
+      "type": "object",
+      "description": "Environment variables for all jobs",
+      "properties": {
+        "DATABASE_URL": { "type": "string" },
+        "REDIS_URL": { "type": "string" }
+      }
+    }
+  },
+  "required": ["name", "on", "jobs"]
+}

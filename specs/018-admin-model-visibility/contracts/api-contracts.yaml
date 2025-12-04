@@ -1,0 +1,295 @@
+openapi: 3.0.3
+info:
+  title: Admin Model Visibility API
+  description: API contracts for feature 018-admin-model-visibility
+  version: 1.0.0
+
+paths:
+  # ============================================================================
+  # Admin Endpoints (Protected - Admin Only)
+  # ============================================================================
+
+  /admin/models/config:
+    get:
+      summary: Get current model configuration
+      description: Returns defaults, fallbacks, and visible models (text + image)
+      tags: [Admin]
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Current model configuration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AIModelConfig'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden - Admin access required
+
+    put:
+      summary: Update model configuration
+      description: Updates defaults, fallbacks, and/or visible models
+      tags: [Admin]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AIModelConfigUpdate'
+      responses:
+        '200':
+          description: Updated configuration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AIModelConfig'
+        '400':
+          description: Validation error (empty list, invalid model ID)
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden - Admin access required
+
+  /admin/models/available:
+    get:
+      summary: Get all available models from OpenRouter
+      description: Fetches models from OpenRouter with pricing information
+      tags: [Admin]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: type
+          in: query
+          description: Filter by model type
+          schema:
+            type: string
+            enum: [text, image, all]
+            default: all
+      responses:
+        '200':
+          description: List of available models with pricing
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AvailableModel'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden - Admin access required
+        '502':
+          description: OpenRouter API unavailable
+
+  # ============================================================================
+  # User Endpoints (Protected - Any Authenticated User)
+  # ============================================================================
+
+  /chat/models:
+    get:
+      summary: Get visible text models for user selection
+      description: Returns only models configured as visible by admin
+      tags: [Chat]
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of visible text models
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/VisibleModel'
+        '401':
+          description: Unauthorized
+
+  /image-generation/models:
+    get:
+      summary: Get visible image models for user selection
+      description: Returns only image models configured as visible by admin
+      tags: [Image Generation]
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of visible image models
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/VisibleModel'
+        '401':
+          description: Unauthorized
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    # ============================================================================
+    # Configuration Schemas
+    # ============================================================================
+
+    AIModelConfig:
+      type: object
+      description: Complete model configuration
+      required:
+        - defaults
+        - fallbacks
+        - visible_text_models
+        - visible_image_models
+      properties:
+        defaults:
+          type: object
+          description: Default model for each use case
+          additionalProperties:
+            type: string
+          example:
+            chat: "anthropic/claude-sonnet-4-20250514"
+            embedding: "openai/text-embedding-3-small"
+            image_generation: "openai/dall-e-3"
+        fallbacks:
+          type: object
+          description: Fallback model if default fails
+          additionalProperties:
+            type: string
+        visible_text_models:
+          type: array
+          description: Text/LLM models visible to users
+          items:
+            type: string
+          minItems: 1
+          example:
+            - "anthropic/claude-sonnet-4-20250514"
+            - "openai/gpt-4o"
+        visible_image_models:
+          type: array
+          description: Image generation models visible to users
+          items:
+            type: string
+          minItems: 1
+          example:
+            - "openai/dall-e-3"
+            - "stability/stable-diffusion-xl"
+
+    AIModelConfigUpdate:
+      type: object
+      description: Partial update for model configuration
+      properties:
+        defaults:
+          type: object
+          additionalProperties:
+            type: string
+        fallbacks:
+          type: object
+          additionalProperties:
+            type: string
+        visible_text_models:
+          type: array
+          items:
+            type: string
+          minItems: 1
+        visible_image_models:
+          type: array
+          items:
+            type: string
+          minItems: 1
+
+    # ============================================================================
+    # Model Schemas
+    # ============================================================================
+
+    AvailableModel:
+      type: object
+      description: Model from OpenRouter with full metadata (admin view)
+      required:
+        - id
+        - name
+      properties:
+        id:
+          type: string
+          description: Unique model identifier
+          example: "anthropic/claude-sonnet-4-20250514"
+        name:
+          type: string
+          description: Display name
+          example: "Claude Sonnet 4"
+        description:
+          type: string
+          nullable: true
+          description: Model description
+        context_length:
+          type: integer
+          nullable: true
+          description: Maximum context window size
+          example: 200000
+        pricing_prompt:
+          type: string
+          nullable: true
+          description: Cost per 1M input tokens
+          example: "$3.00"
+        pricing_completion:
+          type: string
+          nullable: true
+          description: Cost per 1M output tokens
+          example: "$15.00"
+        output_modalities:
+          type: array
+          nullable: true
+          items:
+            type: string
+            enum: [text, image, embeddings]
+          description: What the model can output
+          example: ["text"]
+        top_provider:
+          type: string
+          nullable: true
+          description: Provider name
+          example: "Anthropic"
+
+    VisibleModel:
+      type: object
+      description: Simplified model for user selection
+      required:
+        - id
+        - name
+      properties:
+        id:
+          type: string
+          description: Model identifier
+          example: "anthropic/claude-sonnet-4-20250514"
+        name:
+          type: string
+          description: Display name
+          example: "Claude Sonnet 4"
+
+    # ============================================================================
+    # Error Schemas
+    # ============================================================================
+
+    ValidationError:
+      type: object
+      required:
+        - detail
+      properties:
+        detail:
+          type: string
+          description: Error message
+          example: "visible_text_models must contain at least 1 model"
+
+tags:
+  - name: Admin
+    description: Admin-only endpoints for model configuration
+  - name: Chat
+    description: Chat/AI assistant endpoints
+  - name: Image Generation
+    description: Image generation endpoints

@@ -3,10 +3,10 @@
 // Prevent static generation - requires runtime environment variables
 export const dynamic = 'force-dynamic';
 
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { AdminHeader } from '@/components/admin/AdminHeader';
 import { ModelConfigForm } from '@/components/admin/ModelConfigForm';
-import { useAdminModels } from '@/hooks/use-admin';
+import { useAdminModels, AvailableModel } from '@/hooks/use-admin';
 import {
   Loader2,
   AlertCircle,
@@ -14,12 +14,17 @@ import {
   Cpu,
   Eye,
   Check,
-  X,
+  MessageSquare,
+  Image as ImageIcon,
+  Search,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
+
+type TabType = 'defaults' | 'text' | 'image';
 
 export default function AdminModelsPage() {
   const {
@@ -33,10 +38,22 @@ export default function AdminModelsPage() {
     fetchAvailableModels,
     updateDefaultModel,
     updateFallbackModel,
-    updateVisibleModels,
+    updateVisibleTextModels,
+    updateVisibleImageModels,
   } = useAdminModels();
 
-  const [activeTab, setActiveTab] = useState<'defaults' | 'visible'>('defaults');
+  const [activeTab, setActiveTab] = useState<TabType>('defaults');
+
+  // Filter models by output modality
+  const textModels = useMemo(() => {
+    return availableModels.filter(
+      (m) => m.output_modalities?.includes('text') || !m.output_modalities?.includes('image')
+    );
+  }, [availableModels]);
+
+  const imageModels = useMemo(() => {
+    return availableModels.filter((m) => m.output_modalities?.includes('image'));
+  }, [availableModels]);
 
   // Loading state
   if (isLoading) {
@@ -87,7 +104,7 @@ export default function AdminModelsPage() {
             <div>
               <h2 className="text-lg font-semibold text-white">Model Configuration</h2>
               <p className="text-sm text-white/50">
-                Configure default and fallback models for each system feature
+                Configure default and visible models for each system feature
               </p>
             </div>
           </div>
@@ -114,24 +131,48 @@ export default function AdminModelsPage() {
           <button
             onClick={() => setActiveTab('defaults')}
             className={cn(
-              'px-4 py-2 text-sm font-medium transition-colors',
+              'flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors',
               activeTab === 'defaults'
                 ? 'border-b-2 border-blue-500 text-blue-400'
                 : 'text-white/50 hover:text-white'
             )}
           >
+            <Cpu className="h-4 w-4" />
             Default Models
           </button>
           <button
-            onClick={() => setActiveTab('visible')}
+            onClick={() => setActiveTab('text')}
             className={cn(
-              'px-4 py-2 text-sm font-medium transition-colors',
-              activeTab === 'visible'
+              'flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors',
+              activeTab === 'text'
                 ? 'border-b-2 border-blue-500 text-blue-400'
                 : 'text-white/50 hover:text-white'
             )}
           >
-            Visible Models
+            <MessageSquare className="h-4 w-4" />
+            Text Models
+            {config && (
+              <Badge variant="outline" className="ml-1 border-white/20 text-xs">
+                {config.visible_text_models?.length || 0}
+              </Badge>
+            )}
+          </button>
+          <button
+            onClick={() => setActiveTab('image')}
+            className={cn(
+              'flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors',
+              activeTab === 'image'
+                ? 'border-b-2 border-blue-500 text-blue-400'
+                : 'text-white/50 hover:text-white'
+            )}
+          >
+            <ImageIcon className="h-4 w-4" />
+            Image Models
+            {config && (
+              <Badge variant="outline" className="ml-1 border-white/20 text-xs">
+                {config.visible_image_models?.length || 0}
+              </Badge>
+            )}
           </button>
         </div>
 
@@ -147,13 +188,43 @@ export default function AdminModelsPage() {
           />
         )}
 
-        {activeTab === 'visible' && config && (
+        {activeTab === 'text' && config && (
           <VisibleModelsConfig
-            visibleModels={config.visible_models}
-            availableModels={availableModels}
+            title="Visible Text Models"
+            description="Select which text/LLM models users can choose from in the AI assistant"
+            visibleModels={config.visible_text_models || []}
+            availableModels={textModels}
             isLoadingModels={isLoadingModels}
             isSaving={isSaving}
-            onUpdate={updateVisibleModels}
+            onUpdate={async (modelIds) => {
+              const result = await updateVisibleTextModels(modelIds);
+              if (result.success) {
+                toast.success('Text models updated successfully');
+              } else {
+                toast.error(result.error || 'Failed to update text models');
+              }
+              return result;
+            }}
+          />
+        )}
+
+        {activeTab === 'image' && config && (
+          <VisibleModelsConfig
+            title="Visible Image Models"
+            description="Select which image generation models users can choose from"
+            visibleModels={config.visible_image_models || []}
+            availableModels={imageModels}
+            isLoadingModels={isLoadingModels}
+            isSaving={isSaving}
+            onUpdate={async (modelIds) => {
+              const result = await updateVisibleImageModels(modelIds);
+              if (result.success) {
+                toast.success('Image models updated successfully');
+              } else {
+                toast.error(result.error || 'Failed to update image models');
+              }
+              return result;
+            }}
           />
         )}
 
@@ -172,18 +243,22 @@ export default function AdminModelsPage() {
 }
 
 // =============================================================================
-// Visible Models Configuration
+// Visible Models Configuration Component
 // =============================================================================
 
 interface VisibleModelsConfigProps {
+  title: string;
+  description: string;
   visibleModels: string[];
-  availableModels: { id: string; name: string }[];
+  availableModels: AvailableModel[];
   isLoadingModels: boolean;
   isSaving: boolean;
   onUpdate: (modelIds: string[]) => Promise<unknown>;
 }
 
 function VisibleModelsConfig({
+  title,
+  description,
   visibleModels,
   availableModels,
   isLoadingModels,
@@ -194,23 +269,35 @@ function VisibleModelsConfig({
   const [pendingChanges, setPendingChanges] = useState<string[]>(visibleModels);
   const [hasChanges, setHasChanges] = useState(false);
 
-  const filteredModels = availableModels.filter(
-    (m) =>
-      m.name.toLowerCase().includes(search.toLowerCase()) ||
-      m.id.toLowerCase().includes(search.toLowerCase())
-  );
+  // Update pending changes when visibleModels changes (e.g., after save)
+  useEffect(() => {
+    setPendingChanges(visibleModels);
+    setHasChanges(false);
+  }, [visibleModels]);
+
+  const filteredModels = useMemo(() => {
+    return availableModels.filter(
+      (m) =>
+        m.name.toLowerCase().includes(search.toLowerCase()) ||
+        m.id.toLowerCase().includes(search.toLowerCase())
+    );
+  }, [availableModels, search]);
 
   const toggleModel = (modelId: string) => {
     setPendingChanges((prev) => {
       const newList = prev.includes(modelId)
         ? prev.filter((id) => id !== modelId)
         : [...prev, modelId];
-      setHasChanges(JSON.stringify(newList.sort()) !== JSON.stringify(visibleModels.sort()));
+      setHasChanges(JSON.stringify(newList.sort()) !== JSON.stringify([...visibleModels].sort()));
       return newList;
     });
   };
 
   const handleSave = async () => {
+    if (pendingChanges.length === 0) {
+      toast.error('At least one model must be visible');
+      return;
+    }
     await onUpdate(pendingChanges);
     setHasChanges(false);
   };
@@ -220,15 +307,22 @@ function VisibleModelsConfig({
     setHasChanges(false);
   };
 
+  // Format pricing for display
+  const formatPricing = (model: AvailableModel) => {
+    if (!model.pricing_prompt && !model.pricing_completion) return null;
+    const prompt = model.pricing_prompt ? `$${parseFloat(model.pricing_prompt).toFixed(4)}/1K` : '';
+    const completion = model.pricing_completion ? `$${parseFloat(model.pricing_completion).toFixed(4)}/1K` : '';
+    if (prompt && completion) return `${prompt} in / ${completion} out`;
+    return prompt || completion;
+  };
+
   return (
     <div className="space-y-6">
       <div className="rounded-xl border border-white/10 bg-white/5 p-6 backdrop-blur-sm">
         <div className="mb-4 flex items-center justify-between">
           <div>
-            <h3 className="text-lg font-medium text-white">User-Visible Models</h3>
-            <p className="text-sm text-white/50">
-              Select which models users can choose from in the model selector
-            </p>
+            <h3 className="text-lg font-medium text-white">{title}</h3>
+            <p className="text-sm text-white/50">{description}</p>
           </div>
           <div className="flex items-center gap-2">
             {hasChanges && (
@@ -245,7 +339,7 @@ function VisibleModelsConfig({
                 <Button
                   size="sm"
                   onClick={handleSave}
-                  disabled={isSaving}
+                  disabled={isSaving || pendingChanges.length === 0}
                   className="bg-blue-600 text-white hover:bg-blue-700"
                 >
                   {isSaving ? (
@@ -270,7 +364,7 @@ function VisibleModelsConfig({
             onChange={(e) => setSearch(e.target.value)}
             className="border-white/10 bg-white/5 pl-9 text-white placeholder:text-white/40"
           />
-          <Eye className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />
         </div>
 
         {/* Models Grid */}
@@ -278,10 +372,19 @@ function VisibleModelsConfig({
           <div className="flex items-center justify-center py-8">
             <Loader2 className="h-6 w-6 animate-spin text-white/50" />
           </div>
+        ) : filteredModels.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-12 text-center">
+            <Eye className="mb-4 h-12 w-12 text-white/20" />
+            <p className="text-white/50">No models found</p>
+            {search && (
+              <p className="mt-1 text-sm text-white/30">Try adjusting your search term</p>
+            )}
+          </div>
         ) : (
           <div className="max-h-[500px] space-y-2 overflow-y-auto">
             {filteredModels.slice(0, 100).map((model) => {
               const isSelected = pendingChanges.includes(model.id);
+              const pricing = formatPricing(model);
               return (
                 <button
                   key={model.id}
@@ -293,13 +396,23 @@ function VisibleModelsConfig({
                       : 'border-white/10 bg-white/5 hover:bg-white/10'
                   )}
                 >
-                  <div className="flex-1">
-                    <p className="font-medium text-white">{model.name}</p>
-                    <p className="text-xs text-white/50">{model.id}</p>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium text-white truncate">{model.name}</p>
+                      {model.top_provider && (
+                        <Badge variant="outline" className="border-white/20 text-xs text-white/50 shrink-0">
+                          {model.top_provider}
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="text-xs text-white/50 truncate">{model.id}</p>
+                    {pricing && (
+                      <p className="mt-1 text-xs text-green-400/70">{pricing}</p>
+                    )}
                   </div>
                   <div
                     className={cn(
-                      'flex h-6 w-6 items-center justify-center rounded-md',
+                      'flex h-6 w-6 items-center justify-center rounded-md shrink-0 ml-3',
                       isSelected ? 'bg-blue-500 text-white' : 'bg-white/10'
                     )}
                   >
@@ -315,6 +428,9 @@ function VisibleModelsConfig({
         <div className="mt-4 flex items-center justify-between border-t border-white/10 pt-4">
           <p className="text-sm text-white/50">
             {pendingChanges.length} model{pendingChanges.length !== 1 ? 's' : ''} selected
+            {pendingChanges.length === 0 && (
+              <span className="ml-2 text-red-400">(minimum 1 required)</span>
+            )}
           </p>
           {hasChanges && (
             <Badge variant="outline" className="border-yellow-500/30 bg-yellow-500/10 text-yellow-400">
