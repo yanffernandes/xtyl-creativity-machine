@@ -17,10 +17,10 @@ from database import get_db
 import models
 from image_generation_service import (
     generate_and_store_image,
-    get_available_models,
     DEFAULT_MODEL
 )
 from image_naming_service import generate_image_title
+from services.model_config_service import ModelConfigService
 from ai_usage_service import log_ai_usage
 from pricing_service import calculate_image_cost, fetch_generation_cost
 from supabase_auth import get_current_user
@@ -75,11 +75,31 @@ class ImageGenerationResponse(BaseModel):
 
 
 @router.get("/models")
-async def list_available_models():
+async def list_available_models(
+    db: Session = Depends(get_db),
+):
     """
-    Get list of available image generation models from OpenRouter
+    List visible image generation models for user selection.
+
+    Returns models from admin configuration instead of calling OpenRouter API.
+    This eliminates external API calls and provides faster response times.
     """
-    return await get_available_models()
+    service = ModelConfigService(db)
+    visible_model_ids = service.get_visible_image_models()
+
+    # Convert model IDs to display format
+    def format_model_name(model_id: str) -> str:
+        """Convert model ID to human-readable display name."""
+        # e.g., "openai/dall-e-3" -> "Dall E 3"
+        name = model_id.split("/")[-1]  # Get part after provider
+        # Replace dashes with spaces and capitalize
+        name = name.replace("-", " ").title()
+        return name
+
+    return [
+        {"id": model_id, "name": format_model_name(model_id)}
+        for model_id in visible_model_ids
+    ]
 
 
 @router.post("/generate", response_model=ImageGenerationResponse)

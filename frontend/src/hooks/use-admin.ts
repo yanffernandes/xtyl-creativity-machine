@@ -10,13 +10,17 @@ import api from '@/lib/api';
 export interface AIModelConfig {
   defaults: Record<string, string>;
   fallbacks: Record<string, string>;
-  visible_models: string[];
+  visible_models: string[];  // Deprecated - use visible_text_models/visible_image_models
+  visible_text_models: string[];
+  visible_image_models: string[];
 }
 
 export interface AIModelConfigUpdate {
   defaults?: Record<string, string>;
   fallbacks?: Record<string, string>;
-  visible_models?: string[];
+  visible_models?: string[];  // Deprecated - use visible_text_models/visible_image_models
+  visible_text_models?: string[];
+  visible_image_models?: string[];
 }
 
 export interface AvailableModel {
@@ -142,11 +146,31 @@ export function useAdminModels() {
     [updateConfig]
   );
 
-  // Update visible models list
+  // Update visible models list (deprecated)
   const updateVisibleModels = useCallback(
     async (modelIds: string[]) => {
       return updateConfig({
         visible_models: modelIds,
+      });
+    },
+    [updateConfig]
+  );
+
+  // Update visible text models list
+  const updateVisibleTextModels = useCallback(
+    async (modelIds: string[]) => {
+      return updateConfig({
+        visible_text_models: modelIds,
+      });
+    },
+    [updateConfig]
+  );
+
+  // Update visible image models list
+  const updateVisibleImageModels = useCallback(
+    async (modelIds: string[]) => {
+      return updateConfig({
+        visible_image_models: modelIds,
       });
     },
     [updateConfig]
@@ -175,6 +199,8 @@ export function useAdminModels() {
     updateDefaultModel,
     updateFallbackModel,
     updateVisibleModels,
+    updateVisibleTextModels,
+    updateVisibleImageModels,
   };
 }
 

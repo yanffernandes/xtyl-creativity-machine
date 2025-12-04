@@ -38,7 +38,9 @@ class ModelConfigService:
 
     # Config keys in the database
     CONFIG_KEY_AI_MODELS = "ai_models"
-    CONFIG_KEY_VISIBLE_MODELS = "visible_models"
+    CONFIG_KEY_VISIBLE_MODELS = "visible_models"  # Deprecated - use separate text/image keys
+    CONFIG_KEY_VISIBLE_TEXT_MODELS = "visible_text_models"
+    CONFIG_KEY_VISIBLE_IMAGE_MODELS = "visible_image_models"
 
     # Model types (keys in ai_models config)
     MODEL_CHAT = "chat"
@@ -69,6 +71,21 @@ class ModelConfigService:
         "image_naming": "openai/gpt-4o-mini",
         "prompt_enrichment": "openai/gpt-4o-mini",  # Feature 016: V1 Polish
     }
+
+    # Default visible text models (used if DB config is missing)
+    DEFAULT_VISIBLE_TEXT_MODELS = [
+        "anthropic/claude-sonnet-4-20250514",
+        "anthropic/claude-3-5-sonnet-20241022",
+        "openai/gpt-4o",
+        "openai/gpt-4-turbo",
+        "google/gemini-2.0-flash-001",
+    ]
+
+    # Default visible image models (used if DB config is missing)
+    DEFAULT_VISIBLE_IMAGE_MODELS = [
+        "openai/dall-e-3",
+        "google/imagen-3",
+    ]
 
     def __init__(self, db: Session):
         """
@@ -207,6 +224,173 @@ class ModelConfigService:
         ModelConfigService._cache[cache_key] = default_visible
         ModelConfigService._cache_time = time.time()
         return default_visible
+
+    def get_visible_text_models(self) -> List[str]:
+        """
+        Get the list of text/LLM model IDs visible to users in model selectors.
+
+        Returns:
+            List of text model ID strings that should be shown in UI selectors
+        """
+        cache_key = self.CONFIG_KEY_VISIBLE_TEXT_MODELS
+
+        if self._is_cache_valid() and cache_key in self._cache:
+            return self._cache[cache_key]
+
+        config = self._load_config(cache_key)
+
+        if config and isinstance(config, list):
+            ModelConfigService._cache[cache_key] = config
+            ModelConfigService._cache_time = time.time()
+            return config
+
+        # Check for backward compatibility with old visible_models key
+        old_config = self._load_config(self.CONFIG_KEY_VISIBLE_MODELS)
+        if old_config and isinstance(old_config, list) and len(old_config) > 0:
+            ModelConfigService._cache[cache_key] = old_config
+            ModelConfigService._cache_time = time.time()
+            return old_config
+
+        # Return defaults if DB config is missing
+        ModelConfigService._cache[cache_key] = self.DEFAULT_VISIBLE_TEXT_MODELS
+        ModelConfigService._cache_time = time.time()
+        return self.DEFAULT_VISIBLE_TEXT_MODELS
+
+    def get_visible_image_models(self) -> List[str]:
+        """
+        Get the list of image generation model IDs visible to users.
+
+        Returns:
+            List of image model ID strings that should be shown in UI selectors
+        """
+        cache_key = self.CONFIG_KEY_VISIBLE_IMAGE_MODELS
+
+        if self._is_cache_valid() and cache_key in self._cache:
+            return self._cache[cache_key]
+
+        config = self._load_config(cache_key)
+
+        if config and isinstance(config, list):
+            ModelConfigService._cache[cache_key] = config
+            ModelConfigService._cache_time = time.time()
+            return config
+
+        # Return defaults if DB config is missing
+        ModelConfigService._cache[cache_key] = self.DEFAULT_VISIBLE_IMAGE_MODELS
+        ModelConfigService._cache_time = time.time()
+        return self.DEFAULT_VISIBLE_IMAGE_MODELS
+
+    def update_visible_text_models(
+        self,
+        model_ids: List[str],
+        updated_by: Optional[UUID] = None,
+    ) -> List[str]:
+        """
+        Update the list of visible text models for user selection.
+
+        Args:
+            model_ids: List of text model IDs to make visible
+            updated_by: UUID of admin performing the update
+
+        Returns:
+            Updated list of visible text models
+
+        Raises:
+            ValueError: If model_ids is empty (at least 1 model required)
+        """
+        from sqlalchemy.orm.attributes import flag_modified
+
+        if not model_ids:
+            raise ValueError("At least one text model must be visible")
+
+        print(f"[ModelConfigService] Updating visible text models: {model_ids}, updated_by={updated_by}")
+
+        config = self.db.query(SystemConfig).filter(
+            SystemConfig.key == self.CONFIG_KEY_VISIBLE_TEXT_MODELS
+        ).first()
+
+        new_model_ids = list(model_ids)
+
+        if config:
+            config.value = new_model_ids
+            config.updated_by = updated_by
+            flag_modified(config, "value")
+        else:
+            config = SystemConfig(
+                key=self.CONFIG_KEY_VISIBLE_TEXT_MODELS,
+                value=new_model_ids,
+                description="List of text/LLM models visible in user model selectors",
+                updated_by=updated_by,
+            )
+            self.db.add(config)
+
+        try:
+            self.db.commit()
+            self.db.refresh(config)
+            print(f"[ModelConfigService] Visible text models saved successfully: {config.value}")
+        except Exception as e:
+            print(f"[ModelConfigService] ERROR committing visible text models: {e}")
+            self.db.rollback()
+            raise
+
+        self.invalidate_cache()
+        return config.value
+
+    def update_visible_image_models(
+        self,
+        model_ids: List[str],
+        updated_by: Optional[UUID] = None,
+    ) -> List[str]:
+        """
+        Update the list of visible image models for user selection.
+
+        Args:
+            model_ids: List of image model IDs to make visible
+            updated_by: UUID of admin performing the update
+
+        Returns:
+            Updated list of visible image models
+
+        Raises:
+            ValueError: If model_ids is empty (at least 1 model required)
+        """
+        from sqlalchemy.orm.attributes import flag_modified
+
+        if not model_ids:
+            raise ValueError("At least one image model must be visible")
+
+        print(f"[ModelConfigService] Updating visible image models: {model_ids}, updated_by={updated_by}")
+
+        config = self.db.query(SystemConfig).filter(
+            SystemConfig.key == self.CONFIG_KEY_VISIBLE_IMAGE_MODELS
+        ).first()
+
+        new_model_ids = list(model_ids)
+
+        if config:
+            config.value = new_model_ids
+            config.updated_by = updated_by
+            flag_modified(config, "value")
+        else:
+            config = SystemConfig(
+                key=self.CONFIG_KEY_VISIBLE_IMAGE_MODELS,
+                value=new_model_ids,
+                description="List of image generation models visible in user model selectors",
+                updated_by=updated_by,
+            )
+            self.db.add(config)
+
+        try:
+            self.db.commit()
+            self.db.refresh(config)
+            print(f"[ModelConfigService] Visible image models saved successfully: {config.value}")
+        except Exception as e:
+            print(f"[ModelConfigService] ERROR committing visible image models: {e}")
+            self.db.rollback()
+            raise
+
+        self.invalidate_cache()
+        return config.value
 
     def update_model_config(
         self,

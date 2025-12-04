@@ -16,6 +16,9 @@ Auto-generated from all feature plans. Last updated: 2025-11-28
 - Supabase PostgreSQL with pgvector extension; JSONB for flexible configurations (015-admin-panel)
 - Python 3.11 (Backend), TypeScript 5.x (Frontend) + FastAPI, SQLAlchemy, Next.js 14, React 18, Shadcn/UI, Framer Motion (016-v1-polish)
 - Supabase PostgreSQL, Cloudflare R2 (images) (016-v1-polish)
+- Python 3.11 (Backend), TypeScript 5.x (Frontend) + pytest, pytest-asyncio, pytest-cov, httpx (Backend); Vitest, @testing-library/react, msw (Frontend) (017-automated-testing)
+- PostgreSQL (test database with transaction rollback isolation) (017-automated-testing)
+- Supabase PostgreSQL (existing system_config table) (018-admin-model-visibility)
 
 ### Core Stack
 - **Backend**: Python 3.11, FastAPI, SQLAlchemy
@@ -87,9 +90,9 @@ TypeScript 5.x (Frontend), Node.js 20+ (Build tools): Follow standard convention
 - Follow mobile-first responsive design
 
 ## Recent Changes
+- 018-admin-model-visibility: Added Python 3.11 (Backend), TypeScript 5.x (Frontend) + FastAPI, SQLAlchemy, Next.js 14, React 18, Shadcn/UI
+- 017-automated-testing: Added Python 3.11 (Backend), TypeScript 5.x (Frontend) + pytest, pytest-asyncio, pytest-cov, httpx (Backend); Vitest, @testing-library/react, msw (Frontend)
 - 016-v1-polish: Added Python 3.11 (Backend), TypeScript 5.x (Frontend) + FastAPI, SQLAlchemy, Next.js 14, React 18, Shadcn/UI, Framer Motion
-- 015-admin-panel: Added Python 3.11 (Backend), TypeScript 5.x (Frontend) + FastAPI, SQLAlchemy, Pydantic (Backend); Next.js 14, React 18, Shadcn/UI, Tailwind CSS (Frontend)
-- 014-custom-alerts: Added TypeScript 5.x (Frontend only) + React 18, Radix UI (AlertDialog, Toast), Framer Motion
 
 
 <!-- MANUAL ADDITIONS START -->

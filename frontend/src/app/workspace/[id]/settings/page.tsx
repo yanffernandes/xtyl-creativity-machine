@@ -14,7 +14,7 @@ import { useToast } from "@/components/ui/use-toast"
 import { Settings, Users, Sparkles, ArrowLeft, Trash2, UserPlus, Palette, Moon, Sun } from "lucide-react"
 import { useTheme } from "next-themes"
 import { Combobox } from "@/components/ui/combobox"
-import { Checkbox } from "@/components/ui/checkbox"
+// Checkbox removed - was used for Modelos Recomendados section (now in admin panel)
 import WorkspaceSidebar from "@/components/WorkspaceSidebar"
 import Breadcrumbs from "@/components/Breadcrumbs"
 import { Home, SettingsIcon } from "lucide-react"
@@ -72,8 +72,7 @@ export default function SettingsPage() {
     const [defaultTextModel, setDefaultTextModel] = useState("")
     const [defaultVisionModel, setDefaultVisionModel] = useState("")
     const [attachmentAnalysisModel, setAttachmentAnalysisModel] = useState("")
-    const [availableModels, setAvailableModels] = useState<string[]>([])
-    const [modelFilter, setModelFilter] = useState("")
+    // availableModels and modelFilter removed - now managed in admin panel
 
     // Initialize form when workspace data loads
     useEffect(() => {
@@ -83,7 +82,7 @@ export default function SettingsPage() {
             setDefaultTextModel(workspace.default_text_model || "")
             setDefaultVisionModel(workspace.default_vision_model || "")
             setAttachmentAnalysisModel(workspace.attachment_analysis_model || "")
-            setAvailableModels(workspace.available_models || [])
+            // availableModels is now managed in admin panel, not workspace settings
         }
     }, [workspace])
 
@@ -128,7 +127,7 @@ export default function SettingsPage() {
                 default_text_model: defaultTextModel,
                 default_vision_model: defaultVisionModel,
                 attachment_analysis_model: attachmentAnalysisModel,
-                available_models: availableModels,
+                // available_models is now managed in admin panel, not workspace settings
             },
         })
     }
@@ -169,29 +168,7 @@ export default function SettingsPage() {
         removeMember.mutate({ workspaceId, userId: memberId })
     }
 
-    const formatPrice = (price: string | number | undefined) => {
-        if (!price) return "$0.00"
-        const num = typeof price === 'string' ? parseFloat(price) : price
-        if (isNaN(num) || num === 0) return "$0.00"
-
-        // OpenRouter returns price per TOKEN, we want to show per 1M tokens
-        // So we multiply by 1,000,000
-        const pricePerMillion = num * 1000000
-
-        // Format with appropriate decimal places
-        if (pricePerMillion < 1) {
-            return `$${pricePerMillion.toFixed(3)}`
-        }
-        return `$${pricePerMillion.toFixed(2)}`
-    }
-
-    const toggleModelAvailability = (modelId: string) => {
-        setAvailableModels(prev =>
-            prev.includes(modelId)
-                ? prev.filter(id => id !== modelId)
-                : [...prev, modelId]
-        )
-    }
+    // formatPrice and toggleModelAvailability removed - model selection is now in admin panel
 
     const breadcrumbItems = [
         { label: workspace?.name || "Workspace", href: `/workspace/${workspaceId}`, icon: <Home className="h-3.5 w-3.5" /> },
@@ -356,15 +333,16 @@ export default function SettingsPage() {
                                     <div className="space-y-2">
                                         <Label htmlFor="text-model" className="text-sm font-medium">Modelo de Texto Padrão</Label>
                                         <Combobox
-                                            options={textModels
-                                                .filter(m => availableModels.length === 0 || availableModels.includes(m.id))
-                                                .map(m => ({ value: m.id, label: m.name }))}
+                                            options={textModels.map(m => ({ value: m.id, label: m.name }))}
                                             value={defaultTextModel}
                                             onValueChange={setDefaultTextModel}
                                             placeholder="Selecione um modelo"
                                             searchPlaceholder="Buscar modelo..."
                                             emptyText="Nenhum modelo encontrado"
                                         />
+                                        <p className="text-xs text-muted-foreground">
+                                            Os modelos disponíveis são configurados pelo administrador
+                                        </p>
                                     </div>
 
                                     {/* Attachment Analysis Model */}
@@ -394,59 +372,6 @@ export default function SettingsPage() {
                                             searchPlaceholder="Buscar modelo vision..."
                                             emptyText="Nenhum modelo vision encontrado"
                                         />
-                                    </div>
-
-                                    {/* Recommended Models List */}
-                                    <div className="space-y-3">
-                                        <Label className="text-sm font-medium">Modelos Recomendados</Label>
-                                        <p className="text-xs text-text-secondary">
-                                            Selecione quais modelos aparecerão como sugestões rápidas para sua equipe
-                                        </p>
-                                        <Input
-                                            placeholder="Buscar modelos por nome ou ID..."
-                                            value={modelFilter}
-                                            onChange={(e) => setModelFilter(e.target.value)}
-                                            className="mb-2"
-                                        />
-                                        <div className="space-y-2 max-h-[400px] overflow-y-auto border rounded-md p-4">
-                                            {textModels
-                                                .filter(model =>
-                                                    model.name.toLowerCase().includes(modelFilter.toLowerCase()) ||
-                                                    model.id.toLowerCase().includes(modelFilter.toLowerCase())
-                                                )
-                                                .map((model) => (
-                                                <div key={model.id} className="flex items-start space-x-3 p-2 hover:bg-muted/50 rounded-md">
-                                                    <Checkbox
-                                                        id={`model-${model.id}`}
-                                                        checked={availableModels.includes(model.id)}
-                                                        onCheckedChange={() => toggleModelAvailability(model.id)}
-                                                        className="mt-1"
-                                                    />
-                                                    <div className="flex-1 space-y-1">
-                                                        <label
-                                                            htmlFor={`model-${model.id}`}
-                                                            className="text-sm font-medium leading-none cursor-pointer"
-                                                        >
-                                                            {model.name}
-                                                        </label>
-                                                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                                            <span className="font-mono">{model.id}</span>
-                                                            {model.pricing && (
-                                                                <>
-                                                                    <span>•</span>
-                                                                    <span>Input: {formatPrice(model.pricing.prompt)}/1M</span>
-                                                                    <span>•</span>
-                                                                    <span>Output: {formatPrice(model.pricing.completion)}/1M</span>
-                                                                </>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                        <p className="text-xs text-muted-foreground">
-                                            Marque os modelos que estarão disponíveis para uso neste workspace. Preços em USD por milhão de tokens.
-                                        </p>
                                     </div>
 
                                     <Button onClick={handleSaveWorkspace} disabled={updateWorkspace.isPending}>

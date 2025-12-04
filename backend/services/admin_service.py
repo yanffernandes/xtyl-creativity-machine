@@ -126,18 +126,20 @@ class AdminService:
         Returns:
             Dictionary containing user statistics
         """
-        # Count workspaces
+        # Count workspaces (WorkspaceUser has composite PK, count with *)
         workspace_count = (
-            self.db.query(func.count(WorkspaceUser.id))
+            self.db.query(func.count())
+            .select_from(WorkspaceUser)
             .filter(WorkspaceUser.user_id == user_id)
             .scalar()
             or 0
         )
 
-        # Count owned workspaces
+        # Count owned workspaces (user has 'owner' role in WorkspaceUser)
         owned_workspace_count = (
-            self.db.query(func.count(Workspace.id))
-            .filter(Workspace.owner_id == user_id)
+            self.db.query(func.count())
+            .select_from(WorkspaceUser)
+            .filter(WorkspaceUser.user_id == user_id, WorkspaceUser.role == "owner")
             .scalar()
             or 0
         )
@@ -150,10 +152,12 @@ class AdminService:
             or 0
         )
 
-        # Count documents
+        # Count documents in user's workspaces (via projects)
         document_count = (
             self.db.query(func.count(Document.id))
-            .filter(Document.created_by == user_id)
+            .join(Project, Document.project_id == Project.id)
+            .join(WorkspaceUser, Project.workspace_id == WorkspaceUser.workspace_id)
+            .filter(WorkspaceUser.user_id == user_id)
             .scalar()
             or 0
         )
