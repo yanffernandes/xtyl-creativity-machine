@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/select";
 import { Loader2, Copy, Folder } from "lucide-react";
 import api from "@/lib/api";
+import { supabase } from "@/lib/supabase";
 
 interface Project {
     id: string;
@@ -62,10 +63,19 @@ export default function InstantiateTemplateModal({
 
     const fetchProjects = async () => {
         try {
-            const response = await api.get(`/workspaces/${workspaceId}/projects`);
-            setProjects(response.data);
-            if (response.data.length > 0) {
-                setSelectedProjectId(response.data[0].id);
+            const { data: projectsData, error } = await supabase
+                .from("projects")
+                .select("id, name")
+                .eq("workspace_id", workspaceId)
+                .order("created_at", { ascending: false });
+
+            if (error) {
+                console.error("Error fetching projects:", error);
+            } else {
+                setProjects(projectsData || []);
+                if (projectsData && projectsData.length > 0) {
+                    setSelectedProjectId(projectsData[0].id);
+                }
             }
         } catch (error) {
             console.error("Error fetching projects:", error);

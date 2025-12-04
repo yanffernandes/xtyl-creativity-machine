@@ -303,7 +303,11 @@ class ModelConfigService:
         if not model_ids:
             raise ValueError("At least one text model must be visible")
 
-        print(f"[ModelConfigService] Updating visible text models: {model_ids}, updated_by={updated_by}")
+        print(f"[ModelConfigService] ===== UPDATE VISIBLE TEXT MODELS =====")
+        print(f"[ModelConfigService] Received model_ids type: {type(model_ids)}")
+        print(f"[ModelConfigService] Received model_ids length: {len(model_ids)}")
+        print(f"[ModelConfigService] Received model_ids value: {model_ids}")
+        print(f"[ModelConfigService] Updated by: {updated_by}")
 
         config = self.db.query(SystemConfig).filter(
             SystemConfig.key == self.CONFIG_KEY_VISIBLE_TEXT_MODELS

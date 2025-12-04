@@ -284,21 +284,32 @@ function VisibleModelsConfig({
   }, [availableModels, search]);
 
   const toggleModel = (modelId: string) => {
+    console.log(`[ToggleModel] Clicked model: ${modelId}`);
     setPendingChanges((prev) => {
-      const newList = prev.includes(modelId)
+      const isCurrentlySelected = prev.includes(modelId);
+      const newList = isCurrentlySelected
         ? prev.filter((id) => id !== modelId)
         : [...prev, modelId];
+      console.log(`[ToggleModel] Previous list (${prev.length}):`, prev);
+      console.log(`[ToggleModel] Action: ${isCurrentlySelected ? 'REMOVE' : 'ADD'}`);
+      console.log(`[ToggleModel] New list (${newList.length}):`, newList);
       setHasChanges(JSON.stringify(newList.sort()) !== JSON.stringify([...visibleModels].sort()));
       return newList;
     });
   };
 
   const handleSave = async () => {
+    console.log(`[HandleSave] ===== SAVE CLICKED =====`);
+    console.log(`[HandleSave] Pending changes count: ${pendingChanges.length}`);
+    console.log(`[HandleSave] Pending changes:`, pendingChanges);
+
     if (pendingChanges.length === 0) {
       toast.error('At least one model must be visible');
       return;
     }
-    await onUpdate(pendingChanges);
+
+    const result = await onUpdate(pendingChanges);
+    console.log(`[HandleSave] Save result:`, result);
     setHasChanges(false);
   };
 
@@ -309,11 +320,34 @@ function VisibleModelsConfig({
 
   // Format pricing for display
   const formatPricing = (model: AvailableModel) => {
-    if (!model.pricing_prompt && !model.pricing_completion) return null;
-    const prompt = model.pricing_prompt ? `$${parseFloat(model.pricing_prompt).toFixed(4)}/1K` : '';
-    const completion = model.pricing_completion ? `$${parseFloat(model.pricing_completion).toFixed(4)}/1K` : '';
-    if (prompt && completion) return `${prompt} in / ${completion} out`;
-    return prompt || completion;
+    // OpenRouter returns price per token, multiply by 1M for price per million tokens
+    const promptPrice = model.pricing_prompt ? parseFloat(model.pricing_prompt) * 1_000_000 : 0;
+    const completionPrice = model.pricing_completion ? parseFloat(model.pricing_completion) * 1_000_000 : 0;
+
+    // Format context length (e.g., 128000 -> "128K", 1000000 -> "1M")
+    const formatContext = (length: number | null | undefined) => {
+      if (!length) return null;
+      if (length >= 1_000_000) return `${(length / 1_000_000).toFixed(0)}M`;
+      if (length >= 1_000) return `${(length / 1_000).toFixed(0)}K`;
+      return `${length}`;
+    };
+
+    const parts = [];
+
+    // Add context length
+    if (model.context_length) {
+      parts.push(`${formatContext(model.context_length)} context`);
+    }
+
+    // Add pricing
+    if (promptPrice > 0) {
+      parts.push(`$${promptPrice.toFixed(2)}/M input`);
+    }
+    if (completionPrice > 0) {
+      parts.push(`$${completionPrice.toFixed(2)}/M output`);
+    }
+
+    return parts.length > 0 ? parts.join(' • ') : null;
   };
 
   return (
@@ -407,7 +441,9 @@ function VisibleModelsConfig({
                     </div>
                     <p className="text-xs text-white/50 truncate">{model.id}</p>
                     {pricing && (
-                      <p className="mt-1 text-xs text-green-400/70">{pricing}</p>
+                      <p className="mt-1 text-xs text-green-400/70">
+                        {pricing}
+                      </p>
                     )}
                   </div>
                   <div

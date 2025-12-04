@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAuthStore } from "@/lib/store";
 import api from "@/lib/api";
+import { supabase } from "@/lib/supabase";
 import { useToast } from "@/components/ui/use-toast";
 import { useWorkflowStore } from "@/lib/stores/workflowStore";
 import { useWorkflowExecution } from "@/hooks/useWorkflowExecution";
@@ -94,20 +95,30 @@ export default function WorkflowEditorPage() {
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      // Fetch project info
-      const projectRes = await api.get(`/workspaces/${workspaceId}/projects`);
-      const projects = projectRes.data;
-      const currentProject = projects.find((p: any) => p.id === projectId);
-      if (currentProject) {
-        setProjectName(currentProject.name);
+      // Fetch project info from Supabase
+      const { data: project, error: projectError } = await supabase
+        .from("projects")
+        .select("name")
+        .eq("id", projectId)
+        .single();
+
+      if (projectError) {
+        console.error("Error fetching project:", projectError);
+      } else if (project) {
+        setProjectName(project.name);
       }
 
-      // Fetch workspace info
-      const workspaceRes = await api.get(`/workspaces/`);
-      const workspaces = workspaceRes.data;
-      const currentWorkspace = workspaces.find((w: any) => w.id === workspaceId);
-      if (currentWorkspace) {
-        setWorkspaceName(currentWorkspace.name);
+      // Fetch workspace info from Supabase
+      const { data: workspace, error: workspaceError } = await supabase
+        .from("workspaces")
+        .select("name")
+        .eq("id", workspaceId)
+        .single();
+
+      if (workspaceError) {
+        console.error("Error fetching workspace:", workspaceError);
+      } else if (workspace) {
+        setWorkspaceName(workspace.name);
       }
 
       // Fetch workflow

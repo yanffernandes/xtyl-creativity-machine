@@ -71,6 +71,10 @@ async def get_model_config(
     default models, fallback models, and visible models for user selection.
     """
     service = ModelConfigService(db)
+
+    # Force cache refresh to ensure we get latest data
+    ModelConfigService.invalidate_cache()
+
     config = service.get_all_model_config()
     visible = service.get_visible_models()
     visible_text = service.get_visible_text_models()
@@ -100,8 +104,18 @@ async def update_model_config(
 
     All admin actions are logged for audit purposes.
     """
+    print(f"\n{'='*80}")
     print(f"[ADMIN] update_model_config called by {admin.email} (id={admin.id})")
-    print(f"[ADMIN] Update request: defaults={update.defaults}, fallbacks={update.fallbacks}, visible_models={update.visible_models}, visible_text_models={update.visible_text_models}, visible_image_models={update.visible_image_models}")
+    print(f"[ADMIN] Request body type: {type(update)}")
+    print(f"[ADMIN] Update request:")
+    print(f"  - defaults: {update.defaults}")
+    print(f"  - fallbacks: {update.fallbacks}")
+    print(f"  - visible_models: {update.visible_models}")
+    print(f"  - visible_text_models type: {type(update.visible_text_models)}")
+    print(f"  - visible_text_models length: {len(update.visible_text_models) if update.visible_text_models else 'None'}")
+    print(f"  - visible_text_models value: {update.visible_text_models}")
+    print(f"  - visible_image_models: {update.visible_image_models}")
+    print(f"{'='*80}\n")
 
     service = ModelConfigService(db)
     admin_service = AdminService(db)

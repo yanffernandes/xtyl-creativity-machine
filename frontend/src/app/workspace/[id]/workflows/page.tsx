@@ -10,6 +10,7 @@ import { WorkflowCard } from "@/components/workflow/WorkflowCard";
 import WorkspaceSidebar from "@/components/WorkspaceSidebar";
 import Breadcrumbs from "@/components/Breadcrumbs";
 import api from "@/lib/api";
+import { supabase } from "@/lib/supabase";
 import {
   Dialog,
   DialogContent,
@@ -69,17 +70,31 @@ export default function WorkflowTemplatesPage() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      // Fetch workspace info
-      const workspaceRes = await api.get(`/workspaces/`);
-      const workspaces = workspaceRes.data;
-      const currentWorkspace = workspaces.find((w: any) => w.id === workspaceId);
-      if (currentWorkspace) {
-        setWorkspaceName(currentWorkspace.name);
+      // Fetch workspace info from Supabase
+      const { data: workspace, error: workspaceError } = await supabase
+        .from("workspaces")
+        .select("name")
+        .eq("id", workspaceId)
+        .single();
+
+      if (workspaceError) {
+        console.error("Error fetching workspace:", workspaceError);
+      } else if (workspace) {
+        setWorkspaceName(workspace.name);
       }
 
-      // Fetch projects
-      const projectsRes = await api.get(`/workspaces/${workspaceId}/projects`);
-      setProjects(projectsRes.data || []);
+      // Fetch projects from Supabase
+      const { data: projectsData, error: projectsError } = await supabase
+        .from("projects")
+        .select("id, name")
+        .eq("workspace_id", workspaceId)
+        .order("created_at", { ascending: false });
+
+      if (projectsError) {
+        console.error("Error fetching projects:", projectsError);
+      } else {
+        setProjects(projectsData || []);
+      }
 
       // Fetch ONLY system templates (workflow templates)
       const templatesRes = await api.get("/workflows/", {
