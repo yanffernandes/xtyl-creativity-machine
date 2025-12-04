@@ -172,10 +172,15 @@ CREATE POLICY "workspace_users_select_policy" ON workspace_users
     user_is_workspace_member(workspace_id)
   );
 
--- INSERT: Only owners/admins can add members
+-- INSERT: Owners/admins can add members OR user can add themselves as owner to new workspace
 CREATE POLICY "workspace_users_insert_policy" ON workspace_users
   FOR INSERT WITH CHECK (
     user_is_workspace_admin(workspace_id)
+    OR (
+      -- Allow user to add themselves as owner (for workspace creation)
+      user_id::TEXT = auth.uid()::TEXT
+      AND role = 'owner'
+    )
   );
 
 -- UPDATE: Only owners/admins can change roles
