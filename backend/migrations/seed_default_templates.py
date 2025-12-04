@@ -140,11 +140,64 @@ def insert_ai_templates(db):
     return inserted, skipped
 
 
+def load_workflow_templates_from_json():
+    """Load workflow templates from JSON file"""
+    json_path = os.path.join(os.path.dirname(__file__), 'data', 'workflow_templates.json')
+
+    if os.path.exists(json_path):
+        with open(json_path, 'r', encoding='utf-8') as f:
+            return json.load(f)
+
+    # Fallback: return empty list if JSON doesn't exist
+    print("⚠️  Warning: workflow_templates.json not found")
+    return []
+
+
 def insert_workflow_templates(db):
     """Insert workflow templates with idempotency"""
-    # TODO: Implement workflow template insertion
-    # For now, return 0, 0
-    return 0, 0
+    templates = load_workflow_templates_from_json()
+    inserted = 0
+    skipped = 0
+
+    for tmpl in templates:
+        template_id = generate_template_uuid(tmpl["name"], tmpl["category"])
+
+        # Check if exists
+        exists = db.execute(text("""
+            SELECT 1 FROM workflow_templates
+            WHERE name = :name AND category = :category AND is_system = true
+        """), {"name": tmpl["name"], "category": tmpl["category"]}).fetchone()
+
+        if exists:
+            skipped += 1
+            continue
+
+        # Insert
+        db.execute(text("""
+            INSERT INTO workflow_templates (
+                id, workspace_id, name, description, category,
+                nodes_json, edges_json, default_params_json,
+                is_system, usage_count, created_by, created_at
+            ) VALUES (
+                :id, NULL, :name, :description, :category,
+                CAST(:nodes_json AS jsonb), CAST(:edges_json AS jsonb),
+                CAST(:default_params_json AS jsonb),
+                true, 0, NULL, NOW()
+            )
+        """), {
+            "id": template_id,
+            "name": tmpl["name"],
+            "description": tmpl["description"],
+            "category": tmpl["category"],
+            "nodes_json": json.dumps(tmpl["nodes_json"]),
+            "edges_json": json.dumps(tmpl["edges_json"]),
+            "default_params_json": json.dumps(tmpl.get("default_params_json", {}))
+        })
+
+        inserted += 1
+        print(f"   ✅ {tmpl['name']}")
+
+    return inserted, skipped
 
 
 def main():
