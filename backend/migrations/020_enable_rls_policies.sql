@@ -151,12 +151,20 @@ CREATE INDEX IF NOT EXISTS idx_chat_conversations_project
   ON chat_conversations(project_id);
 
 -- =============================================================================
--- STEP 4: RLS POLICIES
+-- STEP 4: RLS POLICIES (Idempotent - only creates if not exists)
 -- =============================================================================
 
 -- -----------------------------------------------------------------------------
 -- WORKSPACE_USERS POLICIES
 -- -----------------------------------------------------------------------------
+
+-- Drop existing policies first
+DO $$ BEGIN
+  DROP POLICY IF EXISTS "workspace_users_select_policy" ON workspace_users;
+  DROP POLICY IF EXISTS "workspace_users_insert_policy" ON workspace_users;
+  DROP POLICY IF EXISTS "workspace_users_update_policy" ON workspace_users;
+  DROP POLICY IF EXISTS "workspace_users_delete_policy" ON workspace_users;
+END $$;
 
 -- SELECT: User can see members of workspaces they belong to
 CREATE POLICY "workspace_users_select_policy" ON workspace_users
@@ -185,6 +193,13 @@ CREATE POLICY "workspace_users_delete_policy" ON workspace_users
 -- -----------------------------------------------------------------------------
 -- WORKSPACES POLICIES
 -- -----------------------------------------------------------------------------
+
+DO $$ BEGIN
+  DROP POLICY IF EXISTS "workspaces_select_policy" ON workspaces;
+  DROP POLICY IF EXISTS "workspaces_insert_policy" ON workspaces;
+  DROP POLICY IF EXISTS "workspaces_update_policy" ON workspaces;
+  DROP POLICY IF EXISTS "workspaces_delete_policy" ON workspaces;
+END $$;
 
 -- SELECT: User is a member
 CREATE POLICY "workspaces_select_policy" ON workspaces
@@ -224,6 +239,13 @@ CREATE POLICY "workspaces_delete_policy" ON workspaces
 -- PROJECTS POLICIES
 -- -----------------------------------------------------------------------------
 
+DO $$ BEGIN
+  DROP POLICY IF EXISTS "projects_select_policy" ON projects;
+  DROP POLICY IF EXISTS "projects_insert_policy" ON projects;
+  DROP POLICY IF EXISTS "projects_update_policy" ON projects;
+  DROP POLICY IF EXISTS "projects_delete_policy" ON projects;
+END $$;
+
 -- SELECT: User is workspace member
 CREATE POLICY "projects_select_policy" ON projects
   FOR SELECT USING (
@@ -251,6 +273,13 @@ CREATE POLICY "projects_delete_policy" ON projects
 -- -----------------------------------------------------------------------------
 -- DOCUMENTS POLICIES
 -- -----------------------------------------------------------------------------
+
+DO $$ BEGIN
+  DROP POLICY IF EXISTS "documents_select_policy" ON documents;
+  DROP POLICY IF EXISTS "documents_insert_policy" ON documents;
+  DROP POLICY IF EXISTS "documents_update_policy" ON documents;
+  DROP POLICY IF EXISTS "documents_delete_policy" ON documents;
+END $$;
 
 -- SELECT: Workspace member OR public document with valid share
 CREATE POLICY "documents_select_policy" ON documents
@@ -283,6 +312,13 @@ CREATE POLICY "documents_delete_policy" ON documents
 -- -----------------------------------------------------------------------------
 -- FOLDERS POLICIES
 -- -----------------------------------------------------------------------------
+
+DO $$ BEGIN
+  DROP POLICY IF EXISTS "folders_select_policy" ON folders;
+  DROP POLICY IF EXISTS "folders_insert_policy" ON folders;
+  DROP POLICY IF EXISTS "folders_update_policy" ON folders;
+  DROP POLICY IF EXISTS "folders_delete_policy" ON folders;
+END $$;
 
 -- SELECT: Workspace member (via project)
 CREATE POLICY "folders_select_policy" ON folders
@@ -332,6 +368,13 @@ CREATE POLICY "folders_delete_policy" ON folders
 -- TEMPLATES POLICIES
 -- -----------------------------------------------------------------------------
 
+DO $$ BEGIN
+  DROP POLICY IF EXISTS "templates_select_policy" ON templates;
+  DROP POLICY IF EXISTS "templates_insert_policy" ON templates;
+  DROP POLICY IF EXISTS "templates_update_policy" ON templates;
+  DROP POLICY IF EXISTS "templates_delete_policy" ON templates;
+END $$;
+
 -- SELECT: System templates visible to all, user templates to owner, workspace templates to members
 CREATE POLICY "templates_select_policy" ON templates
   FOR SELECT USING (
@@ -366,6 +409,12 @@ CREATE POLICY "templates_delete_policy" ON templates
 -- USER_PREFERENCES POLICIES
 -- -----------------------------------------------------------------------------
 
+DO $$ BEGIN
+  DROP POLICY IF EXISTS "user_preferences_select_policy" ON user_preferences;
+  DROP POLICY IF EXISTS "user_preferences_insert_policy" ON user_preferences;
+  DROP POLICY IF EXISTS "user_preferences_update_policy" ON user_preferences;
+END $$;
+
 -- SELECT: User owns
 CREATE POLICY "user_preferences_select_policy" ON user_preferences
   FOR SELECT USING (
@@ -387,6 +436,13 @@ CREATE POLICY "user_preferences_update_policy" ON user_preferences
 -- -----------------------------------------------------------------------------
 -- CHAT_CONVERSATIONS POLICIES
 -- -----------------------------------------------------------------------------
+
+DO $$ BEGIN
+  DROP POLICY IF EXISTS "chat_conversations_select_policy" ON chat_conversations;
+  DROP POLICY IF EXISTS "chat_conversations_insert_policy" ON chat_conversations;
+  DROP POLICY IF EXISTS "chat_conversations_update_policy" ON chat_conversations;
+  DROP POLICY IF EXISTS "chat_conversations_delete_policy" ON chat_conversations;
+END $$;
 
 -- SELECT: User owns
 CREATE POLICY "chat_conversations_select_policy" ON chat_conversations
