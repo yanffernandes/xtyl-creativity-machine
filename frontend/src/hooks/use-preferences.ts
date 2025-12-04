@@ -103,7 +103,10 @@ export function useSetTheme() {
       if (previousPreferences) {
         queryClient.setQueryData<UserPreferences>(preferencesKeys.user(), {
           ...previousPreferences,
-          theme,
+          settings: {
+            ...previousPreferences.settings,
+            theme,
+          },
         })
       }
 
@@ -178,7 +181,10 @@ export function useSetNotifications() {
       if (previousPreferences) {
         queryClient.setQueryData<UserPreferences>(preferencesKeys.user(), {
           ...previousPreferences,
-          notifications_enabled: enabled,
+          settings: {
+            ...previousPreferences.settings,
+            notifications_enabled: enabled,
+          },
         })
       }
 
@@ -226,7 +232,10 @@ export function useSetEmailNotifications() {
       if (previousPreferences) {
         queryClient.setQueryData<UserPreferences>(preferencesKeys.user(), {
           ...previousPreferences,
-          email_notifications: enabled,
+          settings: {
+            ...previousPreferences.settings,
+            email_notifications: enabled,
+          },
         })
       }
 
@@ -281,15 +290,15 @@ export function useSetDefaultWorkspace() {
 }
 
 /**
- * Hook to update custom preferences JSON
+ * Hook to update settings JSONB
  */
-export function useUpdateCustomPreferences() {
+export function useUpdateSettings() {
   const queryClient = useQueryClient()
   const { toast } = useToast()
 
   return useMutation({
-    mutationFn: async (customPrefs: Record<string, unknown>) => {
-      const { data, error } = await preferencesService.updateCustomPreferences(customPrefs)
+    mutationFn: async (newSettings: Record<string, unknown>) => {
+      const { data, error } = await preferencesService.updateSettings(newSettings)
       if (error) throw error
       return data
     },
