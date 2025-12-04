@@ -56,6 +56,24 @@ class WorkspaceUser(Base):
     workspace = relationship("Workspace", back_populates="users")
     user = relationship("User", back_populates="workspaces")
 
+class WorkspaceInvite(Base):
+    """
+    Workspace Invitation model for inviting non-registered users.
+    Stores pending invitations with a unique token.
+    """
+    __tablename__ = "workspace_invites"
+
+    id = Column(String, primary_key=True, default=generate_uuid)
+    workspace_id = Column(String, ForeignKey("workspaces.id"), nullable=False)
+    email = Column(String, index=True, nullable=False)
+    role = Column(String, default="member")  # admin, member
+    invited_by_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    token = Column(String, unique=True, index=True, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    expires_at = Column(DateTime(timezone=True), nullable=False)
+    accepted_at = Column(DateTime(timezone=True), nullable=True)
+    status = Column(String, default="pending")  # pending, accepted, expired
+
 class Project(Base):
     __tablename__ = "projects"
 

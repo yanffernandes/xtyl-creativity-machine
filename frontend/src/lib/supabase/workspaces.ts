@@ -210,6 +210,49 @@ export const workspaceService = {
     } catch (error) {
       return { data: null, error: error as Error }
     }
+  },
+
+  /**
+   * Add member to workspace by email (owner/admin only)
+   * Looks up user by email first, then adds them to the workspace
+   */
+  async addMemberByEmail(
+    workspaceId: string,
+    email: string,
+    role: 'admin' | 'member' = 'member'
+  ): Promise<ServiceResult<WorkspaceUser>> {
+    try {
+      // First, find user by email
+      const { data: users, error: userError } = await supabase
+        .from('users')
+        .select('id')
+        .eq('email', email)
+        .limit(1)
+
+      if (userError) throw userError
+      if (!users || users.length === 0) {
+        throw new Error(`Usuário com email "${email}" não encontrado`)
+      }
+
+      const userId = users[0].id
+
+      // Check if user is already a member
+      const { data: existingMember } = await supabase
+        .from('workspace_users')
+        .select('user_id')
+        .eq('workspace_id', workspaceId)
+        .eq('user_id', userId)
+        .single()
+
+      if (existingMember) {
+        throw new Error('Este usuário já é membro do workspace')
+      }
+
+      // Add member to workspace
+      return await this.addMember(workspaceId, userId, role)
+    } catch (error) {
+      return { data: null, error: error as Error }
+    }
   }
 }
 

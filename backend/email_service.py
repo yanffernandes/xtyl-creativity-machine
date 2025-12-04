@@ -154,6 +154,99 @@ def send_password_reset_email(email: str, reset_token: str, user_name: Optional[
     )
 
 
+def send_workspace_invite_email(email: str, workspace_name: str, invited_by: str, invite_token: str) -> bool:
+    """
+    Send workspace invitation email to non-registered users
+
+    Args:
+        email: Recipient's email address
+        workspace_name: Name of the workspace
+        invited_by: Name of the person who invited
+        invite_token: Invitation token for signup
+
+    Returns:
+        bool: True if email was sent successfully
+    """
+    signup_link = f"{FRONTEND_URL}/signup?invite={invite_token}&email={email}"
+
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Convite para XTYL</title>
+    </head>
+    <body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background: linear-gradient(135deg, #5B8DEF 0%, #4A7AD9 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+            <h1 style="color: white; margin: 0; font-size: 28px;">✉️ Você foi convidado!</h1>
+        </div>
+
+        <div style="background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px;">
+            <p style="font-size: 16px; margin-bottom: 20px;">
+                Olá,
+            </p>
+
+            <p style="font-size: 16px; margin-bottom: 20px;">
+                <strong>{invited_by}</strong> convidou você para participar do workspace <strong>"{workspace_name}"</strong> no <strong>XTYL Creativity Machine</strong>.
+            </p>
+
+            <p style="font-size: 16px; margin-bottom: 30px;">
+                O XTYL é uma plataforma completa para criação e gerenciamento de conteúdo criativo com inteligência artificial.
+            </p>
+
+            <div style="background: white; padding: 20px; border-radius: 5px; margin: 20px 0;">
+                <h3 style="margin-top: 0; color: #5B8DEF;">✨ O que você pode fazer:</h3>
+                <ul style="padding-left: 20px;">
+                    <li style="margin-bottom: 10px;">📝 Criar e gerenciar documentos com IA</li>
+                    <li style="margin-bottom: 10px;">🎨 Gerar imagens com modelos avançados</li>
+                    <li style="margin-bottom: 10px;">💬 Chat inteligente com contexto</li>
+                    <li style="margin-bottom: 10px;">📊 Organizar projetos em pastas</li>
+                    <li style="margin-bottom: 10px;">🖼️ Biblioteca de assets visuais</li>
+                </ul>
+            </div>
+
+            <div style="text-align: center; margin: 30px 0;">
+                <a href="{signup_link}"
+                   style="background: linear-gradient(135deg, #5B8DEF 0%, #4A7AD9 100%);
+                          color: white;
+                          padding: 15px 40px;
+                          text-decoration: none;
+                          border-radius: 5px;
+                          font-weight: bold;
+                          display: inline-block;
+                          font-size: 16px;">
+                    Aceitar Convite e Criar Conta
+                </a>
+            </div>
+
+            <p style="font-size: 14px; color: #666; margin-top: 30px;">
+                Ou copie e cole este link no seu navegador:
+            </p>
+            <p style="font-size: 12px; color: #5B8DEF; word-break: break-all; background: white; padding: 10px; border-radius: 5px;">
+                {signup_link}
+            </p>
+
+            <p style="font-size: 14px; color: #666; margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd;">
+                ⏰ Este convite expira em <strong>7 dias</strong>.<br>
+                ⚠️ Se você não esperava este convite, pode ignorar este email com segurança.
+            </p>
+        </div>
+
+        <div style="text-align: center; margin-top: 20px; color: #999; font-size: 12px;">
+            <p>© {datetime.now().year} XTYL Creativity Machine. Todos os direitos reservados.</p>
+        </div>
+    </body>
+    </html>
+    """
+
+    return send_email(
+        to_email=email,
+        subject=f"✉️ {invited_by} convidou você para o workspace '{workspace_name}' - XTYL",
+        html_content=html_content
+    )
+
+
 def send_welcome_email(email: str, workspace_name: str, invited_by: str, user_name: Optional[str] = None) -> bool:
     """
     Send welcome email when user is added to a workspace

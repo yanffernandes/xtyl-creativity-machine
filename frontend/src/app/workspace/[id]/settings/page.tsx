@@ -65,6 +65,7 @@ export default function SettingsPage() {
     const [visionModels, setVisionModels] = useState<Model[]>([])
     const [modelsLoading, setModelsLoading] = useState(true)
     const [newMemberEmail, setNewMemberEmail] = useState("")
+    const [isAddingMember, setIsAddingMember] = useState(false)
 
     // Form states
     const [name, setName] = useState("")
@@ -138,20 +139,36 @@ export default function SettingsPage() {
             return
         }
 
-        // Note: Adding members by email still needs the backend API
-        // since we need to look up user by email
+        setIsAddingMember(true)
         try {
-            await api.post(`/workspaces/${workspaceId}/members`, {
-                email: newMemberEmail,
+            const response = await api.post(`/workspaces/${workspaceId}/members`, {
+                email: newMemberEmail.trim(),
                 role: "member"
             })
 
-            toast({ title: "Sucesso", description: "Membro adicionado com sucesso!" })
+            const { user_exists, invite_sent, message } = response.data
+
+            if (user_exists) {
+                toast({
+                    title: "Membro adicionado",
+                    description: message || "O usuário foi adicionado ao workspace."
+                })
+            } else if (invite_sent) {
+                toast({
+                    title: "Convite enviado",
+                    description: message || "Um email de convite foi enviado para o usuário."
+                })
+            }
+
             setNewMemberEmail("")
+            // Refresh members list
+            window.location.reload()
         } catch (error: any) {
             console.error("Failed to add member", error)
             const errorMsg = error?.response?.data?.detail || "Falha ao adicionar membro"
             toast({ title: "Erro", description: errorMsg, variant: "destructive" })
+        } finally {
+            setIsAddingMember(false)
         }
     }
 
@@ -396,11 +413,12 @@ export default function SettingsPage() {
                                             placeholder="Email do novo membro"
                                             value={newMemberEmail}
                                             onChange={(e) => setNewMemberEmail(e.target.value)}
-                                            onKeyPress={(e) => e.key === 'Enter' && handleAddMember()}
+                                            onKeyPress={(e) => e.key === 'Enter' && !isAddingMember && handleAddMember()}
+                                            disabled={isAddingMember}
                                         />
-                                        <Button onClick={handleAddMember}>
+                                        <Button onClick={handleAddMember} disabled={isAddingMember}>
                                             <UserPlus className="h-4 w-4 mr-2" />
-                                            Adicionar
+                                            {isAddingMember ? "Adicionando..." : "Adicionar"}
                                         </Button>
                                     </div>
 

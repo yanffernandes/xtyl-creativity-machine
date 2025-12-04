@@ -10,8 +10,8 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from database import engine, Base
-# Note: workspaces, folders, preferences routers removed - CRUD via Supabase Client (feature 007)
-from routers import documents, chat, activity, ai_usage, templates, image_generation, visual_assets, workflows, executions, validation, models, project_workflows, conversations, projects, auth, admin, prompts
+# Note: folders, preferences routers removed - CRUD via Supabase Client (feature 007)
+from routers import documents, chat, activity, ai_usage, templates, image_generation, visual_assets, workflows, executions, validation, models, project_workflows, conversations, projects, auth, admin, prompts, workspaces
 import io
 
 # Create tables
@@ -87,6 +87,7 @@ app.include_router(projects.router)  # Project settings endpoints
 app.include_router(auth.router)  # User profile endpoints
 app.include_router(admin.router)  # Admin panel endpoints (Feature 015)
 app.include_router(prompts.router)  # Prompt enrichment endpoints (Feature 016)
+app.include_router(workspaces.router)  # Workspace invitations endpoints
 
 @app.get("/")
 async def root():

@@ -224,3 +224,41 @@ export function useRemoveWorkspaceMember() {
     },
   })
 }
+
+/**
+ * Hook to add a member to a workspace by email
+ */
+export function useAddWorkspaceMemberByEmail() {
+  const queryClient = useQueryClient()
+  const { toast } = useToast()
+
+  return useMutation({
+    mutationFn: async ({
+      workspaceId,
+      email,
+      role = 'member',
+    }: {
+      workspaceId: string
+      email: string
+      role?: 'admin' | 'member'
+    }) => {
+      const { data, error } = await workspaceService.addMemberByEmail(workspaceId, email, role)
+      if (error) throw error
+      return data
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: workspaceKeys.members(variables.workspaceId) })
+      toast({
+        title: 'Membro adicionado',
+        description: 'O membro foi adicionado ao workspace com sucesso.',
+      })
+    },
+    onError: (error) => {
+      toast({
+        title: 'Erro ao adicionar membro',
+        description: error.message,
+        variant: 'destructive',
+      })
+    },
+  })
+}
