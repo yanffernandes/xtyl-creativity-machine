@@ -1,0 +1,1 @@
+Uma nova era começou
