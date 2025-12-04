@@ -40,12 +40,17 @@ export const preferencesService = {
           .from('user_preferences')
           .insert({
             user_id: user.id,
-            theme: 'system',
-            language: 'pt-BR',
-            notifications_enabled: true,
-            email_notifications: true,
-            default_workspace_id: null,
-            preferences_json: {},
+            autonomous_mode: false,
+            max_iterations: 15,
+            default_model: 'openai/gpt-4o',
+            use_rag_by_default: true,
+            settings: {
+              theme: 'system',
+              language: 'pt-BR',
+              notifications_enabled: true,
+              email_notifications: true,
+              default_workspace_id: null,
+            },
           })
           .select()
           .single()
@@ -86,64 +91,64 @@ export const preferencesService = {
   },
 
   /**
-   * Update theme preference
+   * Update theme preference (stored in settings JSONB)
    */
   async setTheme(theme: 'light' | 'dark' | 'system'): Promise<ServiceResult<UserPreferences>> {
-    return this.update({ theme })
+    return this.updateSettings({ theme })
   },
 
   /**
-   * Update language preference
+   * Update language preference (stored in settings JSONB)
    */
   async setLanguage(language: string): Promise<ServiceResult<UserPreferences>> {
-    return this.update({ language })
+    return this.updateSettings({ language })
   },
 
   /**
-   * Toggle notifications
+   * Toggle notifications (stored in settings JSONB)
    */
   async setNotifications(enabled: boolean): Promise<ServiceResult<UserPreferences>> {
-    return this.update({ notifications_enabled: enabled })
+    return this.updateSettings({ notifications_enabled: enabled })
   },
 
   /**
-   * Toggle email notifications
+   * Toggle email notifications (stored in settings JSONB)
    */
   async setEmailNotifications(enabled: boolean): Promise<ServiceResult<UserPreferences>> {
-    return this.update({ email_notifications: enabled })
+    return this.updateSettings({ email_notifications: enabled })
   },
 
   /**
-   * Set default workspace
+   * Set default workspace (stored in settings JSONB)
    */
   async setDefaultWorkspace(workspaceId: string | null): Promise<ServiceResult<UserPreferences>> {
-    return this.update({ default_workspace_id: workspaceId })
+    return this.updateSettings({ default_workspace_id: workspaceId })
   },
 
   /**
-   * Update custom preferences JSON (for extensible settings)
+   * Update settings JSONB field (for extensible settings)
    */
-  async updateCustomPreferences(customPrefs: Record<string, unknown>): Promise<ServiceResult<UserPreferences>> {
+  async updateSettings(newSettings: Record<string, unknown>): Promise<ServiceResult<UserPreferences>> {
     try {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error('Not authenticated')
 
-      // Get existing preferences to merge
+      // Get existing preferences to merge settings
       const { data: existing } = await supabase
         .from('user_preferences')
-        .select('preferences_json')
+        .select('settings')
         .eq('user_id', user.id)
         .single()
 
-      const mergedPrefs = {
-        ...(existing?.preferences_json || {}),
-        ...customPrefs,
+      const mergedSettings = {
+        ...(existing?.settings || {}),
+        ...newSettings,
       }
 
       const { data, error } = await supabase
         .from('user_preferences')
         .update({
-          preferences_json: mergedPrefs,
+          settings: mergedSettings,
           updated_at: new Date().toISOString(),
         })
         .eq('user_id', user.id)

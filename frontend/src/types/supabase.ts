@@ -233,11 +233,6 @@ export interface Database {
         Row: {
           id: string
           user_id: string
-          theme: 'light' | 'dark' | 'system'
-          language: string
-          notifications_enabled: boolean
-          email_notifications: boolean
-          default_workspace_id: string | null
           autonomous_mode: boolean
           max_iterations: number
           default_model: string | null
@@ -249,11 +244,6 @@ export interface Database {
         Insert: {
           id?: string
           user_id: string
-          theme?: 'light' | 'dark' | 'system'
-          language?: string
-          notifications_enabled?: boolean
-          email_notifications?: boolean
-          default_workspace_id?: string | null
           autonomous_mode?: boolean
           max_iterations?: number
           default_model?: string | null
@@ -265,11 +255,6 @@ export interface Database {
         Update: {
           id?: string
           user_id?: string
-          theme?: 'light' | 'dark' | 'system'
-          language?: string
-          notifications_enabled?: boolean
-          email_notifications?: boolean
-          default_workspace_id?: string | null
           autonomous_mode?: boolean
           max_iterations?: number
           default_model?: string | null
