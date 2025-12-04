@@ -1,0 +1,439 @@
+{
+  "description": "Sample workflow template structures for database migration",
+  "note": "These examples demonstrate complete workflow_templates with nodes_json and edges_json in ReactFlow format",
+  "workflows": [
+    {
+      "id": "generated-uuid-from-name-category",
+      "workspace_id": null,
+      "project_id": null,
+      "name": "Campanha Completa de Anúncios Meta",
+      "description": "Gera uma campanha completa para Meta Ads (Facebook/Instagram): 15 headlines, 5 descrições, 3 imagens de anúncio e copy para página de destino em uma única execução.",
+      "category": "paid_ads",
+      "nodes_json": [
+        {
+          "id": "start_node",
+          "type": "start",
+          "position": { "x": 100, "y": 100 },
+          "data": {
+            "label": "Início",
+            "input_variables": [
+              "product_service",
+              "target_audience",
+              "main_benefit",
+              "campaign_goal",
+              "brand_guidelines"
+            ]
+          }
+        },
+        {
+          "id": "headlines_node",
+          "type": "text_generation",
+          "position": { "x": 100, "y": 250 },
+          "data": {
+            "label": "Gerar Headlines",
+            "model": "claude-3-5-sonnet-20241022",
+            "prompt": "Gere 15 headlines para anúncios Meta sobre {{input.product_service}} direcionados a {{input.target_audience}}. Use o framework AIDA. Cada headline deve ter 25-40 caracteres e enfatizar {{input.main_benefit}}. Siga {{input.brand_guidelines}} para tom e estilo.",
+            "temperature": 0.8,
+            "max_tokens": 1000
+          }
+        },
+        {
+          "id": "descriptions_node",
+          "type": "text_generation",
+          "position": { "x": 100, "y": 400 },
+          "data": {
+            "label": "Gerar Descrições",
+            "model": "claude-3-5-sonnet-20241022",
+            "prompt": "Gere 5 descrições de anúncio Meta para {{input.product_service}} que complementam estes headlines: {{headlines_node.content}}. Cada descrição deve ter 100-125 caracteres, incluir CTA clara e enfatizar {{input.main_benefit}}.",
+            "temperature": 0.7,
+            "max_tokens": 800
+          }
+        },
+        {
+          "id": "images_node",
+          "type": "image_generation",
+          "position": { "x": 400, "y": 250 },
+          "data": {
+            "label": "Criar Imagens de Anúncio",
+            "model": "dall-e-3",
+            "prompt": "Crie 3 imagens de anúncio profissionais para {{input.product_service}} direcionadas a {{input.target_audience}}. Estilo: moderno, limpo, visualmente atraente. Mostre {{input.main_benefit}} visualmente. Seguir {{input.brand_guidelines}} para cores e estética.",
+            "count": 3,
+            "size": "1024x1024"
+          }
+        },
+        {
+          "id": "landing_page_node",
+          "type": "text_generation",
+          "position": { "x": 250, "y": 550 },
+          "data": {
+            "label": "Copy da Página de Destino",
+            "model": "claude-3-5-sonnet-20241022",
+            "prompt": "Escreva copy completo para página de destino que suporta a campanha de anúncios: Headlines: {{headlines_node.content}}, Descrições: {{descriptions_node.content}}. Incluir: Hero section (headline + subheadline + CTA), seção de benefícios, social proof, CTA secundário. Produto: {{input.product_service}}, Objetivo: {{input.campaign_goal}}.",
+            "temperature": 0.7,
+            "max_tokens": 2000
+          }
+        },
+        {
+          "id": "finish_node",
+          "type": "finish",
+          "position": { "x": 250, "y": 700 },
+          "data": {
+            "label": "Campanha Completa",
+            "summary": "Campanha Meta Ads completa gerada: 15 headlines, 5 descrições, 3 imagens, copy da landing page"
+          }
+        }
+      ],
+      "edges_json": [
+        {
+          "id": "edge1",
+          "source": "start_node",
+          "target": "headlines_node"
+        },
+        {
+          "id": "edge2",
+          "source": "headlines_node",
+          "target": "descriptions_node"
+        },
+        {
+          "id": "edge3",
+          "source": "start_node",
+          "target": "images_node"
+        },
+        {
+          "id": "edge4",
+          "source": "descriptions_node",
+          "target": "landing_page_node"
+        },
+        {
+          "id": "edge5",
+          "source": "images_node",
+          "target": "landing_page_node"
+        },
+        {
+          "id": "edge6",
+          "source": "landing_page_node",
+          "target": "finish_node"
+        }
+      ],
+      "default_params_json": {
+        "model": "claude-3-5-sonnet-20241022",
+        "temperature": 0.7,
+        "max_tokens": 1500
+      },
+      "is_system": true,
+      "is_recommended": true,
+      "usage_count": 0,
+      "version": "1.0",
+      "created_by": null,
+      "created_at": "2025-12-04T00:00:00Z",
+      "updated_at": null
+    },
+    {
+      "id": "generated-uuid-from-name-category",
+      "workspace_id": null,
+      "project_id": null,
+      "name": "Sequência de Nutrição por E-mail (6 E-mails)",
+      "description": "Cria uma jornada completa de nutrição de leads: boas-vindas → educação → caso de estudo → pitch soft → pitch hard → última chance. Automatiza todo o funil de e-mail.",
+      "category": "email",
+      "nodes_json": [
+        {
+          "id": "start_node",
+          "type": "start",
+          "position": { "x": 100, "y": 100 },
+          "data": {
+            "label": "Início",
+            "input_variables": [
+              "subscriber_source",
+              "pain_points",
+              "solution_offering",
+              "case_studies",
+              "offer_details",
+              "brand_voice"
+            ]
+          }
+        },
+        {
+          "id": "welcome_email_node",
+          "type": "text_generation",
+          "position": { "x": 100, "y": 250 },
+          "data": {
+            "label": "E-mail 1: Boas-vindas (Dia 0)",
+            "model": "claude-3-5-sonnet-20241022",
+            "prompt": "Escreva e-mail de boas-vindas para assinante de {{input.subscriber_source}}. Tom: {{input.brand_voice}}. Incluir: agradecimento caloroso, entregar conteúdo prometido, estabelecer expectativas de comunicação. 200-300 palavras. Assunto também.",
+            "temperature": 0.7,
+            "max_tokens": 800
+          }
+        },
+        {
+          "id": "education_email_node",
+          "type": "text_generation",
+          "position": { "x": 100, "y": 400 },
+          "data": {
+            "label": "E-mail 2: Educação (Dia 3)",
+            "model": "claude-3-5-sonnet-20241022",
+            "prompt": "Escreva e-mail educativo abordando {{input.pain_points}}. Entregar valor sem vender. Construir credibilidade. Tom: {{input.brand_voice}}. CTA soft: explorar recursos ou responder. 250-350 palavras. Assunto também.",
+            "temperature": 0.7,
+            "max_tokens": 900
+          }
+        },
+        {
+          "id": "case_study_email_node",
+          "type": "text_generation",
+          "position": { "x": 100, "y": 550 },
+          "data": {
+            "label": "E-mail 3: Caso de Estudo (Dia 7)",
+            "model": "claude-3-5-sonnet-20241022",
+            "prompt": "Escreva e-mail de caso de estudo baseado em {{input.case_studies}}. Mostrar transformação cliente: antes/depois. Resultados mensuráveis. Introduzir sutilmente {{input.solution_offering}}. 300-400 palavras. Assunto também.",
+            "temperature": 0.7,
+            "max_tokens": 1000
+          }
+        },
+        {
+          "id": "soft_pitch_email_node",
+          "type": "text_generation",
+          "position": { "x": 100, "y": 700 },
+          "data": {
+            "label": "E-mail 4: Pitch Soft (Dia 10)",
+            "model": "claude-3-5-sonnet-20241022",
+            "prompt": "Escreva e-mail introduzindo {{input.solution_offering}} de forma consultiva. Não vender diretamente ainda. Explicar como funciona, benefícios, quem é ideal. CTA: saber mais ou agendar chamada exploratória. 250-350 palavras. Assunto também.",
+            "temperature": 0.7,
+            "max_tokens": 900
+          }
+        },
+        {
+          "id": "hard_pitch_email_node",
+          "type": "text_generation",
+          "position": { "x": 100, "y": 850 },
+          "data": {
+            "label": "E-mail 5: Pitch Hard (Dia 14)",
+            "model": "claude-3-5-sonnet-20241022",
+            "prompt": "Escreva e-mail de oferta direta para {{input.solution_offering}} com {{input.offer_details}}. Incluir: benefícios claros, prova social, garantia se disponível, urgência suave. CTA: comprar/assinar/agendar. 300-400 palavras. Assunto também.",
+            "temperature": 0.7,
+            "max_tokens": 1000
+          }
+        },
+        {
+          "id": "last_chance_email_node",
+          "type": "text_generation",
+          "position": { "x": 100, "y": 1000 },
+          "data": {
+            "label": "E-mail 6: Última Chance (Dia 17)",
+            "model": "claude-3-5-sonnet-20241022",
+            "prompt": "Escreva e-mail de última chance para {{input.solution_offering}}. Tom: urgência respeitosa, não desesperada. Recapitular valor, enfatizar prazo, remover objeções. CTA: ação imediata. Incluir 'última chance antes de pausar comunicação'. 200-300 palavras. Assunto urgente.",
+            "temperature": 0.7,
+            "max_tokens": 800
+          }
+        },
+        {
+          "id": "finish_node",
+          "type": "finish",
+          "position": { "x": 100, "y": 1150 },
+          "data": {
+            "label": "Sequência Completa",
+            "summary": "6 e-mails de nutrição gerados: boas-vindas, educação, caso de estudo, pitch soft, pitch hard, última chance"
+          }
+        }
+      ],
+      "edges_json": [
+        {
+          "id": "edge1",
+          "source": "start_node",
+          "target": "welcome_email_node"
+        },
+        {
+          "id": "edge2",
+          "source": "welcome_email_node",
+          "target": "education_email_node"
+        },
+        {
+          "id": "edge3",
+          "source": "education_email_node",
+          "target": "case_study_email_node"
+        },
+        {
+          "id": "edge4",
+          "source": "case_study_email_node",
+          "target": "soft_pitch_email_node"
+        },
+        {
+          "id": "edge5",
+          "source": "soft_pitch_email_node",
+          "target": "hard_pitch_email_node"
+        },
+        {
+          "id": "edge6",
+          "source": "hard_pitch_email_node",
+          "target": "last_chance_email_node"
+        },
+        {
+          "id": "edge7",
+          "source": "last_chance_email_node",
+          "target": "finish_node"
+        }
+      ],
+      "default_params_json": {
+        "model": "claude-3-5-sonnet-20241022",
+        "temperature": 0.7,
+        "max_tokens": 1000
+      },
+      "is_system": true,
+      "is_recommended": true,
+      "usage_count": 0,
+      "version": "1.0",
+      "created_by": null,
+      "created_at": "2025-12-04T00:00:00Z",
+      "updated_at": null
+    },
+    {
+      "id": "generated-uuid-from-name-category",
+      "workspace_id": null,
+      "project_id": null,
+      "name": "Calendário de Conteúdo Social Media (7 Dias)",
+      "description": "Gera 7 posts para redes sociais (Instagram, Facebook, LinkedIn) a partir de um único tópico. Inclui copy + sugestões de imagem para uma semana completa de conteúdo.",
+      "category": "social_media",
+      "nodes_json": [
+        {
+          "id": "start_node",
+          "type": "start",
+          "position": { "x": 100, "y": 100 },
+          "data": {
+            "label": "Início",
+            "input_variables": [
+              "content_pillar",
+              "brand_voice",
+              "target_platforms",
+              "key_messages",
+              "hashtag_strategy"
+            ]
+          }
+        },
+        {
+          "id": "loop_posts_node",
+          "type": "loop",
+          "position": { "x": 100, "y": 250 },
+          "data": {
+            "label": "Loop: 7 Posts",
+            "iterations": 7,
+            "item_variable": "day_number"
+          }
+        },
+        {
+          "id": "generate_post_node",
+          "type": "text_generation",
+          "position": { "x": 100, "y": 400 },
+          "data": {
+            "label": "Gerar Post do Dia",
+            "model": "claude-3-5-sonnet-20241022",
+            "prompt": "Escreva post Dia {{loop_posts_node.current_iteration}} sobre {{input.content_pillar}} para {{input.target_platforms}}. Tom: {{input.brand_voice}}. Ângulo único para cada dia. Mensagens-chave: {{input.key_messages}}. Incluir: hook forte nas primeiras linhas, espaçamento para legibilidade, CTA, hashtags {{input.hashtag_strategy}}. 150-300 palavras.",
+            "temperature": 0.8,
+            "max_tokens": 600
+          }
+        },
+        {
+          "id": "suggest_visual_node",
+          "type": "text_generation",
+          "position": { "x": 400, "y": 400 },
+          "data": {
+            "label": "Sugerir Visual",
+            "model": "claude-3-5-sonnet-20241022",
+            "prompt": "Baseado no post: {{generate_post_node.content}}, sugira ideia de visual/imagem que complementa a mensagem. Descreva: composição, cores, elementos-chave, estilo. Seja específico para orientar design ou geração de imagem.",
+            "temperature": 0.7,
+            "max_tokens": 300
+          }
+        },
+        {
+          "id": "finish_node",
+          "type": "finish",
+          "position": { "x": 250, "y": 550 },
+          "data": {
+            "label": "Calendário Completo",
+            "summary": "7 posts de redes sociais gerados com sugestões visuais para semana completa"
+          }
+        }
+      ],
+      "edges_json": [
+        {
+          "id": "edge1",
+          "source": "start_node",
+          "target": "loop_posts_node"
+        },
+        {
+          "id": "edge2",
+          "source": "loop_posts_node",
+          "target": "generate_post_node"
+        },
+        {
+          "id": "edge3",
+          "source": "generate_post_node",
+          "target": "suggest_visual_node"
+        },
+        {
+          "id": "edge4",
+          "source": "suggest_visual_node",
+          "target": "loop_posts_node",
+          "label": "próximo dia"
+        },
+        {
+          "id": "edge5",
+          "source": "loop_posts_node",
+          "target": "finish_node",
+          "label": "após 7 iterações"
+        }
+      ],
+      "default_params_json": {
+        "model": "claude-3-5-sonnet-20241022",
+        "temperature": 0.75,
+        "max_tokens": 600
+      },
+      "is_system": true,
+      "is_recommended": true,
+      "usage_count": 0,
+      "version": "1.0",
+      "created_by": null,
+      "created_at": "2025-12-04T00:00:00Z",
+      "updated_at": null
+    }
+  ],
+  "node_type_reference": {
+    "description": "Available node types for workflow templates",
+    "types": {
+      "start": {
+        "purpose": "Entry point for workflow",
+        "outputs": ["input_variables"],
+        "typical_position": "Top of workflow"
+      },
+      "text_generation": {
+        "purpose": "LLM text generation",
+        "outputs": ["content", "title"],
+        "required_config": ["model", "prompt"],
+        "optional_config": ["temperature", "max_tokens"]
+      },
+      "image_generation": {
+        "purpose": "AI image generation",
+        "outputs": ["file_url", "thumbnail_url", "title", "prompt"],
+        "required_config": ["model", "prompt"],
+        "optional_config": ["count", "size"]
+      },
+      "processing": {
+        "purpose": "Text processing/transformation",
+        "outputs": ["content", "title"],
+        "use_cases": ["Extract quotes", "Format output", "Parse data"]
+      },
+      "conditional": {
+        "purpose": "Branching logic",
+        "outputs": ["result", "branch"],
+        "use_cases": ["If/else decisions", "Route based on content"]
+      },
+      "loop": {
+        "purpose": "Iteration over items",
+        "outputs": ["item", "current_iteration", "iterations"],
+        "use_cases": ["Generate multiple posts", "Batch processing"]
+      },
+      "finish": {
+        "purpose": "Workflow end",
+        "outputs": [],
+        "required_config": ["summary"]
+      }
+    }
+  }
+}

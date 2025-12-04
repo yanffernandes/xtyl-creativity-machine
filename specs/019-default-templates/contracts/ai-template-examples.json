@@ -1,0 +1,148 @@
+{
+  "description": "Sample AI assistant template structures for database migration",
+  "note": "These examples demonstrate the JSON structure for templates table inserts",
+  "templates": [
+    {
+      "id": "generated-uuid-from-name-category",
+      "workspace_id": null,
+      "user_id": null,
+      "name": "Anúncio Google Ads - Fórmula AIDA",
+      "description": "Crie anúncios de pesquisa do Google usando o framework AIDA (Atenção, Interesse, Desejo, Ação). Ideal para empresas de serviços segmentando palavras-chave de alta intenção.",
+      "category": "ads",
+      "icon": "🎯",
+      "prompt": "Escreva um anúncio do Google Search usando o framework AIDA para {{service_name}} que enfatiza {{key_benefit}}{{#if location}} em {{location}}{{/if}}.\n\nEstrutura:\n- Atenção: Crie um título atraente (máx. 30 caracteres) que chame a atenção\n- Interesse: Escreva uma descrição (máx. 90 caracteres) que desperte interesse no serviço\n- Desejo: Enfatize o benefício-chave e o que torna este serviço desejável\n- Ação: Inclua uma chamada à ação clara: {{call_to_action}}\n\nFormato de saída:\nTítulo 1: [máx. 30 caracteres]\nTítulo 2: [máx. 30 caracteres]\nTítulo 3: [máx. 30 caracteres]\nDescrição: [máx. 90 caracteres]\n\nGaranta que o anúncio seja altamente relevante para a intenção de pesquisa e inclua o nome do serviço naturalmente.",
+      "is_system": true,
+      "is_active": true,
+      "tags": ["google-ads", "aida", "anuncios-pagos", "servicos-locais"],
+      "usage_count": 0,
+      "created_at": "2025-12-04T00:00:00Z",
+      "updated_at": null
+    },
+    {
+      "id": "generated-uuid-from-name-category",
+      "workspace_id": null,
+      "user_id": null,
+      "name": "Post Instagram - Transformação (BAB)",
+      "description": "Crie legendas para Instagram usando o framework BAB (Antes, Depois, Ponte). Perfeito para produtos de transformação (fitness, beleza, educação) que mostram resultados claros.",
+      "category": "social_media",
+      "icon": "📸",
+      "prompt": "Escreva uma legenda do Instagram usando o framework BAB (Antes, Depois, Ponte) para {{product_name}}.\n\nEstrutura:\n- Antes: Descreva a situação dolorosa inicial de {{before_situation}}\n- Depois: Mostre o resultado desejado de {{after_result}}\n- Ponte: Posicione {{bridge_solution}} como o caminho entre eles\n\nIncluir:\n- Hook nas primeiras 1-2 linhas (crucial para engajamento)\n- Chamada à ação: {{cta}}\n- Hashtags relevantes: {{hashtags}}\n- Tom {{brand_voice}}\n\nEspaçamento: Use quebras de linha para melhor legibilidade.\nComprimento: 150-300 palavras ideal.\nEmojis: Use estrategicamente para destacar pontos-chave.",
+      "is_system": true,
+      "is_active": true,
+      "tags": ["instagram", "bab", "redes-sociais", "transformacao"],
+      "usage_count": 0,
+      "created_at": "2025-12-04T00:00:00Z",
+      "updated_at": null
+    },
+    {
+      "id": "generated-uuid-from-name-category",
+      "workspace_id": null,
+      "user_id": null,
+      "name": "Sequência de E-mail - Boas-vindas (3 E-mails)",
+      "description": "Crie uma sequência de 3 e-mails de boas-vindas para novos assinantes. Constrói relacionamento, entrega valor e conduz para primeira oferta.",
+      "category": "email",
+      "icon": "📧",
+      "prompt": "Crie uma sequência de 3 e-mails de boas-vindas para {{subscriber_name}} que se inscreveu em {{lead_magnet}}.\n\n**E-mail 1 (Dia 0): Boas-vindas Calorosas**\n- Assunto: Linha de assunto acolhedora e pessoal\n- Agradeça pela inscrição\n- Compartilhe {{brand_story}} brevemente\n- Entregue o conteúdo prometido {{lead_magnet}}\n- Estabeleça expectativas (quando receberão e-mails)\n\n**E-mail 2 (Dia 3): Entregar Valor**\n- Assunto: Promessa de valor\n- Entregue {{value_promise}} (dica, recurso, insight)\n- Construa credibilidade sem vender\n- CTA soft: explorar conteúdo ou responder e-mail\n\n**E-mail 3 (Dia 7): Primeira Oferta**\n- Assunto: Benefício + urgência suave\n- Apresente {{first_offer}}\n- Explique como resolve {{customer_pain_points}}\n- CTA claro: {{next_steps}}\n- Incluir garantia ou prova social se disponível\n\nTom: {{tone_of_voice}}\nComprimento: 200-400 palavras por e-mail\nPersonalização: Use {{subscriber_name}} naturalmente",
+      "is_system": true,
+      "is_active": true,
+      "tags": ["email-marketing", "boas-vindas", "sequencia", "nurture"],
+      "usage_count": 0,
+      "created_at": "2025-12-04T00:00:00Z",
+      "updated_at": null
+    },
+    {
+      "id": "generated-uuid-from-name-category",
+      "workspace_id": null,
+      "user_id": null,
+      "name": "Artigo de Blog SEO - Guia Completo",
+      "description": "Escreva conteúdo pilar otimizado para SEO (2000-3000 palavras) que rankeia para palavras-chave competitivas. Estrutura clara com H1/H2/H3 e otimização para featured snippets.",
+      "category": "seo",
+      "icon": "📝",
+      "prompt": "Escreva um artigo de blog pilar de {{word_count}} palavras sobre {{main_keyword}} para {{target_audience}}.\n\n**Estrutura SEO:**\n\nTítulo H1: Incluir {{main_keyword}} no início (50-60 caracteres)\n\n**Introdução (150-200 palavras):**\n- Hook que prende o leitor\n- Promessa clara do que aprenderão\n- Incluir {{main_keyword}} naturalmente\n\n**Corpo Principal:**\nCubra estes subtópicos com H2:\n{{subtopics}}\n\nPara cada H2:\n- Use H3 para sub-pontos\n- Inclua exemplos práticos\n- Adicione listas numeradas ou bullet points\n- Otimize para featured snippets (respostas diretas)\n\n**Otimização SEO:**\n- Densidade de palavra-chave: 1-2% para {{main_keyword}}\n- Incluir palavras-chave relacionadas: {{related_keywords}}\n- Links internos sugeridos: {{internal_links}}\n- Links externos para fontes autoritativas\n\n**Conclusão (100-150 palavras):**\n- Resumir pontos-chave\n- CTA: {{call_to_action}}\n\n**Meta Description:** Escrever separadamente (155-160 caracteres)\n\nTom: Educativo, autoritativo mas acessível\nLegibilidade: Parágrafos curtos (2-4 linhas), linguagem clara",
+      "is_system": true,
+      "is_active": true,
+      "tags": ["seo", "blog", "conteudo-pilar", "guia-completo"],
+      "usage_count": 0,
+      "created_at": "2025-12-04T00:00:00Z",
+      "updated_at": null
+    },
+    {
+      "id": "generated-uuid-from-name-category",
+      "workspace_id": null,
+      "user_id": null,
+      "name": "Hero Section - Página de Destino (AIDA)",
+      "description": "Crie a seção hero de uma landing page usando AIDA. Inclui headline, subheadline, CTA e elementos de confiança para máxima conversão.",
+      "category": "landing_page",
+      "icon": "🚀",
+      "prompt": "Escreva a seção hero de uma landing page para {{product_service}} usando o framework AIDA.\n\n**Headline Principal (5-8 palavras):**\n- Foco no benefício principal: {{main_benefit}}\n- Claro, específico e orientado a resultados\n- Incluir {{value_proposition}}\n\n**Subheadline (10-15 palavras):**\n- Expandir promessa do headline\n- Explicar como {{product_service}} resolve {{customer_pain_points}}\n- Construir interesse\n\n**Texto de Suporte (2-3 frases):**\n- Criar desejo mostrando transformação\n- Destacar {{unique_selling_proposition}}\n- Social proof sutil (\"Confiado por X clientes\")\n\n**Botão CTA Principal:**\n- Texto: {{primary_cta}} (orientado a ação, ex: \"Começar Teste Grátis\")\n- Cor: Contrastar com fundo\n- CTA Secundário (opcional): Opção de baixo comprometimento\n\n**Elementos de Confiança:**\n- Badge: {{trust_badge}} (ex: \"Garantia 30 dias\", \"SSL Seguro\")\n- Logos de clientes se disponível\n- Rating/avaliação se aplicável\n\n**Descrição da Imagem Hero:**\nDescreva visualmente: {{hero_image_description}}\n- Deve mostrar produto em uso ou resultado desejado\n- Faces humanas aumentam confiança (se apropriado)\n- Alta qualidade, profissional\n\nTom: {{brand_voice}}\nResponsivo: Otimizar para mobile-first",
+      "is_system": true,
+      "is_active": true,
+      "tags": ["landing-page", "hero-section", "aida", "conversao"],
+      "usage_count": 0,
+      "created_at": "2025-12-04T00:00:00Z",
+      "updated_at": null
+    },
+    {
+      "id": "generated-uuid-from-name-category",
+      "workspace_id": null,
+      "user_id": null,
+      "name": "História da Marca - StoryBrand",
+      "description": "Crie a história da marca usando o framework StoryBrand de Donald Miller. Posiciona o cliente como herói e a marca como guia. Perfeito para páginas Sobre e posicionamento.",
+      "category": "creative",
+      "icon": "✨",
+      "prompt": "Escreva a história da marca usando o framework StoryBrand para {{brand_name}}.\n\n**1. O Herói (Cliente):**\nDescreva {{customer_hero}}:\n- Quem são\n- O que desejam alcançar\n- Por que isso importa para eles\n\n**2. O Problema:**\n{{problem_faced}} tem três níveis:\n- Externo: Problema físico, tangível\n- Interno: Como o problema os faz sentir (frustração, medo, inadequação)\n- Filosófico: Por que isso é injusto/errado\n\n**3. O Guia (Sua Marca):**\nPosicione {{brand_as_guide}} com:\n- Empatia: \"Entendemos exatamente como você se sente\"\n- Autoridade: {{credentials}} (experiência, resultados, expertise)\n\n**4. O Plano:**\nApresente {{plan_solution}} em 3 passos simples:\nPasso 1: [Ação inicial fácil]\nPasso 2: [Processo/método]\nPasso 3: [Resultado desejado]\n\n**5. Chamada à Ação:**\n- CTA Direto: {{direct_cta}} (ex: \"Agendar Consulta\")\n- CTA Transitório: {{transitional_cta}} (ex: \"Baixar Guia Gratuito\")\n\n**6. Evitar Falha:**\nPinte o custo de não agir:\n- O que acontece se {{customer_hero}} não resolver {{problem_faced}}\n- Enfatizar dor de permanecer no status quo\n\n**7. Sucesso:**\nVisualize {{success_vision}}:\n- Como a vida deles será melhor\n- Transformação específica e emocional\n- Pintar imagem vívida do futuro desejado\n\nTom: Empático, inspirador, centrado no cliente\nComprimento: 500-800 palavras\nPerspectiva: Segunda pessoa (\"você\") para engajamento",
+      "is_system": true,
+      "is_active": true,
+      "tags": ["storybrand", "brand-story", "sobre", "posicionamento"],
+      "usage_count": 0,
+      "created_at": "2025-12-04T00:00:00Z",
+      "updated_at": null
+    }
+  ],
+  "variable_reference": {
+    "description": "Common variables used across templates with descriptions",
+    "categories": {
+      "product_service": [
+        "{{product_name}}",
+        "{{service_name}}",
+        "{{key_features}}",
+        "{{main_benefit}}",
+        "{{unique_selling_proposition}}",
+        "{{value_proposition}}"
+      ],
+      "audience": [
+        "{{target_audience}}",
+        "{{customer_hero}}",
+        "{{customer_pain_points}}",
+        "{{customer_goals}}"
+      ],
+      "brand": [
+        "{{brand_name}}",
+        "{{brand_voice}}",
+        "{{brand_story}}",
+        "{{tone_of_voice}}",
+        "{{brand_values}}"
+      ],
+      "campaign": [
+        "{{campaign_goal}}",
+        "{{call_to_action}}",
+        "{{primary_cta}}",
+        "{{offer_details}}",
+        "{{urgency_element}}"
+      ],
+      "content": [
+        "{{content_topic}}",
+        "{{main_keyword}}",
+        "{{target_keywords}}",
+        "{{word_count}}",
+        "{{subtopics}}"
+      ],
+      "social_proof": [
+        "{{testimonial_quote}}",
+        "{{case_study_results}}",
+        "{{trust_badge}}",
+        "{{credentials}}"
+      ]
+    }
+  }
+}

@@ -1,0 +1,122 @@
+[
+  {
+    "name": "Anúncio Google Ads - Fórmula AIDA",
+    "description": "Crie anúncios de pesquisa do Google usando o framework AIDA (Atenção, Interesse, Desejo, Ação). Ideal para empresas de serviços segmentando palavras-chave de alta intenção.",
+    "category": "ads",
+    "icon": "🎯",
+    "prompt": "Escreva um anúncio do Google Search usando o framework AIDA para {{service_name}} que enfatiza {{key_benefit}}.\n\nEstrutura:\n- Atenção: Crie um título atraente (máx. 30 caracteres)\n- Interesse: Escreva uma descrição (máx. 90 caracteres)\n- Desejo: Enfatize o benefício-chave\n- Ação: Inclua CTA clara: {{call_to_action}}\n\nFormato:\nTítulo 1-3: [máx. 30 caracteres cada]\nDescrição: [máx. 90 caracteres]",
+    "tags": ["google-ads", "aida", "anuncios-pagos", "servicos"]
+  },
+  {
+    "name": "Google Responsive Search Ad (RSA)",
+    "description": "Gere 15 headlines e 5 descrições otimizadas para anúncios responsivos do Google. Maximiza combinações e performance através de testes automatizados.",
+    "category": "ads",
+    "icon": "🔄",
+    "prompt": "Crie um Google Responsive Search Ad completo para {{product_service}}.\n\nGere:\n**15 Headlines** (máx. 30 caracteres cada):\n- 5 headlines focados em benefício: {{main_benefit}}\n- 5 headlines focados em features: {{key_features}}\n- 5 headlines com CTA/urgência: {{urgency_element}}\n\n**5 Descrições** (máx. 90 caracteres cada):\n- 2 descrições explicando solução\n- 2 descrições com prova social: {{social_proof}}\n- 1 descrição com CTA: {{call_to_action}}\n\nPúblico: {{target_audience}}\nTom: {{brand_voice}}",
+    "tags": ["google-ads", "rsa", "responsive", "performance"]
+  },
+  {
+    "name": "Google Performance Max Campaign",
+    "description": "Crie assets otimizados para campanhas Performance Max multicanal do Google. Inclui headlines, descrições e copy para todos os formatos.",
+    "category": "ads",
+    "icon": "⚡",
+    "prompt": "Crie assets para Google Performance Max de {{product_service}}.\n\n**Headlines Curtos** (5x até 30 caracteres)\n**Headlines Longos** (5x até 90 caracteres)\n**Descrições** (5x até 90 caracteres)\n**Business Name**: {{business_name}}\n\nFoco:\n- Benefício principal: {{main_benefit}}\n- Público: {{target_audience}}\n- CTA: {{call_to_action}}\n- Urgência: {{urgency_element}}\n\nOtimize para conversão em Search, Display, YouTube e Discovery.",
+    "tags": ["google-ads", "pmax", "omnichannel", "automation"]
+  },
+  {
+    "name": "Google Display Ad - PAS Framework",
+    "description": "Crie anúncios para Rede de Display usando PAS (Problema-Agitação-Solução). Ideal para awareness e remarketing com foco em dor do cliente.",
+    "category": "ads",
+    "icon": "🖼️",
+    "prompt": "Escreva Google Display Ad usando PAS para {{product_name}}.\n\n**Problema**: Identifique {{customer_pain_point}}\n**Agitação**: Intensifique consequências de não resolver\n**Solução**: {{product_name}} como resposta\n\n**Elementos**:\n- Título curto: 30 caracteres\n- Título longo: 90 caracteres\n- Descrição: 90 caracteres\n- CTA: {{call_to_action}}\n\nPúblico: {{target_audience}}\nTom: Empático mas urgente",
+    "tags": ["google-display", "pas", "remarketing", "awareness"]
+  },
+  {
+    "name": "Google Shopping Ad - Product Optimization",
+    "description": "Otimize títulos e descrições de produtos para Google Shopping. Maximiza CTR e conversões através de keywords e benefícios claros.",
+    "category": "ads",
+    "icon": "🛍️",
+    "prompt": "Otimize listing do Google Shopping para {{product_name}}.\n\n**Product Title** (máx. 150 caracteres):\nIncluir: Marca + Produto + Atributo-chave + Modelo/Tamanho\n\n**Description** (máx. 5000 caracteres):\n- Features técnicas: {{product_features}}\n- Benefícios: {{main_benefits}}\n- Uso/aplicação: {{use_cases}}\n- Specs: {{specifications}}\n\n**Keywords prioritárias**: {{target_keywords}}\n**Diferencial**: {{unique_selling_point}}\n\nOtimize para intenção de compra e comparação de preços.",
+    "tags": ["google-shopping", "ecommerce", "produto", "otimizacao"]
+  },
+  {
+    "name": "Facebook Feed Ad - Emotional Hook",
+    "description": "Crie anúncios de feed do Facebook/Instagram com gancho emocional forte. Perfeito para e-commerce e produtos de impulso.",
+    "category": "ads",
+    "icon": "📱",
+    "prompt": "Escreva Facebook Feed Ad com gancho emocional para {{product_name}}.\n\n**Hook Emocional** (primeiras 2 linhas):\nFoque na emoção: {{emotional_trigger}}\n\n**Corpo** (100-150 palavras):\n- Conecte emoção ao problema: {{pain_point}}\n- Apresente solução: {{product_name}}\n- Benefício: {{main_benefit}}\n- Social proof: {{testimonial}}\n\n**CTA**: {{call_to_action}}\n**Urgência**: {{urgency_element}}\n\nPúblico: {{target_audience}}\nTom: {{brand_voice}}",
+    "tags": ["facebook-ads", "feed", "emocional", "ecommerce"]
+  },
+  {
+    "name": "Instagram Story Ad - Value Proposition",
+    "description": "Crie stories ads de 15 segundos com proposta de valor clara. Ideal para flash sales e ofertas limitadas.",
+    "category": "ads",
+    "icon": "📲",
+    "prompt": "Crie Instagram Story Ad (15 segundos) para {{offer_name}}.\n\n**Frame 1 (0-3s)**: Hook visual\nTexto: {{attention_grabber}}\n\n**Frame 2 (3-7s)**: Proposta de valor\nBenefício: {{main_benefit}}\n\n**Frame 3 (7-12s)**: Urgência\nOferta: {{offer_details}}\nPrazo: {{deadline}}\n\n**Frame 4 (12-15s)**: CTA\nAção: {{call_to_action}}\n\n**Elementos visuais**: {{visual_suggestions}}\nPúblico: {{target_audience}}",
+    "tags": ["instagram-stories", "story-ad", "flash-sale", "urgencia"]
+  },
+  {
+    "name": "Instagram Reels Ad - Native Format",
+    "description": "Crie scripts para Reels Ads nativos de 15-30 segundos. Formato orgânico que não parece anúncio, ideal para product demos.",
+    "category": "ads",
+    "icon": "🎬",
+    "prompt": "Escreva script para Instagram Reels Ad (15-30s) de {{product_name}}.\n\n**Hook (0-3s)**: Pare o scroll\n{{hook_concept}}\n\n**Demo (3-20s)**: Mostre produto em ação\n- Problema antes: {{before_scenario}}\n- Solução com produto: {{after_scenario}}\n- Benefício visual: {{visual_benefit}}\n\n**CTA (20-30s)**: {{call_to_action}}\n\n**Overlay Text**: 3-5 palavras por cena\n**Áudio**: {{audio_suggestion}}\n**Transições**: Rápidas e dinâmicas\n\nTom: Natural, não-vendedor",
+    "tags": ["instagram-reels", "video", "nativo", "demo"]
+  },
+  {
+    "name": "Facebook Carousel Ad - Feature Showcase",
+    "description": "Crie carousel ads com 3-10 cards mostrando features ou produtos. Ideal para comparações e multi-produtos.",
+    "category": "ads",
+    "icon": "🎠",
+    "prompt": "Crie Facebook Carousel Ad para {{product_service}}.\n\n**Card 1 (Intro)**:\nHeadline: {{value_proposition}}\nDescrição: Apresente problema {{pain_point}}\n\n**Cards 2-N (Features/Produtos)**:\nPara cada {{feature}}:\n- Headline: Nome da feature (40 caracteres)\n- Descrição: Benefício específico (125 caracteres)\n- Imagem: {{image_description}}\n\n**Card Final (CTA)**:\nHeadline: {{call_to_action}}\nDescrição: Urgência {{urgency_element}}\n\nNúmero de cards: {{card_count}}\nPúblico: {{target_audience}}",
+    "tags": ["facebook-carousel", "features", "multi-produto", "comparacao"]
+  },
+  {
+    "name": "Meta Lead Generation Ad",
+    "description": "Crie anúncios de geração de leads do Meta com formulário instantâneo. Perfeito para B2B e lead magnets.",
+    "category": "ads",
+    "icon": "🎯",
+    "prompt": "Crie Meta Lead Generation Ad para {{lead_magnet}}.\n\n**Ad Copy**:\n- Headline: Promessa do lead magnet (40 caracteres)\n- Texto: Valor que receberão (125 palavras)\n- Benefícios de {{lead_magnet}}:\n  ✅ {{benefit_1}}\n  ✅ {{benefit_2}}\n  ✅ {{benefit_3}}\n\n**Instant Form**:\n- Form Title: {{form_headline}}\n- Intro Text: {{form_intro}}\n- CTA Button: {{form_cta}}\n\n**Privacy**: Garantia de uso de dados\n**Follow-up**: Mensagem pós-envio\n\nPúblico: {{target_audience}}",
+    "tags": ["meta-ads", "lead-generation", "b2b", "formulario"]
+  },
+  {
+    "name": "Meta Retargeting Ad - Objection Handling",
+    "description": "Crie anúncios de retargeting focados em superar objeções. Para visitantes que não converteram ou carrinhos abandonados.",
+    "category": "ads",
+    "icon": "🔁",
+    "prompt": "Crie Meta Retargeting Ad superando objeções de {{product_name}}.\n\n**Audiência**: {{retargeting_segment}}\n**Objeção provável**: {{likely_objection}}\n\n**Copy Structure**:\n**Reconhecimento**: \"Vimos que você {{user_action}}\"\n\n**Superar Objeção**:\n- Se preço: {{price_justification}}\n- Se dúvida: {{social_proof}}\n- Se timing: {{urgency_incentive}}\n\n**Incentivo**: {{offer}}\n**Garantia**: {{risk_reversal}}\n**CTA**: {{call_to_action}}\n\nTom: Empático, não insistente",
+    "tags": ["retargeting", "objecoes", "carrinho-abandonado", "remarketing"]
+  },
+  {
+    "name": "LinkedIn Sponsored Content - Thought Leadership",
+    "description": "Crie posts patrocinados do LinkedIn posicionando expertise. Ideal para B2B SaaS e serviços profissionais.",
+    "category": "ads",
+    "icon": "💼",
+    "prompt": "Escreva LinkedIn Sponsored Content para {{topic}}.\n\n**Hook Profissional** (primeiras 2 linhas):\nEstablish credibilidade e relevância\n\n**Insight/Trend** (150 palavras):\n- Desafio do setor: {{industry_challenge}}\n- Dados/estatística: {{stat}}\n- Nossa perspectiva: {{unique_insight}}\n\n**Solução Sutil**:\nComo {{product_service}} aborda isso\nSem venda direta - educacional\n\n**CTA Soft**: {{cta}}\n(ex: \"Baixar whitepaper\", \"Ler case study\")\n\nPúblico: {{job_titles}}\nTom: Profissional, consultivo, autoritativo",
+    "tags": ["linkedin", "thought-leadership", "b2b", "expertise"]
+  },
+  {
+    "name": "LinkedIn InMail - Personalized Outreach",
+    "description": "Crie mensagens InMail personalizadas para decisores. Abordagem consultiva focada em valor, não em venda.",
+    "category": "ads",
+    "icon": "✉️",
+    "prompt": "Escreva LinkedIn InMail para {{prospect_title}} em {{company}}.\n\n**Subject Line**: Personalizado com contexto relevante\n\n**Opening**: Referência específica\n- Conexão mútua / Grupo comum\n- Conteúdo que publicaram\n- Desafio específico do setor deles\n\n**Value Proposition** (50 palavras):\n{{specific_companies}} alcançaram {{specific_result}} com {{solution}}\n\n**Pergunta Consultiva**:\n\"{{prospect_name}}, como vocês em {{company}} estão lidando com {{challenge}}?\"\n\n**CTA Suave**: {{low_pressure_cta}}\n(ex: \"15 minutos para trocar ideias?\")\n\nTom: Personalizado, consultivo, respeitoso",
+    "tags": ["linkedin-inmail", "outreach", "b2b", "personalizacao"]
+  },
+  {
+    "name": "LinkedIn Video Ad - Case Study",
+    "description": "Crie script para vídeo ad do LinkedIn apresentando case study. Prova social com resultados mensuráveis para B2B.",
+    "category": "ads",
+    "icon": "🎥",
+    "prompt": "Escreva script para LinkedIn Video Ad (30-60s) com case study.\n\n**Cliente Featured**: {{client_name}} ({{client_industry}})\n\n**Estrutura**:\n**0-10s**: Problema do cliente\n\"{{client_name}} enfrentava {{challenge}}\"\n\n**10-30s**: Solução implementada\n- Como usaram {{product_service}}\n- Processo/abordagem\n\n**30-50s**: Resultados mensuráveis\n✅ {{metric_1}}: {{result_1}}\n✅ {{metric_2}}: {{result_2}}\n✅ {{metric_3}}: {{result_3}}\n\n**50-60s**: CTA\n\"Resultados similares para sua empresa?\"\n{{call_to_action}}\n\n**Visual**: Depoimento do cliente\nPúblico: {{target_companies}}",
+    "tags": ["linkedin-video", "case-study", "prova-social", "b2b"]
+  },
+  {
+    "name": "LinkedIn Carousel Ad - Educational Value",
+    "description": "Crie carousel educacional do LinkedIn para whitepapers e conteúdo de valor. Estabelece autoridade enquanto gera leads.",
+    "category": "ads",
+    "icon": "📊",
+    "prompt": "Crie LinkedIn Carousel Ad para {{content_asset}}.\n\n**Card 1**: Problema/Desafio\nHeadline: {{industry_pain_point}}\nStat: {{compelling_statistic}}\n\n**Cards 2-5**: Key Insights\nPara cada insight de {{content_asset}}:\n- Título: Takeaway principal\n- Visual: Gráfico/dado\n- Descrição: 1-2 frases\n\n**Card 6**: Benefício de ler completo\nO que mais aprenderão em {{content_asset}}\n\n**Card 7**: CTA\n\"Baixar {{content_asset}} completo\"\n{{call_to_action}}\n\nTom: Educacional, autoritativo\nPúblico: {{job_titles}}",
+    "tags": ["linkedin-carousel", "educacional", "whitepaper", "lead-gen"]
+  }
+]
