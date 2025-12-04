@@ -62,12 +62,16 @@ export const workspaceService = {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error('User not authenticated')
 
-      // Create workspace (without .select() to avoid RLS issue)
-      const { data, error } = await supabase
+      // Generate ID client-side to avoid RLS .select() issue
+      const workspaceId = crypto.randomUUID()
+
+      // Create workspace WITHOUT .select()
+      const { error } = await supabase
         .from('workspaces')
-        .insert(workspace)
-        .select()
-        .single()
+        .insert({
+          ...workspace,
+          id: workspaceId
+        })
 
       if (error) throw error
 
@@ -75,14 +79,14 @@ export const workspaceService = {
       const { error: memberError } = await supabase
         .from('workspace_users')
         .insert({
-          workspace_id: data.id,
+          workspace_id: workspaceId,
           user_id: user.id,
           role: 'owner'
         })
 
       if (memberError) {
         // Rollback workspace creation if member insertion fails
-        await supabase.from('workspaces').delete().eq('id', data.id)
+        await supabase.from('workspaces').delete().eq('id', workspaceId)
         throw memberError
       }
 
@@ -90,7 +94,7 @@ export const workspaceService = {
       const { data: workspaceData, error: fetchError } = await supabase
         .from('workspaces')
         .select('*')
-        .eq('id', data.id)
+        .eq('id', workspaceId)
         .single()
 
       if (fetchError) throw fetchError
