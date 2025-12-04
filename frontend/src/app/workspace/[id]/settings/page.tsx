@@ -185,6 +185,30 @@ export default function SettingsPage() {
         }
     }
 
+    const handleCancelInvite = async (inviteId: string) => {
+        const confirmed = await confirm({
+            title: "Cancelar convite",
+            description: "Tem certeza que deseja cancelar este convite?",
+            confirmLabel: "Cancelar convite",
+            variant: "destructive"
+        })
+
+        if (!confirmed) return
+
+        try {
+            await api.delete(`/workspaces/${workspaceId}/invites/${inviteId}`)
+            toast({
+                title: "Convite cancelado",
+                description: "O convite foi cancelado com sucesso."
+            })
+            fetchPendingInvites()
+        } catch (error: any) {
+            console.error("Failed to cancel invite", error)
+            const errorMsg = error?.response?.data?.detail || "Falha ao cancelar convite"
+            toast({ title: "Erro", description: errorMsg, variant: "destructive" })
+        }
+    }
+
     const handleRemoveMember = async (memberId: string) => {
         const confirmed = await confirm({
             title: "Remover membro",
@@ -482,6 +506,13 @@ export default function SettingsPage() {
                                                                     <span className="text-xs bg-yellow-100 dark:bg-yellow-900 px-2 py-1 rounded">
                                                                         Pendente
                                                                     </span>
+                                                                    <Button
+                                                                        variant="ghost"
+                                                                        size="icon"
+                                                                        onClick={() => handleCancelInvite(invite.id)}
+                                                                    >
+                                                                        <Trash2 className="h-4 w-4 text-destructive" />
+                                                                    </Button>
                                                                 </div>
                                                             </div>
                                                         ))}

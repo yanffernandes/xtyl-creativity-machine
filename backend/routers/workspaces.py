@@ -246,3 +246,56 @@ async def list_pending_invites(
         ))
 
     return result
+
+
+@router.delete("/{workspace_id}/invites/{invite_id}")
+async def cancel_workspace_invite(
+    workspace_id: str,
+    invite_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Cancel a pending workspace invitation.
+
+    Only workspace owners and admins can cancel invitations.
+    """
+    # Verify workspace exists
+    workspace = db.query(Workspace).filter(Workspace.id == workspace_id).first()
+    if not workspace:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+
+    # Verify current user is member of workspace (owner or admin)
+    membership = (
+        db.query(WorkspaceUser)
+        .filter(
+            WorkspaceUser.workspace_id == workspace_id,
+            WorkspaceUser.user_id == str(current_user.id)
+        )
+        .first()
+    )
+
+    if not membership or membership.role not in ["owner", "admin"]:
+        raise HTTPException(
+            status_code=403,
+            detail="Only workspace owners and admins can cancel invitations"
+        )
+
+    # Find the invitation
+    invite = (
+        db.query(WorkspaceInvite)
+        .filter(
+            WorkspaceInvite.id == invite_id,
+            WorkspaceInvite.workspace_id == workspace_id
+        )
+        .first()
+    )
+
+    if not invite:
+        raise HTTPException(status_code=404, detail="Invitation not found")
+
+    # Delete the invitation
+    db.delete(invite)
+    db.commit()
+
+    return {"success": True, "message": "Invitation cancelled successfully"}
