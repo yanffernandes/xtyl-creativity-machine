@@ -34,12 +34,12 @@ services:
       # Supabase Auth
       SUPABASE_JWT_SECRET: ${SUPABASE_JWT_SECRET}
 
-      # Redis
-      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      # Redis (hardcoded for Docker networking)
+      REDIS_URL: redis://redis:6379/0
 
-      # Celery
-      CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/0}
-      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://redis:6379/1}
+      # Celery (hardcoded for Docker networking)
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/1
 
       # Cloudflare R2 Storage
       R2_ENDPOINT: ${R2_ENDPOINT}
@@ -155,12 +155,12 @@ services:
       # Supabase Database
       DATABASE_URL: ${DATABASE_URL}
 
-      # Redis
-      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      # Redis (hardcoded for Docker networking)
+      REDIS_URL: redis://redis:6379/0
 
-      # Celery
-      CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/0}
-      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://redis:6379/1}
+      # Celery (hardcoded for Docker networking)
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/1
 
       # Cloudflare R2 Storage
       R2_ENDPOINT: ${R2_ENDPOINT}
