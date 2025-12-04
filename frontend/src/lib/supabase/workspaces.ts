@@ -62,7 +62,7 @@ export const workspaceService = {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error('User not authenticated')
 
-      // Create workspace
+      // Create workspace (without .select() to avoid RLS issue)
       const { data, error } = await supabase
         .from('workspaces')
         .insert(workspace)
@@ -71,7 +71,7 @@ export const workspaceService = {
 
       if (error) throw error
 
-      // Add creator as owner
+      // Add creator as owner FIRST, then we can select the workspace
       const { error: memberError } = await supabase
         .from('workspace_users')
         .insert({
@@ -86,7 +86,16 @@ export const workspaceService = {
         throw memberError
       }
 
-      return { data, error: null }
+      // Now fetch the workspace (RLS will allow it since user is now a member)
+      const { data: workspaceData, error: fetchError } = await supabase
+        .from('workspaces')
+        .select('*')
+        .eq('id', data.id)
+        .single()
+
+      if (fetchError) throw fetchError
+
+      return { data: workspaceData, error: null }
     } catch (error) {
       return { data: null, error: error as Error }
     }

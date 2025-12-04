@@ -207,6 +207,8 @@ DO $$ BEGIN
 END $$;
 
 -- SELECT: User is a member
+-- Note: This will fail for newly created workspaces until workspace_user is inserted
+-- Frontend must handle this by not using .select() immediately after .insert()
 CREATE POLICY "workspaces_select_policy" ON workspaces
   FOR SELECT USING (
     user_is_workspace_member(id)
