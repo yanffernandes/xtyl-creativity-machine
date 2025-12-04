@@ -59,7 +59,7 @@ class WorkspaceUser(Base):
 class WorkspaceInvite(Base):
     """
     Workspace Invitation model for inviting non-registered users.
-    Stores pending invitations with a unique token.
+    Stores pending invitations with a unique token and temporary password.
     """
     __tablename__ = "workspace_invites"
 
@@ -69,6 +69,7 @@ class WorkspaceInvite(Base):
     role = Column(String, default="member")  # admin, member
     invited_by_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     token = Column(String, unique=True, index=True, nullable=False)
+    temp_password = Column(String, nullable=True)  # Temporary password for new users
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     expires_at = Column(DateTime(timezone=True), nullable=False)
     accepted_at = Column(DateTime(timezone=True), nullable=True)

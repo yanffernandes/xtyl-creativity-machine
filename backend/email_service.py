@@ -154,7 +154,7 @@ def send_password_reset_email(email: str, reset_token: str, user_name: Optional[
     )
 
 
-def send_workspace_invite_email(email: str, workspace_name: str, invited_by: str, invite_token: str) -> bool:
+def send_workspace_invite_email(email: str, workspace_name: str, invited_by: str, invite_token: str, temp_password: str = None) -> bool:
     """
     Send workspace invitation email to non-registered users
 
@@ -163,6 +163,7 @@ def send_workspace_invite_email(email: str, workspace_name: str, invited_by: str
         workspace_name: Name of the workspace
         invited_by: Name of the person who invited
         invite_token: Invitation token for signup
+        temp_password: Temporary password for the new account
 
     Returns:
         bool: True if email was sent successfully
@@ -208,14 +209,15 @@ def send_workspace_invite_email(email: str, workspace_name: str, invited_by: str
 
             <div style="text-align: center; margin: 30px 0;">
                 <a href="{signup_link}"
-                   style="background: linear-gradient(135deg, #5B8DEF 0%, #4A7AD9 100%);
-                          color: white;
+                   style="background: #5B8DEF;
+                          color: #ffffff;
                           padding: 15px 40px;
                           text-decoration: none;
-                          border-radius: 5px;
+                          border-radius: 8px;
                           font-weight: bold;
                           display: inline-block;
-                          font-size: 16px;">
+                          font-size: 16px;
+                          box-shadow: 0 4px 6px rgba(91, 141, 239, 0.3);">
                     Aceitar Convite e Criar Conta
                 </a>
             </div>
@@ -226,6 +228,17 @@ def send_workspace_invite_email(email: str, workspace_name: str, invited_by: str
             <p style="font-size: 12px; color: #5B8DEF; word-break: break-all; background: white; padding: 10px; border-radius: 5px;">
                 {signup_link}
             </p>
+
+            {f'''
+            <div style="background: white; padding: 20px; border-radius: 5px; margin: 30px 0; border-left: 4px solid #5B8DEF;">
+                <h3 style="margin-top: 0; color: #5B8DEF;">🔑 Suas credenciais temporárias:</h3>
+                <p style="margin: 10px 0;"><strong>Email:</strong> {email}</p>
+                <p style="margin: 10px 0;"><strong>Senha temporária:</strong> <code style="background: #f0f0f0; padding: 4px 8px; border-radius: 4px; font-family: monospace;">{temp_password}</code></p>
+                <p style="font-size: 12px; color: #666; margin-top: 15px;">
+                    💡 Recomendamos alterar sua senha após o primeiro login.
+                </p>
+            </div>
+            ''' if temp_password else ''}
 
             <p style="font-size: 14px; color: #666; margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd;">
                 ⏰ Este convite expira em <strong>7 dias</strong>.<br>

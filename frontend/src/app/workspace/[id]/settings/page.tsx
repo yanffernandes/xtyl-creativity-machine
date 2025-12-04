@@ -66,6 +66,7 @@ export default function SettingsPage() {
     const [modelsLoading, setModelsLoading] = useState(true)
     const [newMemberEmail, setNewMemberEmail] = useState("")
     const [isAddingMember, setIsAddingMember] = useState(false)
+    const [pendingInvites, setPendingInvites] = useState<any[]>([])
 
     // Form states
     const [name, setName] = useState("")
@@ -95,7 +96,8 @@ export default function SettingsPage() {
             return
         }
         fetchModels()
-    }, [session, authLoading, router])
+        fetchPendingInvites()
+    }, [session, authLoading, router, workspaceId])
 
     // Fetch AI models from backend API (OpenRouter proxy)
     const fetchModels = async () => {
@@ -112,6 +114,16 @@ export default function SettingsPage() {
             toast({ title: "Erro", description: "Falha ao carregar modelos de IA", variant: "destructive" })
         } finally {
             setModelsLoading(false)
+        }
+    }
+
+    // Fetch pending invites
+    const fetchPendingInvites = async () => {
+        try {
+            const response = await api.get(`/workspaces/${workspaceId}/invites`)
+            setPendingInvites(response.data || [])
+        } catch (error) {
+            console.error("Failed to fetch pending invites", error)
         }
     }
 
@@ -161,7 +173,8 @@ export default function SettingsPage() {
             }
 
             setNewMemberEmail("")
-            // Refresh members list
+            // Refresh members list and invites
+            fetchPendingInvites()
             window.location.reload()
         } catch (error: any) {
             console.error("Failed to add member", error)
@@ -424,7 +437,7 @@ export default function SettingsPage() {
 
                                     <div className="space-y-2 mt-6">
                                         <h4 className="text-sm font-medium">Membros atuais</h4>
-                                        {(members || []).length === 0 ? (
+                                        {(members || []).length === 0 && pendingInvites.length === 0 ? (
                                             <p className="text-sm text-muted-foreground">Nenhum membro encontrado</p>
                                         ) : (
                                             <div className="space-y-2">
@@ -450,6 +463,30 @@ export default function SettingsPage() {
                                                         )}
                                                     </div>
                                                 ))}
+
+                                                {pendingInvites.length > 0 && (
+                                                    <>
+                                                        <h4 className="text-sm font-medium mt-4 pt-4 border-t">Convites Pendentes</h4>
+                                                        {pendingInvites.map((invite) => (
+                                                            <div
+                                                                key={invite.id}
+                                                                className="flex items-center justify-between p-3 border rounded-lg bg-yellow-50 dark:bg-yellow-950"
+                                                            >
+                                                                <div>
+                                                                    <p className="text-sm font-medium">{invite.email}</p>
+                                                                    <p className="text-xs text-muted-foreground">
+                                                                        Convite enviado por {invite.invited_by}
+                                                                    </p>
+                                                                </div>
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className="text-xs bg-yellow-100 dark:bg-yellow-900 px-2 py-1 rounded">
+                                                                        Pendente
+                                                                    </span>
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </>
+                                                )}
                                             </div>
                                         )}
                                     </div>

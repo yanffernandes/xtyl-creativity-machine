@@ -34,6 +34,16 @@ class InviteMemberResponse(BaseModel):
     invite_sent: bool
 
 
+class PendingInvite(BaseModel):
+    id: str
+    email: str
+    role: str
+    invited_by: str
+    created_at: datetime
+    expires_at: datetime
+    status: str
+
+
 @router.post("/{workspace_id}/members", response_model=InviteMemberResponse)
 async def invite_workspace_member(
     workspace_id: str,
@@ -128,13 +138,19 @@ async def invite_workspace_member(
             # Update expiry and resend
             existing_invite.expires_at = datetime.utcnow() + timedelta(days=7)
             existing_invite.created_at = datetime.utcnow()
+
+            # Generate new temp password if it doesn't exist
+            if not existing_invite.temp_password:
+                existing_invite.temp_password = secrets.token_urlsafe(12)
+
             db.commit()
 
             send_workspace_invite_email(
                 email=request.email,
                 workspace_name=workspace.name,
                 invited_by=current_user.full_name or current_user.email,
-                invite_token=existing_invite.token
+                invite_token=existing_invite.token,
+                temp_password=existing_invite.temp_password
             )
 
             return InviteMemberResponse(
@@ -144,14 +160,17 @@ async def invite_workspace_member(
                 invite_sent=True
             )
 
-        # Create new invitation
+        # Create new invitation with temporary password
         invite_token = secrets.token_urlsafe(32)
+        temp_password = secrets.token_urlsafe(12)  # Generate temporary password
+
         new_invite = WorkspaceInvite(
             workspace_id=workspace_id,
             email=request.email,
             role=request.role,
             invited_by_id=current_user.id,
             token=invite_token,
+            temp_password=temp_password,
             expires_at=datetime.utcnow() + timedelta(days=7),
             status="pending"
         )
@@ -163,7 +182,8 @@ async def invite_workspace_member(
             email=request.email,
             workspace_name=workspace.name,
             invited_by=current_user.full_name or current_user.email,
-            invite_token=invite_token
+            invite_token=invite_token,
+            temp_password=temp_password
         )
 
         return InviteMemberResponse(
@@ -172,3 +192,57 @@ async def invite_workspace_member(
             user_exists=False,
             invite_sent=True
         )
+
+
+@router.get("/{workspace_id}/invites", response_model=list[PendingInvite])
+async def list_pending_invites(
+    workspace_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    List pending workspace invitations.
+
+    Returns all pending invites for a workspace.
+    """
+    # Verify workspace exists and user is member
+    workspace = db.query(Workspace).filter(Workspace.id == workspace_id).first()
+    if not workspace:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+
+    membership = (
+        db.query(WorkspaceUser)
+        .filter(
+            WorkspaceUser.workspace_id == workspace_id,
+            WorkspaceUser.user_id == str(current_user.id)
+        )
+        .first()
+    )
+
+    if not membership:
+        raise HTTPException(status_code=403, detail="Not a member of this workspace")
+
+    # Get pending invites
+    invites = (
+        db.query(WorkspaceInvite)
+        .filter(
+            WorkspaceInvite.workspace_id == workspace_id,
+            WorkspaceInvite.status == "pending"
+        )
+        .all()
+    )
+
+    result = []
+    for invite in invites:
+        inviter = db.query(User).filter(User.id == invite.invited_by_id).first()
+        result.append(PendingInvite(
+            id=invite.id,
+            email=invite.email,
+            role=invite.role,
+            invited_by=inviter.full_name or inviter.email if inviter else "Unknown",
+            created_at=invite.created_at,
+            expires_at=invite.expires_at,
+            status=invite.status
+        ))
+
+    return result
