@@ -76,8 +76,7 @@ def update_workspace(db: Session, workspace_id: str, workspace_update: Workspace
         db_workspace.default_vision_model = workspace_update.default_vision_model
     if workspace_update.attachment_analysis_model is not None:
         db_workspace.attachment_analysis_model = workspace_update.attachment_analysis_model
-    if workspace_update.available_models is not None:
-        db_workspace.available_models = workspace_update.available_models
+    # NOTE: available_models removed - model visibility is now global via system_config
 
     db.commit()
     db.refresh(db_workspace)

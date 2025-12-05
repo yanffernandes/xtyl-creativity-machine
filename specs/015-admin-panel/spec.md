@@ -2,7 +2,7 @@
 
 **Feature Branch**: `015-admin-panel`
 **Created**: 2025-11-30
-**Status**: Draft
+**Status**: Completed
 **Input**: User description: "Ambiente admin onde eu vou definir os modelos de IA padrões do sistema, para TODOS os locais que usam IA, até mesmo aqueles onde o usuario não tem a opção de escolher o modelo. como embeding, visual de imagem e arquivos no chat, modelo default do chat … todos todos todos, não quero NADA hardcode. Assim como, quais serão os modelos exibidos na listagem de models no assistente IA. Aproveitando que vai ser implementado um ambiente admin, crie também as configurações básicas no admin, como gestão de usuários, workspaces e outras coisas importantes para um SaaS."
 
 ## User Scenarios & Testing *(mandatory)*

@@ -383,4 +383,27 @@ export async function enrichPrompt(request: EnrichPromptRequest): Promise<Enrich
     return response.data;
 }
 
+// System Messages Types
+export interface ActiveSystemMessage {
+    id: string;
+    type: 'maintenance' | 'announcement' | 'warning' | 'info';
+    title: string;
+    content: string;
+    dismissible: boolean;
+    priority: number;
+}
+
+export interface ActiveSystemMessagesResponse {
+    messages: ActiveSystemMessage[];
+    count: number;
+}
+
+/**
+ * Get active system messages for display to users (public endpoint)
+ */
+export async function getActiveSystemMessages(): Promise<ActiveSystemMessagesResponse> {
+    const response = await api.get('/system/messages');
+    return response.data;
+}
+
 export default api;

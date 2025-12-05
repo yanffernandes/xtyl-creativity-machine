@@ -40,7 +40,7 @@ class WorkspaceUpdate(BaseModel):
     default_text_model: Optional[str] = None
     default_vision_model: Optional[str] = None
     attachment_analysis_model: Optional[str] = None
-    available_models: Optional[List[str]] = None
+    # NOTE: available_models removed - model visibility is now global via system_config
 
 class Workspace(WorkspaceBase):
     id: str
@@ -48,7 +48,7 @@ class Workspace(WorkspaceBase):
     default_text_model: Optional[str] = None
     default_vision_model: Optional[str] = None
     attachment_analysis_model: Optional[str] = None
-    available_models: Optional[List[str]] = None
+    # NOTE: available_models removed - model visibility is now global via system_config
 
     class Config:
         from_attributes = True
@@ -362,15 +362,27 @@ class WorkflowExecution(WorkflowExecutionBase):
     template_id: str
     project_id: str
     workspace_id: str
-    user_id: str
+    user_id: Union[str, UUID]  # Accept both string and UUID from database
     status: str  # pending, running, paused, completed, failed, stopped
     progress_percent: int
     current_node_id: Optional[str] = None
     error_message: Optional[str] = None
-    total_cost: float
+    total_cost: Optional[Union[float, Decimal]] = 0.0  # Accept Decimal from database
     started_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
     created_at: datetime
+
+    @field_serializer('user_id')
+    def serialize_user_id(self, v):
+        """Convert UUID to string for JSON serialization"""
+        return str(v) if isinstance(v, UUID) else v
+
+    @field_serializer('total_cost')
+    def serialize_total_cost(self, v):
+        """Convert Decimal to float for JSON serialization"""
+        if v is None:
+            return 0.0
+        return float(v) if isinstance(v, Decimal) else v
 
     class Config:
         from_attributes = True
@@ -526,9 +538,16 @@ class WorkflowTemplateDetail(WorkflowTemplateBase):
     is_recommended: bool
     usage_count: int
     version: str
-    created_by: Optional[str] = None
+    created_by: Optional[Union[str, UUID]] = None  # Accept both string and UUID
     created_at: datetime
     updated_at: Optional[datetime] = None
+
+    @field_serializer('created_by')
+    def serialize_created_by(self, v):
+        """Convert UUID to string for JSON serialization"""
+        if v is None:
+            return None
+        return str(v) if isinstance(v, UUID) else v
 
     class Config:
         from_attributes = True
@@ -556,16 +575,28 @@ class ExecutionStatus(BaseModel):
     workflow_id: str
     project_id: str
     workspace_id: str
-    user_id: str
+    user_id: Union[str, UUID]  # Accept both string and UUID from database
     status: str  # pending, running, paused, completed, failed, cancelled
     progress_percent: int
     current_node_id: Optional[str] = None
     error_message: Optional[str] = None
-    total_cost: Optional[Decimal] = None
+    total_cost: Optional[Union[float, Decimal]] = None
     total_tokens_used: Optional[int] = None
     started_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
     created_at: datetime
+
+    @field_serializer('user_id')
+    def serialize_user_id(self, v):
+        """Convert UUID to string for JSON serialization"""
+        return str(v) if isinstance(v, UUID) else v
+
+    @field_serializer('total_cost')
+    def serialize_total_cost(self, v):
+        """Convert Decimal to float for JSON serialization"""
+        if v is None:
+            return None
+        return float(v) if isinstance(v, Decimal) else v
 
     class Config:
         from_attributes = True
@@ -576,9 +607,16 @@ class ExecutionSummary(BaseModel):
     workflow_name: str
     status: str
     progress_percent: int
-    total_cost: Optional[Decimal] = None
+    total_cost: Optional[Union[float, Decimal]] = None
     created_at: datetime
     completed_at: Optional[datetime] = None
+
+    @field_serializer('total_cost')
+    def serialize_total_cost(self, v):
+        """Convert Decimal to float for JSON serialization"""
+        if v is None:
+            return None
+        return float(v) if isinstance(v, Decimal) else v
 
 class ExecutionControlResponse(BaseModel):
     execution_id: str
@@ -1173,6 +1211,60 @@ class AdminVerifyResponse(BaseModel):
     is_admin: bool
     user_id: str
     email: str
+
+
+# ============================================================================
+# SYSTEM MESSAGES SCHEMAS (Feature 015 - Admin Panel)
+# ============================================================================
+
+class SystemMessage(BaseModel):
+    """A system message to display to users"""
+    id: str
+    type: str  # "maintenance", "announcement", "warning", "info"
+    title: str
+    content: str
+    is_active: bool = True
+    starts_at: Optional[datetime] = None  # When to start showing (null = immediately)
+    ends_at: Optional[datetime] = None  # When to stop showing (null = until deactivated)
+    dismissible: bool = True  # Can users dismiss this message?
+    priority: int = 0  # Higher = more important (shown first)
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
+
+class SystemMessageCreate(BaseModel):
+    """Create a new system message"""
+    type: str = Field(..., pattern="^(maintenance|announcement|warning|info)$")
+    title: str = Field(..., min_length=1, max_length=200)
+    content: str = Field(..., min_length=1, max_length=2000)
+    is_active: bool = True
+    starts_at: Optional[datetime] = None
+    ends_at: Optional[datetime] = None
+    dismissible: bool = True
+    priority: int = Field(default=0, ge=0, le=100)
+
+
+class SystemMessageUpdate(BaseModel):
+    """Update a system message"""
+    type: Optional[str] = Field(None, pattern="^(maintenance|announcement|warning|info)$")
+    title: Optional[str] = Field(None, min_length=1, max_length=200)
+    content: Optional[str] = Field(None, min_length=1, max_length=2000)
+    is_active: Optional[bool] = None
+    starts_at: Optional[datetime] = None
+    ends_at: Optional[datetime] = None
+    dismissible: Optional[bool] = None
+    priority: Optional[int] = Field(None, ge=0, le=100)
+
+
+class SystemMessagesResponse(BaseModel):
+    """List of system messages"""
+    messages: List[SystemMessage]
+    total: int
+
+
+class ActiveSystemMessagesResponse(BaseModel):
+    """Active messages for users (public endpoint)"""
+    messages: List[SystemMessage]
 
 
 # ============================================================================

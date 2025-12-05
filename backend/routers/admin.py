@@ -1335,3 +1335,234 @@ async def update_feature_flags(
     )
 
     return config.value
+
+
+# =============================================================================
+# Phase 8: System Messages Endpoints (FR-034)
+# =============================================================================
+
+
+@router.get("/settings/messages")
+async def get_system_messages(
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+    include_inactive: bool = False,
+):
+    """
+    Get all system messages.
+
+    Admin can see all messages including inactive ones.
+    """
+    from models import SystemConfig
+    from datetime import datetime, timezone
+
+    config = db.query(SystemConfig).filter(SystemConfig.key == "system_messages").first()
+
+    if not config or not config.value:
+        return {"messages": [], "total": 0}
+
+    messages = config.value.get("messages", [])
+
+    # Filter inactive if not requested
+    if not include_inactive:
+        now = datetime.now(timezone.utc)
+        messages = [
+            m for m in messages
+            if m.get("is_active", True)
+        ]
+
+    # Sort by priority (desc) then created_at (desc)
+    messages.sort(key=lambda m: (-m.get("priority", 0), m.get("created_at", "")), reverse=False)
+
+    return {"messages": messages, "total": len(messages)}
+
+
+@router.post("/settings/messages")
+async def create_system_message(
+    request: Request,
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """
+    Create a new system message.
+    """
+    from models import SystemConfig
+    from datetime import datetime, timezone
+    import uuid
+
+    admin_service = AdminService(db)
+    body = await request.json()
+
+    # Validate required fields
+    if not body.get("title") or not body.get("content") or not body.get("type"):
+        raise HTTPException(status_code=400, detail="title, content, and type are required")
+
+    # Validate type
+    valid_types = ["maintenance", "announcement", "warning", "info"]
+    if body.get("type") not in valid_types:
+        raise HTTPException(status_code=400, detail=f"type must be one of: {', '.join(valid_types)}")
+
+    # Get or create config
+    config = db.query(SystemConfig).filter(SystemConfig.key == "system_messages").first()
+
+    if not config:
+        config = SystemConfig(
+            key="system_messages",
+            value={"messages": []},
+            updated_by=admin.id,
+        )
+        db.add(config)
+
+    messages = config.value.get("messages", []) if config.value else []
+
+    # Create new message
+    now = datetime.now(timezone.utc).isoformat()
+    new_message = {
+        "id": str(uuid.uuid4()),
+        "type": body.get("type"),
+        "title": body.get("title"),
+        "content": body.get("content"),
+        "is_active": body.get("is_active", True),
+        "starts_at": body.get("starts_at"),
+        "ends_at": body.get("ends_at"),
+        "dismissible": body.get("dismissible", True),
+        "priority": body.get("priority", 0),
+        "created_at": now,
+        "updated_at": now,
+    }
+
+    messages.append(new_message)
+    config.value = {"messages": messages}
+    config.updated_by = admin.id
+
+    db.commit()
+
+    # Audit log
+    await admin_service.audit_log(
+        admin_id=admin.id,
+        action="system_message.create",
+        entity_type="system_message",
+        entity_id=new_message["id"],
+        old_value=None,
+        new_value=new_message,
+        request=request,
+    )
+
+    return new_message
+
+
+@router.put("/settings/messages/{message_id}")
+async def update_system_message(
+    message_id: str,
+    request: Request,
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """
+    Update an existing system message.
+    """
+    from models import SystemConfig
+    from datetime import datetime, timezone
+
+    admin_service = AdminService(db)
+    body = await request.json()
+
+    config = db.query(SystemConfig).filter(SystemConfig.key == "system_messages").first()
+
+    if not config or not config.value:
+        raise HTTPException(status_code=404, detail="No messages found")
+
+    messages = config.value.get("messages", [])
+    message_index = None
+    old_message = None
+
+    for i, m in enumerate(messages):
+        if m.get("id") == message_id:
+            message_index = i
+            old_message = m.copy()
+            break
+
+    if message_index is None:
+        raise HTTPException(status_code=404, detail="Message not found")
+
+    # Validate type if provided
+    if body.get("type"):
+        valid_types = ["maintenance", "announcement", "warning", "info"]
+        if body.get("type") not in valid_types:
+            raise HTTPException(status_code=400, detail=f"type must be one of: {', '.join(valid_types)}")
+
+    # Update fields
+    updatable_fields = ["type", "title", "content", "is_active", "starts_at", "ends_at", "dismissible", "priority"]
+    for field in updatable_fields:
+        if field in body:
+            messages[message_index][field] = body[field]
+
+    messages[message_index]["updated_at"] = datetime.now(timezone.utc).isoformat()
+
+    config.value = {"messages": messages}
+    config.updated_by = admin.id
+
+    db.commit()
+
+    # Audit log
+    await admin_service.audit_log(
+        admin_id=admin.id,
+        action="system_message.update",
+        entity_type="system_message",
+        entity_id=message_id,
+        old_value=old_message,
+        new_value=messages[message_index],
+        request=request,
+    )
+
+    return messages[message_index]
+
+
+@router.delete("/settings/messages/{message_id}")
+async def delete_system_message(
+    message_id: str,
+    request: Request,
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """
+    Delete a system message.
+    """
+    from models import SystemConfig
+
+    admin_service = AdminService(db)
+
+    config = db.query(SystemConfig).filter(SystemConfig.key == "system_messages").first()
+
+    if not config or not config.value:
+        raise HTTPException(status_code=404, detail="No messages found")
+
+    messages = config.value.get("messages", [])
+    old_message = None
+
+    for m in messages:
+        if m.get("id") == message_id:
+            old_message = m
+            break
+
+    if not old_message:
+        raise HTTPException(status_code=404, detail="Message not found")
+
+    messages = [m for m in messages if m.get("id") != message_id]
+    config.value = {"messages": messages}
+    config.updated_by = admin.id
+
+    db.commit()
+
+    # Audit log
+    await admin_service.audit_log(
+        admin_id=admin.id,
+        action="system_message.delete",
+        entity_type="system_message",
+        entity_id=message_id,
+        old_value=old_message,
+        new_value=None,
+        request=request,
+    )
+
+    return {"success": True, "message": "Message deleted"}

@@ -6,6 +6,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { GradientBackground } from "@/components/GradientBackground";
 import { QueryProvider } from "@/components/providers/QueryProvider";
 import { ConfirmDialogProvider } from "@/components/confirm-dialog";
+import { SystemMessageBanner } from "@/components/SystemMessageBanner";
 
 /**
  * Inter Variable Font - Premium Typography
@@ -46,6 +47,7 @@ export default function RootLayout({
             disableTransitionOnChange={false}
           >
             <ConfirmDialogProvider>
+              <SystemMessageBanner />
               <GradientBackground />
               {children}
               <Toaster />

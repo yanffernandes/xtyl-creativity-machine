@@ -2,7 +2,7 @@
 
 **Feature Branch**: `018-admin-model-visibility`
 **Created**: 2025-12-03
-**Status**: Draft
+**Status**: Completed
 **Input**: User description: "Separar configuração de modelos visíveis no admin em duas listas (texto e imagem), exibir valores/preços dos modelos, armazenar localmente para evitar requests ao OpenRouter, e remover seção de 'Modelos Recomendados' das configurações do workspace."
 
 ## User Scenarios & Testing *(mandatory)*

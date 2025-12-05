@@ -10,6 +10,7 @@ import {
   Cpu,
   ArrowLeft,
   Shield,
+  MessageSquare,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -38,6 +39,12 @@ const adminNavItems = [
     href: '/admin/workspaces',
     icon: Building2,
     description: 'Manage workspaces',
+  },
+  {
+    label: 'Messages',
+    href: '/admin/messages',
+    icon: MessageSquare,
+    description: 'System announcements',
   },
   {
     label: 'Settings',

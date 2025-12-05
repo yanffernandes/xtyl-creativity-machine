@@ -40,7 +40,8 @@ class Workspace(Base):
     default_text_model = Column(String, nullable=True)
     default_vision_model = Column(String, nullable=True)
     attachment_analysis_model = Column(String, nullable=True)  # Model for analyzing attachments (PDFs, images)
-    available_models = Column(JSONB, nullable=True, default=list)
+    # NOTE: available_models was removed in migration 021 (Feature 018)
+    # Model visibility is now controlled globally via system_config table
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     users = relationship("WorkspaceUser", back_populates="workspace")
