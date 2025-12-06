@@ -44,12 +44,18 @@ async def validate_environment():
 
 # CORS Configuration (Feature 025 - Security Hardening)
 # Use explicit origin whitelist instead of wildcard for security
+# Configure ALLOWED_ORIGINS env var with comma-separated domains
 ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000").split(",")
 
 # Add development origins if in dev mode
 if os.getenv("ENVIRONMENT", "development") == "development":
     dev_origins = ["http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:8000"]
     ALLOWED_ORIGINS = list(set(ALLOWED_ORIGINS + dev_origins))
+
+# Clean up empty strings and whitespace
+ALLOWED_ORIGINS = [origin.strip() for origin in ALLOWED_ORIGINS if origin.strip()]
+
+logger.info(f"CORS allowed origins: {ALLOWED_ORIGINS}")
 
 app.add_middleware(
     CORSMiddleware,
