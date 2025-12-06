@@ -51,13 +51,35 @@ export interface DocumentWithAttachments extends Document {
   }[]
 }
 
+// Partial document for optimized list queries (only essential fields)
+export interface DocumentListItem {
+  id: string
+  title: string | null
+  document_type: string | null
+  status: string | null
+  media_type: string | null
+  created_at: string | null
+  updated_at: string | null
+  project_id?: string
+  is_reference_asset?: boolean
+  document_attachments?: {
+    id: string
+    attachment_type: string
+    visual_assets?: {
+      id: string
+      thumbnail_url: string | null
+      title: string | null
+    } | null
+  }[]
+}
+
 export const documentService = {
   /**
    * T021-T024: Optimized document list with JOINs
    * Fetches documents with attachments and visual assets in a single query
    * Replaces N+1 pattern with Supabase relation syntax
    */
-  async listByProjectOptimized(projectId: string): Promise<ServiceResult<DocumentWithAttachments[]>> {
+  async listByProjectOptimized(projectId: string): Promise<ServiceResult<DocumentListItem[]>> {
     try {
       // T022-T024: Single query with JOINs - specific fields only
       const { data, error } = await supabase
@@ -85,7 +107,7 @@ export const documentService = {
         .order('created_at', { ascending: false })
 
       if (error) throw error
-      return { data: data as DocumentWithAttachments[], error: null }
+      return { data: data as DocumentListItem[], error: null }
     } catch (error) {
       return { data: null, error: error as Error }
     }
@@ -95,7 +117,7 @@ export const documentService = {
    * T027: Batch fetch documents for multiple projects (sidebar optimization)
    * Single query for all projects instead of N queries
    */
-  async fetchAllProjectsDocuments(projectIds: string[]): Promise<ServiceResult<Record<string, DocumentWithAttachments[]>>> {
+  async fetchAllProjectsDocuments(projectIds: string[]): Promise<ServiceResult<Record<string, DocumentListItem[]>>> {
     try {
       if (projectIds.length === 0) {
         return { data: {}, error: null }
@@ -122,7 +144,7 @@ export const documentService = {
 
       // Group documents by project_id
       const grouped = groupBy(data || [], 'project_id' as keyof typeof data[0])
-      return { data: grouped as Record<string, DocumentWithAttachments[]>, error: null }
+      return { data: grouped as Record<string, DocumentListItem[]>, error: null }
     } catch (error) {
       return { data: null, error: error as Error }
     }
