@@ -7,6 +7,16 @@
  * Feature: 007-hybrid-supabase-architecture
  */
 
+// Template variable definition for dynamic forms
+export interface TemplateVariable {
+  key: string
+  label: string
+  type: 'text' | 'textarea' | 'select'
+  placeholder?: string
+  required?: boolean
+  options?: string[]  // For select type
+}
+
 export interface Database {
   public: {
     Tables: {
@@ -66,6 +76,7 @@ export interface Database {
           description: string | null
           workspace_id: string
           created_at: string
+          deleted_at: string | null  // Soft delete timestamp (Feature 020)
         }
         Insert: {
           id?: string
@@ -73,6 +84,7 @@ export interface Database {
           description?: string | null
           workspace_id: string
           created_at?: string
+          deleted_at?: string | null
         }
         Update: {
           id?: string
@@ -80,6 +92,7 @@ export interface Database {
           description?: string | null
           workspace_id?: string
           created_at?: string
+          deleted_at?: string | null
         }
       }
       documents: {
@@ -189,8 +202,13 @@ export interface Database {
           category: string
           icon: string | null
           prompt: string
+          variables: TemplateVariable[] | null
+          initial_message: string | null
+          expert_name: string | null
+          estimated_outputs: string | null
           is_system: boolean
           is_active: boolean
+          is_featured: boolean
           tags: string[] | null
           usage_count: number
           created_at: string
@@ -205,8 +223,13 @@ export interface Database {
           category: string
           icon?: string | null
           prompt: string
+          variables?: TemplateVariable[] | null
+          initial_message?: string | null
+          expert_name?: string | null
+          estimated_outputs?: string | null
           is_system?: boolean
           is_active?: boolean
+          is_featured?: boolean
           tags?: string[] | null
           usage_count?: number
           created_at?: string
@@ -221,8 +244,13 @@ export interface Database {
           category?: string
           icon?: string | null
           prompt?: string
+          variables?: TemplateVariable[] | null
+          initial_message?: string | null
+          expert_name?: string | null
+          estimated_outputs?: string | null
           is_system?: boolean
           is_active?: boolean
+          is_featured?: boolean
           tags?: string[] | null
           usage_count?: number
           created_at?: string
