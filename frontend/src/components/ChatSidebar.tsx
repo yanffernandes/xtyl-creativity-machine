@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useMemo } from "react"
+import { useTranslations } from "next-intl"
 import { useAuthStore } from "@/lib/store"
 import api from "@/lib/api"
 import { getModelsCache, setModelsCache, isModelsCacheStale, type CachedModel } from "@/lib/models-cache"
@@ -8,7 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Send, Bot, User as UserIcon, Settings, FileText, ChevronDown, ChevronUp, Trash2, Check, ChevronsUpDown, Paperclip, RotateCcw, Sparkles, Folder, Search, X, History, ExternalLink, Image, MoreVertical, Plus, Loader2, Mic, Square } from "lucide-react"
+import { Send, Bot, User as UserIcon, Settings, FileText, ChevronDown, ChevronUp, Trash2, Check, ChevronsUpDown, Paperclip, RotateCcw, Sparkles, Folder, Search, X, History, ExternalLink, Image, MoreVertical, Plus, Loader2, Mic, Square, Brain } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/components/ui/use-toast"
 import ReactMarkdown from "react-markdown"
@@ -43,6 +44,7 @@ import { TemplateSelector, TemplateForm } from "@/components/templates"
 import { startChatFromTemplate, transcribeAudio } from "@/lib/api"
 import { useVoiceRecording } from "@/hooks/useVoiceRecording"
 import { AnimatePresence } from "framer-motion"
+import { MemoryDrawer } from "@/components/memory/MemoryDrawer"
 
 // Generate a title from the first user message (truncate at ~50 chars on word boundary)
 function generateTitleFromMessage(content: string): string {
@@ -182,12 +184,18 @@ export default function ChatSidebar({
     const [visualContext, setVisualContext] = useState<VisualContextResponse | null>(null)
     const [showAdvancedVisualSettings, setShowAdvancedVisualSettings] = useState(false)
 
+    // Memory drawer state (Feature 024)
+    const [memoryDrawerOpen, setMemoryDrawerOpen] = useState(false)
+
     const messagesEndRef = useRef<HTMLDivElement>(null)
     const fileInputRef = useRef<HTMLInputElement>(null)
     const contextRef = useRef<HTMLDivElement>(null)
     const userSelectedModelRef = useRef(false) // Track if user manually selected a model
     const { token, isLoading: authLoading } = useAuthStore()
     const { toast } = useToast()
+    const t = useTranslations("chat")
+    const tCommon = useTranslations("common")
+    const tMemory = useTranslations("memory")
 
     // User preferences for autonomous mode
     const { preferences, updatePreference, isLoading: preferencesLoading } = useUserPreferences(token)
@@ -492,11 +500,16 @@ export default function ChatSidebar({
         )
     }
 
-    // Filter documents and folders by search query
-    const filteredDocuments = documents.filter(d =>
-        d.id !== currentDocument?.id &&
-        (!contextSearchQuery || d.title.toLowerCase().includes(contextSearchQuery.toLowerCase()))
-    )
+    // Filter documents and folders by search query, removing duplicates
+    const filteredDocuments = useMemo(() => {
+        const seen = new Set<string>()
+        return documents.filter(d => {
+            if (seen.has(d.id)) return false
+            seen.add(d.id)
+            return d.id !== currentDocument?.id &&
+                (!contextSearchQuery || d.title.toLowerCase().includes(contextSearchQuery.toLowerCase()))
+        })
+    }, [documents, currentDocument?.id, contextSearchQuery])
 
     const filteredFolders = folders.filter(f =>
         !contextSearchQuery || f.name.toLowerCase().includes(contextSearchQuery.toLowerCase())
@@ -1055,6 +1068,11 @@ export default function ChatSidebar({
                                     }
                                     break
 
+                                case 'memory_saved':
+                                    // Memory extraction now runs fully in background
+                                    // No action needed here - memories will be refreshed when user opens the panel
+                                    break
+
                                 case 'error':
                                     throw new Error(event.message)
                             }
@@ -1114,7 +1132,7 @@ export default function ChatSidebar({
             <div className="p-4 border-b border-white/[0.06] flex flex-col gap-4 bg-gradient-to-b from-white/[0.04] to-transparent">
                 <div className="flex justify-between items-center">
                     <h2 className="text-sm font-semibold flex items-center gap-2">
-                        <Bot className="h-4 w-4" /> Assistente IA
+                        <Bot className="h-4 w-4" /> {t("title")}
                     </h2>
                     <div className="flex items-center gap-1">
                         <Popover open={openModelSelect} onOpenChange={setOpenModelSelect}>
@@ -1129,29 +1147,29 @@ export default function ChatSidebar({
                                     <span className="truncate">
                                         {selectedModel
                                             ? models.find((model) => model.id === selectedModel)?.name || selectedModel.split('/').pop()
-                                            : "Modelo..."}
+                                            : t("model")}
                                     </span>
                                     <ChevronsUpDown className="ml-1 h-3 w-3 shrink-0 opacity-50" />
                                 </Button>
                             </PopoverTrigger>
                             <PopoverContent className="w-[220px] p-0" align="end">
                                 <Command>
-                                    <CommandInput placeholder="Buscar modelos..." />
+                                    <CommandInput placeholder={t("searchModels")} />
                                     <CommandList>
-                                        <CommandEmpty>Nenhum modelo encontrado.</CommandEmpty>
+                                        <CommandEmpty>{t("noModelsFound")}</CommandEmpty>
 
                                         {/* Loading state when models haven't loaded yet */}
                                         {models.length === 0 ? (
                                             <div className="py-6 text-center text-sm text-muted-foreground">
                                                 <Loader2 className="h-4 w-4 animate-spin mx-auto mb-2" />
-                                                Carregando modelos...
+                                                {t("loadingModels")}
                                             </div>
                                         ) : (
                                             <>
                                                 {/* Recommended Models (Available in Workspace) */}
                                                 {availableModels.length > 0 && (
                                                     <>
-                                                        <CommandGroup heading="Recomendados">
+                                                        <CommandGroup heading={t("recommended")}>
                                                             {models
                                                                 .filter(model => availableModels.includes(model.id))
                                                                 .map((model) => (
@@ -1179,7 +1197,7 @@ export default function ChatSidebar({
                                                 )}
 
                                                 {/* All Other Models */}
-                                                <CommandGroup heading={availableModels.length > 0 ? "Todos os Modelos" : undefined}>
+                                                <CommandGroup heading={availableModels.length > 0 ? t("allModels") : undefined}>
                                                     {models
                                                         .filter(model => !availableModels.includes(model.id))
                                                         .map((model) => (
@@ -1223,11 +1241,16 @@ export default function ChatSidebar({
                                 <DropdownMenuContent align="end">
                                     <DropdownMenuItem onClick={handleClearChat}>
                                         <Plus className="h-4 w-4 mr-2" />
-                                        Nova conversa
+                                        {t("newConversation")}
                                     </DropdownMenuItem>
                                     <DropdownMenuItem onClick={() => setShowConversationsList(true)}>
                                         <History className="h-4 w-4 mr-2" />
-                                        Histórico de conversas
+                                        {t("conversationHistory")}
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem onClick={() => setMemoryDrawerOpen(true)}>
+                                        <Brain className="h-4 w-4 mr-2" />
+                                        {t("memories")}
                                     </DropdownMenuItem>
                                 </DropdownMenuContent>
                             </DropdownMenu>
@@ -1237,10 +1260,10 @@ export default function ChatSidebar({
                 {/* Modo Autônomo Toggle */}
                 <div className="flex items-center justify-between px-1">
                     <div className="flex items-center gap-2">
-                        <span className="text-xs font-medium text-muted-foreground">Modo Autônomo</span>
+                        <span className="text-xs font-medium text-muted-foreground">{t("autonomousMode")}</span>
                         {preferences?.autonomous_mode && (
                             <Badge variant="secondary" className="text-[10px] h-4 px-1.5 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
-                                Ativo
+                                {t("active")}
                             </Badge>
                         )}
                     </div>
@@ -1282,7 +1305,7 @@ export default function ChatSidebar({
                                     id="useRag"
                                     className="rounded border-gray-300 text-primary focus:ring-primary"
                                 />
-                                <label htmlFor="useRag">Habilitar Contexto</label>
+                                <label htmlFor="useRag">{t("enableContext")}</label>
                             </div>
 
                             {useRag && (
@@ -1291,7 +1314,7 @@ export default function ChatSidebar({
                                     <div className="relative">
                                         <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
                                         <Input
-                                            placeholder="Buscar contextos..."
+                                            placeholder={t("searchContext")}
                                             value={contextSearchQuery}
                                             onChange={(e) => setContextSearchQuery(e.target.value)}
                                             className="h-7 text-xs pl-7 pr-7"
@@ -1313,14 +1336,14 @@ export default function ChatSidebar({
                                             <div className="flex items-center gap-2 text-xs p-1 bg-background rounded border border-primary/20">
                                                 <FileText className="h-3 w-3 text-primary" />
                                                 <span className="font-medium truncate flex-1">{currentDocument.title}</span>
-                                                <Badge variant="secondary" className="text-[10px] h-4 px-1">Atual</Badge>
+                                                <Badge variant="secondary" className="text-[10px] h-4 px-1">{t("currentDocument")}</Badge>
                                             </div>
                                         )}
 
                                         {/* Folders section */}
                                         {filteredFolders.length > 0 && (
                                             <>
-                                                <div className="text-[10px] text-muted-foreground mt-2 mb-1 px-1 font-medium">Pastas</div>
+                                                <div className="text-[10px] text-muted-foreground mt-2 mb-1 px-1 font-medium">{t("foldersSection")}</div>
                                                 {filteredFolders.map(folder => (
                                                     <div key={folder.id} className="flex items-center gap-2 text-xs px-1 hover:bg-muted/50 rounded">
                                                         <input
@@ -1340,7 +1363,7 @@ export default function ChatSidebar({
                                         )}
 
                                         {/* Documents section */}
-                                        <div className="text-[10px] text-muted-foreground mt-2 mb-1 px-1 font-medium">Documentos</div>
+                                        <div className="text-[10px] text-muted-foreground mt-2 mb-1 px-1 font-medium">{t("documentsSection")}</div>
                                         {filteredDocuments.map(doc => (
                                             <div key={doc.id} className="flex items-center gap-2 text-xs px-1 hover:bg-muted/50 rounded">
                                                 <input
@@ -1358,7 +1381,7 @@ export default function ChatSidebar({
                                         ))}
                                         {filteredDocuments.length === 0 && filteredFolders.length === 0 && !currentDocument && (
                                             <div className="text-xs text-muted-foreground px-1 italic">
-                                                {contextSearchQuery ? "Nenhum resultado encontrado" : "Nenhum contexto disponível"}
+                                                {contextSearchQuery ? t("noResultsFound") : t("noContextAvailable")}
                                             </div>
                                         )}
                                     </div>
@@ -1445,7 +1468,7 @@ export default function ChatSidebar({
                                         className="h-6 text-xs px-2"
                                         onClick={() => onAiSuggestion(msg.content)}
                                     >
-                                        Sugerir Edição
+                                        {t("suggestEdit")}
                                     </Button>
                                 </div>
                             )}
@@ -1467,8 +1490,8 @@ export default function ChatSidebar({
                                 </div>
                                 <span className="text-blue-700 dark:text-blue-300">
                                     {streamingStatus?.tool
-                                        ? `Executando: ${streamingStatus.tool}`
-                                        : streamingStatus?.status || "Gerando resposta..."}
+                                        ? `${t("executing")} ${streamingStatus.tool}`
+                                        : streamingStatus?.status || t("generatingResponse")}
                                 </span>
                                 {/* Iteration counter */}
                                 {iterationInfo && (
@@ -1544,7 +1567,7 @@ export default function ChatSidebar({
                                             <div className="flex items-center justify-center h-4 w-4 bg-green-600/10 rounded-full">
                                                 <Check className="h-2.5 w-2.5" />
                                             </div>
-                                            <span>Concluído</span>
+                                            <span>{t("completed")}</span>
                                         </div>
                                     )}
                                 </div>
@@ -1565,12 +1588,12 @@ export default function ChatSidebar({
                             <CardHeader className="pb-3">
                                 <CardTitle className="text-sm flex items-center gap-2">
                                     <Bot className="h-4 w-4 text-amber-600" />
-                                    Aprovação Necessária
+                                    {t("approvalRequired")}
                                 </CardTitle>
                             </CardHeader>
                             <CardContent className="space-y-3">
                                 <div className="text-sm">
-                                    <p className="font-medium mb-2">A IA quer executar a seguinte ação:</p>
+                                    <p className="font-medium mb-2">{t("aiWantsToExecute")}</p>
                                     <div className="flex items-center gap-2 bg-background/60 px-3 py-2 rounded border">
                                         <FileText className="h-4 w-4 text-amber-600" />
                                         <span className="font-mono font-medium">{pendingApproval.tool}</span>
@@ -1586,9 +1609,9 @@ export default function ChatSidebar({
                                     <div className="text-xs">
                                         {pendingApproval.tool === 'edit_document' && pendingApproval.args.content ? (
                                             <>
-                                                <p className="text-muted-foreground mb-1">Documento: <span className="font-medium">{pendingApproval.args.title || 'Sem título'}</span></p>
+                                                <p className="text-muted-foreground mb-1">{t("documentLabel")} <span className="font-medium">{pendingApproval.args.title || 'Sem título'}</span></p>
                                                 <div className="bg-background/40 p-3 rounded border max-h-40 overflow-y-auto">
-                                                    <p className="text-muted-foreground mb-1 text-[10px]">Novo conteúdo:</p>
+                                                    <p className="text-muted-foreground mb-1 text-[10px]">{t("newContent")}</p>
                                                     <div className="prose prose-xs dark:prose-invert max-w-none">
                                                         {pendingApproval.args.content.substring(0, 300)}
                                                         {pendingApproval.args.content.length > 300 && '...'}
@@ -1597,7 +1620,7 @@ export default function ChatSidebar({
                                             </>
                                         ) : (
                                             <>
-                                                <p className="text-muted-foreground mb-1">Parâmetros:</p>
+                                                <p className="text-muted-foreground mb-1">{t("parameters")}</p>
                                                 <div className="font-mono bg-background/40 p-2 rounded border text-[10px] max-h-20 overflow-y-auto">
                                                     <pre className="whitespace-pre-wrap">{JSON.stringify(pendingApproval.args, null, 2)}</pre>
                                                 </div>
@@ -1614,7 +1637,7 @@ export default function ChatSidebar({
                                         className="flex-1 bg-green-600 hover:bg-green-700"
                                     >
                                         <Check className="h-4 w-4 mr-1" />
-                                        Aprovar
+                                        {t("approve")}
                                     </Button>
                                     <Button
                                         size="sm"
@@ -1623,7 +1646,7 @@ export default function ChatSidebar({
                                         className="flex-1"
                                     >
                                         <Trash2 className="h-4 w-4 mr-1" />
-                                        Recusar
+                                        {t("reject")}
                                     </Button>
                                 </div>
                             </CardContent>
@@ -1635,7 +1658,7 @@ export default function ChatSidebar({
                 {createdDocuments.length > 0 && !isLoading && (
                     <div className="flex flex-col gap-2 px-2">
                         <div className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">
-                            Documentos criados nesta conversa
+                            {t("createdDocuments")}
                         </div>
                         {createdDocuments.map((doc, index) => (
                             <motion.div
@@ -1652,7 +1675,7 @@ export default function ChatSidebar({
                                 )}
                                 <div className="flex flex-col min-w-0 flex-1">
                                     <span className="text-[10px] text-muted-foreground">
-                                        {doc.type === "image" ? "Imagem criada" : "Documento criado"}
+                                        {doc.type === "image" ? t("imageCreated") : t("documentCreated")}
                                     </span>
                                     <span className="text-xs font-medium truncate">
                                         {doc.title}
@@ -1666,7 +1689,7 @@ export default function ChatSidebar({
                                         className="gap-1 h-6 text-[10px] px-2"
                                     >
                                         <ExternalLink className="h-3 w-3" />
-                                        Ver
+                                        {t("view")}
                                     </Button>
                                 )}
                             </motion.div>
@@ -1723,7 +1746,7 @@ export default function ChatSidebar({
                                     handleSend(e as any)
                                 }
                             }}
-                            placeholder="Pergunte qualquer coisa..."
+                            placeholder={t("placeholder")}
                             disabled={isLoading}
                             className="min-h-[60px] max-h-[200px] resize-none w-full border-0 bg-transparent px-4 py-3 text-sm focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-0 focus-visible:bg-transparent hover:border-0 hover:bg-transparent transition-none"
                             rows={2}
@@ -1738,7 +1761,7 @@ export default function ChatSidebar({
                                 variant="ghost"
                                 onClick={() => setShowTemplateSelector(true)}
                                 disabled={isLoading}
-                                title="Usar template"
+                                title={t("useTemplate")}
                                 className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-white/[0.06]"
                             >
                                 <Sparkles className="h-4 w-4" />
@@ -1750,7 +1773,7 @@ export default function ChatSidebar({
                                 variant="ghost"
                                 onClick={handleAttachmentClick}
                                 disabled={isLoading || uploadingAttachment}
-                                title="Anexar arquivo"
+                                title={t("attachFile")}
                                 className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-white/[0.06]"
                             >
                                 <Paperclip className={cn("h-4 w-4", uploadingAttachment && "animate-spin")} />
@@ -1772,7 +1795,7 @@ export default function ChatSidebar({
                                                 size="icon"
                                                 variant="ghost"
                                                 onClick={handleVoiceInput}
-                                                title="Parar gravação"
+                                                title={t("stopRecording")}
                                                 className="h-8 w-8 text-red-500 hover:text-red-400 hover:bg-red-500/10"
                                             >
                                                 <Square className="h-4 w-4" />
@@ -1816,7 +1839,7 @@ export default function ChatSidebar({
                                                 variant="ghost"
                                                 onClick={handleVoiceInput}
                                                 disabled={isLoading}
-                                                title="Gravar áudio"
+                                                title={t("recordAudio")}
                                                 className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-white/[0.06]"
                                             >
                                                 <Mic className="h-4 w-4" />
@@ -1836,7 +1859,7 @@ export default function ChatSidebar({
                                 className="h-8 px-3 gap-1.5 bg-primary/90 hover:bg-primary"
                             >
                                 <Send className="h-3.5 w-3.5" />
-                                <span className="text-xs">Enviar</span>
+                                <span className="text-xs">{t("send")}</span>
                             </Button>
                         </div>
                     </div>
@@ -1861,6 +1884,15 @@ export default function ChatSidebar({
                 onBack={handleTemplateFormBack}
                 isSubmitting={isStartingFromTemplate}
             />
+
+            {/* Memory Drawer (Feature 024) */}
+            {projectId && (
+                <MemoryDrawer
+                    open={memoryDrawerOpen}
+                    onOpenChange={setMemoryDrawerOpen}
+                    projectId={projectId}
+                />
+            )}
         </div >
     )
 }

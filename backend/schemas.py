@@ -783,6 +783,7 @@ class AssetCategory(str, Enum):
     PESSOA = "Pessoa"
     BACKGROUND = "Background"
     PRODUTO = "Produto"
+    REFERENCIA = "Referência"
     OUTRO = "Outro"
 
 
@@ -1399,3 +1400,98 @@ class TranscriptionError(BaseModel):
     """Error response for transcription failures"""
     error: str  # Error type identifier
     message: str  # Human-readable error message in Portuguese
+
+
+# ============================================================================
+# USER MEMORY SYSTEM SCHEMAS (Feature 024)
+# ============================================================================
+
+from typing import Literal
+
+MemoryCategory = Literal['personal', 'professional', 'preference', 'plan', 'health', 'other']
+
+
+class MemoryBase(BaseModel):
+    """Base memory schema"""
+    content: str = Field(..., min_length=1, max_length=2000)
+    category: MemoryCategory = "other"
+
+
+class MemoryCreate(MemoryBase):
+    """Schema for creating a memory manually"""
+    pass
+
+
+class MemoryUpdate(BaseModel):
+    """Schema for updating a memory"""
+    content: Optional[str] = Field(None, min_length=1, max_length=2000)
+    category: Optional[MemoryCategory] = None
+
+
+class MemoryResponse(MemoryBase):
+    """Schema for memory response"""
+    id: Union[str, UUID]
+    user_id: Union[str, UUID]
+    project_id: str
+    source_conversation_id: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+
+    @field_serializer('id', 'user_id')
+    def serialize_uuid(self, v):
+        """Convert UUID to string for JSON serialization"""
+        return str(v) if isinstance(v, UUID) else v
+
+    class Config:
+        from_attributes = True
+
+
+class MemoryListResponse(BaseModel):
+    """Schema for listing memories with pagination"""
+    memories: List[MemoryResponse]
+    total: int
+    page: int
+    per_page: int
+
+
+class MemorySearchRequest(BaseModel):
+    """Schema for searching memories"""
+    query: str = Field(..., min_length=1)
+    limit: int = Field(5, ge=1, le=20)
+    category: Optional[MemoryCategory] = None
+
+
+class MemorySearchResponse(BaseModel):
+    """Schema for search results"""
+    memories: List[MemoryResponse]
+    query: str
+
+
+class DeleteAllMemoriesResponse(BaseModel):
+    """Schema for delete all memories response"""
+    deleted_count: int
+
+
+# Internal schemas for extraction/update process
+class ExtractedFact(BaseModel):
+    """A single extracted fact from conversation"""
+    content: str
+    category: MemoryCategory = "other"
+
+
+class FactExtractionResult(BaseModel):
+    """Result from fact extraction LLM"""
+    facts: List[str]
+
+
+class MemoryOperation(BaseModel):
+    """Single memory operation from update LLM"""
+    id: str
+    text: str
+    event: Literal["ADD", "UPDATE", "DELETE", "NONE"]
+    old_memory: Optional[str] = None
+
+
+class MemoryUpdateResult(BaseModel):
+    """Result from memory update LLM"""
+    memory: List[MemoryOperation]

@@ -161,7 +161,7 @@ export async function extractColorsFromAsset(projectId: string, assetId: string)
 // ============================================================================
 
 // Asset Categories
-export type AssetCategory = 'Logo' | 'Pessoa' | 'Background' | 'Produto' | 'Outro';
+export type AssetCategory = 'Logo' | 'Pessoa' | 'Background' | 'Produto' | 'Referência' | 'Outro';
 export type VisualContextMode = 'manual' | 'auto';
 
 // Visual Asset Types
@@ -502,6 +502,93 @@ export async function transcribeAudio(
         }
     });
 
+    return response.data;
+}
+
+// ============================================================================
+// User Memory API (Feature 024 - User Memory System)
+// ============================================================================
+
+import { UserMemory, MemoryCategory, MemoryListResponse, MemorySearchResponse } from '@/types/memory';
+
+export interface CreateMemoryRequest {
+    content: string;
+    category?: MemoryCategory;
+}
+
+export interface UpdateMemoryRequest {
+    content?: string;
+    category?: MemoryCategory;
+}
+
+export interface SearchMemoriesRequest {
+    query: string;
+    limit?: number;
+    category?: MemoryCategory;
+}
+
+/**
+ * Get all memories for a project (paginated)
+ */
+export async function getMemories(
+    projectId: string,
+    params?: { limit?: number; offset?: number; category?: MemoryCategory }
+): Promise<MemoryListResponse> {
+    const response = await api.get(`/projects/${projectId}/memories`, { params });
+    return response.data;
+}
+
+/**
+ * Get a single memory by ID
+ */
+export async function getMemory(projectId: string, memoryId: string): Promise<UserMemory> {
+    const response = await api.get(`/projects/${projectId}/memories/${memoryId}`);
+    return response.data;
+}
+
+/**
+ * Create a new memory (manual)
+ */
+export async function createMemory(projectId: string, data: CreateMemoryRequest): Promise<UserMemory> {
+    const response = await api.post(`/projects/${projectId}/memories`, data);
+    return response.data;
+}
+
+/**
+ * Update an existing memory
+ */
+export async function updateMemory(
+    projectId: string,
+    memoryId: string,
+    data: UpdateMemoryRequest
+): Promise<UserMemory> {
+    const response = await api.put(`/projects/${projectId}/memories/${memoryId}`, data);
+    return response.data;
+}
+
+/**
+ * Delete a single memory
+ */
+export async function deleteMemory(projectId: string, memoryId: string): Promise<void> {
+    await api.delete(`/projects/${projectId}/memories/${memoryId}`);
+}
+
+/**
+ * Delete all memories for a project
+ */
+export async function deleteAllMemories(projectId: string): Promise<{ deleted_count: number }> {
+    const response = await api.delete(`/projects/${projectId}/memories`);
+    return response.data;
+}
+
+/**
+ * Search memories using semantic similarity
+ */
+export async function searchMemories(
+    projectId: string,
+    data: SearchMemoriesRequest
+): Promise<MemorySearchResponse> {
+    const response = await api.post(`/projects/${projectId}/memories/search`, data);
     return response.data;
 }
 
