@@ -148,6 +148,10 @@ class MemoryService:
         Returns:
             Created UserMemory or None if duplicate or error
         """
+        # Ensure user_id is a proper UUID object
+        if isinstance(user_id, str):
+            user_id = UUID(user_id)
+
         # Check if memory system is enabled
         if not self._is_memory_system_enabled():
             logger.info("Memory system is disabled")
@@ -213,6 +217,12 @@ class MemoryService:
         Returns:
             UserMemory or None if not found
         """
+        # Ensure UUIDs are proper objects
+        if isinstance(memory_id, str):
+            memory_id = UUID(memory_id)
+        if isinstance(user_id, str):
+            user_id = UUID(user_id)
+
         return (
             self.db.query(UserMemory)
             .filter(UserMemory.id == memory_id, UserMemory.user_id == user_id)
@@ -240,13 +250,9 @@ class MemoryService:
         Returns:
             Tuple of (memories list, total count)
         """
-        # Debug: check what's in the database
-        all_memories = self.db.query(UserMemory).filter(
-            UserMemory.project_id == project_id
-        ).all()
-        logger.debug(f"[MEMORY_SERVICE] All memories in project {project_id}: {len(all_memories)}")
-        for m in all_memories[:5]:
-            logger.debug(f"  - Memory user_id={m.user_id} (type={type(m.user_id)}), looking for {user_id} (type={type(user_id)})")
+        # Ensure user_id is a proper UUID object for comparison
+        if isinstance(user_id, str):
+            user_id = UUID(user_id)
 
         query = self.db.query(UserMemory).filter(
             UserMemory.user_id == user_id,
@@ -339,6 +345,10 @@ class MemoryService:
         Returns:
             Number of memories deleted
         """
+        # Ensure user_id is a proper UUID object
+        if isinstance(user_id, str):
+            user_id = UUID(user_id)
+
         result = (
             self.db.query(UserMemory)
             .filter(UserMemory.user_id == user_id, UserMemory.project_id == project_id)
@@ -370,6 +380,10 @@ class MemoryService:
         Returns:
             List of similar memories ordered by relevance
         """
+        # Ensure user_id is a proper UUID object
+        if isinstance(user_id, str):
+            user_id = UUID(user_id)
+
         # Generate embedding for query
         query_embedding = await self._generate_embedding(query)
         if not query_embedding:
@@ -471,6 +485,10 @@ class MemoryService:
         Returns:
             Dict with statistics
         """
+        # Ensure user_id is a proper UUID object if provided
+        if user_id and isinstance(user_id, str):
+            user_id = UUID(user_id)
+
         query = self.db.query(UserMemory)
         if user_id:
             query = query.filter(UserMemory.user_id == user_id)
