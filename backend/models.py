@@ -85,6 +85,7 @@ class Project(Base):
     workspace_id = Column(String, ForeignKey("workspaces.id"))
     settings = Column(JSONB, default=dict)  # Project settings for AI context
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    deleted_at = Column(DateTime(timezone=True), nullable=True)  # Soft delete timestamp (Feature 020)
 
     workspace = relationship("Workspace", back_populates="projects")
     documents = relationship("Document", back_populates="project")
@@ -205,6 +206,10 @@ class AIUsageLog(Base):
 
 
 class Template(Base):
+    """
+    Chat templates for AI assistant - quick recipes that start conversations
+    with specialized prompts and variable inputs.
+    """
     __tablename__ = "templates"
 
     id = Column(String, primary_key=True, default=generate_uuid)
@@ -214,15 +219,27 @@ class Template(Base):
     # Template details
     name = Column(String, nullable=False, index=True)
     description = Column(Text, nullable=True)
-    category = Column(String, nullable=False, index=True)  # 'ads', 'landing_page', 'email', 'social_media', 'seo', 'creative'
+    category = Column(String, nullable=False, index=True)  # 'trafego_pago', 'social_media', 'email', 'copy', 'seo', 'criativo'
     icon = Column(String, nullable=True)  # Emoji or icon name
 
-    # The actual prompt
+    # The actual prompt (system message injected into conversation)
     prompt = Column(Text, nullable=False)
+
+    # Variables for the form (JSONB array of variable definitions)
+    # Each: {key, label, type, placeholder, required, options?, default?}
+    variables = Column(JSONB, nullable=True, default=list)
+
+    # Optional initial user message (visible to user)
+    initial_message = Column(Text, nullable=True)
+
+    # Metadata for display
+    expert_name = Column(String, nullable=True)  # "Framework AIDA", "Alex Hormozi"
+    estimated_outputs = Column(String, nullable=True)  # "5 headlines + 3 textos"
 
     # Configuration
     is_system = Column(Boolean, default=False, index=True)  # System templates vs user-created
     is_active = Column(Boolean, default=True)
+    is_featured = Column(Boolean, default=False, index=True)  # Show in highlights
     tags = Column(JSONB, nullable=True)  # Array of tag strings
 
     # Usage stats
@@ -266,6 +283,7 @@ class WorkflowTemplate(Base):
     # Timestamps
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    deleted_at = Column(DateTime(timezone=True), nullable=True)  # Soft delete timestamp (Feature 020)
 
     # Relationships
     workspace = relationship("Workspace")
@@ -301,6 +319,7 @@ class WorkflowExecution(Base):
     started_at = Column(DateTime(timezone=True), nullable=True)
     completed_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    deleted_at = Column(DateTime(timezone=True), nullable=True)  # Soft delete timestamp (Feature 020)
 
     # Relationships
     template = relationship("WorkflowTemplate", back_populates="executions")
@@ -370,7 +389,7 @@ class UserPreferences(Base):
     id = Column(String, primary_key=True, default=generate_uuid)
     user_id = Column(String, ForeignKey("users.id"), unique=True, nullable=False, index=True)
     autonomous_mode = Column(Boolean, default=False, nullable=False)
-    max_iterations = Column(Integer, default=15, nullable=False)
+    max_iterations = Column(Integer, default=25, nullable=False)  # Changed from 15 to 25 (Feature 023)
     default_model = Column(String(100), nullable=True)
     use_rag_by_default = Column(Boolean, default=True, nullable=False)
     settings = Column(JSONB, default=dict, nullable=False)

@@ -676,7 +676,7 @@ class ExecutionControlResponse(BaseModel):
 
 class UserPreferencesBase(BaseModel):
     autonomous_mode: bool = False
-    max_iterations: int = Field(default=15, ge=1, le=50)
+    max_iterations: int = Field(default=25, ge=1, le=50)  # Changed from 15 to 25 (Feature 023)
     default_model: Optional[str] = None
     use_rag_by_default: bool = True
     settings: Optional[Dict[str, Any]] = {}

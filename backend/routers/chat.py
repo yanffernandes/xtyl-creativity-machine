@@ -52,6 +52,11 @@ def _get_tool_description(tool_name: str, args: dict) -> str:
         "rename_document": lambda a: f"Renomear documento para: {a.get('new_title', 'novo nome')}",
         "rename_folder": lambda a: f"Renomear pasta para: {a.get('new_name', 'novo nome')}",
         "get_folder_contents": lambda a: f"Listar conteúdo da pasta",
+        # Image Analysis & Refinement Tools (Feature 023)
+        "list_document_images": lambda a: "Listar imagens do documento",
+        "analyze_image": lambda a: f"Analisar imagem: {a.get('image_id', 'imagem')[:20] if a.get('image_id') else 'imagem'}",
+        "analyze_document_images": lambda a: "Analisar todas as imagens do documento",
+        "refine_image": lambda a: f"Refinar imagem: {a.get('instructions', '')[:30] if a.get('instructions') else 'refinamento'}",
     }
 
     if tool_name in descriptions:
@@ -66,6 +71,9 @@ running_tool_tasks: Dict[str, asyncio.Task] = {}
 # Timeout configuration (seconds)
 TOOL_TIMEOUTS = {
     "generate_image": 120.0,
+    "refine_image": 180.0,  # Vision analysis + image generation
+    "analyze_image": 90.0,  # Vision API can be slow
+    "analyze_document_images": 180.0,  # Multiple image analyses
     "default": 60.0
 }
 
@@ -460,6 +468,32 @@ IMPORTANT: When working with this document:
 - NEVER add markdown image syntax to the document content manually
 """)
 
+        # Add attached images context for the current document
+        from models import DocumentAttachment, Document as DBDocument
+        attachments = db.query(DocumentAttachment, DBDocument).join(
+            DBDocument, DocumentAttachment.image_id == DBDocument.id
+        ).filter(
+            DocumentAttachment.document_id == request.current_document.id,
+            DBDocument.deleted_at == None
+        ).order_by(DocumentAttachment.attachment_order).all()
+
+        if attachments:
+            images_info = []
+            for idx, (att, img) in enumerate(attachments):
+                primary_marker = " [PRINCIPAL]" if att.is_primary else ""
+                images_info.append(f"  {idx + 1}. \"{img.title}\" (ID: {img.id}){primary_marker}")
+
+            system_parts.append(f"""
+Attached Images ({len(attachments)} images):
+{chr(10).join(images_info)}
+
+To work with these images:
+- Use list_document_images tool to get full details including URLs
+- Use analyze_image tool with the image ID to analyze a specific image
+- Use analyze_document_images tool to analyze all attached images at once
+- Use refine_image tool to create a modified version of an image
+""")
+
     # Add selected documents context if available
     if request.use_rag and (request.document_ids or request.folder_ids):
         from models import Document as DBDocument
@@ -692,7 +726,7 @@ async def generate_chat_completion_stream(
 
     # Read max_iterations from user preferences (must be done before session closes)
     user_prefs = get_user_preferences(db, user_id)
-    max_iterations = user_prefs.max_iterations if user_prefs else 15
+    max_iterations = user_prefs.max_iterations if user_prefs else 25  # Default 25 (Feature 023)
 
     async def event_generator():
         try:
@@ -799,6 +833,32 @@ IMPORTANT: When working with this document:
 - To edit text: use edit_document tool with document_id="{request.current_document.id}"
 - To generate and attach images: use generate_image tool with attach_to_document_id="{request.current_document.id}"
 - NEVER add markdown image syntax to the document content manually
+""")
+
+                # Add attached images context for the current document
+                from models import DocumentAttachment, Document as DBDocument
+                attachments = db.query(DocumentAttachment, DBDocument).join(
+                    DBDocument, DocumentAttachment.image_id == DBDocument.id
+                ).filter(
+                    DocumentAttachment.document_id == request.current_document.id,
+                    DBDocument.deleted_at == None
+                ).order_by(DocumentAttachment.attachment_order).all()
+
+                if attachments:
+                    images_info = []
+                    for idx, (att, img) in enumerate(attachments):
+                        primary_marker = " [PRINCIPAL]" if att.is_primary else ""
+                        images_info.append(f"  {idx + 1}. \"{img.title}\" (ID: {img.id}){primary_marker}")
+
+                    system_parts.append(f"""
+Attached Images ({len(attachments)} images):
+{chr(10).join(images_info)}
+
+To work with these images:
+- Use list_document_images tool to get full details including URLs
+- Use analyze_image tool with the image ID to analyze a specific image
+- Use analyze_document_images tool to analyze all attached images at once
+- Use refine_image tool to create a modified version of an image
 """)
 
             # Add selected documents context

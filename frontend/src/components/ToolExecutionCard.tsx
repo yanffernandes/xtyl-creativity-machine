@@ -21,7 +21,11 @@ import {
     Globe,
     Pencil,
     FolderOpen,
-    StopCircle
+    StopCircle,
+    Image,
+    Eye,
+    Sparkles,
+    Images
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -53,7 +57,14 @@ const TOOL_ICONS: Record<string, any> = {
     web_search: Globe,
     rename_document: Pencil,
     rename_folder: Pencil,
-    get_folder_contents: FolderOpen
+    get_folder_contents: FolderOpen,
+    generate_image: Image,
+    attach_image_to_document: Image,
+    // Image Analysis & Refinement Tools (Feature 023)
+    list_document_images: Images,
+    analyze_image: Eye,
+    analyze_document_images: Eye,
+    refine_image: Sparkles
 }
 
 // Map tool names to friendly labels
@@ -72,8 +83,24 @@ const TOOL_LABELS: Record<string, string> = {
     web_search: "Buscar na Web",
     rename_document: "Renomear Documento",
     rename_folder: "Renomear Pasta",
-    get_folder_contents: "Listar Conteúdo da Pasta"
+    get_folder_contents: "Listar Conteúdo da Pasta",
+    generate_image: "Gerar Imagem",
+    attach_image_to_document: "Anexar Imagem",
+    // Image Analysis & Refinement Tools (Feature 023)
+    list_document_images: "Listar Imagens do Documento",
+    analyze_image: "Analisar Imagem",
+    analyze_document_images: "Analisar Imagens do Documento",
+    refine_image: "Refinar Imagem"
 }
+
+// Tools that can display thumbnail previews
+const IMAGE_RESULT_TOOLS = [
+    'list_document_images',
+    'analyze_image',
+    'analyze_document_images',
+    'refine_image',
+    'generate_image'
+]
 
 export default function ToolExecutionCard({
     id,
@@ -138,6 +165,65 @@ export default function ToolExecutionCard({
     const copyToClipboard = (text: string) => {
         navigator.clipboard.writeText(text)
     }
+
+    // Extract thumbnails from image tool results
+    const extractImagePreviews = (result: any): { url: string; title?: string }[] => {
+        if (!result || typeof result !== 'object') return []
+
+        const previews: { url: string; title?: string }[] = []
+
+        // list_document_images: result.images[]
+        if (result.images && Array.isArray(result.images)) {
+            result.images.forEach((img: any) => {
+                if (img.thumbnail_url || img.file_url) {
+                    previews.push({
+                        url: img.thumbnail_url || img.file_url,
+                        title: img.title
+                    })
+                }
+            })
+        }
+
+        // analyze_image / refine_image: result.thumbnail_url
+        if (result.thumbnail_url) {
+            previews.push({
+                url: result.thumbnail_url,
+                title: result.image_title || result.title
+            })
+        }
+
+        // refine_image: result.refined_thumbnail_url
+        if (result.refined_thumbnail_url) {
+            previews.push({
+                url: result.refined_thumbnail_url,
+                title: 'Imagem Refinada'
+            })
+        }
+
+        // analyze_document_images: result.analyses[]
+        if (result.analyses && Array.isArray(result.analyses)) {
+            result.analyses.forEach((analysis: any) => {
+                if (analysis.thumbnail_url) {
+                    previews.push({
+                        url: analysis.thumbnail_url,
+                        title: analysis.title || analysis.image_title
+                    })
+                }
+            })
+        }
+
+        // generate_image: result.image_url
+        if (result.image_url && !result.thumbnail_url) {
+            previews.push({
+                url: result.image_url,
+                title: result.title
+            })
+        }
+
+        return previews
+    }
+
+    const imagePreviews = IMAGE_RESULT_TOOLS.includes(tool) ? extractImagePreviews(result) : []
 
     return (
         <Card className={cn(
@@ -278,6 +364,31 @@ export default function ToolExecutionCard({
                                         Copiar
                                     </Button>
                                 </div>
+                                {/* Image Thumbnails */}
+                                {imagePreviews.length > 0 && (
+                                    <div className="flex flex-wrap gap-2 mb-2">
+                                        {imagePreviews.slice(0, 6).map((preview, idx) => (
+                                            <div key={idx} className="relative group">
+                                                <img
+                                                    src={preview.url}
+                                                    alt={preview.title || `Imagem ${idx + 1}`}
+                                                    className="w-16 h-16 object-cover rounded border border-border hover:border-primary transition-colors cursor-pointer"
+                                                    onClick={() => window.open(preview.url, '_blank')}
+                                                />
+                                                {preview.title && (
+                                                    <div className="absolute inset-x-0 bottom-0 bg-black/60 text-white text-[8px] px-1 py-0.5 truncate rounded-b opacity-0 group-hover:opacity-100 transition-opacity">
+                                                        {preview.title}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ))}
+                                        {imagePreviews.length > 6 && (
+                                            <div className="w-16 h-16 flex items-center justify-center bg-muted rounded border text-xs text-muted-foreground">
+                                                +{imagePreviews.length - 6}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
                                 <div className="text-xs bg-green-50 dark:bg-green-950/20 p-2 rounded border border-green-200 dark:border-green-800">
                                     {typeof result === "string" ? (
                                         <p className="whitespace-pre-wrap">{result}</p>

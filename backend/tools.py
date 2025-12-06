@@ -868,6 +868,312 @@ def attach_image_to_document_tool(
         return {"error": f"Failed to attach image: {str(e)}"}
 
 
+# ============================================
+# Image Analysis & Refinement Tools (Feature 023)
+# ============================================
+
+def list_document_images_tool(
+    db: Session,
+    document_id: str
+) -> Dict[str, Any]:
+    """
+    List all images attached to a document.
+    Returns image IDs, titles, URLs, and positions.
+    """
+    from models import DocumentAttachment
+
+    try:
+        # Verify document exists
+        doc = db.query(Document).filter(
+            Document.id == document_id,
+            Document.deleted_at.is_(None)
+        ).first()
+
+        if not doc:
+            return {"error": "Documento não encontrado"}
+
+        # Get attachments with image details
+        attachments = db.query(DocumentAttachment, Document).join(
+            Document, DocumentAttachment.image_id == Document.id
+        ).filter(
+            DocumentAttachment.document_id == document_id,
+            Document.deleted_at.is_(None)
+        ).order_by(DocumentAttachment.attachment_order).all()
+
+        images = [
+            {
+                "position": idx + 1,
+                "image_id": img.id,
+                "title": img.title,
+                "file_url": img.file_url,
+                "thumbnail_url": img.thumbnail_url,
+                "is_primary": att.is_primary,
+                "created_at": str(img.created_at) if img.created_at else None
+            }
+            for idx, (att, img) in enumerate(attachments)
+        ]
+
+        return {
+            "images": images,
+            "count": len(images),
+            "document_id": document_id,
+            "document_title": doc.title
+        }
+    except Exception as e:
+        return {"error": f"Failed to list document images: {str(e)}"}
+
+
+async def analyze_image_tool(
+    db: Session,
+    image_id: str,
+    prompt: Optional[str] = None
+) -> Dict[str, Any]:
+    """
+    Analyze an image using vision AI.
+    Returns detailed description of visual elements, text, colors, and composition.
+    """
+    import time
+    from vision_service import vision_service
+
+    start_time = time.time()
+
+    try:
+        # Get image document
+        image = db.query(Document).filter(
+            Document.id == image_id,
+            Document.media_type == "image",
+            Document.deleted_at.is_(None)
+        ).first()
+
+        if not image:
+            return {"error": "Imagem não encontrada"}
+
+        if not image.file_url:
+            return {"error": "URL da imagem não disponível"}
+
+        # Default prompt for comprehensive analysis
+        analysis_prompt = prompt or """Analise esta imagem em detalhes. Forneça:
+1. Descrição geral dos elementos visuais
+2. Texto visível (transcreva exatamente o que está escrito)
+3. Cores predominantes (em formato hex se possível)
+4. Composição e layout
+5. Sugestões de melhoria (se aplicável)"""
+
+        result = await vision_service.analyze_image_from_url(
+            image.file_url,
+            analysis_prompt
+        )
+
+        processing_time = int((time.time() - start_time) * 1000)
+
+        if not result.get("success"):
+            return {"error": result.get("error", "Falha na análise da imagem")}
+
+        return {
+            "image_id": image_id,
+            "image_title": image.title,
+            "thumbnail_url": image.thumbnail_url,
+            "analysis": result.get("analysis", ""),
+            "model_used": result.get("model", "unknown"),
+            "processing_time_ms": processing_time
+        }
+    except Exception as e:
+        return {"error": f"Falha na análise: {str(e)}"}
+
+
+async def analyze_document_images_tool(
+    db: Session,
+    document_id: str,
+    prompt: Optional[str] = None
+) -> Dict[str, Any]:
+    """
+    Analyze all images attached to a document.
+    Returns analysis for each image.
+    """
+    import time
+
+    start_time = time.time()
+
+    try:
+        # First, list images
+        images_result = list_document_images_tool(db, document_id)
+
+        if "error" in images_result:
+            return images_result
+
+        if images_result["count"] == 0:
+            return {
+                "error": "Este documento não possui imagens anexadas",
+                "document_id": document_id
+            }
+
+        # Analyze each image
+        analyses = []
+        for img in images_result["images"]:
+            analysis = await analyze_image_tool(db, img["image_id"], prompt)
+            analyses.append({
+                "position": img["position"],
+                "image_id": img["image_id"],
+                "title": img["title"],
+                "thumbnail_url": img["thumbnail_url"],
+                **analysis
+            })
+
+        total_time = int((time.time() - start_time) * 1000)
+
+        return {
+            "document_id": document_id,
+            "document_title": images_result["document_title"],
+            "analyses": analyses,
+            "total_processing_time_ms": total_time,
+            "image_count": len(analyses)
+        }
+    except Exception as e:
+        return {"error": f"Failed to analyze document images: {str(e)}"}
+
+
+async def refine_image_tool(
+    db: Session,
+    image_id: str,
+    instructions: str,
+    attach_to_document_id: Optional[str] = None,
+    aspect_ratio: Optional[str] = None
+) -> Dict[str, Any]:
+    """
+    Refine an existing image based on natural language instructions.
+    Creates a new image document, preserving the original.
+
+    Uses a two-step approach:
+    1. Analyze the original image with vision AI to get a detailed description
+    2. Generate a new image combining the description with refinement instructions
+    """
+    from image_generation_service import generate_and_store_image
+    from vision_service import vision_service
+    from models import DocumentAttachment
+    import uuid
+
+    try:
+        # Get source image
+        source_image = db.query(Document).filter(
+            Document.id == image_id,
+            Document.media_type == "image",
+            Document.deleted_at.is_(None)
+        ).first()
+
+        if not source_image:
+            return {"error": "Imagem original não encontrada"}
+
+        if not source_image.file_url:
+            return {"error": "URL da imagem original não disponível"}
+
+        # Step 1: Analyze the original image to get a detailed description
+        analysis_prompt = """Descreva esta imagem em detalhes para permitir sua recriação. Inclua:
+1. Composição geral e layout (posição dos elementos)
+2. Cores dominantes (incluindo códigos hex se possível)
+3. Todo o texto visível (exatamente como aparece)
+4. Estilo visual (fotográfico, ilustração, minimalista, etc.)
+5. Elementos gráficos (ícones, formas, bordas, sombras)
+6. Tipografia (fontes, tamanhos relativos, cores do texto)
+7. Proporções e espaçamento entre elementos
+
+Seja extremamente específico e detalhado."""
+
+        analysis_result = await vision_service.analyze_image_from_url(
+            source_image.file_url,
+            analysis_prompt,
+            max_tokens=2000
+        )
+
+        if not analysis_result.get("success"):
+            # Fallback: try with base_image_url directly
+            original_description = f"Imagem original: {source_image.title or 'sem título'}"
+        else:
+            original_description = analysis_result.get("analysis", "")
+
+        # Step 2: Build refinement prompt combining description + instructions
+        refinement_prompt = f"""Crie uma imagem baseada nesta descrição, aplicando as modificações solicitadas:
+
+DESCRIÇÃO DA IMAGEM ORIGINAL:
+{original_description}
+
+MODIFICAÇÕES A APLICAR:
+{instructions}
+
+IMPORTANTE: Mantenha a estrutura, estilo e elementos da imagem original, apenas aplique as modificações solicitadas."""
+
+        # Generate refined image (try with base_image_url for models that support it)
+        result = await generate_and_store_image(
+            prompt=refinement_prompt,
+            project_id=source_image.project_id,
+            base_image_url=source_image.file_url,  # Some models may use this
+            aspect_ratio=aspect_ratio or "1:1"
+        )
+
+        if "error" in result:
+            return {"error": f"Falha ao refinar imagem: {result['error']}"}
+
+        # Create document for refined image
+        refined_id = str(uuid.uuid4())
+        refined_title = f"{source_image.title} (refinado)" if source_image.title else "Imagem Refinada"
+
+        refined_doc = Document(
+            id=refined_id,
+            title=refined_title,
+            content=instructions,
+            project_id=source_image.project_id,
+            media_type="image",
+            file_url=result.get("file_url"),
+            thumbnail_url=result.get("thumbnail_url"),
+            generation_metadata={
+                "source_image_id": image_id,
+                "refinement_instructions": instructions,
+                **(result.get("generation_metadata") or {})
+            },
+            status="art_ok"
+        )
+        db.add(refined_doc)
+
+        # Attach to document if requested
+        attachment_id = None
+        if attach_to_document_id:
+            target_doc = db.query(Document).filter(
+                Document.id == attach_to_document_id,
+                Document.deleted_at.is_(None)
+            ).first()
+
+            if target_doc:
+                # Get current max order
+                max_order = db.query(DocumentAttachment).filter(
+                    DocumentAttachment.document_id == attach_to_document_id
+                ).count()
+
+                attachment = DocumentAttachment(
+                    id=str(uuid.uuid4()),
+                    document_id=attach_to_document_id,
+                    image_id=refined_id,
+                    is_primary=False,
+                    attachment_order=max_order
+                )
+                db.add(attachment)
+                attachment_id = attachment.id
+
+        db.commit()
+
+        return {
+            "original_image_id": image_id,
+            "refined_image_id": refined_id,
+            "refined_image_url": result.get("file_url"),
+            "refined_thumbnail_url": result.get("thumbnail_url"),
+            "instructions_used": instructions,
+            "attached_to_document_id": attach_to_document_id if attachment_id else None,
+            "message": "Imagem refinada criada com sucesso"
+        }
+
+    except Exception as e:
+        db.rollback()
+        return {"error": f"Falha ao refinar imagem: {str(e)}"}
+
+
 # Tool definitions for OpenRouter function calling
 TOOL_DEFINITIONS = [
     {
@@ -1255,6 +1561,96 @@ TOOL_DEFINITIONS = [
                 "required": ["document_id", "image_id"]
             }
         }
+    },
+    # Image Analysis & Refinement Tools (Feature 023)
+    {
+        "type": "function",
+        "function": {
+            "name": "list_document_images",
+            "description": "List all images attached to a document. Returns image IDs, titles, URLs, thumbnails, and positions. Use this to discover which images are available before analyzing or refining them.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "document_id": {
+                        "type": "string",
+                        "description": "The ID of the document to list attached images from"
+                    }
+                },
+                "required": ["document_id"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "analyze_image",
+            "description": "Analyze a specific image using AI vision. Returns detailed description of visual elements, detected text (OCR), colors, composition, and improvement suggestions. Use a custom prompt to focus the analysis on specific aspects.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "image_id": {
+                        "type": "string",
+                        "description": "The ID of the image document to analyze"
+                    },
+                    "prompt": {
+                        "type": "string",
+                        "description": "Optional custom analysis prompt to focus on specific aspects (e.g., 'What text is visible in this image?')"
+                    }
+                },
+                "required": ["image_id"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "analyze_document_images",
+            "description": "Analyze ALL images attached to a document in a single operation. Returns analysis for each image. Useful for batch review of marketing creatives or comparing multiple variations.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "document_id": {
+                        "type": "string",
+                        "description": "The ID of the document whose attached images will be analyzed"
+                    },
+                    "prompt": {
+                        "type": "string",
+                        "description": "Optional custom analysis prompt applied to all images"
+                    }
+                },
+                "required": ["document_id"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "refine_image",
+            "description": "Refine an existing image based on natural language instructions. Creates a NEW image document with the modifications (original is preserved). Examples: 'diminua o tamanho da fonte', 'mude a cor de fundo para azul', 'aumente o contraste'. Optionally attach the refined image to a document.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "image_id": {
+                        "type": "string",
+                        "description": "The ID of the source image to refine"
+                    },
+                    "instructions": {
+                        "type": "string",
+                        "description": "Natural language instructions for how to modify the image. Be specific about what changes you want."
+                    },
+                    "attach_to_document_id": {
+                        "type": "string",
+                        "description": "Optional ID of a document to automatically attach the refined image to"
+                    },
+                    "aspect_ratio": {
+                        "type": "string",
+                        "enum": ["1:1", "16:9", "9:16", "4:3", "3:4"],
+                        "description": "Optional aspect ratio for the refined image (default: maintains original or 1:1)"
+                    }
+                },
+                "required": ["image_id", "instructions"]
+            }
+        }
     }
 ]
 
@@ -1399,6 +1795,36 @@ async def execute_tool(
             tool_args["document_id"],
             tool_args["image_id"],
             is_primary=tool_args.get("is_primary", False)
+        )
+
+    # Image Analysis & Refinement Tools (Feature 023)
+    elif tool_name == "list_document_images":
+        return list_document_images_tool(
+            db,
+            tool_args["document_id"]
+        )
+
+    elif tool_name == "analyze_image":
+        return await analyze_image_tool(
+            db,
+            tool_args["image_id"],
+            prompt=tool_args.get("prompt")
+        )
+
+    elif tool_name == "analyze_document_images":
+        return await analyze_document_images_tool(
+            db,
+            tool_args["document_id"],
+            prompt=tool_args.get("prompt")
+        )
+
+    elif tool_name == "refine_image":
+        return await refine_image_tool(
+            db,
+            tool_args["image_id"],
+            tool_args["instructions"],
+            attach_to_document_id=tool_args.get("attach_to_document_id"),
+            aspect_ratio=tool_args.get("aspect_ratio")
         )
 
     else:

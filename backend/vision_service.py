@@ -314,5 +314,179 @@ Return the data in a clear, structured format."""
         return self.analyze_image(image_path, prompt, max_tokens)
 
 
+    async def analyze_image_from_url(
+        self,
+        image_url: str,
+        prompt: str = "Describe this image in detail.",
+        max_tokens: int = 1024
+    ) -> Dict[str, Any]:
+        """
+        Analyze an image from URL using AI vision.
+        Downloads the image, converts to base64, and sends to vision API.
+
+        Args:
+            image_url: URL of the image to analyze (http/https or data URL)
+            prompt: The question/instruction for the AI
+            max_tokens: Maximum tokens in response
+
+        Returns:
+            Dictionary with analysis results
+        """
+        import httpx
+        import base64
+
+        if not self.client:
+            return {
+                "success": False,
+                "error": "No vision API configured"
+            }
+
+        try:
+            # Handle data URLs directly
+            if image_url.startswith("data:"):
+                data_url = image_url
+                # Extract media type from data URL
+                if "image/png" in image_url:
+                    media_type = "image/png"
+                elif "image/jpeg" in image_url or "image/jpg" in image_url:
+                    media_type = "image/jpeg"
+                elif "image/webp" in image_url:
+                    media_type = "image/webp"
+                elif "image/gif" in image_url:
+                    media_type = "image/gif"
+                else:
+                    media_type = "image/png"
+            else:
+                # Fetch image from URL
+                # Handle internal URLs (minio/localhost)
+                fetch_url = image_url
+                if "localhost:9000" in image_url:
+                    fetch_url = image_url.replace("localhost:9000", "minio:9000")
+
+                async with httpx.AsyncClient(timeout=30.0) as client:
+                    response = await client.get(fetch_url)
+                    response.raise_for_status()
+                    image_bytes = response.content
+
+                # Determine media type from content-type header or URL
+                content_type = response.headers.get("content-type", "image/png")
+                if "jpeg" in content_type or "jpg" in content_type:
+                    media_type = "image/jpeg"
+                elif "png" in content_type:
+                    media_type = "image/png"
+                elif "webp" in content_type:
+                    media_type = "image/webp"
+                elif "gif" in content_type:
+                    media_type = "image/gif"
+                else:
+                    # Fallback to URL extension
+                    if image_url.lower().endswith(('.jpg', '.jpeg')):
+                        media_type = "image/jpeg"
+                    elif image_url.lower().endswith('.webp'):
+                        media_type = "image/webp"
+                    elif image_url.lower().endswith('.gif'):
+                        media_type = "image/gif"
+                    else:
+                        media_type = "image/png"
+
+                # Convert to base64 data URL
+                b64_data = base64.b64encode(image_bytes).decode('utf-8')
+                data_url = f"data:{media_type};base64,{b64_data}"
+
+            # Call vision API using OpenAI format (works for OpenRouter)
+            if self.provider == "anthropic":
+                # Extract base64 from data URL for Anthropic
+                if ";base64," in data_url:
+                    image_base64 = data_url.split(";base64,")[1]
+                else:
+                    return {"success": False, "error": "Invalid data URL format"}
+
+                response = self.client.messages.create(
+                    model=self.model,
+                    max_tokens=max_tokens,
+                    messages=[
+                        {
+                            "role": "user",
+                            "content": [
+                                {
+                                    "type": "image",
+                                    "source": {
+                                        "type": "base64",
+                                        "media_type": media_type,
+                                        "data": image_base64,
+                                    },
+                                },
+                                {
+                                    "type": "text",
+                                    "text": prompt
+                                }
+                            ],
+                        }
+                    ],
+                )
+
+                return {
+                    "success": True,
+                    "analysis": response.content[0].text,
+                    "model": self.model,
+                    "provider": self.provider,
+                    "usage": {
+                        "input_tokens": response.usage.input_tokens,
+                        "output_tokens": response.usage.output_tokens,
+                    }
+                }
+            else:
+                # OpenAI/OpenRouter format
+                response = self.client.chat.completions.create(
+                    model=self.model,
+                    max_tokens=max_tokens,
+                    messages=[
+                        {
+                            "role": "user",
+                            "content": [
+                                {
+                                    "type": "text",
+                                    "text": prompt
+                                },
+                                {
+                                    "type": "image_url",
+                                    "image_url": {
+                                        "url": data_url
+                                    }
+                                }
+                            ]
+                        }
+                    ]
+                )
+
+                return {
+                    "success": True,
+                    "analysis": response.choices[0].message.content,
+                    "model": self.model,
+                    "provider": self.provider,
+                    "usage": {
+                        "input_tokens": response.usage.prompt_tokens if response.usage else 0,
+                        "output_tokens": response.usage.completion_tokens if response.usage else 0,
+                    }
+                }
+
+        except httpx.HTTPStatusError as e:
+            return {
+                "success": False,
+                "error": f"Failed to fetch image: HTTP {e.response.status_code}"
+            }
+        except httpx.RequestError as e:
+            return {
+                "success": False,
+                "error": f"Failed to fetch image: {str(e)}"
+            }
+        except Exception as e:
+            print(f"Vision analysis from URL failed: {e}")
+            return {
+                "success": False,
+                "error": str(e)
+            }
+
+
 # Singleton instance
 vision_service = VisionService()

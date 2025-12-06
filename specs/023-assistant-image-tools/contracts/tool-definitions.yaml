@@ -1,0 +1,232 @@
+# Tool Definitions: Assistant Image Analysis & Refinement Tools
+# Feature: 023-assistant-image-tools
+# Format: OpenAI Function Calling schema (used by OpenRouter)
+
+tools:
+  - name: list_document_images
+    description: |
+      List all images attached to a specific document. Returns image IDs, titles,
+      URLs, and positions. Use this to discover which images are available before
+      analyzing or refining them.
+    parameters:
+      type: object
+      properties:
+        document_id:
+          type: string
+          description: The ID of the document to list attached images from
+      required:
+        - document_id
+    returns:
+      type: object
+      properties:
+        images:
+          type: array
+          items:
+            type: object
+            properties:
+              position:
+                type: integer
+                description: 1-indexed position of the image
+              image_id:
+                type: string
+              title:
+                type: string
+              file_url:
+                type: string
+              thumbnail_url:
+                type: string
+              is_primary:
+                type: boolean
+              created_at:
+                type: string
+                format: date-time
+        count:
+          type: integer
+        document_id:
+          type: string
+        document_title:
+          type: string
+
+  - name: analyze_image
+    description: |
+      Analyze a specific image using AI vision capabilities. Returns detailed
+      description of visual elements, detected text (OCR), colors, composition,
+      and suggestions for improvement. Use a custom prompt to focus the analysis
+      on specific aspects.
+    parameters:
+      type: object
+      properties:
+        image_id:
+          type: string
+          description: The ID of the image document to analyze
+        prompt:
+          type: string
+          description: |
+            Optional custom analysis prompt. Default: "Analise esta imagem em
+            detalhes, descrevendo elementos visuais, texto visível, cores e
+            composição."
+      required:
+        - image_id
+    returns:
+      type: object
+      properties:
+        image_id:
+          type: string
+        image_title:
+          type: string
+        analysis:
+          type: object
+          properties:
+            description:
+              type: string
+            detected_text:
+              type: array
+              items:
+                type: string
+            colors:
+              type: array
+              items:
+                type: string
+            composition:
+              type: string
+            suggestions:
+              type: array
+              items:
+                type: string
+        model_used:
+          type: string
+        processing_time_ms:
+          type: integer
+
+  - name: analyze_document_images
+    description: |
+      Analyze ALL images attached to a document in a single operation. Returns
+      analysis for each image. Useful for batch review of marketing creatives
+      or comparing multiple variations.
+    parameters:
+      type: object
+      properties:
+        document_id:
+          type: string
+          description: The ID of the document whose attached images will be analyzed
+        prompt:
+          type: string
+          description: |
+            Optional custom analysis prompt applied to all images. Default focuses
+            on visual elements, text, and composition.
+      required:
+        - document_id
+    returns:
+      type: object
+      properties:
+        document_id:
+          type: string
+        document_title:
+          type: string
+        analyses:
+          type: array
+          items:
+            $ref: "#/tools/1/returns"  # ImageAnalysisResult
+        total_processing_time_ms:
+          type: integer
+        image_count:
+          type: integer
+
+  - name: refine_image
+    description: |
+      Refine an existing image based on natural language instructions. Creates a
+      NEW image document with the modifications (original is preserved). Examples:
+      "diminua o tamanho da fonte", "mude a cor de fundo para azul", "aumente o
+      contraste". Optionally attach the refined image to a document.
+    parameters:
+      type: object
+      properties:
+        image_id:
+          type: string
+          description: The ID of the source image to refine
+        instructions:
+          type: string
+          description: |
+            Natural language instructions for how to modify the image. Be specific
+            about what changes you want. Example: "Diminua o tamanho da fonte em
+            20% e mude a cor do texto para branco"
+        attach_to_document_id:
+          type: string
+          description: |
+            Optional ID of a document to automatically attach the refined image to.
+            If not provided, the image is created but not attached to any document.
+        aspect_ratio:
+          type: string
+          enum:
+            - "1:1"
+            - "16:9"
+            - "9:16"
+            - "4:3"
+            - "3:4"
+          description: |
+            Optional aspect ratio for the refined image. If not provided, attempts
+            to maintain the original aspect ratio.
+      required:
+        - image_id
+        - instructions
+    returns:
+      type: object
+      properties:
+        original_image_id:
+          type: string
+        refined_image_id:
+          type: string
+        refined_image_url:
+          type: string
+        refined_thumbnail_url:
+          type: string
+        instructions_used:
+          type: string
+        attached_to_document_id:
+          type: string
+          nullable: true
+        message:
+          type: string
+
+# System Prompt Additions
+system_prompt_context:
+  description: |
+    When a document with attached images is in context, the AI should be aware
+    of those images and able to reference them by position or title.
+  format: |
+    Attached Images for Document "{document_title}":
+    {for each image}
+    - Image {position}: "{title}" (ID: {image_id})
+      URL: {thumbnail_url}
+    {end for}
+
+    You can reference these images by:
+    - Position: "analise a imagem 1", "refine a segunda imagem"
+    - Title: "analise a imagem 'banner-promocional'"
+    - ID: Using the image_id directly in tool calls
+
+# Error Responses
+errors:
+  document_not_found:
+    message: "Documento não encontrado"
+    suggestion: "Verifique se o ID do documento está correto"
+
+  image_not_found:
+    message: "Imagem não encontrada"
+    suggestion: "Use list_document_images para ver as imagens disponíveis"
+
+  not_an_image:
+    message: "Este documento não é uma imagem"
+    suggestion: "O ID fornecido é de um documento de texto, não uma imagem"
+
+  no_attached_images:
+    message: "Este documento não possui imagens anexadas"
+    suggestion: "Você pode gerar uma nova imagem ou fazer upload"
+
+  image_url_inaccessible:
+    message: "Não foi possível acessar a URL da imagem"
+    suggestion: "A imagem pode ter sido deletada. Tente fazer upload novamente"
+
+  refinement_failed:
+    message: "Falha ao refinar a imagem"
+    suggestion: "Tente com instruções mais específicas ou uma imagem diferente"
