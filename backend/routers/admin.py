@@ -1566,3 +1566,175 @@ async def delete_system_message(
     )
 
     return {"success": True, "message": "Message deleted"}
+
+
+# =============================================================================
+# Phase 9: Memory System Configuration (Feature 024)
+# =============================================================================
+
+
+@router.get("/config/memory")
+async def get_memory_config(
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """
+    Get memory system configuration.
+
+    Returns the current configuration for the AI memory system including:
+    - extraction_model: Model used for fact extraction
+    - system_enabled: Whether memory system is globally enabled
+    - max_memories_per_project: Maximum memories per user per project
+    - statistics: Usage statistics
+    """
+    from models import SystemConfig, UserMemory
+    from sqlalchemy import func
+    from services.memory_service import DEFAULT_EXTRACTION_MODEL
+
+    # Get configuration values
+    def get_config_value(key: str, default):
+        config = db.query(SystemConfig).filter(SystemConfig.key == key).first()
+        if config and config.value is not None:
+            value = config.value
+            # Handle JSON-wrapped strings
+            if isinstance(value, str):
+                try:
+                    import json
+                    return json.loads(value)
+                except (json.JSONDecodeError, ValueError):
+                    return value
+            return value
+        return default
+
+    extraction_model = get_config_value("memory_extraction_model", DEFAULT_EXTRACTION_MODEL)
+    system_enabled = get_config_value("memory_system_enabled", True)
+    max_memories = get_config_value("memory_max_per_user_project", 100)
+
+    # Handle string booleans
+    if isinstance(system_enabled, str):
+        system_enabled = system_enabled.lower() == "true"
+
+    # Get statistics
+    total_memories = db.query(func.count(UserMemory.id)).scalar() or 0
+    unique_users = db.query(func.count(func.distinct(UserMemory.user_id))).scalar() or 0
+    unique_projects = db.query(func.count(func.distinct(UserMemory.project_id))).scalar() or 0
+
+    # Category breakdown
+    category_counts = (
+        db.query(UserMemory.category, func.count(UserMemory.id))
+        .group_by(UserMemory.category)
+        .all()
+    )
+    by_category = {row[0]: row[1] for row in category_counts}
+
+    return {
+        "extraction_model": extraction_model,
+        "system_enabled": system_enabled,
+        "max_memories_per_project": max_memories,
+        "statistics": {
+            "total_memories": total_memories,
+            "unique_users": unique_users,
+            "unique_projects": unique_projects,
+            "avg_memories_per_user": round(total_memories / unique_users, 1) if unique_users else 0,
+            "by_category": by_category,
+        },
+    }
+
+
+@router.put("/config/memory")
+async def update_memory_config(
+    request: Request,
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """
+    Update memory system configuration.
+
+    Accepts partial updates - only provided fields are updated.
+    Valid fields:
+    - extraction_model: Model ID for fact extraction
+    - system_enabled: Boolean to enable/disable memory system
+    - max_memories_per_project: Integer limit per user per project
+
+    All changes are logged for audit purposes.
+    """
+    from models import SystemConfig
+    import json
+
+    admin_service = AdminService(db)
+    body = await request.json()
+
+    # Validate fields
+    valid_fields = ["extraction_model", "system_enabled", "max_memories_per_project"]
+    for key in body.keys():
+        if key not in valid_fields:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid field: {key}. Valid fields are: {', '.join(valid_fields)}"
+            )
+
+    # Map request fields to config keys
+    field_to_key = {
+        "extraction_model": "memory_extraction_model",
+        "system_enabled": "memory_system_enabled",
+        "max_memories_per_project": "memory_max_per_user_project",
+    }
+
+    old_values = {}
+    new_values = {}
+
+    for field, config_key in field_to_key.items():
+        if field not in body:
+            continue
+
+        value = body[field]
+
+        # Validate value types
+        if field == "system_enabled" and not isinstance(value, bool):
+            raise HTTPException(status_code=400, detail="system_enabled must be a boolean")
+        if field == "max_memories_per_project":
+            if not isinstance(value, int) or value < 1 or value > 1000:
+                raise HTTPException(
+                    status_code=400,
+                    detail="max_memories_per_project must be an integer between 1 and 1000"
+                )
+        if field == "extraction_model" and not isinstance(value, str):
+            raise HTTPException(status_code=400, detail="extraction_model must be a string")
+
+        # Get existing config
+        config = db.query(SystemConfig).filter(SystemConfig.key == config_key).first()
+        old_values[field] = config.value if config else None
+
+        # Store value as JSON string for consistency
+        json_value = json.dumps(value) if not isinstance(value, str) else f'"{value}"'
+
+        if config:
+            config.value = value
+            config.updated_by = admin.id
+        else:
+            new_config = SystemConfig(
+                key=config_key,
+                value=value,
+                description=f"Memory system config: {field}",
+                updated_by=admin.id,
+            )
+            db.add(new_config)
+
+        new_values[field] = value
+
+    db.commit()
+
+    # Audit log
+    if new_values:
+        await admin_service.audit_log(
+            admin_id=admin.id,
+            action="memory.config.update",
+            entity_type="memory_config",
+            entity_id="memory_system",
+            old_value=old_values,
+            new_value=new_values,
+            request=request,
+        )
+
+    # Return updated config
+    return await get_memory_config(admin=admin, db=db)

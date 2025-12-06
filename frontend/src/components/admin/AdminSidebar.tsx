@@ -11,6 +11,7 @@ import {
   ArrowLeft,
   Shield,
   MessageSquare,
+  Brain,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -45,6 +46,12 @@ const adminNavItems = [
     href: '/admin/messages',
     icon: MessageSquare,
     description: 'System announcements',
+  },
+  {
+    label: 'Memory',
+    href: '/admin/memory',
+    icon: Brain,
+    description: 'AI memory system',
   },
   {
     label: 'Settings',

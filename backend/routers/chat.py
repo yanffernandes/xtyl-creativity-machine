@@ -6,9 +6,10 @@ from sqlalchemy.orm import Session
 import asyncio
 from database import get_db, SessionLocal
 from supabase_auth import get_current_user
-from models import User, Project, Workspace, UserPreferences
+from models import User, Project, Workspace, UserPreferences, SystemConfig
 from llm_service import chat_completion, chat_completion_stream
 from services.model_config_service import ModelConfigService
+from services.memory_service import MemoryService
 from crud import get_user_preferences
 from rag_service import query_knowledge_base
 from tools import TOOL_DEFINITIONS, execute_tool
@@ -22,6 +23,9 @@ import os
 import uuid
 import time
 import redis
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(
     prefix="/chat",
@@ -31,6 +35,90 @@ router = APIRouter(
 # Redis client for shared state across workers
 redis_url = os.getenv("REDIS_URL", "redis://redis:6379/0")
 redis_client = redis.from_url(redis_url, decode_responses=True)
+
+
+def is_memory_system_enabled(db: Session) -> bool:
+    """Check if the memory system is globally enabled via system_config."""
+    try:
+        config = db.query(SystemConfig).filter(SystemConfig.key == "memory_system_enabled").first()
+        if config:
+            # Value is stored as JSON string, e.g., 'true' or 'false'
+            return json.loads(config.value) if isinstance(config.value, str) else bool(config.value)
+        return True  # Default to enabled if not configured
+    except Exception as e:
+        logger.warning(f"Error checking memory_system_enabled: {e}")
+        return False
+
+
+async def get_memory_context_for_chat(
+    db: Session,
+    user_id: str,
+    project_id: str,
+    last_user_message: str,
+    limit: int = 5
+) -> Optional[str]:
+    """
+    Search for relevant memories and format them for inclusion in the system prompt.
+    Returns None if no relevant memories found or memory system is disabled.
+    """
+    if not is_memory_system_enabled(db):
+        return None
+
+    try:
+        memory_service = MemoryService(db)
+        memories = await memory_service.search_relevant(
+            message=last_user_message,
+            user_id=user_id,
+            project_id=project_id,
+            limit=limit
+        )
+
+        if memories:
+            return memory_service.build_memory_context(memories)
+        return None
+    except Exception as e:
+        logger.warning(f"Error retrieving memories for chat: {e}")
+        return None
+
+
+async def extract_memories_async(
+    user_id: str,
+    project_id: str,
+    messages: List[Dict[str, str]],
+    conversation_id: Optional[str] = None
+) -> Optional[Dict[str, Any]]:
+    """
+    Async task to extract memories from conversation after response is sent.
+    Uses a new database session since this runs asynchronously.
+    Returns the extraction result with operations applied.
+    """
+    db = SessionLocal()
+    try:
+        if not is_memory_system_enabled(db):
+            return None
+
+        memory_service = MemoryService(db)
+        result = await memory_service.extract_and_save(
+            user_id=user_id,
+            project_id=project_id,
+            messages=messages,
+            conversation_id=conversation_id
+        )
+
+        # extract_and_save returns {"added": X, "updated": Y, "deleted": Z} directly
+        if result and (result.get("added", 0) > 0 or result.get("updated", 0) > 0 or result.get("deleted", 0) > 0):
+            logger.info(f"Memory extraction completed: {result.get('added', 0)} added, {result.get('updated', 0)} updated, {result.get('deleted', 0)} deleted")
+            return {
+                "added": result.get("added", 0),
+                "updated": result.get("updated", 0),
+                "deleted": result.get("deleted", 0)
+            }
+        return None
+    except Exception as e:
+        logger.error(f"Error in async memory extraction: {e}")
+        return None
+    finally:
+        db.close()
 
 
 def _get_tool_description(tool_name: str, args: dict) -> str:
@@ -565,8 +653,19 @@ To work with these images:
 Retrieved Context:
 {context_text}
 """)
-    
-    
+
+    # Add user memory context (Feature 024: User Memory System)
+    if request.project_id:
+        last_user_message = messages[-1]["content"] if messages else ""
+        memory_context = await get_memory_context_for_chat(
+            db=db,
+            user_id=str(current_user.id),
+            project_id=request.project_id,
+            last_user_message=last_user_message
+        )
+        if memory_context:
+            system_parts.append(memory_context)
+
     # Insert system prompt
     system_prompt = "\n".join(system_parts)
     if not messages or messages[0]["role"] != "system":
@@ -642,6 +741,23 @@ Retrieved Context:
                 cost=total_cost
             )
 
+            # Trigger async memory extraction (Feature 024: User Memory System)
+            if request.project_id and is_memory_system_enabled(db):
+                # Build conversation messages for extraction (user + assistant)
+                extraction_messages = [
+                    {"role": m.role, "content": m.content}
+                    for m in request.messages
+                    if m.role == "user"
+                ]
+                if assistant_msg:
+                    extraction_messages.append({"role": "assistant", "content": assistant_msg})
+
+                asyncio.create_task(extract_memories_async(
+                    user_id=str(current_user.id),
+                    project_id=request.project_id,
+                    messages=extraction_messages
+                ))
+
             return response
         
         # Add assistant's message with tool calls to history
@@ -706,6 +822,22 @@ Retrieved Context:
         cost=total_cost
     )
 
+    # Trigger async memory extraction (Feature 024: User Memory System)
+    if request.project_id and is_memory_system_enabled(db):
+        extraction_messages = [
+            {"role": m.role, "content": m.content}
+            for m in request.messages
+            if m.role == "user"
+        ]
+        if assistant_msg:
+            extraction_messages.append({"role": "assistant", "content": assistant_msg})
+
+        asyncio.create_task(extract_memories_async(
+            user_id=str(current_user.id),
+            project_id=request.project_id,
+            messages=extraction_messages
+        ))
+
     return response
 
 
@@ -727,6 +859,21 @@ async def generate_chat_completion_stream(
     # Read max_iterations from user preferences (must be done before session closes)
     user_prefs = get_user_preferences(db, user_id)
     max_iterations = user_prefs.max_iterations if user_prefs else 25  # Default 25 (Feature 023)
+
+    # Pre-fetch memory context before generator starts (Feature 024: User Memory System)
+    # This must be done while db session is still active
+    memory_context = None
+    memory_enabled = False
+    if request.project_id:
+        memory_enabled = is_memory_system_enabled(db)
+        if memory_enabled:
+            last_user_msg = next((m.content for m in reversed(request.messages) if m.role == "user"), "")
+            memory_context = await get_memory_context_for_chat(
+                db=db,
+                user_id=user_id,
+                project_id=request.project_id,
+                last_user_message=last_user_msg
+            )
 
     async def event_generator():
         try:
@@ -932,6 +1079,11 @@ Retrieved Context:
 {context_text}
 """)
 
+            # Add user memory context (Feature 024: User Memory System)
+            # memory_context was pre-fetched before generator started
+            if memory_context:
+                system_parts.append(memory_context)
+
             # Build final system prompt
             system_prompt = "\n".join(system_parts)
 
@@ -1053,48 +1205,73 @@ Retrieved Context:
                 print(f"🔧 Tool calls: {len(tool_calls) if tool_calls else 0}")
 
                 if not tool_calls:
-                    # No tools, send usage and done
-                    # Send usage stats
+                    # No tools - send done immediately, then fire-and-forget background tasks
+                    # Send usage stats (basic, without cost yet)
                     yield f"data: {json.dumps({'type': 'usage', 'data': usage})}\n\n"
 
-                    # Log AI usage with fresh DB session (original session may be closed in generator)
+                    # Send done signal IMMEDIATELY - don't block on logging or memory extraction
+                    yield f"data: {json.dumps({'type': 'done'})}\n\n"
+
+                    # Fire-and-forget: Log AI usage in background (non-blocking)
                     duration_ms = int((time.time() - start_time) * 1000)
                     user_msg = next((m.content for m in reversed(request.messages) if m.role == "user"), "")
 
-                    # Fetch actual cost from OpenRouter for all generations
-                    total_cost = None
-                    if generation_ids:
-                        total_cost = 0.0
-                        for gen_id in generation_ids:
-                            cost = await fetch_generation_cost(gen_id)
-                            if cost is not None:
-                                total_cost += cost
-                        print(f"💰 OpenRouter actual cost: ${total_cost:.8f} for {len(generation_ids)} generation(s)")
+                    async def log_usage_async():
+                        """Background task to log usage with actual cost from OpenRouter"""
+                        try:
+                            total_cost = None
+                            if generation_ids:
+                                total_cost = 0.0
+                                for gen_id in generation_ids:
+                                    cost = await fetch_generation_cost(gen_id)
+                                    if cost is not None:
+                                        total_cost += cost
+                                print(f"💰 OpenRouter actual cost: ${total_cost:.8f} for {len(generation_ids)} generation(s)")
 
-                    log_db = SessionLocal()
-                    try:
-                        workspace_id = get_workspace_id_from_project(log_db, request.project_id)
-                        log_ai_usage(
-                            db=log_db,
+                            log_db = SessionLocal()
+                            try:
+                                workspace_id = get_workspace_id_from_project(log_db, request.project_id)
+                                log_ai_usage(
+                                    db=log_db,
+                                    user_id=user_id,
+                                    workspace_id=workspace_id,
+                                    project_id=request.project_id,
+                                    model=request.model,
+                                    provider="openrouter",
+                                    request_type="chat" if not tool_names_used else "tool_call",
+                                    input_tokens=total_input_tokens,
+                                    output_tokens=total_output_tokens,
+                                    prompt_preview=user_msg,
+                                    response_preview=accumulated_content,
+                                    tool_calls=tool_names_used if tool_names_used else None,
+                                    duration_ms=duration_ms,
+                                    cost=total_cost
+                                )
+                            finally:
+                                log_db.close()
+                        except Exception as e:
+                            logger.error(f"Error logging AI usage: {e}")
+
+                    # Fire and forget - don't await
+                    asyncio.create_task(log_usage_async())
+
+                    # Fire-and-forget: Memory extraction in background (Feature 024)
+                    if request.project_id and memory_enabled:
+                        extraction_messages = [
+                            {"role": m.role, "content": m.content}
+                            for m in request.messages
+                            if m.role == "user"
+                        ]
+                        if accumulated_content:
+                            extraction_messages.append({"role": "assistant", "content": accumulated_content})
+
+                        # Fire and forget - memory extraction runs completely in background
+                        asyncio.create_task(extract_memories_async(
                             user_id=user_id,
-                            workspace_id=workspace_id,
                             project_id=request.project_id,
-                            model=request.model,
-                            provider="openrouter",
-                            request_type="chat" if not tool_names_used else "tool_call",
-                            input_tokens=total_input_tokens,
-                            output_tokens=total_output_tokens,
-                            prompt_preview=user_msg,
-                            response_preview=accumulated_content,
-                            tool_calls=tool_names_used if tool_names_used else None,
-                            duration_ms=duration_ms,
-                            cost=total_cost  # Use actual cost from OpenRouter
-                        )
-                    finally:
-                        log_db.close()
+                            messages=extraction_messages
+                        ))
 
-                    # Send done signal
-                    yield f"data: {json.dumps({'type': 'done'})}\n\n"
                     break
 
                 # Add assistant message to history
@@ -1410,6 +1587,22 @@ Retrieved Context:
                     )
                 finally:
                     log_db.close()
+
+                # Trigger async memory extraction (Feature 024: User Memory System)
+                if request.project_id and memory_enabled:
+                    extraction_messages = [
+                        {"role": m.role, "content": m.content}
+                        for m in request.messages
+                        if m.role == "user"
+                    ]
+                    if assistant_msg:
+                        extraction_messages.append({"role": "assistant", "content": assistant_msg})
+
+                    asyncio.create_task(extract_memories_async(
+                        user_id=user_id,
+                        project_id=request.project_id,
+                        messages=extraction_messages
+                    ))
 
                 yield f"data: {json.dumps({'type': 'done'})}\n\n"
 

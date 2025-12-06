@@ -1,8 +1,9 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, Boolean, DateTime, Text, Numeric, ARRAY
+from sqlalchemy import Column, Integer, String, ForeignKey, Boolean, DateTime, Text, Numeric, ARRAY, CheckConstraint
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from database import Base
+from pgvector.sqlalchemy import Vector
 import uuid
 
 def generate_uuid():
@@ -549,3 +550,53 @@ class AdminAuditLog(Base):
 
     # Relationships
     admin = relationship("User", foreign_keys=[admin_id])
+
+
+# ============================================================================
+# USER MEMORY SYSTEM (Feature 024)
+# ============================================================================
+
+class UserMemory(Base):
+    """
+    User Memory model - stores extracted facts from conversations.
+    Memories are scoped to user + project for isolation.
+    Inspired by mem0ai/mem0 for automatic fact extraction and management.
+    """
+    __tablename__ = "user_memories"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    project_id = Column(String, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True)
+
+    # Content
+    content = Column(Text, nullable=False)
+    content_hash = Column(String(64), nullable=False)  # SHA-256 hash for deduplication
+
+    # Vector embedding (1536 dimensions for text-embedding-3-small)
+    embedding = Column(Vector(1536))
+
+    # Categorization
+    category = Column(String(50), default="other")
+
+    # Source tracking
+    source_conversation_id = Column(String, ForeignKey("chat_conversations.id", ondelete="SET NULL"), nullable=True)
+
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    # Relationships
+    user = relationship("User", backref="memories")
+    project = relationship("Project", backref="memories")
+    source_conversation = relationship("ChatConversation", backref="extracted_memories")
+
+    # Constraints
+    __table_args__ = (
+        CheckConstraint(
+            "category IN ('personal', 'professional', 'preference', 'plan', 'health', 'other')",
+            name="valid_memory_category"
+        ),
+    )
+
+    def __repr__(self):
+        return f"<UserMemory(id={self.id}, user_id={self.user_id}, content={self.content[:50]}...)>"
