@@ -10,7 +10,7 @@ Authentication is handled by Supabase JWT validation via supabase_auth.py.
 """
 
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 import httpx
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -288,7 +288,7 @@ async def signup_with_invite(
         )
 
     # Check if invitation has expired
-    if invite.expires_at < datetime.utcnow():
+    if invite.expires_at < datetime.now(timezone.utc):
         invite.status = "expired"
         db.commit()
         raise HTTPException(
@@ -438,7 +438,7 @@ async def validate_invite_token(
             message="Este convite já foi utilizado"
         )
 
-    if invite.expires_at < datetime.utcnow():
+    if invite.expires_at < datetime.now(timezone.utc):
         invite.status = "expired"
         db.commit()
         return ValidateInviteResponse(
