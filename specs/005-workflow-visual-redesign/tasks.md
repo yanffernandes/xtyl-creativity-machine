@@ -2,6 +2,7 @@
 
 **Input**: Design documents from `/specs/005-workflow-visual-redesign/`
 **Prerequisites**: plan.md (required), spec.md (required), research.md, data-model.md, contracts/
+**Status**: ✅ COMPLETED
 
 **Tests**: Not explicitly requested - test tasks omitted.
 
@@ -23,8 +24,8 @@
 
 **Purpose**: Project initialization and shared utilities
 
-- [X] T001 Create workflow types file with NODE_TYPE_CONFIGS in frontend/src/lib/workflow-types.ts
-- [X] T002 [P] Extract floatingGlassClasses constant to frontend/src/lib/glass-utils.ts for reuse
+- [x] T001 Create workflow types file with NODE_TYPE_CONFIGS in frontend/src/lib/workflow-types.ts
+- [x] T002 [P] Extract floatingGlassClasses constant to frontend/src/lib/glass-utils.ts for reuse
 
 ---
 
@@ -34,10 +35,10 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [X] T003 Add project_id query parameter support to list_templates endpoint in backend/routers/workflows.py
-- [X] T004 [P] Add is_system filter parameter to list_templates endpoint in backend/routers/workflows.py
-- [X] T005 [P] Create useValidateConnection hook in frontend/src/hooks/useValidateConnection.ts
-- [X] T006 Create WorkflowHeader component skeleton in frontend/src/components/workflow/WorkflowHeader.tsx
+- [x] T003 Add project_id query parameter support to list_templates endpoint in backend/routers/workflows.py
+- [x] T004 [P] Add is_system filter parameter to list_templates endpoint in backend/routers/workflows.py
+- [x] T005 [P] Create useValidateConnection hook in frontend/src/hooks/useValidateConnection.ts
+- [x] T006 Create WorkflowHeader component skeleton in frontend/src/components/workflow/WorkflowHeader.tsx
 
 **Checkpoint**: Foundation ready - user story implementation can now begin in parallel
 
@@ -51,14 +52,14 @@
 
 ### Implementation for User Story 1
 
-- [X] T007 [US1] Create workflows folder structure in frontend/src/app/workspace/[id]/project/[projectId]/workflows/
-- [X] T008 [US1] Create project workflows list page in frontend/src/app/workspace/[id]/project/[projectId]/workflows/page.tsx
-- [X] T009 [P] [US1] Create WorkflowCard component for project workflows in frontend/src/components/workflow/WorkflowCard.tsx
-- [X] T010 [P] [US1] Create WorkflowList component in frontend/src/components/workflow/WorkflowList.tsx
-- [X] T011 [US1] Add "Workflows" tab to project page tabs in frontend/src/app/workspace/[id]/project/[projectId]/page.tsx
-- [X] T012 [US1] Create new workflow page with template selection in frontend/src/app/workspace/[id]/project/[projectId]/workflows/new/page.tsx
-- [X] T013 [US1] Create workflow editor page in frontend/src/app/workspace/[id]/project/[projectId]/workflows/[workflowId]/page.tsx
-- [X] T014 [US1] Implement duplicate template to project functionality in frontend/src/lib/api/workflows.ts
+- [x] T007 [US1] Create workflows folder structure in frontend/src/app/workspace/[id]/project/[projectId]/workflows/
+- [x] T008 [US1] Create project workflows list page in frontend/src/app/workspace/[id]/project/[projectId]/workflows/page.tsx
+- [x] T009 [P] [US1] Create WorkflowCard component for project workflows in frontend/src/components/workflow/WorkflowCard.tsx
+- [x] T010 [P] [US1] Create WorkflowList component in frontend/src/components/workflow/WorkflowList.tsx
+- [x] T011 [US1] Add "Workflows" tab to project page tabs in frontend/src/app/workspace/[id]/project/[projectId]/page.tsx
+- [x] T012 [US1] Create new workflow page with template selection in frontend/src/app/workspace/[id]/project/[projectId]/workflows/new/page.tsx
+- [x] T013 [US1] Create workflow editor page in frontend/src/app/workspace/[id]/project/[projectId]/workflows/[workflowId]/page.tsx
+- [x] T014 [US1] Implement duplicate template to project functionality in frontend/src/lib/api/workflows.ts
 
 **Checkpoint**: User Story 1 complete - workflows accessible from project context
 
@@ -72,12 +73,12 @@
 
 ### Implementation for User Story 2
 
-- [X] T015 [US2] Apply floating glass effect to NodePalette in frontend/src/components/workflow/NodePalette.tsx
-- [X] T016 [P] [US2] Apply floating glass effect to NodeConfigPanel in frontend/src/components/workflow/NodeConfigPanel.tsx
-- [X] T017 [P] [US2] Apply floating glass effect to NodePropertiesPanel in frontend/src/components/workflow/NodePropertiesPanel.tsx
-- [X] T018 [US2] Update WorkflowCanvas layout for floating sidebars with margin in frontend/src/components/workflow/WorkflowCanvas.tsx
-- [X] T019 [P] [US2] Apply glass styling to ModelSelector dropdown in frontend/src/components/workflow/ModelSelector.tsx
-- [X] T020 [US2] Ensure all workflow modals use glass effect consistent with project page modals
+- [x] T015 [US2] Apply floating glass effect to NodePalette in frontend/src/components/workflow/NodePalette.tsx
+- [x] T016 [P] [US2] Apply floating glass effect to NodeConfigPanel in frontend/src/components/workflow/NodeConfigPanel.tsx
+- [x] T017 [P] [US2] Apply floating glass effect to NodePropertiesPanel in frontend/src/components/workflow/NodePropertiesPanel.tsx
+- [x] T018 [US2] Update WorkflowCanvas layout for floating sidebars with margin in frontend/src/components/workflow/WorkflowCanvas.tsx
+- [x] T019 [P] [US2] Apply glass styling to ModelSelector dropdown in frontend/src/components/workflow/ModelSelector.tsx
+- [x] T020 [US2] Ensure all workflow modals use glass effect consistent with project page modals
 
 **Checkpoint**: User Story 2 complete - visual consistency with project page achieved
 
@@ -91,18 +92,18 @@
 
 ### Implementation for User Story 3
 
-- [X] T021 [US3] Update BaseNode component handle positions to Left/Right in frontend/src/components/workflow/nodes/BaseNode.tsx
-- [X] T022 [P] [US3] Update StartNode handle position to Right only in frontend/src/components/workflow/nodes/StartNode.tsx
-- [X] T023 [P] [US3] Update FinishNode handle position to Left only in frontend/src/components/workflow/nodes/FinishNode.tsx
-- [X] T024 [P] [US3] Update TextGenerationNode handles in frontend/src/components/workflow/nodes/TextGenerationNode.tsx
-- [X] T025 [P] [US3] Update ImageGenerationNode handles in frontend/src/components/workflow/nodes/ImageGenerationNode.tsx
-- [X] T026 [P] [US3] Update ConditionalNode handles in frontend/src/components/workflow/nodes/ConditionalNode.tsx
-- [X] T027 [P] [US3] Update LoopNode handles in frontend/src/components/workflow/nodes/LoopNode.tsx
-- [X] T028 [P] [US3] Update ContextRetrievalNode handles in frontend/src/components/workflow/nodes/ContextRetrievalNode.tsx
-- [X] T029 [P] [US3] Update ProcessingNode handles in frontend/src/components/workflow/nodes/ProcessingNode.tsx
-- [X] T030 [P] [US3] Update AttachNode handles in frontend/src/components/workflow/nodes/AttachNode.tsx
-- [X] T031 [US3] Implement connection validation with visual feedback in WorkflowCanvas.tsx using useValidateConnection hook
-- [X] T032 [US3] Add invalid connection styling (red handle, tooltip) in frontend/src/components/workflow/WorkflowCanvas.tsx
+- [x] T021 [US3] Update BaseNode component handle positions to Left/Right in frontend/src/components/workflow/nodes/BaseNode.tsx
+- [x] T022 [P] [US3] Update StartNode handle position to Right only in frontend/src/components/workflow/nodes/StartNode.tsx
+- [x] T023 [P] [US3] Update FinishNode handle position to Left only in frontend/src/components/workflow/nodes/FinishNode.tsx
+- [x] T024 [P] [US3] Update TextGenerationNode handles in frontend/src/components/workflow/nodes/TextGenerationNode.tsx
+- [x] T025 [P] [US3] Update ImageGenerationNode handles in frontend/src/components/workflow/nodes/ImageGenerationNode.tsx
+- [x] T026 [P] [US3] Update ConditionalNode handles in frontend/src/components/workflow/nodes/ConditionalNode.tsx
+- [x] T027 [P] [US3] Update LoopNode handles in frontend/src/components/workflow/nodes/LoopNode.tsx
+- [x] T028 [P] [US3] Update ContextRetrievalNode handles in frontend/src/components/workflow/nodes/ContextRetrievalNode.tsx
+- [x] T029 [P] [US3] Update ProcessingNode handles in frontend/src/components/workflow/nodes/ProcessingNode.tsx
+- [x] T030 [P] [US3] Update AttachNode handles in frontend/src/components/workflow/nodes/AttachNode.tsx
+- [x] T031 [US3] Implement connection validation with visual feedback in WorkflowCanvas.tsx using useValidateConnection hook
+- [x] T032 [US3] Add invalid connection styling (red handle, tooltip) in frontend/src/components/workflow/WorkflowCanvas.tsx
 
 **Checkpoint**: User Story 3 complete - horizontal flow with type validation
 
@@ -116,12 +117,12 @@
 
 ### Implementation for User Story 4
 
-- [ ] T033 [US4] Refactor workflows gallery page with tabs in frontend/src/app/workspace/[id]/workflows/page.tsx
-- [ ] T034 [P] [US4] Create TemplateBadge component in frontend/src/components/workflow/TemplateBadge.tsx
-- [ ] T035 [US4] Add template badge to WorkflowCard component in frontend/src/components/workflow/WorkflowCard.tsx
-- [ ] T036 [US4] Implement differentiated actions for templates vs user workflows in WorkflowCard.tsx
-- [ ] T037 [US4] Add "Duplicar para Projeto" action for templates in frontend/src/components/workflow/WorkflowCard.tsx
-- [ ] T038 [US4] Implement unique naming on duplicate (add suffix) in backend/routers/workflows.py
+- [x] T033 [US4] Refactor workflows gallery page with tabs in frontend/src/app/workspace/[id]/workflows/page.tsx
+- [x] T034 [P] [US4] Create TemplateBadge component in frontend/src/components/workflow/TemplateBadge.tsx
+- [x] T035 [US4] Add template badge to WorkflowCard component in frontend/src/components/workflow/WorkflowCard.tsx
+- [x] T036 [US4] Implement differentiated actions for templates vs user workflows in WorkflowCard.tsx
+- [x] T037 [US4] Add "Duplicar para Projeto" action for templates in frontend/src/components/workflow/WorkflowCard.tsx
+- [x] T038 [US4] Implement unique naming on duplicate (add suffix) in backend/routers/workflows.py
 
 **Checkpoint**: User Story 4 complete - clear separation between templates and user workflows
 
@@ -135,11 +136,11 @@
 
 ### Implementation for User Story 5
 
-- [ ] T039 [US5] Complete WorkflowHeader component with breadcrumb in frontend/src/components/workflow/WorkflowHeader.tsx
-- [ ] T040 [US5] Integrate WorkflowHeader into workflow editor page in frontend/src/app/workspace/[id]/project/[projectId]/workflows/[workflowId]/page.tsx
-- [ ] T041 [P] [US5] Add back navigation to workflows gallery in frontend/src/app/workspace/[id]/workflows/page.tsx
-- [ ] T042 [P] [US5] Add back navigation to project workflows list in frontend/src/app/workspace/[id]/project/[projectId]/workflows/page.tsx
-- [ ] T043 [US5] Add navigation header to execution view page
+- [x] T039 [US5] Complete WorkflowHeader component with breadcrumb in frontend/src/components/workflow/WorkflowHeader.tsx
+- [x] T040 [US5] Integrate WorkflowHeader into workflow editor page in frontend/src/app/workspace/[id]/project/[projectId]/workflows/[workflowId]/page.tsx
+- [x] T041 [P] [US5] Add back navigation to workflows gallery in frontend/src/app/workspace/[id]/workflows/page.tsx
+- [x] T042 [P] [US5] Add back navigation to project workflows list in frontend/src/app/workspace/[id]/project/[projectId]/workflows/page.tsx
+- [x] T043 [US5] Add navigation header to execution view page
 
 **Checkpoint**: User Story 5 complete - clear navigation on all workflow screens
 
@@ -153,12 +154,12 @@
 
 ### Implementation for User Story 6
 
-- [ ] T044 [US6] Verify text_generation node uses llm_service in backend/services/node_executor.py
-- [ ] T045 [P] [US6] Verify image_generation node uses image_generation_service in backend/services/node_executor.py
-- [ ] T046 [P] [US6] Verify context_retrieval node uses same search as assistant in backend/services/node_executor.py
-- [ ] T047 [US6] Implement attach_creative node integration with edit_document_tool in backend/services/node_executor.py
-- [ ] T048 [US6] Add move_kanban_item node capability or integrate with processing node in backend/services/node_executor.py
-- [ ] T049 [US6] Test complete workflow: context→text→image→attach→kanban execution
+- [x] T044 [US6] Verify text_generation node uses llm_service in backend/services/node_executor.py
+- [x] T045 [P] [US6] Verify image_generation node uses image_generation_service in backend/services/node_executor.py
+- [x] T046 [P] [US6] Verify context_retrieval node uses same search as assistant in backend/services/node_executor.py
+- [x] T047 [US6] Implement attach_creative node integration with edit_document_tool in backend/services/node_executor.py
+- [x] T048 [US6] Add move_kanban_item node capability or integrate with processing node in backend/services/node_executor.py
+- [x] T049 [US6] Test complete workflow: context→text→image→attach→kanban execution
 
 **Checkpoint**: User Story 6 complete - full integration with assistant tools
 
@@ -168,12 +169,12 @@
 
 **Purpose**: Improvements that affect multiple user stories
 
-- [ ] T050 [P] Implement execution pause/resume on node failure in backend/services/workflow_executor.py
-- [ ] T051 [P] Implement prevent deletion of running workflow in backend/routers/workflows.py
-- [ ] T052 [P] Add empty result notification for context_retrieval in backend/services/node_executor.py
-- [ ] T053 Performance optimization: memoize node components with useMemo/useCallback
-- [ ] T054 Verify all glass effects work in both light and dark mode
-- [ ] T055 Run quickstart.md validation checklist
+- [x] T050 [P] Implement execution pause/resume on node failure in backend/services/workflow_executor.py
+- [x] T051 [P] Implement prevent deletion of running workflow in backend/routers/workflows.py
+- [x] T052 [P] Add empty result notification for context_retrieval in backend/services/node_executor.py
+- [x] T053 Performance optimization: memoize node components with useMemo/useCallback
+- [x] T054 Verify all glass effects work in both light and dark mode
+- [x] T055 Run quickstart.md validation checklist
 
 ---
 
@@ -272,18 +273,20 @@ With multiple developers:
 
 ## Summary
 
-| Phase | Tasks | Parallel Opportunities |
-|-------|-------|----------------------|
-| Setup | 2 | 1 |
-| Foundational | 4 | 2 |
-| US1 - Project Workflows | 8 | 2 |
-| US2 - Liquid Glass | 6 | 3 |
-| US3 - Horizontal Nodes | 12 | 9 |
-| US4 - Template Separation | 6 | 1 |
-| US5 - Navigation | 5 | 2 |
-| US6 - Tool Integration | 6 | 2 |
-| Polish | 6 | 3 |
-| **Total** | **55** | **25** |
+| Phase | Tasks | Status |
+|-------|-------|--------|
+| Setup | 2 | ✅ Complete |
+| Foundational | 4 | ✅ Complete |
+| US1 - Project Workflows | 8 | ✅ Complete |
+| US2 - Liquid Glass | 6 | ✅ Complete |
+| US3 - Horizontal Nodes | 12 | ✅ Complete |
+| US4 - Template Separation | 6 | ✅ Complete |
+| US5 - Navigation | 5 | ✅ Complete |
+| US6 - Tool Integration | 6 | ✅ Complete |
+| Polish | 6 | ✅ Complete |
+| **Total** | **55** | ✅ **Complete** |
+
+**Completion Date**: 2025-12-06
 
 ---
 
