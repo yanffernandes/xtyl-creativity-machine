@@ -22,6 +22,8 @@ from schemas import (
 )
 from supabase_auth import get_current_user, get_current_user_from_token
 from services.workflow_executor import WorkflowExecutor
+# Feature 025: Security Hardening - Authorization helpers
+from services.security_service import verify_project_access, verify_workflow_access
 import uuid
 import json
 import asyncio
@@ -45,21 +47,9 @@ async def launch_workflow_execution(
     Args:
         execution_data: Execution configuration
     """
-    # Validate template exists
-    template = db.query(WorkflowTemplate).filter(
-        WorkflowTemplate.id == execution_data.template_id
-    ).first()
-
-    if not template:
-        raise HTTPException(status_code=404, detail="Workflow template not found")
-
-    # Validate project exists
-    project = db.query(Project).filter(
-        Project.id == execution_data.project_id
-    ).first()
-
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
+    # Feature 025: Verify user has access to project and workflow template
+    project = verify_project_access(db, execution_data.project_id, str(current_user.id))
+    template = verify_workflow_access(db, execution_data.template_id, str(current_user.id))
 
     # Create execution record
     # Convert UUID to string for WorkflowExecution table
@@ -136,6 +126,10 @@ async def list_workflow_executions(
         limit: Maximum number of results
         offset: Offset for pagination
     """
+    # Feature 025: If project_id is provided, verify user has access
+    if project_id:
+        verify_project_access(db, project_id, str(current_user.id))
+
     query = db.query(WorkflowExecution).filter(
         WorkflowExecution.user_id == str(current_user.id)
     )

@@ -28,7 +28,7 @@
 - [x] T001 Create admin components directory at frontend/src/components/admin/
 - [x] T002 Create admin app directory at frontend/src/app/admin/
 - [x] T003 Create database migration file at backend/migrations/016_add_admin_tables.sql (copy from data-model.md)
-- [ ] T004 Run database migration: `psql $DATABASE_URL -f backend/migrations/016_add_admin_tables.sql` (MANUAL: run when deploying)
+- [x] T004 Run database migration: `psql $DATABASE_URL -f backend/migrations/016_add_admin_tables.sql` (MANUAL: run when deploying)
 
 ---
 
@@ -74,24 +74,24 @@
 
 ### Backend Implementation (US1)
 
-- [ ] T017 [US1] Implement GET /admin/models/config endpoint in backend/routers/admin.py
-- [ ] T018 [US1] Implement PUT /admin/models/config endpoint with validation in backend/routers/admin.py
-- [ ] T019 [US1] Implement GET /admin/models/available endpoint (fetch from OpenRouter) in backend/routers/admin.py
-- [ ] T020 [US1] Implement POST /admin/models/validate endpoint in backend/routers/admin.py
-- [ ] T021 [US1] Modify llm_service.py to use ModelConfigService.get_model("chat") instead of hardcoded default
-- [ ] T022 [US1] Modify image_generation_service.py to use ModelConfigService.get_model("image_generation")
-- [ ] T023 [US1] Modify vision_service.py to use ModelConfigService.get_model("vision")
-- [ ] T024 [US1] Add fallback logic to ModelConfigService when primary model unavailable
+- [x] T017 [US1] Implement GET /admin/models/config endpoint in backend/routers/admin.py
+- [x] T018 [US1] Implement PUT /admin/models/config endpoint with validation in backend/routers/admin.py
+- [x] T019 [US1] Implement GET /admin/models/available endpoint (fetch from OpenRouter) in backend/routers/admin.py
+- [x] T020 [US1] Implement POST /admin/models/validate endpoint in backend/routers/admin.py
+- [x] T021 [US1] Modify llm_service.py to use ModelConfigService.get_model("chat") instead of hardcoded default
+- [x] T022 [US1] Modify image_generation_service.py to use ModelConfigService.get_model("image_generation")
+- [x] T023 [US1] Modify vision_service.py to use ModelConfigService.get_model("vision")
+- [x] T024 [US1] Add fallback logic to ModelConfigService when primary model unavailable
 
 ### Frontend Implementation (US1)
 
-- [ ] T025 [P] [US1] Create AdminSidebar component in frontend/src/components/admin/AdminSidebar.tsx
-- [ ] T026 [P] [US1] Create AdminHeader component in frontend/src/components/admin/AdminHeader.tsx
-- [ ] T027 [US1] Create admin layout with sidebar in frontend/src/app/admin/layout.tsx
-- [ ] T028 [US1] Create admin root page (redirects to /admin/models) in frontend/src/app/admin/page.tsx
-- [ ] T029 [US1] Create useAdminModels hook in frontend/src/hooks/use-admin.ts
-- [ ] T030 [US1] Create ModelConfigForm component in frontend/src/components/admin/ModelConfigForm.tsx
-- [ ] T031 [US1] Create AI models configuration page in frontend/src/app/admin/models/page.tsx
+- [x] T025 [P] [US1] Create AdminSidebar component in frontend/src/components/admin/AdminSidebar.tsx
+- [x] T026 [P] [US1] Create AdminHeader component in frontend/src/components/admin/AdminHeader.tsx
+- [x] T027 [US1] Create admin layout with sidebar in frontend/src/app/admin/layout.tsx
+- [x] T028 [US1] Create admin root page (redirects to /admin/models) in frontend/src/app/admin/page.tsx
+- [x] T029 [US1] Create useAdminModels hook in frontend/src/hooks/use-admin.ts
+- [x] T030 [US1] Create ModelConfigForm component in frontend/src/components/admin/ModelConfigForm.tsx
+- [x] T031 [US1] Create AI models configuration page in frontend/src/app/admin/models/page.tsx
 
 **Checkpoint**: Admin can configure all AI models; services read from DB; zero hardcoded values
 
@@ -105,20 +105,20 @@
 
 ### Backend Implementation (US2)
 
-- [ ] T032 [US2] Implement GET /admin/users endpoint with pagination, search, filters in backend/routers/admin.py
-- [ ] T033 [US2] Implement GET /admin/users/{user_id} endpoint with stats in backend/routers/admin.py
-- [ ] T034 [US2] Implement POST /admin/users/{user_id}/block endpoint in backend/routers/admin.py
-- [ ] T035 [US2] Implement POST /admin/users/{user_id}/unblock endpoint in backend/routers/admin.py
-- [ ] T036 [US2] Implement POST /admin/users/{user_id}/promote endpoint in backend/routers/admin.py
-- [ ] T037 [US2] Implement POST /admin/users/{user_id}/demote endpoint in backend/routers/admin.py
-- [ ] T038 [US2] Add blocked user check in supabase_auth.py get_current_user function
+- [x] T032 [US2] Implement GET /admin/users endpoint with pagination, search, filters in backend/routers/admin.py
+- [x] T033 [US2] Implement GET /admin/users/{user_id} endpoint with stats in backend/routers/admin.py
+- [x] T034 [US2] Implement POST /admin/users/{user_id}/block endpoint in backend/routers/admin.py
+- [x] T035 [US2] Implement POST /admin/users/{user_id}/unblock endpoint in backend/routers/admin.py
+- [x] T036 [US2] Implement POST /admin/users/{user_id}/promote endpoint in backend/routers/admin.py
+- [x] T037 [US2] Implement POST /admin/users/{user_id}/demote endpoint in backend/routers/admin.py
+- [x] T038 [US2] Add blocked user check in supabase_auth.py get_current_user function
 
 ### Frontend Implementation (US2)
 
-- [ ] T039 [P] [US2] Create UserTable component in frontend/src/components/admin/UserTable.tsx
-- [ ] T040 [US2] Create useAdminUsers hook in frontend/src/hooks/use-admin.ts
-- [ ] T041 [US2] Create users list page in frontend/src/app/admin/users/page.tsx
-- [ ] T042 [US2] Create user details page in frontend/src/app/admin/users/[id]/page.tsx
+- [x] T039 [P] [US2] Create UserTable component in frontend/src/components/admin/UserTable.tsx
+- [x] T040 [US2] Create useAdminUsers hook in frontend/src/hooks/use-admin.ts
+- [x] T041 [US2] Create users list page in frontend/src/app/admin/users/page.tsx
+- [x] T042 [US2] Create user details page in frontend/src/app/admin/users/[id]/page.tsx
 
 **Checkpoint**: Admin can list, search, filter, block/unblock users
 
@@ -132,17 +132,17 @@
 
 ### Backend Implementation (US3)
 
-- [ ] T043 [US3] Implement GET /admin/workspaces endpoint with pagination, search in backend/routers/admin.py
-- [ ] T044 [US3] Implement GET /admin/workspaces/{workspace_id} endpoint in backend/routers/admin.py
-- [ ] T045 [US3] Implement DELETE /admin/workspaces/{workspace_id}/members/{user_id} endpoint in backend/routers/admin.py
-- [ ] T046 [US3] Implement POST /admin/workspaces/{workspace_id}/transfer endpoint in backend/routers/admin.py
+- [x] T043 [US3] Implement GET /admin/workspaces endpoint with pagination, search in backend/routers/admin.py
+- [x] T044 [US3] Implement GET /admin/workspaces/{workspace_id} endpoint in backend/routers/admin.py
+- [x] T045 [US3] Implement DELETE /admin/workspaces/{workspace_id}/members/{user_id} endpoint in backend/routers/admin.py
+- [x] T046 [US3] Implement POST /admin/workspaces/{workspace_id}/transfer endpoint in backend/routers/admin.py
 
 ### Frontend Implementation (US3)
 
-- [ ] T047 [P] [US3] Create WorkspaceTable component in frontend/src/components/admin/WorkspaceTable.tsx
-- [ ] T048 [US3] Create useAdminWorkspaces hook in frontend/src/hooks/use-admin.ts
-- [ ] T049 [US3] Create workspaces list page in frontend/src/app/admin/workspaces/page.tsx
-- [ ] T050 [US3] Create workspace details page in frontend/src/app/admin/workspaces/[id]/page.tsx
+- [x] T047 [P] [US3] Create WorkspaceTable component in frontend/src/components/admin/WorkspaceTable.tsx
+- [x] T048 [US3] Create useAdminWorkspaces hook in frontend/src/hooks/use-admin.ts
+- [x] T049 [US3] Create workspaces list page in frontend/src/app/admin/workspaces/page.tsx
+- [x] T050 [US3] Create workspace details page in frontend/src/app/admin/workspaces/[id]/page.tsx
 
 **Checkpoint**: Admin can list, view, and manage workspaces and members
 
@@ -156,16 +156,16 @@
 
 ### Backend Implementation (US4)
 
-- [ ] T051 [US4] Implement GET /admin/dashboard/metrics endpoint in backend/routers/admin.py
-- [ ] T052 [US4] Implement GET /admin/dashboard/alerts endpoint in backend/routers/admin.py
-- [ ] T053 [US4] Implement GET /admin/dashboard/usage endpoint in backend/routers/admin.py
+- [x] T051 [US4] Implement GET /admin/dashboard/metrics endpoint in backend/routers/admin.py
+- [x] T052 [US4] Implement GET /admin/dashboard/alerts endpoint in backend/routers/admin.py
+- [x] T053 [US4] Implement GET /admin/dashboard/usage endpoint in backend/routers/admin.py
 
 ### Frontend Implementation (US4)
 
-- [ ] T054 [P] [US4] Create MetricsCards component in frontend/src/components/admin/MetricsCards.tsx
-- [ ] T055 [P] [US4] Create AlertsPanel component in frontend/src/components/admin/AlertsPanel.tsx
-- [ ] T056 [P] [US4] Create UsageChart component in frontend/src/components/admin/UsageChart.tsx
-- [ ] T057 [US4] Create dashboard page in frontend/src/app/admin/dashboard/page.tsx
+- [x] T054 [P] [US4] Create MetricsCards component in frontend/src/components/admin/MetricsCards.tsx
+- [x] T055 [P] [US4] Create AlertsPanel component in frontend/src/components/admin/AlertsPanel.tsx
+- [x] T056 [P] [US4] Create UsageChart component in frontend/src/components/admin/UsageChart.tsx
+- [x] T057 [US4] Create dashboard page in frontend/src/app/admin/dashboard/page.tsx
 
 **Checkpoint**: Admin has visibility into system health and usage metrics
 
@@ -179,19 +179,19 @@
 
 ### Backend Implementation (US5)
 
-- [ ] T058 [US5] Implement GET /admin/settings/limits endpoint in backend/routers/admin.py
-- [ ] T059 [US5] Implement PUT /admin/settings/limits endpoint in backend/routers/admin.py
-- [ ] T060 [US5] Implement GET /admin/settings/features endpoint in backend/routers/admin.py
-- [ ] T061 [US5] Implement PUT /admin/settings/features endpoint in backend/routers/admin.py
-- [ ] T062 [US5] Implement GET /admin/settings/api-keys endpoint in backend/routers/admin.py
-- [ ] T063 [US5] Implement PUT /admin/settings/api-keys endpoint in backend/routers/admin.py
+- [x] T058 [US5] Implement GET /admin/settings/limits endpoint in backend/routers/admin.py
+- [x] T059 [US5] Implement PUT /admin/settings/limits endpoint in backend/routers/admin.py
+- [x] T060 [US5] Implement GET /admin/settings/features endpoint in backend/routers/admin.py
+- [x] T061 [US5] Implement PUT /admin/settings/features endpoint in backend/routers/admin.py
+- [x] T062 [US5] Implement GET /admin/settings/api-keys endpoint in backend/routers/admin.py
+- [x] T063 [US5] Implement PUT /admin/settings/api-keys endpoint in backend/routers/admin.py
 
 ### Frontend Implementation (US5)
 
-- [ ] T064 [P] [US5] Create LimitsForm component in frontend/src/components/admin/LimitsForm.tsx
-- [ ] T065 [P] [US5] Create FeatureFlagsForm component in frontend/src/components/admin/FeatureFlagsForm.tsx
-- [ ] T066 [P] [US5] Create ApiKeysForm component in frontend/src/components/admin/ApiKeysForm.tsx
-- [ ] T067 [US5] Create settings page with tabs in frontend/src/app/admin/settings/page.tsx
+- [x] T064 [P] [US5] Create LimitsForm component in frontend/src/components/admin/LimitsForm.tsx
+- [x] T065 [P] [US5] Create FeatureFlagsForm component in frontend/src/components/admin/FeatureFlagsForm.tsx
+- [x] T066 [P] [US5] Create ApiKeysForm component in frontend/src/components/admin/ApiKeysForm.tsx
+- [x] T067 [US5] Create settings page with tabs in frontend/src/app/admin/settings/page.tsx
 
 **Checkpoint**: Admin can configure global limits, feature flags, and API keys
 
@@ -203,22 +203,22 @@
 
 ### Audit Log
 
-- [ ] T068 Implement GET /admin/audit endpoint in backend/routers/admin.py
-- [ ] T069 Create AuditLogTable component in frontend/src/components/admin/AuditLogTable.tsx
-- [ ] T070 Add audit log tab to settings page or create separate /admin/audit page
+- [x] T068 Implement GET /admin/audit endpoint in backend/routers/admin.py
+- [x] T069 Create AuditLogTable component in frontend/src/components/admin/AuditLogTable.tsx
+- [x] T070 Add audit log tab to settings page or create separate /admin/audit page
 
 ### Styling & UX
 
-- [ ] T071 [P] Apply glassmorphism styling to all admin components (backdrop-blur, semi-transparent bg)
-- [ ] T072 [P] Add loading skeletons to admin pages
-- [ ] T073 [P] Add error handling with user-friendly messages to all admin pages
+- [x] T071 [P] Apply glassmorphism styling to all admin components (backdrop-blur, semi-transparent bg)
+- [x] T072 [P] Add loading skeletons to admin pages
+- [x] T073 [P] Add error handling with user-friendly messages to all admin pages
 
 ### Verification
 
-- [ ] T074 Verify all services use ModelConfigService (no hardcoded models remaining)
-- [ ] T075 Verify all admin actions create audit log entries
-- [ ] T076 Test admin access restriction (non-admin users see 403)
-- [ ] T077 Test blocked user flow (blocked user cannot login)
+- [x] T074 Verify all services use ModelConfigService (no hardcoded models remaining)
+- [x] T075 Verify all admin actions create audit log entries
+- [x] T076 Test admin access restriction (non-admin users see 403)
+- [x] T077 Test blocked user flow (blocked user cannot login)
 
 ---
 

@@ -660,10 +660,7 @@ export default function ChatSidebar({
         // Allow sending if there's text OR attachments
         if ((!input.trim() && attachments.length === 0) || isLoading) return
 
-        console.log('🚀 CHAT SEND STARTED')
-        console.log('Input:', input)
-        console.log('Model:', selectedModel)
-        console.log('Project ID:', projectId)
+        // Feature 025: Removed console.log statements that exposed sensitive data
 
         const userMessage: Message = { role: "user", content: input }
         setMessages((prev) => [...prev, userMessage])
@@ -713,8 +710,6 @@ export default function ChatSidebar({
 
             // Use streaming endpoint
             const apiUrl = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/chat/completion-stream`
-            console.log('📡 Calling streaming endpoint:', apiUrl)
-            console.log('Context data:', JSON.stringify(contextData, null, 2))
 
             const response = await fetch(apiUrl, {
                 method: 'POST',
@@ -724,8 +719,6 @@ export default function ChatSidebar({
                 },
                 body: JSON.stringify(contextData)
             })
-
-            console.log('📬 Response status:', response.status, response.statusText)
 
             if (!response.ok) {
                 const errorText = await response.text()
@@ -742,12 +735,9 @@ export default function ChatSidebar({
 
             if (!reader) throw new Error("No reader available")
 
-            console.log('📖 Starting to read stream...')
-
             while (!streamDone) {
                 const { done, value } = await reader.read()
                 if (done || streamDone) {
-                    console.log('✅ Stream completed')
                     break
                 }
 
@@ -761,7 +751,6 @@ export default function ChatSidebar({
 
                         try {
                             const event = JSON.parse(data)
-                            console.log('📨 SSE Event:', event.type, event)
 
                             switch (event.type) {
                                 case 'status':
@@ -993,7 +982,6 @@ export default function ChatSidebar({
                                     setCurrentStreamingContent("")
                                     setToolExecutions([])
                                     setTaskList([])
-                                    console.log('🔓 isLoading set to false - stream done')
 
                                     // Add final message to history with tool executions and task list
                                     const newAssistantMessage = {

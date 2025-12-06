@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useTranslations } from "next-intl"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
@@ -28,6 +29,8 @@ interface VisualContextSettingsProps {
 }
 
 export default function VisualContextSettings({ projectId }: VisualContextSettingsProps) {
+    const t = useTranslations("visualAssets")
+    const tCommon = useTranslations("common")
     const [isLoading, setIsLoading] = useState(true)
     const [isSaving, setIsSaving] = useState(false)
     const [error, setError] = useState<string | null>(null)
@@ -107,7 +110,7 @@ export default function VisualContextSettings({ projectId }: VisualContextSettin
 
         } catch (err: any) {
             console.error("Failed to load visual context settings:", err)
-            setError(err.response?.data?.detail || "Erro ao carregar configurações")
+            setError(err.response?.data?.detail || t("loadError"))
         } finally {
             setIsLoading(false)
         }
@@ -140,15 +143,15 @@ export default function VisualContextSettings({ projectId }: VisualContextSettin
             setHasChanges(false)
 
             toast({
-                title: "Configurações salvas",
-                description: "As configurações do contexto visual foram atualizadas"
+                title: t("settingsSaved"),
+                description: t("settingsSavedDescription", { count: assetsPerCategory })
             })
 
         } catch (err: any) {
             console.error("Failed to save settings:", err)
             toast({
-                title: "Erro ao salvar",
-                description: err.response?.data?.detail || "Não foi possível salvar as configurações",
+                title: t("settingsSaveError"),
+                description: err.response?.data?.detail || t("settingsSaveErrorDesc"),
                 variant: "destructive"
             })
         } finally {
@@ -175,10 +178,10 @@ export default function VisualContextSettings({ projectId }: VisualContextSettin
         return (
             <div className="flex flex-col items-center justify-center h-64 text-center">
                 <AlertCircle className="h-12 w-12 text-destructive mb-3" />
-                <h3 className="font-medium mb-1">Erro ao carregar</h3>
+                <h3 className="font-medium mb-1">{t("loadErrorTitle")}</h3>
                 <p className="text-sm text-muted-foreground mb-4">{error}</p>
                 <Button onClick={loadData} variant="outline">
-                    Tentar novamente
+                    {t("tryAgain")}
                 </Button>
             </div>
         )
@@ -209,9 +212,9 @@ export default function VisualContextSettings({ projectId }: VisualContextSettin
             {/* Mode-specific config */}
             {isEnabled && mode === "manual" && (
                 <Card className="p-6">
-                    <h3 className="font-medium mb-4">Seleção de Assets</h3>
+                    <h3 className="font-medium mb-4">{t("assetSelection")}</h3>
                     <p className="text-sm text-muted-foreground mb-4">
-                        Escolha quais assets serão usados como referência nas gerações de imagem
+                        {t("assetSelectionHint")}
                     </p>
                     <AssetSelectorGrid
                         assets={assets}
@@ -224,7 +227,7 @@ export default function VisualContextSettings({ projectId }: VisualContextSettin
 
             {isEnabled && mode === "auto" && (
                 <Card className="p-6">
-                    <h3 className="font-medium mb-4">Configuração Automática</h3>
+                    <h3 className="font-medium mb-4">{t("autoConfig")}</h3>
                     <AutoModeConfig
                         assetsPerCategory={assetsPerCategory}
                         onAssetsPerCategoryChange={setAssetsPerCategory}
@@ -242,7 +245,7 @@ export default function VisualContextSettings({ projectId }: VisualContextSettin
                         onClick={handleReset}
                         disabled={isSaving}
                     >
-                        Descartar alterações
+                        {t("discardChanges")}
                     </Button>
                     <Button
                         onClick={handleSave}
@@ -252,12 +255,12 @@ export default function VisualContextSettings({ projectId }: VisualContextSettin
                         {isSaving ? (
                             <>
                                 <Loader2 className="h-4 w-4 animate-spin" />
-                                Salvando...
+                                {t("saving")}
                             </>
                         ) : (
                             <>
                                 <Save className="h-4 w-4" />
-                                Salvar alterações
+                                {t("saveChanges")}
                             </>
                         )}
                     </Button>

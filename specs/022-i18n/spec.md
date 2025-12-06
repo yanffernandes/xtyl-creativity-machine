@@ -145,3 +145,194 @@ Mensagens de validação de formulários, toasts de sucesso/erro, e feedback do 
 - Localização de URLs/rotas
 - Suporte a idiomas RTL (árabe, hebraico)
 - Tradução do painel administrativo (se existir requisito diferente, especificar)
+
+## Technical Architecture
+
+### Estrutura de Arquivos
+
+```
+frontend/src/
+├── i18n/
+│   ├── config.ts          # Configuração de locales, tipos e detecção
+│   ├── request.ts         # getRequestConfig para next-intl
+│   └── storage.ts         # Persistência em localStorage
+├── messages/
+│   ├── pt-BR.json         # Traduções em Português
+│   └── en.json            # Traduções em Inglês
+├── contexts/
+│   └── LocaleContext.tsx  # Provider de locale global
+├── hooks/
+│   └── use-locale.ts      # Hook para acessar/alterar locale
+└── components/
+    └── LocaleSwitcher.tsx # Componente seletor de idioma
+```
+
+### Convenções de Namespace
+
+Os arquivos de tradução usam namespaces aninhados para organização:
+
+```json
+{
+  "common": { },      // Textos genéricos (botões, ações)
+  "auth": { },        // Autenticação (login, registro)
+  "navigation": { },  // Menu e navegação
+  "profile": { },     // Página de perfil
+  "workspace": { },   // Funcionalidades de workspace
+  "project": { },     // Funcionalidades de projeto
+  "document": { },    // Documentos
+  "workflow": { },    // Sistema de workflows
+  "errors": { },      // Mensagens de erro
+  "validation": { },  // Validação de formulários
+  "success": { },     // Mensagens de sucesso
+  "sidebar": { },     // Sidebar lateral
+  "commandPalette": { }, // Command palette
+  "settings": { },    // Configurações
+  "admin": { },       // Painel administrativo
+  "visualAssets": { }, // Biblioteca de assets visuais
+  "chat": { },        // Chat/assistente IA
+  "templates": { }    // Templates
+}
+```
+
+### Padrões de Uso
+
+#### Componentes Client-side
+```tsx
+"use client";
+import { useTranslations } from "next-intl";
+
+export function MyComponent() {
+  const t = useTranslations("namespace");
+  return <button>{t("buttonLabel")}</button>;
+}
+```
+
+#### Pluralização
+```json
+{
+  "projects": "{count, plural, =0 {Nenhum projeto} =1 {1 projeto} other {# projetos}}"
+}
+```
+
+```tsx
+t("projects", { count: 5 }) // "5 projetos"
+```
+
+#### Interpolação de Variáveis
+```json
+{
+  "welcome": "Bem-vindo, {name}!",
+  "itemsSelected": "{count} itens selecionados"
+}
+```
+
+```tsx
+t("welcome", { name: "João" }) // "Bem-vindo, João!"
+```
+
+#### Formatação de Datas
+```tsx
+import { useFormatter } from "next-intl";
+
+const format = useFormatter();
+format.dateTime(date, { dateStyle: "medium" });
+// pt-BR: "5 de dez. de 2025"
+// en: "Dec 5, 2025"
+```
+
+#### Formatação de Números
+```tsx
+format.number(1234.56, { style: "currency", currency: "BRL" });
+// pt-BR: "R$ 1.234,56"
+// en: "$1,234.56"
+```
+
+## Component Inventory
+
+### P1 - Fluxo Principal (Must Have)
+
+| Módulo | Componente | Status | Namespace |
+|--------|------------|--------|-----------|
+| Auth | login/page.tsx | ✅ Traduzido | auth |
+| Auth | register/page.tsx | ✅ Traduzido | auth |
+| Auth | forgot-password/page.tsx | ✅ Traduzido | auth |
+| Auth | reset-password/page.tsx | ✅ Traduzido | auth |
+| Navigation | WorkspaceSidebar.tsx | ✅ Traduzido | sidebar |
+| Navigation | CommandPalette.tsx | ✅ Traduzido | commandPalette |
+| Workspace | workspace/[id]/page.tsx | ✅ Traduzido | workspace |
+| Workspace | workspace/[id]/settings/page.tsx | ✅ Traduzido | settings |
+| Profile | workspace/[id]/profile/page.tsx | ✅ Traduzido | profile |
+| Project | project/[projectId]/page.tsx | ❌ Pendente | project |
+| Project | project/[projectId]/settings/page.tsx | ❌ Pendente | project |
+| Document | DocumentEditor (interno) | ❌ Pendente | document |
+| Chat | ChatSidebar.tsx | ❌ Pendente | chat |
+
+### P2 - Features Secundárias (Should Have)
+
+| Módulo | Componente | Status | Namespace |
+|--------|------------|--------|-----------|
+| Workflow | WorkflowCanvas.tsx | ✅ Traduzido | workflow |
+| Workflow | NodeConfigPanel.tsx | ✅ Traduzido | workflow |
+| Workflow | ExecutionMonitor.tsx | ✅ Traduzido | workflow |
+| Workflow | WorkflowHeader.tsx | ❌ Pendente | workflow |
+| Workflow | WorkflowList.tsx | ❌ Pendente | workflow |
+| Workflow | LaunchWorkflowModal.tsx | ❌ Pendente | workflow |
+| Workflow | TemplateCard.tsx | ❌ Pendente | workflow |
+| Workflow | nodes/*.tsx (12 arquivos) | ❌ Pendente | workflow |
+| Visual Assets | VisualAssetsLibrary.tsx | ❌ Pendente | visualAssets |
+| Visual Assets | AssetUploadModal.tsx | ❌ Pendente | visualAssets |
+| Visual Assets | AdvancedVisualSettingsModal.tsx | ❌ Pendente | visualAssets |
+| Visual Assets | VisualContextSettings.tsx | ❌ Pendente | visualAssets |
+| Templates | templates/page.tsx | ❌ Pendente | templates |
+| Templates | TemplateCard.tsx | ❌ Pendente | templates |
+| Share | ShareDialog.tsx | ❌ Pendente | common |
+| Modals | AssetSelectorModal.tsx | ❌ Pendente | visualAssets |
+| Modals | ImageViewer.tsx | ❌ Pendente | common |
+
+### P3 - Admin & Extras (Nice to Have)
+
+| Módulo | Componente | Status | Namespace |
+|--------|------------|--------|-----------|
+| Admin | admin/page.tsx | ❌ Pendente | admin |
+| Admin | admin/users/page.tsx | ❌ Pendente | admin |
+| Admin | admin/workspaces/page.tsx | ❌ Pendente | admin |
+| Admin | admin/models/page.tsx | ❌ Pendente | admin |
+| Admin | admin/settings/page.tsx | ❌ Pendente | admin |
+| Admin | admin/messages/page.tsx | ❌ Pendente | admin |
+| Admin | AdminHeader.tsx | ❌ Pendente | admin |
+| Admin | UserTable.tsx | ❌ Pendente | admin |
+| Admin | WorkspaceTable.tsx | ❌ Pendente | admin |
+| Admin | ModelConfigForm.tsx | ❌ Pendente | admin |
+| Loading | LoadingSkeleton.tsx | ❌ Pendente | common |
+| Empty States | empty-*.tsx (3 arquivos) | ❌ Pendente | common |
+
+## Progress Summary
+
+| Prioridade | Total | Traduzidos | Pendentes | % Completo |
+|------------|-------|------------|-----------|------------|
+| P1 - Fluxo Principal | 13 | 10 | 3 | 77% |
+| P2 - Features Secundárias | 18 | 3 | 15 | 17% |
+| P3 - Admin & Extras | 14 | 0 | 14 | 0% |
+| **Total** | **45** | **13** | **32** | **29%** |
+
+## Implementation Notes
+
+### Dependências Instaladas
+- `next-intl`: Biblioteca principal de i18n para Next.js
+
+### Configuração no layout.tsx
+O `NextIntlClientProvider` deve envolver a aplicação no layout raiz, passando as mensagens do locale atual.
+
+### Mudança de Idioma
+Atualmente a mudança de idioma faz reload da página (`window.location.reload()`). Isso é necessário porque o next-intl carrega as mensagens no servidor. Para uma experiência sem reload, seria necessário migrar para um approach 100% client-side.
+
+### Fallback de Traduções
+Se uma chave não existir no idioma selecionado, o sistema deve:
+1. Tentar usar o idioma padrão (pt-BR)
+2. Se não existir, mostrar a própria chave (para debugging)
+
+### Testes
+- Verificar que nenhuma chave retorna `undefined`
+- Testar pluralização em ambos os idiomas
+- Testar formatação de datas/números
+- Testar persistência do locale no localStorage

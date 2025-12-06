@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -27,7 +27,7 @@ interface AssetClassificationCardProps {
     isLoading?: boolean
 }
 
-const CATEGORIES: AssetCategory[] = ["Logo", "Pessoa", "Background", "Produto", "Outro"]
+const CATEGORIES: AssetCategory[] = ["Logo", "Pessoa", "Background", "Produto", "Referência", "Outro"]
 
 export default function AssetClassificationCard({
     classification,
@@ -43,6 +43,14 @@ export default function AssetClassificationCard({
     const [description, setDescription] = useState<string>(classification.ai_description)
     const [isSubmitting, setIsSubmitting] = useState(false)
 
+    // Reset state when classification changes (different asset)
+    useEffect(() => {
+        setCategory(classification.suggested_category)
+        setTags(classification.suggested_tags.join(", "))
+        setDescription(classification.ai_description)
+        setIsEditing(false)
+    }, [classification.asset_id])
+
     const handleConfirm = async () => {
         setIsSubmitting(true)
         try {
@@ -57,11 +65,11 @@ export default function AssetClassificationCard({
     const confidencePercent = Math.round(confidence * 100)
 
     return (
-        <Card className="overflow-hidden">
-            <div className="flex flex-col md:flex-row">
+        <Card className="w-full">
+            <div className="flex flex-col sm:flex-row p-4 gap-4">
                 {/* Thumbnail */}
                 {thumbnailUrl && (
-                    <div className="md:w-48 md:h-48 w-full h-40 flex-shrink-0 bg-gray-100 dark:bg-gray-800">
+                    <div className="sm:w-36 sm:min-w-[144px] sm:max-w-[144px] w-full h-36 flex-shrink-0 bg-gray-100 dark:bg-gray-800 rounded-lg overflow-hidden">
                         <img
                             src={thumbnailUrl}
                             alt={assetName || "Asset"}
@@ -71,18 +79,20 @@ export default function AssetClassificationCard({
                 )}
 
                 {/* Content */}
-                <div className="flex-1 p-4">
-                    <div className="flex items-start justify-between mb-3">
-                        <div>
-                            <div className="flex items-center gap-2 mb-1">
-                                <Sparkles className="h-4 w-4 text-accent-primary" />
+                <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between gap-2 mb-3">
+                        <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                <Sparkles className="h-4 w-4 text-accent-primary flex-shrink-0" />
                                 <span className="text-sm font-medium">Classificação IA</span>
                                 <Badge variant="secondary" className="text-xs">
                                     {confidencePercent}% confiança
                                 </Badge>
                             </div>
                             {assetName && (
-                                <p className="text-sm text-muted-foreground">{assetName}</p>
+                                <p className="text-sm text-muted-foreground truncate" title={assetName}>
+                                    {assetName}
+                                </p>
                             )}
                         </div>
                         {!isEditing && (
@@ -91,6 +101,7 @@ export default function AssetClassificationCard({
                                 size="sm"
                                 onClick={() => setIsEditing(true)}
                                 disabled={isLoading || isSubmitting}
+                                className="flex-shrink-0"
                             >
                                 <Pencil className="h-4 w-4 mr-1" />
                                 Editar
@@ -194,8 +205,8 @@ export default function AssetClassificationCard({
                             {tags && tags.trim() && (
                                 <div>
                                     <span className="text-xs text-muted-foreground">Tags</span>
-                                    <div className="flex flex-wrap gap-1 mt-1">
-                                        {tags.split(",").map((tag, idx) => (
+                                    <div className="flex flex-wrap gap-1 mt-1 max-h-20 overflow-y-auto">
+                                        {tags.split(",").filter(t => t.trim()).map((tag, idx) => (
                                             <Badge key={idx} variant="outline" className="text-xs">
                                                 {tag.trim()}
                                             </Badge>

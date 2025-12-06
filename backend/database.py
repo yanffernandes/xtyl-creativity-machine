@@ -4,9 +4,13 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import QueuePool
 import os
 
-# DATABASE_URL should be set by dotenv in main.py before this is imported
-# Default uses localhost (not 'db' which is for Docker)
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://xtyl:xtylpassword@localhost:5432/xtyl_db")
+# DATABASE_URL must be set via environment variable - no hardcoded defaults for security
+DATABASE_URL = os.getenv("DATABASE_URL")
+if not DATABASE_URL:
+    raise EnvironmentError(
+        "DATABASE_URL environment variable is required. "
+        "Please set it in your .env file or environment."
+    )
 
 # Configure engine with connection pool settings for remote database (Supabase)
 # These settings help prevent "connection closed unexpectedly" errors

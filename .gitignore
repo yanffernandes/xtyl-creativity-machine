@@ -2,11 +2,12 @@
 .DS_Store
 Thumbs.db
 
-# Environment Variables
+# Environment Variables (Feature 025 - Security Hardening)
 .env
-.env.local
-.env.production
-.env.*.local
+.env.*
+!.env.example
+*.pem
+*.key
 
 # Python
 __pycache__/
@@ -41,6 +42,7 @@ yarn-error.log*
 *.db
 *.sqlite
 *.sqlite3
+dump.rdb
 
 # Logs
 logs/

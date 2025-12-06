@@ -32,9 +32,9 @@
 
 **Purpose**: Low-effort fixes that unblock other work and provide immediate value
 
-- [ ] T001 [P] Add VisuallyHidden DialogTitle to CommandDialog in frontend/src/components/ui/command.tsx
-- [ ] T002 [P] Add is_reference_asset filter to KanbanBoard in frontend/src/components/KanbanBoard.tsx
-- [ ] T003 [P] Verify /auth/me endpoint returns email field in backend/routers/auth.py
+- [x] T001 [P] Add VisuallyHidden DialogTitle to CommandDialog in frontend/src/components/ui/command.tsx
+- [x] T002 [P] Add is_reference_asset filter to KanbanBoard in frontend/src/components/KanbanBoard.tsx
+- [x] T003 [P] Verify /auth/me endpoint returns email field in backend/routers/auth.py
 
 **Checkpoint**: Quick wins complete - US2, US5, US6 potentially done
 
@@ -48,9 +48,9 @@
 
 ### Implementation for User Story 5
 
-- [ ] T004 [US5] Import VisuallyHidden from @radix-ui/react-visually-hidden in frontend/src/components/ui/command.tsx
-- [ ] T005 [US5] Add DialogTitle wrapped in VisuallyHidden inside CommandDialog content in frontend/src/components/ui/command.tsx
-- [ ] T006 [US5] Test CommandPalette opens without console warnings
+- [x] T004 [US5] Import VisuallyHidden from @radix-ui/react-visually-hidden in frontend/src/components/ui/command.tsx
+- [x] T005 [US5] Add DialogTitle wrapped in VisuallyHidden inside CommandDialog content in frontend/src/components/ui/command.tsx
+- [x] T006 [US5] Test CommandPalette opens without console warnings
 
 **Checkpoint**: Accessibility warning eliminated
 
@@ -64,9 +64,9 @@
 
 ### Implementation for User Story 2
 
-- [ ] T007 [US2] Add filter to exclude is_reference_asset documents in frontend/src/components/KanbanBoard.tsx
-- [ ] T008 [US2] Verify Kanban only shows work documents (status-based filtering preserved)
-- [ ] T009 [US2] Test upload to Assets Visuais doesn't pollute Kanban
+- [x] T007 [US2] Add filter to exclude is_reference_asset documents in frontend/src/components/KanbanBoard.tsx
+- [x] T008 [US2] Verify Kanban only shows work documents (status-based filtering preserved)
+- [x] T009 [US2] Test upload to Assets Visuais doesn't pollute Kanban
 
 **Checkpoint**: Kanban shows only work documents
 
@@ -80,9 +80,9 @@
 
 ### Implementation for User Story 6
 
-- [ ] T010 [US6] Verify backend /auth/me endpoint returns email from Supabase user in backend/routers/auth.py
-- [ ] T011 [US6] Verify frontend profile page correctly reads user.email in frontend/src/app/workspace/[id]/profile/page.tsx
-- [ ] T012 [US6] Add fallback message "Email não disponível" when email is null
+- [x] T010 [US6] Verify backend /auth/me endpoint returns email from Supabase user in backend/routers/auth.py
+- [x] T011 [US6] Verify frontend profile page correctly reads user.email in frontend/src/app/workspace/[id]/profile/page.tsx
+- [x] T012 [US6] Add fallback message "Email não disponível" when email is null
 
 **Checkpoint**: Email displays on profile (or appropriate fallback)
 
@@ -96,10 +96,10 @@
 
 ### Implementation for User Story 4
 
-- [ ] T013 [US4] Modify PUT /projects/{id}/settings to also update project.name in backend/routers/projects.py
-- [ ] T014 [US4] Return updated project_name in settings response
-- [ ] T015 [US4] Update frontend to refresh project name after settings save in frontend/src/components/project/ProjectSettingsForm.tsx
-- [ ] T016 [US4] Verify sidebar reflects new project name immediately
+- [x] T013 [US4] Modify PUT /projects/{id}/settings to also update project.name in backend/routers/projects.py
+- [x] T014 [US4] Return updated project_name in settings response
+- [x] T015 [US4] Update frontend to refresh project name after settings save in frontend/src/components/project/ProjectSettingsForm.tsx
+- [x] T016 [US4] Verify sidebar reflects new project name immediately
 
 **Checkpoint**: Project name syncs with Client Name
 
@@ -113,12 +113,12 @@
 
 ### Implementation for User Story 3
 
-- [ ] T017 [P] [US3] Create ActivityHistory component skeleton in frontend/src/components/ActivityHistory.tsx
-- [ ] T018 [US3] Implement API call to GET /activity/project/{projectId}/recent
-- [ ] T019 [US3] Display activity items with action icon, entity name, timestamp, user
-- [ ] T020 [US3] Add scroll infinito pagination for large activity lists
-- [ ] T021 [US3] Integrate ActivityHistory into project page sidebar or tab
-- [ ] T022 [US3] Style ActivityHistory with design system tokens (surface-secondary, text-primary, etc.)
+- [x] T017 [P] [US3] Create ActivityHistory component skeleton in frontend/src/components/ActivityHistory.tsx
+- [x] T018 [US3] Implement API call to GET /activity/project/{projectId}/recent
+- [x] T019 [US3] Display activity items with action icon, entity name, timestamp, user
+- [x] T020 [US3] Add scroll infinito pagination for large activity lists
+- [x] T021 [US3] Integrate ActivityHistory into project page sidebar or tab
+- [x] T022 [US3] Style ActivityHistory with design system tokens (surface-secondary, text-primary, etc.)
 
 **Checkpoint**: Activity history displays user actions
 
@@ -132,22 +132,22 @@
 
 ### Backend Implementation for User Story 1
 
-- [ ] T023 [US1] Add ConversationListItem and ConversationListResponse schemas in backend/schemas.py
-- [ ] T024 [US1] Add GET /conversations endpoint with pagination in backend/routers/conversations.py
-- [ ] T025 [US1] Add GET /conversations/{id} endpoint to load full conversation
-- [ ] T026 [US1] Modify chat completion to save messages to ChatConversation in backend/routers/chat.py
-- [ ] T027 [US1] Implement get_or_create_conversation helper function
-- [ ] T028 [US1] Update conversation title/summary after first exchange
+- [x] T023 [US1] Add ConversationListItem and ConversationListResponse schemas in backend/schemas.py
+- [x] T024 [US1] Add GET /conversations endpoint with pagination in backend/routers/conversations.py
+- [x] T025 [US1] Add GET /conversations/{id} endpoint to load full conversation
+- [x] T026 [US1] Modify chat completion to save messages to ChatConversation in backend/routers/chat.py
+- [x] T027 [US1] Implement get_or_create_conversation helper function
+- [x] T028 [US1] Update conversation title/summary after first exchange
 
 ### Frontend Implementation for User Story 1
 
-- [ ] T029 [P] [US1] Create ChatHistory component skeleton in frontend/src/components/ChatHistory.tsx
-- [ ] T030 [US1] Implement conversation list with scroll infinito pagination
-- [ ] T031 [US1] Display conversation preview (title, date, message count)
-- [ ] T032 [US1] Implement conversation selection to load messages
-- [ ] T033 [US1] Integrate ChatHistory into project page chat panel
-- [ ] T034 [US1] Style ChatHistory with design system tokens
-- [ ] T035 [US1] Add "Nova Conversa" button to start fresh conversation
+- [x] T029 [P] [US1] Create ChatHistory component skeleton in frontend/src/components/ChatHistory.tsx
+- [x] T030 [US1] Implement conversation list with scroll infinito pagination
+- [x] T031 [US1] Display conversation preview (title, date, message count)
+- [x] T032 [US1] Implement conversation selection to load messages
+- [x] T033 [US1] Integrate ChatHistory into project page chat panel
+- [x] T034 [US1] Style ChatHistory with design system tokens
+- [x] T035 [US1] Add "Nova Conversa" button to start fresh conversation
 
 **Checkpoint**: Conversation history fully functional with persistence
 
@@ -157,9 +157,9 @@
 
 **Purpose**: Final validation and cleanup
 
-- [ ] T036 Verify all 6 bugs fixed with manual testing per quickstart.md
-- [ ] T037 Remove any debug console.log statements added during development
-- [ ] T038 Ensure no TypeScript/Python linting errors introduced
+- [x] T036 Verify all 6 bugs fixed with manual testing per quickstart.md
+- [x] T037 Remove any debug console.log statements added during development
+- [x] T038 Ensure no TypeScript/Python linting errors introduced
 
 ---
 

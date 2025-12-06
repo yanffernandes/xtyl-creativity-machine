@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useTranslations } from "next-intl"
 import api from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -49,13 +50,14 @@ interface AssetSelectorModalProps {
     initialSelection?: string[]  // Initial selected asset IDs
 }
 
-const ASSET_TYPES = [
-    { value: "all", label: "Todos os tipos", icon: "📁" },
-    { value: "logo", label: "Logo", icon: "🎨" },
-    { value: "background", label: "Background", icon: "🖼️" },
-    { value: "person", label: "Pessoa", icon: "👤" },
-    { value: "reference", label: "Referência", icon: "📐" },
-    { value: "other", label: "Outro", icon: "📦" },
+// Asset type labels will be fetched from translations in the component
+const ASSET_TYPES_KEYS = [
+    { value: "all", labelKey: "allTypes", icon: "📁" },
+    { value: "logo", labelKey: "logo", icon: "🎨" },
+    { value: "background", labelKey: "background", icon: "🖼️" },
+    { value: "person", labelKey: "person", icon: "👤" },
+    { value: "reference", labelKey: "reference", icon: "📐" },
+    { value: "other", labelKey: "other", icon: "📦" },
 ]
 
 export default function AssetSelectorModal({
@@ -66,6 +68,8 @@ export default function AssetSelectorModal({
     onConfirm,
     initialSelection = []
 }: AssetSelectorModalProps) {
+    const t = useTranslations("visualAssets")
+    const tCommon = useTranslations("common")
     const [assets, setAssets] = useState<VisualAsset[]>([])
     const [filteredAssets, setFilteredAssets] = useState<VisualAsset[]>([])
     const [selectedIds, setSelectedIds] = useState<string[]>(initialSelection)
@@ -111,8 +115,8 @@ export default function AssetSelectorModal({
         } catch (error: any) {
             console.error("Failed to fetch assets:", error)
             toast({
-                title: "Erro ao carregar assets",
-                description: error.response?.data?.detail || "Não foi possível carregar os assets",
+                title: t("loadAssetsError"),
+                description: error.response?.data?.detail || t("loadAssetsFailed"),
                 variant: "destructive",
             })
         } finally {
@@ -127,8 +131,8 @@ export default function AssetSelectorModal({
             } else {
                 if (prev.length >= maxSelection) {
                     toast({
-                        title: "Limite atingido",
-                        description: `Você pode selecionar no máximo ${maxSelection} assets`,
+                        title: t("limitReached"),
+                        description: t("maxAssetsMessage", { max: maxSelection }),
                         variant: "destructive",
                     })
                     return prev
@@ -153,12 +157,12 @@ export default function AssetSelectorModal({
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="max-w-4xl max-h-[80vh]">
                 <DialogHeader>
-                    <DialogTitle>Selecionar Assets Visuais</DialogTitle>
+                    <DialogTitle>{t("selectVisualAssets")}</DialogTitle>
                     <DialogDescription>
-                        Escolha até {maxSelection} imagens de referência para usar na geração.
+                        {t("selectUpTo", { max: maxSelection })}
                         {selectedIds.length > 0 && (
                             <span className="ml-2 font-medium text-primary">
-                                {selectedIds.length} de {maxSelection} selecionados
+                                {t("selectedOf", { selected: selectedIds.length, max: maxSelection })}
                             </span>
                         )}
                     </DialogDescription>
@@ -169,7 +173,7 @@ export default function AssetSelectorModal({
                     <div className="relative flex-1">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <Input
-                            placeholder="Buscar por nome ou tags..."
+                            placeholder={t("searchByNameOrTags")}
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             className="pl-9"
@@ -177,12 +181,12 @@ export default function AssetSelectorModal({
                     </div>
                     <Select value={assetTypeFilter} onValueChange={setAssetTypeFilter}>
                         <SelectTrigger className="w-[180px]">
-                            <SelectValue placeholder="Filtrar por tipo" />
+                            <SelectValue placeholder={t("filterByType")} />
                         </SelectTrigger>
                         <SelectContent>
-                            {ASSET_TYPES.map((type) => (
+                            {ASSET_TYPES_KEYS.map((type) => (
                                 <SelectItem key={type.value} value={type.value}>
-                                    {type.icon} {type.label}
+                                    {type.icon} {t(type.labelKey as any)}
                                 </SelectItem>
                             ))}
                         </SelectContent>
@@ -200,15 +204,15 @@ export default function AssetSelectorModal({
                             <FileImage className="h-12 w-12 text-muted-foreground mb-3" />
                             <p className="text-sm text-muted-foreground">
                                 {searchQuery || assetTypeFilter !== "all"
-                                    ? "Nenhum asset encontrado com os filtros aplicados"
-                                    : "Nenhum asset disponível. Vá para a aba 'Assets Visuais' para fazer upload."}
+                                    ? t("noAssetsFiltered")
+                                    : t("noAssetsAvailable")}
                             </p>
                         </div>
                     ) : (
                         <div className="grid grid-cols-4 gap-4">
                             {filteredAssets.map((asset) => {
                                 const isSelected = selectedIds.includes(asset.id)
-                                const typeInfo = ASSET_TYPES.find((t) => t.value === asset.asset_type)
+                                const typeInfo = ASSET_TYPES_KEYS.find((t) => t.value === asset.asset_type)
 
                                 return (
                                     <button
@@ -255,7 +259,7 @@ export default function AssetSelectorModal({
                                                 {asset.title}
                                             </p>
                                             <Badge variant="secondary" className="text-xs">
-                                                {typeInfo?.icon} {typeInfo?.label}
+                                                {typeInfo?.icon} {typeInfo && t(typeInfo.labelKey as any)}
                                             </Badge>
                                         </div>
                                     </button>
@@ -267,10 +271,10 @@ export default function AssetSelectorModal({
 
                 <DialogFooter>
                     <Button variant="outline" onClick={handleCancel}>
-                        Cancelar
+                        {tCommon("cancel")}
                     </Button>
                     <Button onClick={handleConfirm} disabled={selectedIds.length === 0}>
-                        Confirmar ({selectedIds.length})
+                        {tCommon("confirm")} ({selectedIds.length})
                     </Button>
                 </DialogFooter>
             </DialogContent>

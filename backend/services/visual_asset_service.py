@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
 from sqlalchemy import func, and_, or_
 import json
+import asyncio
 
 from models import Document, Project, AssistantVisualSettings, AssistantAssetSelection, AssetUsageHistory
 from schemas import (
@@ -25,7 +26,7 @@ IMPORTANT: If the image contains ANY brand mark, company logo, symbol, emblem, w
 
 Return ONLY a valid JSON object with this exact structure:
 {
-  "category": "Logo|Pessoa|Background|Produto|Outro",
+  "category": "Logo|Pessoa|Background|Produto|Referência|Outro",
   "tags": ["tag1", "tag2", "tag3"],
   "description": "Brief description in Portuguese (max 100 words)"
 }
@@ -35,6 +36,7 @@ Category Definitions (choose the MOST appropriate one):
 - Pessoa: Photos of people, portraits, headshots, team photos, models
 - Background: Abstract backgrounds, textures, patterns, scenery, wallpapers
 - Produto: Physical products, merchandise, items for sale, packaged goods
+- Referência: Reference images for style, mood boards, inspiration, examples of desired visual style, screenshots, mockups
 - Outro: ONLY use this if the image truly doesn't fit any category above
 
 Think step by step:
@@ -42,7 +44,8 @@ Think step by step:
 2. Does it show people as the main subject? If yes → "Pessoa"
 3. Is it a product photo? If yes → "Produto"
 4. Is it a background or texture? If yes → "Background"
-5. Only if none of the above → "Outro"
+5. Is it a reference/inspiration image, mockup, or style example? If yes → "Referência"
+6. Only if none of the above → "Outro"
 
 Return ONLY the JSON object, no other text."""
 
@@ -71,14 +74,25 @@ class VisualAssetService:
         Returns:
             AssetClassificationResult or None if classification fails
         """
-        # Get the asset
-        asset = db.query(Document).filter(
-            Document.id == asset_id,
-            Document.is_reference_asset == True,
-            Document.deleted_at == None
-        ).first()
+        # Get the asset with retry for race conditions (parallel uploads)
+        asset = None
+        for attempt in range(3):
+            asset = db.query(Document).filter(
+                Document.id == asset_id,
+                Document.is_reference_asset == True,
+                Document.deleted_at == None
+            ).first()
+
+            if asset:
+                break
+
+            # Wait a bit and refresh session for next attempt
+            if attempt < 2:
+                await asyncio.sleep(0.5)
+                db.expire_all()
 
         if not asset:
+            print(f"Asset {asset_id} not found after 3 attempts")
             return None
 
         # Skip if already classified (unless forced)
@@ -146,6 +160,8 @@ class VisualAssetService:
                 "pessoa": AssetCategory.PESSOA,
                 "background": AssetCategory.BACKGROUND,
                 "produto": AssetCategory.PRODUTO,
+                "referência": AssetCategory.REFERENCIA,
+                "referencia": AssetCategory.REFERENCIA,
                 "outro": AssetCategory.OUTRO,
             }
             category = category_map.get(category_str.lower(), AssetCategory.OUTRO)
@@ -305,6 +321,7 @@ class VisualAssetService:
             "Pessoa": 0,
             "Background": 0,
             "Produto": 0,
+            "Referência": 0,
             "Outro": 0,
             "unclassified": 0
         }

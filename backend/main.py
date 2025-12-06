@@ -1,10 +1,18 @@
 # Load environment variables FIRST before any other imports
 # This ensures env vars are available when modules like llm_service are imported
 import os
+import logging
 from pathlib import Path
 from dotenv import load_dotenv
 env_path = Path(__file__).parent.parent / '.env'
 load_dotenv(dotenv_path=env_path)
+
+# Configure logging (Feature 025 - Security Hardening)
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -34,37 +42,51 @@ async def validate_environment():
         print(f"WARNING: Missing required environment variables: {', '.join(missing)}")
         print("Authentication and database features may not work correctly.")
 
-# CORS Configuration
-origins = [
-    "http://localhost:3000",
-    "http://localhost:8000",
-]
+# CORS Configuration (Feature 025 - Security Hardening)
+# Use explicit origin whitelist instead of wildcard for security
+ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000").split(",")
+
+# Add development origins if in dev mode
+if os.getenv("ENVIRONMENT", "development") == "development":
+    dev_origins = ["http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:8000"]
+    ALLOWED_ORIGINS = list(set(ALLOWED_ORIGINS + dev_origins))
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-    expose_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+    allow_headers=["Content-Type", "Authorization", "X-Requested-With", "Accept"],
+    expose_headers=["Content-Type", "Content-Length"],
 )
 
-# Global exception handler to ensure CORS headers on errors
+# Feature 025: Security Headers Middleware
+from middleware.security import SecurityHeadersMiddleware, limiter, RateLimitExceeded, _rate_limit_exceeded_handler
+app.add_middleware(SecurityHeadersMiddleware)
+
+# Feature 025: Rate limiting support
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# Global exception handler (Feature 025 - Security Hardening)
+# Returns generic error message to client, logs details internally
 from fastapi.responses import JSONResponse
 from fastapi import Request
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
-    """Ensure all exceptions return proper CORS headers"""
-    import traceback
-    traceback.print_exc()  # Log the error
+    """
+    Global exception handler that:
+    1. Logs the actual error for debugging
+    2. Returns generic message to client (no stack traces exposed)
+    """
+    # Log the actual error with details for debugging
+    logger.exception(f"Unhandled exception for {request.method} {request.url}")
+
+    # Return generic message to client - don't expose internal details
     return JSONResponse(
         status_code=500,
-        content={"detail": str(exc)},
-        headers={
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Credentials": "true",
-        }
+        content={"detail": "Internal server error"},
     )
 
 # Core routers (AI, documents, workflows)
@@ -164,9 +186,13 @@ async def serve_file(file_path: str):
     """
     try:
         from storage_service import download_file
+        from services.security_service import validate_file_path
+
+        # Feature 025: Validate file path to prevent path traversal attacks
+        validated_path = validate_file_path(file_path)
 
         # Get the file from R2
-        file_data = download_file(file_path)
+        file_data = download_file(validated_path)
 
         if file_data is None:
             raise HTTPException(status_code=404, detail="File not found")

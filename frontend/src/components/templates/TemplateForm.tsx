@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useTranslations } from "next-intl"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -28,6 +29,8 @@ export default function TemplateForm({
   onBack,
   isSubmitting = false,
 }: TemplateFormProps) {
+  const t = useTranslations("templates")
+  const tCommon = useTranslations("common")
   const [formValues, setFormValues] = useState<Record<string, string>>({})
   const [errors, setErrors] = useState<Record<string, string>>({})
 
@@ -54,7 +57,7 @@ export default function TemplateForm({
     const newErrors: Record<string, string> = {}
     variables.forEach(v => {
       if (v.required !== false && !formValues[v.key]?.trim()) {
-        newErrors[v.key] = `${v.label} e obrigatorio`
+        newErrors[v.key] = `${v.label} ${t("required").toLowerCase()}`
       }
     })
 
@@ -180,7 +183,7 @@ export default function TemplateForm({
           {template.estimated_outputs && (
             <div className="flex items-center gap-1">
               <FileText className="h-3 w-3" />
-              <span>Resultados: {template.estimated_outputs}</span>
+              <span>{template.estimated_outputs}</span>
             </div>
           )}
           {template.tags && template.tags.length > 0 && (
@@ -198,7 +201,7 @@ export default function TemplateForm({
           <div className="space-y-4 py-4 max-h-[50vh] overflow-y-auto">
             {variables.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-4">
-                Este template nao requer campos adicionais.
+                {t("noVariables")}
               </p>
             ) : (
               variables.map(renderField)
@@ -212,7 +215,7 @@ export default function TemplateForm({
               onClick={() => onOpenChange(false)}
               disabled={isSubmitting}
             >
-              Cancelar
+              {tCommon("cancel")}
             </Button>
             <Button type="submit" disabled={isSubmitting} className="gap-2">
               {isSubmitting ? (
@@ -220,7 +223,7 @@ export default function TemplateForm({
               ) : (
                 <Sparkles className="h-4 w-4" />
               )}
-              {isSubmitting ? "Iniciando..." : "Iniciar Conversa"}
+              {isSubmitting ? t("starting") : t("startChat")}
             </Button>
           </DialogFooter>
         </form>

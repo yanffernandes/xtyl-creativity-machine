@@ -18,6 +18,8 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from database import get_db
+# Feature 025: Rate limiting for sensitive admin operations
+from middleware.security import limiter
 from llm_service import list_models as fetch_openrouter_models, list_embedding_models as fetch_openrouter_embedding_models
 from models import ChatConversation, Document, User
 from schemas import (
@@ -404,6 +406,7 @@ async def get_user_details(
 
 
 @router.post("/users/{user_id}/block")
+@limiter.limit("10/hour")
 async def block_user(
     user_id: str,
     request: Request,
@@ -414,6 +417,7 @@ async def block_user(
     Block a user from accessing the platform.
 
     Blocked users cannot log in or make API requests.
+    Rate limited to 10 requests per hour per IP.
     """
     from uuid import UUID
 

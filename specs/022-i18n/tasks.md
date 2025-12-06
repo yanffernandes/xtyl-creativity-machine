@@ -120,11 +120,19 @@
 - [x] T042 [US2] Adicionar traduções 'workflow' em frontend/src/messages/pt-BR.json
 - [x] T043 [P] [US2] Adicionar traduções 'workflow' em frontend/src/messages/en.json
 
-#### Migração de Componentes Workflow (Pendente)
+#### Migração de Componentes Workflow
 
-- [ ] T044 [US2] Migrar WorkflowCanvas para usar useTranslations em frontend/src/components/workflow/WorkflowCanvas.tsx
-- [ ] T045 [P] [US2] Migrar NodeConfigPanel para usar useTranslations em frontend/src/components/workflow/NodeConfigPanel.tsx
-- [ ] T046 [P] [US2] Migrar ExecutionMonitor para usar useTranslations em frontend/src/components/workflow/ExecutionMonitor.tsx
+- [x] T044 [US2] Migrar WorkflowCanvas para usar useTranslations em frontend/src/components/workflow/WorkflowCanvas.tsx
+- [x] T045 [P] [US2] Migrar NodeConfigPanel para usar useTranslations em frontend/src/components/workflow/NodeConfigPanel.tsx
+- [x] T046 [P] [US2] Migrar ExecutionMonitor para usar useTranslations em frontend/src/components/workflow/ExecutionMonitor.tsx
+
+#### Migração de Componentes Workflow Restantes (Pendente)
+
+- [ ] T044a [US2] Migrar WorkflowHeader para usar useTranslations em frontend/src/components/workflow/WorkflowHeader.tsx
+- [ ] T044b [P] [US2] Migrar WorkflowList para usar useTranslations em frontend/src/components/workflow/WorkflowList.tsx
+- [ ] T044c [P] [US2] Migrar LaunchWorkflowModal para usar useTranslations em frontend/src/components/workflow/LaunchWorkflowModal.tsx
+- [ ] T044d [P] [US2] Migrar TemplateCard para usar useTranslations em frontend/src/components/workflow/TemplateCard.tsx
+- [ ] T044e [P] [US2] Migrar workflow nodes (12 arquivos) em frontend/src/components/workflow/nodes/
 
 **Checkpoint**: User Story 2 funcional - toda interface traduzida em PT/EN
 
@@ -158,12 +166,12 @@
 
 ### Implementation for User Story 4
 
-- [ ] T054 [US4] Adicionar traduções 'validation' em frontend/src/messages/pt-BR.json
-- [ ] T055 [P] [US4] Adicionar traduções 'validation' em frontend/src/messages/en.json
-- [ ] T056 [US4] Adicionar traduções 'errors' em frontend/src/messages/pt-BR.json
-- [ ] T057 [P] [US4] Adicionar traduções 'errors' em frontend/src/messages/en.json
-- [ ] T058 [US4] Adicionar traduções 'success' em frontend/src/messages/pt-BR.json
-- [ ] T059 [P] [US4] Adicionar traduções 'success' em frontend/src/messages/en.json
+- [x] T054 [US4] Adicionar traduções 'validation' em frontend/src/messages/pt-BR.json
+- [x] T055 [P] [US4] Adicionar traduções 'validation' em frontend/src/messages/en.json
+- [x] T056 [US4] Adicionar traduções 'errors' em frontend/src/messages/pt-BR.json
+- [x] T057 [P] [US4] Adicionar traduções 'errors' em frontend/src/messages/en.json
+- [x] T058 [US4] Adicionar traduções 'success' em frontend/src/messages/pt-BR.json
+- [x] T059 [P] [US4] Adicionar traduções 'success' em frontend/src/messages/en.json
 - [ ] T060 [US4] Criar hook useValidationMessages para mensagens traduzidas em frontend/src/hooks/use-validation-messages.ts
 - [ ] T061 [US4] Migrar toast messages no useToast para usar traduções em frontend/src/components/ui/use-toast.ts
 - [ ] T062 [US4] Migrar validação de formulários em ProjectSettingsForm em frontend/src/components/project/ProjectSettingsForm.tsx
@@ -172,18 +180,70 @@
 
 ---
 
-## Phase 7: Polish & Cross-Cutting Concerns
+## Phase 7: Visual Assets & Chat (Priority: P2)
+
+**Purpose**: Traduzir módulos de assets visuais e chat
+
+### Visual Assets
+- [x] T063 [US2] Criar namespace 'visualAssets' em frontend/src/messages/pt-BR.json
+- [x] T064 [P] [US2] Criar namespace 'visualAssets' em frontend/src/messages/en.json
+- [x] T065 [US2] Migrar VisualAssetsLibrary para usar useTranslations em frontend/src/components/VisualAssetsLibrary.tsx (parcial)
+- [ ] T066 [P] [US2] Migrar AssetUploadModal para usar useTranslations em frontend/src/components/visual-assets/AssetUploadModal.tsx
+- [ ] T067 [P] [US2] Migrar AdvancedVisualSettingsModal em frontend/src/components/visual-assets/AdvancedVisualSettingsModal.tsx
+- [ ] T068 [P] [US2] Migrar VisualContextSettings em frontend/src/components/visual-assets/VisualContextSettings.tsx
+- [ ] T069 [P] [US2] Migrar AssetSelectorModal em frontend/src/components/AssetSelectorModal.tsx
+
+### Chat & AI Assistant
+- [x] T070 [US2] Criar namespace 'chat' em frontend/src/messages/pt-BR.json
+- [x] T071 [P] [US2] Criar namespace 'chat' em frontend/src/messages/en.json
+- [x] T072 [US2] Migrar ChatSidebar para usar useTranslations em frontend/src/components/ChatSidebar.tsx (parcial)
+
+### Templates
+- [x] T073 [US2] Criar namespace 'templates' em frontend/src/messages/pt-BR.json
+- [x] T074 [P] [US2] Criar namespace 'templates' em frontend/src/messages/en.json
+- [ ] T075 [US2] Migrar templates/page.tsx em frontend/src/app/workspace/[id]/templates/page.tsx
+- [ ] T076 [P] [US2] Migrar componentes de templates em frontend/src/components/templates/
+
+### Share & Dialogs
+- [ ] T077 [US2] Migrar ShareDialog para usar useTranslations em frontend/src/components/ShareDialog.tsx
+- [ ] T078 [P] [US2] Migrar ImageViewer em frontend/src/components/ImageViewer.tsx
+- [ ] T079 [P] [US2] Migrar DeleteProjectDialog em frontend/src/components/project/DeleteProjectDialog.tsx
+
+---
+
+## Phase 8: Admin Panel (Priority: P3)
+
+**Purpose**: Traduzir painel administrativo
+
+- [x] T080 [US2] Criar namespace 'admin' em frontend/src/messages/pt-BR.json
+- [x] T081 [P] [US2] Criar namespace 'admin' em frontend/src/messages/en.json
+- [ ] T082 [US2] Migrar admin/page.tsx (dashboard)
+- [ ] T083 [P] [US2] Migrar admin/users/page.tsx
+- [ ] T084 [P] [US2] Migrar admin/users/[id]/page.tsx
+- [ ] T085 [P] [US2] Migrar admin/workspaces/page.tsx
+- [ ] T086 [P] [US2] Migrar admin/workspaces/[id]/page.tsx
+- [ ] T087 [P] [US2] Migrar admin/models/page.tsx
+- [ ] T088 [P] [US2] Migrar admin/settings/page.tsx
+- [ ] T089 [P] [US2] Migrar admin/messages/page.tsx
+- [ ] T090 [US2] Migrar AdminHeader.tsx
+- [ ] T091 [P] [US2] Migrar UserTable.tsx
+- [ ] T092 [P] [US2] Migrar WorkspaceTable.tsx
+- [ ] T093 [P] [US2] Migrar ModelConfigForm.tsx
+- [ ] T094 [P] [US2] Migrar MetricCard.tsx
+
+---
+
+## Phase 9: Polish & QA
 
 **Purpose**: Melhorias que afetam múltiplas user stories
 
-- [ ] T063 [P] Criar script de validação de traduções em frontend/scripts/validate-translations.ts
-- [ ] T064 [P] Adicionar traduções para empty states em frontend/src/components/empty-states/
-- [ ] T065 [P] Adicionar traduções para componentes de loading em frontend/src/components/loading/
-- [ ] T066 Revisar e corrigir textos hardcoded restantes em todo o frontend
-- [ ] T067 Adicionar traduções para admin panel (se necessário) em frontend/src/app/admin/
-- [ ] T068 Validar acessibilidade do seletor de idioma (aria-labels, etc.)
-- [ ] T069 Testar mudança de idioma em todas as páginas principais
-- [ ] T070 Documentar processo de adição de novas traduções em specs/022-i18n/
+- [ ] T095 [P] Criar script de validação de traduções em frontend/scripts/validate-translations.ts
+- [ ] T096 [P] Adicionar traduções para empty states em frontend/src/components/empty-states/
+- [ ] T097 [P] Adicionar traduções para componentes de loading em frontend/src/components/loading/
+- [ ] T098 Revisar e corrigir textos hardcoded restantes em todo o frontend
+- [ ] T099 Validar acessibilidade do seletor de idioma (aria-labels, etc.)
+- [ ] T100 Testar mudança de idioma em todas as páginas principais
+- [ ] T101 Documentar processo de adição de novas traduções em specs/022-i18n/
 
 ---
 
@@ -273,19 +333,41 @@ Com múltiplos desenvolvedores:
 
 | Metric | Value |
 |--------|-------|
-| **Total Tasks** | 70 |
-| **Setup Tasks** | 6 |
-| **Foundational Tasks** | 7 |
-| **User Story 1 Tasks** | 6 |
-| **User Story 2 Tasks** | 27 |
-| **User Story 3 Tasks** | 7 |
-| **User Story 4 Tasks** | 9 |
-| **Polish Tasks** | 8 |
-| **Parallel Opportunities** | 35 tasks marcadas [P] |
+| **Total Tasks** | 101 |
+| **Setup Tasks (Phase 1)** | 6 ✅ |
+| **Foundational Tasks (Phase 2)** | 7 ✅ |
+| **User Story 1 Tasks (Phase 3)** | 6 ✅ |
+| **User Story 2 Tasks (Phase 4)** | 27 (22 ✅, 5 pendentes) |
+| **User Story 3 Tasks (Phase 5)** | 7 (0 ✅) |
+| **User Story 4 Tasks (Phase 6)** | 9 (6 ✅, 3 pendentes) |
+| **Visual Assets/Chat (Phase 7)** | 17 (9 ✅, 8 pendentes) |
+| **Admin Panel (Phase 8)** | 15 (2 ✅, 13 pendentes) |
+| **Polish/QA (Phase 9)** | 7 (0 ✅) |
+
+### Progress
+
+| Phase | Completo | Pendente | % |
+|-------|----------|----------|---|
+| Setup + Foundational | 13 | 0 | 100% |
+| User Story 1 | 6 | 0 | 100% |
+| User Story 2 | 22 | 10 | 69% |
+| User Story 3 | 0 | 7 | 0% |
+| User Story 4 | 6 | 3 | 67% |
+| Visual Assets/Chat | 9 | 8 | 53% |
+| Admin Panel | 2 | 13 | 13% |
+| Polish/QA | 0 | 7 | 0% |
+| **Total** | **58** | **43** | **57%** |
 
 ### MVP Scope
 
-**User Story 1** é o MVP mínimo - permite ao usuário selecionar idioma e persistir preferência.
+**User Story 1** é o MVP mínimo - permite ao usuário selecionar idioma e persistir preferência. ✅ COMPLETO
+
+### Current Priority
+
+1. **Completar User Story 2** - Migrar componentes P1 restantes (project, chat)
+2. **Implementar User Story 3** - Formatação de datas e números
+3. **Visual Assets & Chat** - Traduzir módulos secundários
+4. **Admin Panel** - Opcional, pode ficar para depois
 
 ### Notes
 

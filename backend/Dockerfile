@@ -14,10 +14,21 @@ RUN apt-get update && apt-get install -y \
     poppler-utils \
     && rm -rf /var/lib/apt/lists/*
 
+# Feature 025: Create non-root user for security
+RUN addgroup --system --gid 1001 appuser && \
+    adduser --system --uid 1001 --gid 1001 appuser
+
 COPY requirements.txt .
 
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
+# Feature 025: Set correct permissions
+RUN chown -R appuser:appuser /app
+
+# Feature 025: Switch to non-root user
+USER appuser
+
+# Development mode with hot reload (--reload flag allowed for development only)
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]

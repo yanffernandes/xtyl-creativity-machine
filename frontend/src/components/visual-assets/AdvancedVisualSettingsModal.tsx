@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useTranslations } from "next-intl"
 import {
     Dialog,
     DialogContent,
@@ -34,6 +35,8 @@ export default function AdvancedVisualSettingsModal({
     onOpenChange,
     onSettingsSaved
 }: AdvancedVisualSettingsModalProps) {
+    const t = useTranslations("visualAssets")
+    const tCommon = useTranslations("common")
     const [isLoading, setIsLoading] = useState(true)
     const [isSaving, setIsSaving] = useState(false)
     const [assetsPerCategory, setAssetsPerCategory] = useState(2)
@@ -73,16 +76,16 @@ export default function AdvancedVisualSettingsModal({
             })
             setOriginalValue(assetsPerCategory)
             toast({
-                title: "Configurações salvas",
-                description: `${assetsPerCategory} assets por categoria serão usados no modo automático.`
+                title: t("settingsSaved"),
+                description: t("settingsSavedDescription", { count: assetsPerCategory })
             })
             onSettingsSaved?.()
             onOpenChange(false)
         } catch (err) {
             console.error("Failed to save:", err)
             toast({
-                title: "Erro ao salvar",
-                description: "Não foi possível salvar as configurações.",
+                title: t("settingsSaveError"),
+                description: t("settingsSaveErrorDesc"),
                 variant: "destructive"
             })
         } finally {
@@ -98,10 +101,10 @@ export default function AdvancedVisualSettingsModal({
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
                         <Image className="h-5 w-5 text-purple-500" />
-                        Configurações do Contexto Visual
+                        {t("settingsTitle")}
                     </DialogTitle>
                     <DialogDescription>
-                        Ajuste como os assets visuais são usados na geração de imagens.
+                        {t("settingsDescription")}
                     </DialogDescription>
                 </DialogHeader>
 
@@ -115,7 +118,7 @@ export default function AdvancedVisualSettingsModal({
                         <div className="space-y-4">
                             <div className="flex items-center justify-between">
                                 <label className="text-sm font-medium">
-                                    Assets por categoria (modo automático)
+                                    {t("assetsPerCategory")}
                                 </label>
                                 <Badge variant="secondary" className="text-sm">
                                     {assetsPerCategory}
@@ -130,7 +133,7 @@ export default function AdvancedVisualSettingsModal({
                                 disabled={isSaving}
                             />
                             <p className="text-xs text-muted-foreground">
-                                Quantos assets de cada categoria serão incluídos automaticamente nas gerações de imagem.
+                                {t("assetsPerCategoryHint")}
                             </p>
                         </div>
 
@@ -140,16 +143,16 @@ export default function AdvancedVisualSettingsModal({
                         <div className="space-y-3">
                             <div className="flex items-center gap-2 text-sm font-medium">
                                 <RotateCcw className="h-4 w-4 text-muted-foreground" />
-                                Rotação Inteligente
+                                {t("smartRotation")}
                             </div>
                             <div className="bg-muted/50 rounded-lg p-3 space-y-2">
                                 <p className="text-xs text-muted-foreground">
-                                    No modo automático, o sistema rotaciona os assets usados para evitar repetição. Assets usados recentemente são depriorizados.
+                                    {t("smartRotationHint")}
                                 </p>
                                 <div className="flex items-center gap-1.5 text-xs">
                                     <Info className="h-3 w-3 text-blue-500" />
                                     <span className="text-blue-600 dark:text-blue-400">
-                                        Logos são sempre incluídos em todas as gerações.
+                                        {t("logosAlwaysIncluded")}
                                     </span>
                                 </div>
                             </div>
@@ -160,7 +163,7 @@ export default function AdvancedVisualSettingsModal({
                             <>
                                 <Separator />
                                 <div className="space-y-3">
-                                    <div className="text-sm font-medium">Assets no projeto</div>
+                                    <div className="text-sm font-medium">{t("assetsInProject")}</div>
                                     <div className="grid grid-cols-2 gap-2">
                                         {Object.entries(summary.by_category).map(([category, count]) => (
                                             <div
@@ -175,7 +178,7 @@ export default function AdvancedVisualSettingsModal({
                                         ))}
                                     </div>
                                     <p className="text-xs text-muted-foreground text-center">
-                                        Total: {summary.total} assets
+                                        {t("total", { count: summary.total })}
                                     </p>
                                 </div>
                             </>
@@ -190,7 +193,7 @@ export default function AdvancedVisualSettingsModal({
                         onClick={() => onOpenChange(false)}
                         disabled={isSaving}
                     >
-                        Cancelar
+                        {tCommon("cancel")}
                     </Button>
                     <Button
                         onClick={handleSave}
@@ -200,12 +203,12 @@ export default function AdvancedVisualSettingsModal({
                         {isSaving ? (
                             <>
                                 <Loader2 className="h-4 w-4 animate-spin" />
-                                Salvando...
+                                {t("saving")}
                             </>
                         ) : (
                             <>
                                 <Save className="h-4 w-4" />
-                                Salvar
+                                {tCommon("save")}
                             </>
                         )}
                     </Button>

@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useTranslations } from "next-intl"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -10,6 +11,7 @@ import { useToast } from "@/components/ui/use-toast"
 import { useConfirm } from "@/components/confirm-dialog"
 import { Copy, Check, Share2, X, ExternalLink } from "lucide-react"
 import api from "@/lib/api"
+import { useFormatter } from "next-intl"
 
 interface ShareDialogProps {
     open: boolean
@@ -19,6 +21,9 @@ interface ShareDialogProps {
 }
 
 export default function ShareDialog({ open, onOpenChange, documentId, documentTitle }: ShareDialogProps) {
+    const t = useTranslations("share")
+    const tCommon = useTranslations("common")
+    const format = useFormatter()
     const [shareUrl, setShareUrl] = useState<string>("")
     const [shareToken, setShareToken] = useState<string>("")
     const [expiresAt, setExpiresAt] = useState<string | null>(null)
@@ -81,14 +86,14 @@ export default function ShareDialog({ open, onOpenChange, documentId, documentTi
             setShareUrl(fullUrl)
 
             toast({
-                title: "Link de compartilhamento criado!",
-                description: "O documento agora pode ser acessado publicamente via link"
+                title: t("linkCreated"),
+                description: t("linkCreatedDesc")
             })
         } catch (error: any) {
             console.error("Failed to create share link:", error)
             toast({
-                title: "Erro ao criar link",
-                description: error.response?.data?.detail || "Não foi possível criar o link de compartilhamento",
+                title: t("createError"),
+                description: error.response?.data?.detail || t("createErrorDesc"),
                 variant: "destructive"
             })
         } finally {
@@ -100,10 +105,10 @@ export default function ShareDialog({ open, onOpenChange, documentId, documentTi
         if (!documentId) return
 
         const confirmed = await confirm({
-            title: "Revogar compartilhamento",
-            description: "Tem certeza que deseja revogar o compartilhamento? O link atual deixará de funcionar.",
-            confirmLabel: "Revogar",
-            cancelLabel: "Cancelar",
+            title: t("revokeConfirmTitle"),
+            description: t("revokeConfirmDesc"),
+            confirmLabel: t("revoke"),
+            cancelLabel: tCommon("cancel"),
             variant: "destructive",
         })
         if (!confirmed) return
@@ -118,14 +123,14 @@ export default function ShareDialog({ open, onOpenChange, documentId, documentTi
             setExpiresAt(null)
 
             toast({
-                title: "Compartilhamento revogado",
-                description: "O link público foi desativado"
+                title: t("revoked"),
+                description: t("revokedDesc")
             })
         } catch (error: any) {
             console.error("Failed to revoke share:", error)
             toast({
-                title: "Erro ao revogar",
-                description: error.response?.data?.detail || "Não foi possível revogar o compartilhamento",
+                title: t("revokeError"),
+                description: error.response?.data?.detail || t("revokeErrorDesc"),
                 variant: "destructive"
             })
         } finally {
@@ -138,14 +143,14 @@ export default function ShareDialog({ open, onOpenChange, documentId, documentTi
             await navigator.clipboard.writeText(shareUrl)
             setCopied(true)
             toast({
-                title: "Link copiado!",
-                description: "O link foi copiado para a área de transferência"
+                title: t("linkCopied"),
+                description: t("linkCopiedDesc")
             })
             setTimeout(() => setCopied(false), 2000)
         } catch (error) {
             toast({
-                title: "Erro ao copiar",
-                description: "Não foi possível copiar o link",
+                title: t("copyError"),
+                description: t("copyErrorDesc"),
                 variant: "destructive"
             })
         }
@@ -161,10 +166,10 @@ export default function ShareDialog({ open, onOpenChange, documentId, documentTi
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
                         <Share2 className="h-5 w-5" />
-                        Compartilhar: {documentTitle}
+                        {t("title", { title: documentTitle })}
                     </DialogTitle>
                     <DialogDescription>
-                        Crie um link público de leitura para este documento
+                        {t("description")}
                     </DialogDescription>
                 </DialogHeader>
 
@@ -172,17 +177,17 @@ export default function ShareDialog({ open, onOpenChange, documentId, documentTi
                     {!isPublic ? (
                         <>
                             <div className="space-y-2">
-                                <Label htmlFor="expiration">Expiração do link</Label>
+                                <Label htmlFor="expiration">{t("linkExpiration")}</Label>
                                 <Select value={expirationDays} onValueChange={setExpirationDays}>
                                     <SelectTrigger id="expiration">
-                                        <SelectValue placeholder="Selecione a expiração" />
+                                        <SelectValue placeholder={t("selectExpiration")} />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="never">Nunca expira</SelectItem>
-                                        <SelectItem value="1">1 dia</SelectItem>
-                                        <SelectItem value="7">7 dias</SelectItem>
-                                        <SelectItem value="30">30 dias</SelectItem>
-                                        <SelectItem value="90">90 dias</SelectItem>
+                                        <SelectItem value="never">{t("never")}</SelectItem>
+                                        <SelectItem value="1">{t("oneDay")}</SelectItem>
+                                        <SelectItem value="7">{t("sevenDays")}</SelectItem>
+                                        <SelectItem value="30">{t("thirtyDays")}</SelectItem>
+                                        <SelectItem value="90">{t("ninetyDays")}</SelectItem>
                                     </SelectContent>
                                 </Select>
                             </div>
@@ -192,13 +197,13 @@ export default function ShareDialog({ open, onOpenChange, documentId, documentTi
                                 disabled={isLoading}
                                 className="w-full"
                             >
-                                {isLoading ? "Criando..." : "Criar Link de Compartilhamento"}
+                                {isLoading ? t("creating") : t("createLink")}
                             </Button>
                         </>
                     ) : (
                         <>
                             <div className="space-y-2">
-                                <Label>Link público (somente leitura)</Label>
+                                <Label>{t("publicLink")}</Label>
                                 <div className="flex gap-2">
                                     <Input
                                         value={shareUrl}
@@ -209,7 +214,7 @@ export default function ShareDialog({ open, onOpenChange, documentId, documentTi
                                         variant="outline"
                                         size="icon"
                                         onClick={handleCopyLink}
-                                        title="Copiar link"
+                                        title={t("copyLink")}
                                     >
                                         {copied ? (
                                             <Check className="h-4 w-4 text-green-500" />
@@ -221,7 +226,7 @@ export default function ShareDialog({ open, onOpenChange, documentId, documentTi
                                         variant="outline"
                                         size="icon"
                                         onClick={handleOpenInNewTab}
-                                        title="Abrir em nova aba"
+                                        title={t("openNewTab")}
                                     >
                                         <ExternalLink className="h-4 w-4" />
                                     </Button>
@@ -230,13 +235,7 @@ export default function ShareDialog({ open, onOpenChange, documentId, documentTi
 
                             {expiresAt && (
                                 <div className="text-sm text-muted-foreground">
-                                    Expira em: {new Date(expiresAt).toLocaleDateString('pt-BR', {
-                                        day: '2-digit',
-                                        month: 'long',
-                                        year: 'numeric',
-                                        hour: '2-digit',
-                                        minute: '2-digit'
-                                    })}
+                                    {t("expiresAt", { date: format.dateTime(new Date(expiresAt), { dateStyle: "long", timeStyle: "short" }) })}
                                 </div>
                             )}
 
@@ -247,16 +246,16 @@ export default function ShareDialog({ open, onOpenChange, documentId, documentTi
                                     disabled={isLoading}
                                     className="flex-1"
                                 >
-                                    {isLoading ? "Revogando..." : "Revogar Compartilhamento"}
+                                    {isLoading ? t("revoking") : t("revokeShare")}
                                 </Button>
                             </div>
 
                             <div className="bg-muted p-3 rounded-lg text-sm text-muted-foreground">
-                                <p className="font-medium mb-1">ℹ️ Informações importantes:</p>
+                                <p className="font-medium mb-1">ℹ️ {t("importantInfo")}</p>
                                 <ul className="list-disc list-inside space-y-1 ml-2">
-                                    <li>Qualquer pessoa com o link pode visualizar</li>
-                                    <li>O documento é somente leitura</li>
-                                    <li>Você pode revogar o acesso a qualquer momento</li>
+                                    <li>{t("anyoneCanView")}</li>
+                                    <li>{t("readOnly")}</li>
+                                    <li>{t("canRevokeAnytime")}</li>
                                 </ul>
                             </div>
                         </>

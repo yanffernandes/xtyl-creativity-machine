@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
+import { useTranslations } from "next-intl"
 import { useDropzone } from "react-dropzone"
 import api, {
     classifyAsset,
@@ -102,6 +103,7 @@ const SMART_CATEGORIES: { value: AssetCategory | "all" | "unclassified"; label: 
     { value: "Pessoa", label: "Pessoa" },
     { value: "Background", label: "Background" },
     { value: "Produto", label: "Produto" },
+    { value: "Referência", label: "Referência" },
     { value: "Outro", label: "Outro" },
     { value: "unclassified", label: "Não classificados" },
 ]
@@ -121,6 +123,7 @@ export default function VisualAssetsLibrary({ projectId }: VisualAssetsLibraryPr
     const [editTitle, setEditTitle] = useState("")
     const [editTags, setEditTags] = useState("")
     const [editAssetType, setEditAssetType] = useState("")
+    const [editCategory, setEditCategory] = useState<AssetCategory | "">("")
     const [totalAssets, setTotalAssets] = useState(0)
     const [currentOffset, setCurrentOffset] = useState(0)
     const [hasMore, setHasMore] = useState(true)
@@ -129,6 +132,8 @@ export default function VisualAssetsLibrary({ projectId }: VisualAssetsLibraryPr
     const [categorySummary, setCategorySummary] = useState<VisualAssetsSummary | null>(null)
     const [classifyingAssetId, setClassifyingAssetId] = useState<string | null>(null)
     const { toast } = useToast()
+    const t = useTranslations("visualAssets")
+    const tCommon = useTranslations("common")
 
     const LIMIT = 20 // Load 20 assets at a time
 
@@ -194,13 +199,24 @@ export default function VisualAssetsLibrary({ projectId }: VisualAssetsLibraryPr
                 ai_description: result.ai_description
             })
 
+            // Optimistic update: immediately update local state
+            setAssets(prev => prev.map(asset =>
+                asset.id === assetId
+                    ? {
+                        ...asset,
+                        asset_category: result.suggested_category,
+                        asset_tags: result.suggested_tags,
+                        ai_description: result.ai_description
+                    }
+                    : asset
+            ))
+
             toast({
                 title: "Asset classificado!",
                 description: `Classificado como "${result.suggested_category}"`
             })
 
-            // Refresh assets list
-            fetchAssets()
+            // Refresh category summary
             fetchCategorySummary()
         } catch (error: any) {
             console.error("Classification failed:", error)
@@ -323,9 +339,9 @@ export default function VisualAssetsLibrary({ projectId }: VisualAssetsLibraryPr
         if (!editingAsset) return
 
         try {
+            // Update basic info (title, asset_type, legacy tags)
             const formData = new FormData()
             if (editTitle) formData.append("title", editTitle)
-            if (editTags) formData.append("tags", editTags)
             if (editAssetType && editAssetType !== editingAsset.asset_type) {
                 formData.append("asset_type", editAssetType)
             }
@@ -336,6 +352,27 @@ export default function VisualAssetsLibrary({ projectId }: VisualAssetsLibraryPr
                 },
             })
 
+            // Update classification metadata (category and smart tags)
+            const tagList = editTags.split(",").map(t => t.trim()).filter(t => t.length > 0)
+            await updateAssetMetadata(editingAsset.id, {
+                category: editCategory as AssetCategory || undefined,
+                tags: tagList,
+                ai_description: editingAsset.ai_description
+            })
+
+            // Optimistic update: immediately update local state
+            setAssets(prev => prev.map(asset =>
+                asset.id === editingAsset.id
+                    ? {
+                        ...asset,
+                        title: editTitle || asset.title,
+                        asset_type: editAssetType || asset.asset_type,
+                        asset_category: editCategory as AssetCategory || asset.asset_category,
+                        asset_tags: tagList
+                    }
+                    : asset
+            ))
+
             toast({
                 title: "Asset atualizado",
                 description: "As informações do asset foram atualizadas",
@@ -345,7 +382,8 @@ export default function VisualAssetsLibrary({ projectId }: VisualAssetsLibraryPr
             setEditTitle("")
             setEditTags("")
             setEditAssetType("")
-            fetchAssets()
+            setEditCategory("")
+            fetchCategorySummary()
         } catch (error: any) {
             console.error("Failed to update asset:", error)
             toast({
@@ -488,8 +526,9 @@ export default function VisualAssetsLibrary({ projectId }: VisualAssetsLibraryPr
                                     onClick={() => {
                                         setEditingAsset(asset)
                                         setEditTitle(asset.title)
-                                        setEditTags(displayTags?.join(", ") || "")
+                                        setEditTags(asset.asset_tags?.join(", ") || displayTags?.join(", ") || "")
                                         setEditAssetType(asset.asset_type)
+                                        setEditCategory(asset.asset_category || "")
                                     }}
                                     title="Editar"
                                 >
@@ -560,9 +599,9 @@ export default function VisualAssetsLibrary({ projectId }: VisualAssetsLibraryPr
             {/* Header with Upload Button */}
             <div className="flex-shrink-0 flex items-center justify-between mb-6">
                 <div>
-                    <h3 className="font-bold text-lg">Biblioteca de Assets Visuais</h3>
+                    <h3 className="font-bold text-lg">{t("title")}</h3>
                     <p className="text-sm text-muted-foreground">
-                        Logos, backgrounds e referências para usar nas gerações de imagem
+                        {t("subtitle")}
                     </p>
                     {/* Category summary */}
                     {categorySummary && (
@@ -659,11 +698,9 @@ export default function VisualAssetsLibrary({ projectId }: VisualAssetsLibraryPr
                 ) : filteredAssets.length === 0 ? (
                     <div className="flex flex-col items-center justify-center h-64 text-center">
                         <ImageIcon className="h-12 w-12 text-muted-foreground mb-3" />
-                        <h3 className="font-medium mb-1">Nenhum asset encontrado</h3>
+                        <h3 className="font-medium mb-1">{t("noAssets")}</h3>
                         <p className="text-sm text-muted-foreground">
-                            {searchQuery || selectedAssetType !== "all"
-                                ? "Tente ajustar os filtros"
-                                : "Faça upload de imagens para começar"}
+                            {t("noAssetsDescription")}
                         </p>
                     </div>
                 ) : (
@@ -721,15 +758,15 @@ export default function VisualAssetsLibrary({ projectId }: VisualAssetsLibraryPr
                             />
                         </div>
                         <div>
-                            <Label htmlFor="edit-asset-type">Tipo de Asset</Label>
-                            <Select value={editAssetType} onValueChange={setEditAssetType}>
-                                <SelectTrigger id="edit-asset-type">
-                                    <SelectValue placeholder="Selecione um tipo" />
+                            <Label htmlFor="edit-category">Categoria</Label>
+                            <Select value={editCategory} onValueChange={(v) => setEditCategory(v as AssetCategory)}>
+                                <SelectTrigger id="edit-category">
+                                    <SelectValue placeholder="Selecione uma categoria" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {ASSET_TYPES.filter(t => t.value !== 'all').map((type) => (
-                                        <SelectItem key={type.value} value={type.value}>
-                                            {type.icon} {type.label}
+                                    {SMART_CATEGORIES.filter(c => c.value !== 'all' && c.value !== 'unclassified').map((cat) => (
+                                        <SelectItem key={cat.value} value={cat.value}>
+                                            {cat.label}
                                         </SelectItem>
                                     ))}
                                 </SelectContent>
@@ -743,6 +780,21 @@ export default function VisualAssetsLibrary({ projectId }: VisualAssetsLibraryPr
                                 onChange={(e) => setEditTags(e.target.value)}
                                 placeholder="tecnologia, moderno, azul"
                             />
+                        </div>
+                        <div>
+                            <Label htmlFor="edit-asset-type">Tipo de Asset (legado)</Label>
+                            <Select value={editAssetType} onValueChange={setEditAssetType}>
+                                <SelectTrigger id="edit-asset-type">
+                                    <SelectValue placeholder="Selecione um tipo" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {ASSET_TYPES.filter(t => t.value !== 'all').map((type) => (
+                                        <SelectItem key={type.value} value={type.value}>
+                                            {type.icon} {type.label}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
                         </div>
                     </div>
                     <AlertDialogFooter>
@@ -758,18 +810,17 @@ export default function VisualAssetsLibrary({ projectId }: VisualAssetsLibraryPr
             <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
-                        <AlertDialogTitle>Arquivar asset?</AlertDialogTitle>
+                        <AlertDialogTitle>{t("deleteConfirm")}</AlertDialogTitle>
                         <AlertDialogDescription>
-                            O asset "{assetToDelete?.title}" será movido para o arquivo. Você pode
-                            restaurá-lo posteriormente.
+                            {t("deleteDescription")}
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                         <AlertDialogCancel onClick={() => setDeleteDialogOpen(false)}>
-                            Cancelar
+                            {tCommon("cancel")}
                         </AlertDialogCancel>
                         <AlertDialogAction onClick={handleDelete} className="bg-destructive">
-                            Arquivar
+                            {tCommon("delete")}
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>

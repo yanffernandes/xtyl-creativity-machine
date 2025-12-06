@@ -2,7 +2,7 @@
 
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
-import { Image, User, Layers, Package, HelpCircle } from "lucide-react"
+import { Image, User, Layers, Package, HelpCircle, Bookmark } from "lucide-react"
 import type { AssetCategory } from "@/lib/api"
 
 interface CategoryBadgeProps {
@@ -46,6 +46,13 @@ const CATEGORY_CONFIG: Record<string, {
         bgColor: "bg-orange-500/10",
         textColor: "text-orange-600 dark:text-orange-400",
         borderColor: "border-orange-500/30"
+    },
+    "Referência": {
+        label: "Referência",
+        icon: Bookmark,
+        bgColor: "bg-pink-500/10",
+        textColor: "text-pink-600 dark:text-pink-400",
+        borderColor: "border-pink-500/30"
     },
     Outro: {
         label: "Outro",

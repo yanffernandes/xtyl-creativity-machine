@@ -29,7 +29,8 @@ export const conversationService = {
         .from('chat_conversations')
         .select('*')
         .eq('user_id', user.id)
-        .order('updated_at', { ascending: false })
+        .eq('is_archived', false)
+        .order('last_message_at', { ascending: false, nullsFirst: false })
 
       if (error) throw error
       return { data, error: null }
@@ -51,7 +52,8 @@ export const conversationService = {
         .select('*')
         .eq('user_id', user.id)
         .eq('workspace_id', workspaceId)
-        .order('updated_at', { ascending: false })
+        .eq('is_archived', false)
+        .order('last_message_at', { ascending: false, nullsFirst: false })
 
       if (error) throw error
       return { data, error: null }
@@ -73,7 +75,8 @@ export const conversationService = {
         .select('*')
         .eq('user_id', user.id)
         .eq('project_id', projectId)
-        .order('updated_at', { ascending: false })
+        .eq('is_archived', false)
+        .order('last_message_at', { ascending: false, nullsFirst: false })
 
       if (error) throw error
       return { data, error: null }
@@ -168,7 +171,7 @@ export const conversationService = {
       const { data, error } = await supabase
         .from('chat_conversations')
         .update({
-          archived_at: new Date().toISOString(),
+          is_archived: true,
           updated_at: new Date().toISOString(),
         })
         .eq('id', id)
@@ -190,7 +193,7 @@ export const conversationService = {
       const { data, error } = await supabase
         .from('chat_conversations')
         .update({
-          archived_at: null,
+          is_archived: false,
           updated_at: new Date().toISOString(),
         })
         .eq('id', id)
@@ -216,8 +219,8 @@ export const conversationService = {
         .from('chat_conversations')
         .select('*')
         .eq('user_id', user.id)
-        .not('archived_at', 'is', null)
-        .order('archived_at', { ascending: false })
+        .eq('is_archived', true)
+        .order('updated_at', { ascending: false })
 
       if (error) throw error
       return { data, error: null }

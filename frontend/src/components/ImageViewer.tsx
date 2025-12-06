@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useTranslations } from "next-intl"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { X, Download, Maximize2, Minimize2, ZoomIn, ZoomOut, Sparkles, ChevronLeft, ChevronRight, Trash2 } from "lucide-react"
@@ -8,6 +9,7 @@ import { cn } from "@/lib/utils"
 import api from "@/lib/api"
 import { useToast } from "@/components/ui/use-toast"
 import { useConfirm } from "@/components/confirm-dialog"
+import { useFormatter } from "next-intl"
 
 interface ImageDocument {
   id: string
@@ -28,6 +30,9 @@ interface ImageViewerProps {
 }
 
 export default function ImageViewer({ image, onClose, onRefine, onArchive, allImages = [] }: ImageViewerProps) {
+  const t = useTranslations("imageViewer")
+  const tCommon = useTranslations("common")
+  const format = useFormatter()
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [zoom, setZoom] = useState(100)
   const [isEditingTitle, setIsEditingTitle] = useState(false)
@@ -70,10 +75,10 @@ export default function ImageViewer({ image, onClose, onRefine, onArchive, allIm
 
   const handleArchive = async () => {
     const confirmed = await confirm({
-      title: "Arquivar imagem",
-      description: "Tem certeza que deseja arquivar esta imagem?",
-      confirmLabel: "Arquivar",
-      cancelLabel: "Cancelar",
+      title: t("archiveImage"),
+      description: t("archiveConfirm"),
+      confirmLabel: t("archive"),
+      cancelLabel: tCommon("cancel"),
       variant: "destructive",
     })
     if (!confirmed) return
@@ -81,8 +86,8 @@ export default function ImageViewer({ image, onClose, onRefine, onArchive, allIm
     try {
       await api.delete(`/documents/${image.id}`)
       toast({
-        title: "Imagem arquivada",
-        description: "A imagem foi movida para arquivados"
+        title: t("archived"),
+        description: t("archivedDesc")
       })
 
       // Notify parent component
@@ -95,8 +100,8 @@ export default function ImageViewer({ image, onClose, onRefine, onArchive, allIm
     } catch (error) {
       console.error("Failed to archive image:", error)
       toast({
-        title: "Erro ao arquivar",
-        description: "Não foi possível arquivar a imagem. Tente novamente.",
+        title: t("archiveError"),
+        description: t("archiveErrorDesc"),
         variant: "destructive"
       })
     }
@@ -119,8 +124,8 @@ export default function ImageViewer({ image, onClose, onRefine, onArchive, allIm
     const trimmedTitle = editedTitle.trim()
     if (!trimmedTitle) {
       toast({
-        title: "Erro",
-        description: "O título não pode estar vazio",
+        title: tCommon("error"),
+        description: t("titleEmpty"),
         variant: "destructive"
       })
       return
@@ -134,8 +139,8 @@ export default function ImageViewer({ image, onClose, onRefine, onArchive, allIm
     try {
       await api.put(`/documents/${image.id}`, { title: trimmedTitle })
       toast({
-        title: "Título atualizado",
-        description: "O título da imagem foi alterado com sucesso"
+        title: t("titleUpdated"),
+        description: t("titleUpdatedDesc")
       })
 
       // Update local state
@@ -149,8 +154,8 @@ export default function ImageViewer({ image, onClose, onRefine, onArchive, allIm
     } catch (error) {
       console.error("Failed to update title:", error)
       toast({
-        title: "Erro ao atualizar",
-        description: "Não foi possível atualizar o título. Tente novamente.",
+        title: t("titleUpdateError"),
+        description: t("titleUpdateErrorDesc"),
         variant: "destructive"
       })
     }
@@ -195,7 +200,7 @@ export default function ImageViewer({ image, onClose, onRefine, onArchive, allIm
             <h2
               className="text-lg font-semibold truncate cursor-pointer hover:text-primary transition-colors"
               onClick={handleStartEditTitle}
-              title="Clique para editar"
+              title={t("clickToEdit")}
             >
               {image.title}
             </h2>
@@ -203,7 +208,7 @@ export default function ImageViewer({ image, onClose, onRefine, onArchive, allIm
           <div className="flex items-center gap-4 mt-1">
             {metadata.model && (
               <span className="text-xs text-muted-foreground">
-                Modelo: {metadata.model.split('/').pop()}
+                {t("model", { model: metadata.model.split('/').pop() })}
               </span>
             )}
             {metadata.size && (
@@ -213,7 +218,7 @@ export default function ImageViewer({ image, onClose, onRefine, onArchive, allIm
             )}
             {image.created_at && (
               <span className="text-xs text-muted-foreground">
-                {new Date(image.created_at).toLocaleDateString('pt-BR')}
+                {format.dateTime(new Date(image.created_at), { dateStyle: "short" })}
               </span>
             )}
           </div>
@@ -306,7 +311,7 @@ export default function ImageViewer({ image, onClose, onRefine, onArchive, allIm
               onClick={() => onRefine(image.id)}
             >
               <Sparkles className="h-4 w-4 mr-2" />
-              Refinar
+              {t("refine")}
             </Button>
           )}
 
@@ -344,7 +349,7 @@ export default function ImageViewer({ image, onClose, onRefine, onArchive, allIm
           <div className="flex items-start gap-2">
             <Sparkles className="h-4 w-4 mt-1 text-muted-foreground flex-shrink-0" />
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium mb-1">Prompt:</p>
+              <p className="text-sm font-medium mb-1">{t("prompt")}</p>
               <p className="text-sm text-muted-foreground whitespace-pre-wrap">
                 {image.content}
               </p>
@@ -356,7 +361,7 @@ export default function ImageViewer({ image, onClose, onRefine, onArchive, allIm
       {/* Keyboard Navigation Hint */}
       {allImages.length > 1 && (
         <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-xs text-muted-foreground bg-card/80 px-3 py-1 rounded-full">
-          Use ← → para navegar entre imagens
+          {t("navigationHint")}
         </div>
       )}
     </div>

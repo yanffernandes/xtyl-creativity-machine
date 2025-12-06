@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useMemo } from "react"
+import { useTranslations } from "next-intl"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -13,13 +14,13 @@ import type { Template } from "@/types/supabase"
 
 // Category definitions with icons
 const CATEGORIES = [
-  { id: "all", name: "Todos", icon: Sparkles },
-  { id: "trafego_pago", name: "Trafego Pago", icon: Target },
-  { id: "social_media", name: "Social Media", icon: Smartphone },
-  { id: "email", name: "Email Marketing", icon: Mail },
-  { id: "copy", name: "Copywriting", icon: PenTool },
-  { id: "seo", name: "SEO & Blog", icon: FileText },
-  { id: "criativo", name: "Criativo", icon: Palette },
+  { id: "all", nameKey: "categories.all", icon: Sparkles },
+  { id: "trafego_pago", nameKey: "categories.trafegoPago", icon: Target },
+  { id: "social_media", nameKey: "categories.socialMedia", icon: Smartphone },
+  { id: "email", nameKey: "categories.email", icon: Mail },
+  { id: "copy", nameKey: "categories.copywriting", icon: PenTool },
+  { id: "seo", nameKey: "categories.seoBlog", icon: FileText },
+  { id: "criativo", nameKey: "categories.creative", icon: Palette },
 ] as const
 
 interface TemplateSelectorProps {
@@ -37,6 +38,7 @@ export default function TemplateSelector({
   isLoading = false,
   onSelectTemplate,
 }: TemplateSelectorProps) {
+  const t = useTranslations("templates")
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("all")
 
@@ -87,7 +89,7 @@ export default function TemplateSelector({
         <DialogHeader className="px-6 py-4 border-b">
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-primary" />
-            Escolha um Template
+            {t("selectTemplate")}
           </DialogTitle>
         </DialogHeader>
 
@@ -112,7 +114,7 @@ export default function TemplateSelector({
                     )}
                   >
                     <Icon className="h-4 w-4 flex-shrink-0" />
-                    <span className="flex-1 text-left truncate">{cat.name}</span>
+                    <span className="flex-1 text-left truncate">{t(cat.nameKey as any)}</span>
                     <Badge
                       variant={isActive ? "secondary" : "outline"}
                       className={cn(
@@ -135,7 +137,7 @@ export default function TemplateSelector({
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Buscar templates..."
+                  placeholder={t("search")}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-10"
@@ -163,9 +165,9 @@ export default function TemplateSelector({
               ) : filteredTemplates.length === 0 ? (
                 <div className="text-center py-12 text-muted-foreground">
                   <Sparkles className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p>Nenhum template encontrado</p>
+                  <p>{t("noTemplates")}</p>
                   {searchQuery && (
-                    <p className="text-sm mt-1">Tente buscar por outro termo</p>
+                    <p className="text-sm mt-1">{t("noTemplatesDescription")}</p>
                   )}
                 </div>
               ) : (
@@ -215,12 +217,12 @@ export default function TemplateSelector({
                             )}
                             {template.variables && template.variables.length > 0 && (
                               <span className="text-muted-foreground/70">
-                                {template.variables.length} {template.variables.length === 1 ? "campo" : "campos"}
+                                {template.variables.length} {template.variables.length === 1 ? t("variables") : t("variables")}
                               </span>
                             )}
                           </div>
                           <Badge variant="secondary" className="text-[10px]">
-                            {template.usage_count || 0} usos
+                            {t("usageCount", { count: template.usage_count || 0 })}
                           </Badge>
                         </div>
 

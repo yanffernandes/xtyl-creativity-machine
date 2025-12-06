@@ -22,6 +22,10 @@ import secrets
 from export_service import export_to_pdf, export_to_docx, export_to_markdown
 from storage_service import delete_file as delete_from_storage, R2_PUBLIC_URL
 from schemas import DeleteImagePermanentResponse, DetachImageResponse
+# Feature 025: Security Hardening - Authorization helpers and rate limiting
+from services.security_service import verify_project_access, verify_document_access
+from middleware.security import limiter
+from fastapi import Request
 
 router = APIRouter(
     prefix="/documents",
@@ -62,6 +66,9 @@ async def upload_document(
     db: Session = Depends(get_db)
 ):
     """Upload a document. Set is_context=true to mark as context file for RAG."""
+    # Feature 025: Verify user has access to this project
+    verify_project_access(db, project_id, str(current_user.id))
+
     # Create DB entry
     doc_id = str(uuid.uuid4())
     db_doc = Document(
@@ -96,6 +103,9 @@ def list_project_documents(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    # Feature 025: Verify user has access to this project
+    verify_project_access(db, project_id, str(current_user.id))
+
     # Get documents with eager loading of attachments and their images
     documents = db.query(Document).options(
         joinedload(Document.attachments).joinedload(DocumentAttachment.image)
@@ -113,6 +123,9 @@ def list_context_files(
     db: Session = Depends(get_db)
 ):
     """List all context files (is_context=True) for a project"""
+    # Feature 025: Verify user has access to this project
+    verify_project_access(db, project_id, str(current_user.id))
+
     documents = db.query(Document).filter(
         Document.project_id == project_id,
         Document.is_context == True,
@@ -129,9 +142,8 @@ async def toggle_document_context(
     db: Session = Depends(get_db)
 ):
     """Toggle is_context flag for a document. If turning ON, triggers RAG processing."""
-    doc = get_document(db, document_id)
-    if not doc:
-        raise HTTPException(status_code=404, detail="Document not found")
+    # Feature 025: Verify user has access to this document
+    doc = verify_document_access(db, document_id, str(current_user.id))
 
     # Toggle the flag
     new_value = not doc.is_context
@@ -157,6 +169,8 @@ def create_new_document(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    # Feature 025: Verify user has access to this project
+    verify_project_access(db, project_id, str(current_user.id))
     return create_document(db, document, project_id)
 
 @router.get("/{document_id}", response_model=DocumentSchema)
@@ -165,9 +179,8 @@ def get_single_document(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    doc = get_document(db, document_id)
-    if not doc:
-        raise HTTPException(status_code=404, detail="Document not found")
+    # Feature 025: Verify user has access to this document
+    doc = verify_document_access(db, document_id, str(current_user.id))
     return doc
 
 @router.put("/{document_id}", response_model=DocumentSchema)
@@ -177,6 +190,9 @@ def update_existing_document(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    # Feature 025: Verify user has access to this document
+    verify_document_access(db, document_id, str(current_user.id))
+
     updated_doc = update_document(db, document_id, document)
     if not updated_doc:
         raise HTTPException(status_code=404, detail="Document not found")
@@ -190,6 +206,9 @@ def delete_existing_document(
     db: Session = Depends(get_db)
 ):
     """Delete document. Use hard_delete=true for permanent deletion, otherwise soft deletes (archives)"""
+    # Feature 025: Verify user has access to this document
+    verify_document_access(db, document_id, str(current_user.id))
+
     if hard_delete:
         success = delete_document(db, document_id)
         if not success:
@@ -213,6 +232,8 @@ def move_document_to_folder(
     db: Session = Depends(get_db)
 ):
     """Move document to a folder (or to root if folder_id is None)"""
+    # Feature 025: Verify user has access to this document
+    verify_document_access(db, document_id, str(current_user.id))
     moved_doc = move_document(db, document_id, folder_id, str(current_user.id))
     if not moved_doc:
         raise HTTPException(status_code=404, detail="Document not found")
@@ -231,6 +252,14 @@ def restore_archived_document(
     db: Session = Depends(get_db)
 ):
     """Restore a soft-deleted (archived) document"""
+    # Feature 025: Verify user has access to this document (checks via project)
+    # Note: verify_document_access checks deleted_at, but restore needs to access deleted docs
+    # So we verify project access directly via the document's project
+    doc = db.query(Document).filter(Document.id == document_id).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+    verify_project_access(db, doc.project_id, str(current_user.id))
+
     restored_doc = restore_document(db, document_id, str(current_user.id))
     if not restored_doc:
         raise HTTPException(status_code=404, detail="Document not found or not archived")
@@ -248,6 +277,8 @@ def list_archived_project_documents(
     db: Session = Depends(get_db)
 ):
     """List all archived documents in a project"""
+    # Feature 025: Verify user has access to this project
+    verify_project_access(db, project_id, str(current_user.id))
     archived = list_archived_documents(db, project_id)
 
     return {
@@ -275,9 +306,8 @@ async def export_document_pdf(
     db: Session = Depends(get_db)
 ):
     """Export document as PDF with formatted markdown"""
-    doc = get_document(db, document_id)
-    if not doc:
-        raise HTTPException(status_code=404, detail="Document not found")
+    # Feature 025: Verify user has access to this document
+    doc = verify_document_access(db, document_id, str(current_user.id))
 
     # Only allow text documents to be exported
     if doc.media_type != "text":
@@ -304,9 +334,8 @@ async def export_document_docx(
     db: Session = Depends(get_db)
 ):
     """Export document as DOCX with formatted markdown"""
-    doc = get_document(db, document_id)
-    if not doc:
-        raise HTTPException(status_code=404, detail="Document not found")
+    # Feature 025: Verify user has access to this document
+    doc = verify_document_access(db, document_id, str(current_user.id))
 
     if doc.media_type != "text":
         raise HTTPException(status_code=400, detail="Only text documents can be exported to DOCX")
@@ -332,9 +361,8 @@ async def export_document_markdown(
     db: Session = Depends(get_db)
 ):
     """Export document as Markdown file"""
-    doc = get_document(db, document_id)
-    if not doc:
-        raise HTTPException(status_code=404, detail="Document not found")
+    # Feature 025: Verify user has access to this document
+    doc = verify_document_access(db, document_id, str(current_user.id))
 
     if doc.media_type != "text":
         raise HTTPException(status_code=400, detail="Only text documents can be exported to Markdown")
@@ -363,9 +391,8 @@ async def create_share_link(
     db: Session = Depends(get_db)
 ):
     """Generate a public share link for a document"""
-    doc = get_document(db, document_id)
-    if not doc:
-        raise HTTPException(status_code=404, detail="Document not found")
+    # Feature 025: Verify user has access to this document
+    doc = verify_document_access(db, document_id, str(current_user.id))
 
     # Generate secure random token
     share_token = secrets.token_urlsafe(32)
@@ -397,9 +424,8 @@ async def revoke_share_link(
     db: Session = Depends(get_db)
 ):
     """Revoke public sharing for a document"""
-    doc = get_document(db, document_id)
-    if not doc:
-        raise HTTPException(status_code=404, detail="Document not found")
+    # Feature 025: Verify user has access to this document
+    doc = verify_document_access(db, document_id, str(current_user.id))
 
     # Remove sharing info
     doc.is_public = False
@@ -414,11 +440,14 @@ async def revoke_share_link(
 
 
 @router.get("/shared/{share_token}")
+@limiter.limit("30/minute")
 async def get_shared_document(
     share_token: str,
+    request: Request,
     db: Session = Depends(get_db)
 ):
-    """Public endpoint to access a shared document (no authentication required)"""
+    """Public endpoint to access a shared document (no authentication required).
+    Rate limited to 30 requests per minute per IP to prevent abuse."""
     # Find document by share token
     doc = db.query(Document).filter(
         Document.share_token == share_token,
@@ -457,10 +486,8 @@ async def get_document_attachments(
     db: Session = Depends(get_db)
 ):
     """Get all image attachments for a document"""
-    # Verify document exists and user has access
-    doc = get_document(db, document_id)
-    if not doc:
-        raise HTTPException(status_code=404, detail="Document not found")
+    # Feature 025: Verify user has access to this document
+    verify_document_access(db, document_id, str(current_user.id))
 
     # Get all attachments for this document with eager loading of image data
     attachments = db.query(DocumentAttachment).options(
@@ -480,10 +507,8 @@ async def attach_image_to_document(
     db: Session = Depends(get_db)
 ):
     """Attach an image to a document"""
-    # Verify document exists
-    doc = get_document(db, document_id)
-    if not doc:
-        raise HTTPException(status_code=404, detail="Document not found")
+    # Feature 025: Verify user has access to this document
+    doc = verify_document_access(db, document_id, str(current_user.id))
 
     # Verify image exists and is actually an image
     image = get_document(db, attachment.image_id)
@@ -538,10 +563,8 @@ async def remove_image_attachment(
     This only removes the attachment link - the image remains in storage
     and can be reattached or used elsewhere.
     """
-    # Verify document exists
-    doc = get_document(db, document_id)
-    if not doc:
-        raise HTTPException(status_code=404, detail="Document not found")
+    # Feature 025: Verify user has access to this document
+    verify_document_access(db, document_id, str(current_user.id))
 
     # Find attachment
     attachment = db.query(DocumentAttachment).filter(
@@ -574,10 +597,8 @@ async def update_image_attachment(
     db: Session = Depends(get_db)
 ):
     """Update an image attachment (e.g., set as primary, change order)"""
-    # Verify document exists
-    doc = get_document(db, document_id)
-    if not doc:
-        raise HTTPException(status_code=404, detail="Document not found")
+    # Feature 025: Verify user has access to this document
+    verify_document_access(db, document_id, str(current_user.id))
 
     # Find attachment
     attachment = db.query(DocumentAttachment).filter(
@@ -630,10 +651,8 @@ async def delete_image_permanent(
     - Will fail if this image is used as original_image_id by another document
       (to prevent breaking refinement chains)
     """
-    # Verify parent document exists
-    doc = get_document(db, document_id)
-    if not doc:
-        raise HTTPException(status_code=404, detail="Document not found")
+    # Feature 025: Verify user has access to this document
+    verify_document_access(db, document_id, str(current_user.id))
 
     # Find attachment
     attachment = db.query(DocumentAttachment).filter(

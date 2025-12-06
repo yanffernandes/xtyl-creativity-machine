@@ -102,8 +102,8 @@
 - [X] T028 [P] [US3] Remove OpenRouter API call from image models endpoint in backend/routers/image_generation.py
 - [X] T029 [US3] Add model name formatting (convert ID to display name) in backend/routers/chat.py
 - [X] T030 [P] [US3] Add model name formatting for image models in backend/routers/image_generation.py
-- [ ] T031 [US3] Verify ChatSidebar displays filtered models correctly in frontend/src/components/ChatSidebar.tsx
-- [ ] T032 [P] [US3] Verify ImageGenerationPanel displays filtered models correctly in frontend/src/components/ImageGenerationPanel.tsx
+- [X] T031 [US3] Verify ChatSidebar displays filtered models correctly in frontend/src/components/ChatSidebar.tsx
+- [X] T032 [P] [US3] Verify ImageGenerationPanel displays filtered models correctly in frontend/src/components/ImageGenerationPanel.tsx
 
 **Checkpoint**: All user-facing model selectors show only admin-configured models
 
@@ -130,12 +130,12 @@
 
 **Purpose**: Improvements that affect multiple user stories
 
-- [ ] T037 [P] Add loading states for model lists in admin UI in frontend/src/app/admin/models/page.tsx
-- [ ] T038 [P] Add error handling for OpenRouter API failures in admin panel in frontend/src/app/admin/models/page.tsx
-- [ ] T039 Add minimum selection validation (at least 1 model) in admin UI in frontend/src/app/admin/models/page.tsx
-- [ ] T040 [P] Add search/filter functionality for model lists in admin in frontend/src/app/admin/models/page.tsx
-- [ ] T041 Add model count display in tab headers in frontend/src/app/admin/models/page.tsx
-- [ ] T042 Run manual validation per quickstart.md checklist
+- [X] T037 [P] Add loading states for model lists in admin UI in frontend/src/app/admin/models/page.tsx
+- [X] T038 [P] Add error handling for OpenRouter API failures in admin panel in frontend/src/app/admin/models/page.tsx
+- [X] T039 Add minimum selection validation (at least 1 model) in admin UI in frontend/src/app/admin/models/page.tsx
+- [X] T040 [P] Add search/filter functionality for model lists in admin in frontend/src/app/admin/models/page.tsx
+- [X] T041 Add model count display in tab headers in frontend/src/app/admin/models/page.tsx
+- [X] T042 Run manual validation per quickstart.md checklist
 
 ---
 

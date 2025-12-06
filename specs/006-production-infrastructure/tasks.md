@@ -71,17 +71,17 @@
 
 ### Implementation for User Story 3
 
-- [ ] T012 [US3] Create backend/storage_service.py with boto3 S3-compatible client for R2
-- [ ] T013 [US3] Implement upload_file function in backend/storage_service.py returning public URL
-- [ ] T014 [US3] Implement download_file function in backend/storage_service.py
-- [ ] T015 [US3] Implement delete_file function in backend/storage_service.py
-- [ ] T016 [US3] Implement list_files function in backend/storage_service.py
-- [ ] T017 [US3] Update backend/image_generation_service.py to use storage_service instead of minio_service
-- [ ] T018 [US3] Update backend/rag_service.py to use storage_service instead of minio_service
-- [ ] T019 [US3] Update backend/routers/visual_assets.py to use storage_service instead of minio_service
-- [ ] T020 [US3] Update backend/routers/chat.py to use storage_service instead of minio_service
-- [ ] T021 [US3] Update backend/main.py to remove MinIO initialization, add R2 config validation
-- [ ] T022 [US3] Delete backend/minio_service.py (replaced by storage_service.py)
+- [x] T012 [US3] Create backend/storage_service.py with boto3 S3-compatible client for R2
+- [x] T013 [US3] Implement upload_file function in backend/storage_service.py returning public URL
+- [x] T014 [US3] Implement download_file function in backend/storage_service.py
+- [x] T015 [US3] Implement delete_file function in backend/storage_service.py
+- [x] T016 [US3] Implement list_files function in backend/storage_service.py
+- [x] T017 [US3] Update backend/image_generation_service.py to use storage_service instead of minio_service
+- [x] T018 [US3] Update backend/rag_service.py to use storage_service instead of minio_service
+- [x] T019 [US3] Update backend/routers/visual_assets.py to use storage_service instead of minio_service
+- [x] T020 [US3] Update backend/routers/chat.py to use storage_service instead of minio_service
+- [x] T021 [US3] Update backend/main.py to remove MinIO initialization, add R2 config validation
+- [x] T022 [US3] Delete backend/minio_service.py (replaced by storage_service.py)
 
 **Checkpoint**: All file operations use R2, MinIO code removed
 
@@ -95,14 +95,14 @@
 
 ### Implementation for User Story 2
 
-- [ ] T023 [US2] Create frontend/src/lib/supabase.ts with Supabase client initialization
-- [ ] T024 [US2] Update frontend/src/lib/store.ts to use Supabase session instead of custom token storage
-- [ ] T025 [US2] Update frontend/src/lib/api.ts to get access token from Supabase session
-- [ ] T026 [US2] Rewrite frontend/src/app/login/page.tsx to use Supabase Auth signInWithPassword
-- [ ] T027 [US2] Rewrite frontend/src/app/register/page.tsx to use Supabase Auth signUp
-- [ ] T028 [US2] Update frontend/src/app/forgot-password/page.tsx to use Supabase Auth resetPasswordForEmail
-- [ ] T029 [US2] Create frontend/src/app/auth/callback/page.tsx for Supabase auth redirects
-- [ ] T030 [US2] Add Supabase onAuthStateChange listener in frontend/src/lib/store.ts for session refresh
+- [x] T023 [US2] Create frontend/src/lib/supabase.ts with Supabase client initialization
+- [x] T024 [US2] Update frontend/src/lib/store.ts to use Supabase session instead of custom token storage
+- [x] T025 [US2] Update frontend/src/lib/api.ts to get access token from Supabase session
+- [x] T026 [US2] Rewrite frontend/src/app/login/page.tsx to use Supabase Auth signInWithPassword
+- [x] T027 [US2] Rewrite frontend/src/app/register/page.tsx to use Supabase Auth signUp
+- [x] T028 [US2] Update frontend/src/app/forgot-password/page.tsx to use Supabase Auth resetPasswordForEmail
+- [x] T029 [US2] Create frontend/src/app/auth/callback/page.tsx for Supabase auth redirects
+- [x] T030 [US2] Add Supabase onAuthStateChange listener in frontend/src/lib/store.ts for session refresh
 
 **Checkpoint**: Frontend auth fully migrated to Supabase
 
@@ -118,18 +118,18 @@
 
 ### Implementation for User Story 4
 
-- [ ] T031 [US4] Create backend/supabase_auth.py with get_current_user dependency using PyJWT
-- [ ] T032 [US4] Update backend/routers/workspaces.py to use supabase_auth.get_current_user instead of auth.get_current_user
-- [ ] T033 [US4] Update backend/routers/projects.py to use supabase_auth.get_current_user
-- [ ] T034 [US4] Update backend/routers/documents.py to use supabase_auth.get_current_user
-- [ ] T035 [US4] Update backend/routers/chat.py to use supabase_auth.get_current_user
-- [ ] T036 [US4] Update backend/routers/workflows.py to use supabase_auth.get_current_user
-- [ ] T037 [US4] Update backend/routers/executions.py to use supabase_auth.get_current_user
-- [ ] T038 [US4] Update backend/routers/visual_assets.py to use supabase_auth.get_current_user
-- [ ] T039 [US4] Update backend/routers/preferences.py to use supabase_auth.get_current_user
-- [ ] T040 [US4] Delete backend/routers/auth.py (custom auth endpoints no longer needed)
-- [ ] T041 [US4] Delete backend/auth.py (custom JWT implementation replaced)
-- [ ] T042 [US4] Update backend/main.py to remove auth router, add SUPABASE_JWT_SECRET validation
+- [x] T031 [US4] Create backend/supabase_auth.py with get_current_user dependency using PyJWT
+- [x] T032 [US4] Update backend/routers/workspaces.py to use supabase_auth.get_current_user instead of auth.get_current_user
+- [x] T033 [US4] Update backend/routers/projects.py to use supabase_auth.get_current_user
+- [x] T034 [US4] Update backend/routers/documents.py to use supabase_auth.get_current_user
+- [x] T035 [US4] Update backend/routers/chat.py to use supabase_auth.get_current_user
+- [x] T036 [US4] Update backend/routers/workflows.py to use supabase_auth.get_current_user
+- [x] T037 [US4] Update backend/routers/executions.py to use supabase_auth.get_current_user
+- [x] T038 [US4] Update backend/routers/visual_assets.py to use supabase_auth.get_current_user
+- [x] T039 [US4] Update backend/routers/preferences.py to use supabase_auth.get_current_user
+- [x] T040 [US4] Delete backend/routers/auth.py (custom auth endpoints no longer needed)
+- [x] T041 [US4] Delete backend/auth.py (custom JWT implementation replaced)
+- [x] T042 [US4] Update backend/main.py to remove auth router, add SUPABASE_JWT_SECRET validation
 
 **Checkpoint**: All backend endpoints validate Supabase tokens
 
@@ -145,14 +145,14 @@
 
 ### Implementation for User Story 1
 
-- [ ] T043 [US1] Update backend health check endpoint to verify Supabase DB connection in backend/main.py
-- [ ] T044 [US1] Update backend health check to verify R2 connection in backend/main.py
-- [ ] T045 [US1] Add environment variable validation on startup in backend/main.py for all required vars
-- [ ] T046 [US1] Run Supabase trigger SQL from contracts/supabase-trigger.sql in Supabase SQL Editor
-- [ ] T047 [US1] Configure Supabase Auth settings (disable email verification) via dashboard
-- [ ] T048 [US1] Configure R2 bucket as public via Cloudflare dashboard
-- [ ] T049 [US1] Deploy docker-compose.prod.yml to Easypanel
-- [ ] T050 [US1] Verify all services healthy via Easypanel dashboard
+- [x] T043 [US1] Update backend health check endpoint to verify Supabase DB connection in backend/main.py
+- [x] T044 [US1] Update backend health check to verify R2 connection in backend/main.py
+- [x] T045 [US1] Add environment variable validation on startup in backend/main.py for all required vars
+- [x] T046 [US1] Run Supabase trigger SQL from contracts/supabase-trigger.sql in Supabase SQL Editor
+- [x] T047 [US1] Configure Supabase Auth settings (disable email verification) via dashboard
+- [x] T048 [US1] Configure R2 bucket as public via Cloudflare dashboard
+- [x] T049 [US1] Deploy docker-compose.prod.yml to Easypanel
+- [x] T050 [US1] Verify all services healthy via Easypanel dashboard
 
 **Checkpoint**: Production deployment complete and verified
 
@@ -162,12 +162,12 @@
 
 **Purpose**: Cleanup and validation across all stories
 
-- [ ] T051 [P] Remove unused MINIO_* environment variables from docker-compose.yml
-- [ ] T052 [P] Remove unused SECRET_KEY environment variable from docker-compose.yml
-- [ ] T053 [P] Update backend/crud.py to remove password-related functions (create_user with hashing, verify_password)
-- [ ] T054 [P] Update backend/schemas.py to remove password fields from UserCreate schema
-- [ ] T055 Run quickstart.md validation - complete end-to-end test of deployment
-- [ ] T056 Verify all acceptance scenarios from spec.md pass manually
+- [x] T051 [P] Remove unused MINIO_* environment variables from docker-compose.yml
+- [x] T052 [P] Remove unused SECRET_KEY environment variable from docker-compose.yml
+- [x] T053 [P] Update backend/crud.py to remove password-related functions (create_user with hashing, verify_password)
+- [x] T054 [P] Update backend/schemas.py to remove password fields from UserCreate schema
+- [x] T055 Run quickstart.md validation - complete end-to-end test of deployment
+- [x] T056 Verify all acceptance scenarios from spec.md pass manually
 
 ---
 

@@ -42,7 +42,7 @@ MAX_ASSETS_PER_PROJECT = 100  # T055: NFR-002 - 100 assets per project limit
 ASSET_TYPES = ['logo', 'background', 'person', 'reference', 'other']
 
 # Asset category options (new smart categories)
-ASSET_CATEGORIES = ['Logo', 'Pessoa', 'Background', 'Produto', 'Outro']
+ASSET_CATEGORIES = ['Logo', 'Pessoa', 'Background', 'Produto', 'Referência', 'Outro']
 
 
 def extract_image_metadata(image: Image.Image, file_size: int, format: str) -> dict:
