@@ -26,6 +26,7 @@ import { projectKeys } from "@/hooks/use-projects"
 import ColorPalette from "./brand-identity/ColorPalette"
 import ColorExtractor from "./brand-identity/ColorExtractor"
 import TypographySettings from "./brand-identity/TypographySettings"
+import DeleteProjectDialog from "./DeleteProjectDialog"
 
 interface ProjectSettingsFormProps {
     projectId: string
@@ -549,6 +550,20 @@ export default function ProjectSettingsForm({ projectId, workspaceId }: ProjectS
                         )}
                     </Button>
                 </div>
+            </div>
+
+            {/* Danger Zone (Feature 020) */}
+            <div className="bg-red-500/5 dark:bg-red-500/10 rounded-xl border border-red-500/20 p-6 mt-8">
+                <h2 className="text-lg font-semibold text-red-500 mb-2">Danger Zone</h2>
+                <p className="text-sm text-red-400/80 dark:text-red-300/70 mb-4">
+                    Deleting a project will archive all documents, folders, and workflows associated with it.
+                    This action can be undone by an administrator.
+                </p>
+                <DeleteProjectDialog
+                    projectId={projectId}
+                    projectName={clientName || "Untitled Project"}
+                    workspaceId={workspaceId}
+                />
             </div>
         </div>
     )

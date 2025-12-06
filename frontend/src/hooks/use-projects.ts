@@ -82,6 +82,7 @@ export function useCreateProject() {
         description: newProject.description || null,
         workspace_id: newProject.workspace_id,
         created_at: new Date().toISOString(),
+        deleted_at: null,
       }
 
       queryClient.setQueryData<Project[]>(

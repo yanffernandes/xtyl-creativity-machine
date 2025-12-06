@@ -13,6 +13,7 @@ import { Node } from "reactflow";
 import ModelSelector from "./ModelSelector";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { useTranslations } from "next-intl";
 
 interface NodeConfigPanelProps {
     selectedNode?: Node | null;
@@ -21,6 +22,7 @@ interface NodeConfigPanelProps {
 
 export function NodeConfigPanel({ selectedNode: propSelectedNode, className }: NodeConfigPanelProps) {
     const { selectedNode: storeSelectedNode, updateNodeData, selectNode } = useWorkflowStore();
+    const t = useTranslations("workflow");
 
     // Use prop if provided, otherwise use store
     const selectedNode = propSelectedNode !== undefined ? propSelectedNode : storeSelectedNode;
@@ -37,14 +39,14 @@ export function NodeConfigPanel({ selectedNode: propSelectedNode, className }: N
                 return (
                     <div className="space-y-4">
                         <div className="space-y-2">
-                            <Label>Label</Label>
+                            <Label>{t("label")}</Label>
                             <Input
                                 value={selectedNode.data.label || ""}
                                 onChange={(e) => handleUpdate("label", e.target.value)}
                             />
                         </div>
                         <div className="text-sm text-gray-500">
-                            This node accepts initial workflow inputs.
+                            {t("startNodeDescription")}
                         </div>
                     </div>
                 );
@@ -53,14 +55,14 @@ export function NodeConfigPanel({ selectedNode: propSelectedNode, className }: N
                 return (
                     <div className="space-y-4">
                         <div className="space-y-2">
-                            <Label>Label</Label>
+                            <Label>{t("label")}</Label>
                             <Input
                                 value={selectedNode.data.label || ""}
                                 onChange={(e) => handleUpdate("label", e.target.value)}
                             />
                         </div>
                         <div className="space-y-2">
-                            <Label>Model</Label>
+                            <Label>{t("model")}</Label>
                             <ModelSelector
                                 value={selectedNode.data.model || ""}
                                 onChange={(value) => handleUpdate("model", value)}
@@ -68,18 +70,18 @@ export function NodeConfigPanel({ selectedNode: propSelectedNode, className }: N
                             />
                         </div>
                         <div className="space-y-2">
-                            <Label>Prompt</Label>
+                            <Label>{t("prompt")}</Label>
                             <VariableAutocomplete
                                 nodeId={selectedNode.id}
                                 value={selectedNode.data.prompt || ""}
                                 onChange={(value) => handleUpdate("prompt", value)}
-                                placeholder="Enter prompt (type {{ for variables)"
+                                placeholder={t("promptPlaceholder")}
                                 multiline
                                 className="min-h-[100px]"
                             />
                         </div>
                         <div className="space-y-2">
-                            <Label>Temperature ({selectedNode.data.temperature || 0.7})</Label>
+                            <Label>{t("temperature")} ({selectedNode.data.temperature || 0.7})</Label>
                             <Input
                                 type="range"
                                 min="0"
@@ -95,19 +97,19 @@ export function NodeConfigPanel({ selectedNode: propSelectedNode, className }: N
                                     checked={selectedNode.data.save_as_document !== false}
                                     onCheckedChange={(checked) => handleUpdate("save_as_document", checked)}
                                 />
-                                <Label>Salvar como Documento</Label>
+                                <Label>{t("saveAsDocument")}</Label>
                             </div>
                             <p className="text-xs text-muted-foreground mt-1">
-                                Se desativado, o conteúdo só será passado para o próximo nó
+                                {t("saveAsDocumentHint")}
                             </p>
                         </div>
                         {selectedNode.data.save_as_document !== false && (
                             <div className="space-y-2">
-                                <Label>Título do Documento</Label>
+                                <Label>{t("documentTitle")}</Label>
                                 <Input
                                     value={selectedNode.data.title || ""}
                                     onChange={(e) => handleUpdate("title", e.target.value)}
-                                    placeholder="Deixe vazio para título automático"
+                                    placeholder={t("documentTitlePlaceholder")}
                                 />
                             </div>
                         )}
@@ -118,14 +120,14 @@ export function NodeConfigPanel({ selectedNode: propSelectedNode, className }: N
                 return (
                     <div className="space-y-4">
                         <div className="space-y-2">
-                            <Label>Label</Label>
+                            <Label>{t("label")}</Label>
                             <Input
                                 value={selectedNode.data.label || ""}
                                 onChange={(e) => handleUpdate("label", e.target.value)}
                             />
                         </div>
                         <div className="space-y-2">
-                            <Label>Model</Label>
+                            <Label>{t("model")}</Label>
                             <ModelSelector
                                 value={selectedNode.data.model || ""}
                                 onChange={(value) => handleUpdate("model", value)}
@@ -133,23 +135,23 @@ export function NodeConfigPanel({ selectedNode: propSelectedNode, className }: N
                             />
                         </div>
                         <div className="space-y-2">
-                            <Label>Prompt</Label>
+                            <Label>{t("prompt")}</Label>
                             <VariableAutocomplete
                                 nodeId={selectedNode.id}
                                 value={selectedNode.data.prompt || ""}
                                 onChange={(value) => handleUpdate("prompt", value)}
-                                placeholder="Image description (type {{ for variables)"
+                                placeholder={t("imageDescription")}
                                 multiline
                             />
                         </div>
                         <div className="space-y-2">
-                            <Label>Size</Label>
+                            <Label>{t("size")}</Label>
                             <Select
                                 value={selectedNode.data.size || "1024x1024"}
                                 onValueChange={(value) => handleUpdate("size", value)}
                             >
                                 <SelectTrigger>
-                                    <SelectValue placeholder="Select size" />
+                                    <SelectValue placeholder={t("selectSize")} />
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="1024x1024">1024x1024</SelectItem>
@@ -165,14 +167,14 @@ export function NodeConfigPanel({ selectedNode: propSelectedNode, className }: N
                 return (
                     <div className="space-y-4">
                         <div className="space-y-2">
-                            <Label>Label</Label>
+                            <Label>{t("label")}</Label>
                             <Input
                                 value={selectedNode.data.label || ""}
                                 onChange={(e) => handleUpdate("label", e.target.value)}
                             />
                         </div>
                         <div className="space-y-2">
-                            <Label>Condition (Python expression)</Label>
+                            <Label>{t("condition")}</Label>
                             <VariableAutocomplete
                                 nodeId={selectedNode.id}
                                 value={selectedNode.data.condition || ""}
@@ -180,7 +182,7 @@ export function NodeConfigPanel({ selectedNode: propSelectedNode, className }: N
                                 placeholder="e.g. len({{text.content}}) > 100"
                             />
                             <p className="text-xs text-gray-500">
-                                Returns True (top path) or False (bottom path).
+                                {t("conditionHint")}
                             </p>
                         </div>
                     </div>
@@ -190,14 +192,14 @@ export function NodeConfigPanel({ selectedNode: propSelectedNode, className }: N
                 return (
                     <div className="space-y-4">
                         <div className="space-y-2">
-                            <Label>Label</Label>
+                            <Label>{t("label")}</Label>
                             <Input
                                 value={selectedNode.data.label || ""}
                                 onChange={(e) => handleUpdate("label", e.target.value)}
                             />
                         </div>
                         <div className="space-y-2">
-                            <Label>Iterations</Label>
+                            <Label>{t("iterations")}</Label>
                             <Input
                                 type="number"
                                 value={selectedNode.data.iterations || 1}
@@ -205,7 +207,7 @@ export function NodeConfigPanel({ selectedNode: propSelectedNode, className }: N
                             />
                         </div>
                         <div className="space-y-2">
-                            <Label>Exit Condition (Optional)</Label>
+                            <Label>{t("exitCondition")}</Label>
                             <VariableAutocomplete
                                 nodeId={selectedNode.id}
                                 value={selectedNode.data.condition || ""}
@@ -220,14 +222,14 @@ export function NodeConfigPanel({ selectedNode: propSelectedNode, className }: N
                 return (
                     <div className="space-y-4">
                         <div className="space-y-2">
-                            <Label>Label</Label>
+                            <Label>{t("label")}</Label>
                             <Input
                                 value={selectedNode.data.label || ""}
                                 onChange={(e) => handleUpdate("label", e.target.value)}
                             />
                         </div>
                         <div className="space-y-2">
-                            <Label>Search Query</Label>
+                            <Label>{t("searchQuery")}</Label>
                             <VariableAutocomplete
                                 nodeId={selectedNode.id}
                                 value={selectedNode.data.query || ""}
@@ -236,7 +238,7 @@ export function NodeConfigPanel({ selectedNode: propSelectedNode, className }: N
                             />
                         </div>
                         <div className="space-y-2">
-                            <Label>Max Results</Label>
+                            <Label>{t("maxResults")}</Label>
                             <Input
                                 type="number"
                                 value={selectedNode.data.maxResults || 5}
@@ -248,7 +250,7 @@ export function NodeConfigPanel({ selectedNode: propSelectedNode, className }: N
                                 checked={selectedNode.data.useRag !== false}
                                 onCheckedChange={(checked) => handleUpdate("useRag", checked)}
                             />
-                            <Label>Use RAG (Vector Search)</Label>
+                            <Label>{t("useRag")}</Label>
                         </div>
                     </div>
                 );
@@ -257,7 +259,7 @@ export function NodeConfigPanel({ selectedNode: propSelectedNode, className }: N
                 return (
                     <div className="space-y-4">
                         <div className="space-y-2">
-                            <Label>Label</Label>
+                            <Label>{t("label")}</Label>
                             <Input
                                 value={selectedNode.data.label || ""}
                                 onChange={(e) => handleUpdate("label", e.target.value)}
@@ -266,69 +268,69 @@ export function NodeConfigPanel({ selectedNode: propSelectedNode, className }: N
 
                         {/* Document Source */}
                         <div className="space-y-2">
-                            <Label>Fonte do Documento</Label>
+                            <Label>{t("documentSource")}</Label>
                             <Select
                                 value={selectedNode.data.documentSource || "from_node"}
                                 onValueChange={(value) => handleUpdate("documentSource", value)}
                             >
                                 <SelectTrigger>
-                                    <SelectValue placeholder="Selecione a fonte" />
+                                    <SelectValue placeholder={t("selectSource")} />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="from_node">De um nó conectado</SelectItem>
-                                    <SelectItem value="from_project">Do projeto (existente)</SelectItem>
+                                    <SelectItem value="from_node">{t("fromConnectedNode")}</SelectItem>
+                                    <SelectItem value="from_project">{t("fromProject")}</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
 
                         {selectedNode.data.documentSource === "from_project" && (
                             <div className="space-y-2">
-                                <Label>ID do Documento</Label>
+                                <Label>{t("documentId")}</Label>
                                 <Input
                                     value={selectedNode.data.documentId || ""}
                                     onChange={(e) => handleUpdate("documentId", e.target.value)}
-                                    placeholder="UUID do documento existente"
+                                    placeholder={t("documentIdPlaceholder")}
                                 />
                                 <p className="text-xs text-muted-foreground">
-                                    Cole o ID de um documento existente no projeto
+                                    {t("documentIdHint")}
                                 </p>
                             </div>
                         )}
 
                         {/* Image Source */}
                         <div className="space-y-2">
-                            <Label>Fonte da Imagem</Label>
+                            <Label>{t("imageSource")}</Label>
                             <Select
                                 value={selectedNode.data.imageSource || "from_node"}
                                 onValueChange={(value) => handleUpdate("imageSource", value)}
                             >
                                 <SelectTrigger>
-                                    <SelectValue placeholder="Selecione a fonte" />
+                                    <SelectValue placeholder={t("selectSource")} />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="from_node">De um nó conectado</SelectItem>
-                                    <SelectItem value="from_project">Do projeto (existente)</SelectItem>
+                                    <SelectItem value="from_node">{t("fromConnectedNode")}</SelectItem>
+                                    <SelectItem value="from_project">{t("fromProject")}</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
 
                         {selectedNode.data.imageSource === "from_project" && (
                             <div className="space-y-2">
-                                <Label>ID da Imagem</Label>
+                                <Label>{t("imageId")}</Label>
                                 <Input
                                     value={selectedNode.data.imageId || ""}
                                     onChange={(e) => handleUpdate("imageId", e.target.value)}
-                                    placeholder="UUID da imagem existente"
+                                    placeholder={t("imageIdPlaceholder")}
                                 />
                                 <p className="text-xs text-muted-foreground">
-                                    Cole o ID de uma imagem existente no projeto
+                                    {t("imageIdHint")}
                                 </p>
                             </div>
                         )}
 
                         <div className="text-xs text-muted-foreground p-3 bg-white/[0.03] rounded-lg border border-white/[0.08]">
-                            <p className="font-medium mb-1">Como funciona:</p>
-                            <p>Este nó combina um documento de texto com uma imagem para criar um "creative" completo.</p>
+                            <p className="font-medium mb-1">{t("howItWorks")}</p>
+                            <p>{t("attachNodeDescription")}</p>
                         </div>
                     </div>
                 );
@@ -337,7 +339,7 @@ export function NodeConfigPanel({ selectedNode: propSelectedNode, className }: N
                 return (
                     <div className="space-y-4">
                         <div className="space-y-2">
-                            <Label>Label</Label>
+                            <Label>{t("label")}</Label>
                             <Input
                                 value={selectedNode.data.label || ""}
                                 onChange={(e) => handleUpdate("label", e.target.value)}
@@ -348,20 +350,20 @@ export function NodeConfigPanel({ selectedNode: propSelectedNode, className }: N
                                 checked={selectedNode.data.saveToProject || false}
                                 onCheckedChange={(checked) => handleUpdate("saveToProject", checked)}
                             />
-                            <Label>Save outputs to Project</Label>
+                            <Label>{t("saveToProject")}</Label>
                         </div>
                         <div className="flex items-center space-x-2">
                             <Switch
                                 checked={selectedNode.data.notifyUser || false}
                                 onCheckedChange={(checked) => handleUpdate("notifyUser", checked)}
                             />
-                            <Label>Notify User on Completion</Label>
+                            <Label>{t("notifyOnCompletion")}</Label>
                         </div>
                     </div>
                 );
 
             default:
-                return <div>No configuration available for this node type.</div>;
+                return <div>{t("noConfigAvailable")}</div>;
         }
     };
 
@@ -371,7 +373,7 @@ export function NodeConfigPanel({ selectedNode: propSelectedNode, className }: N
             className
         )}>
             <div className={cn("p-3 flex items-center justify-between", glassPanelHeaderClasses)}>
-                <h2 className="text-sm font-semibold text-foreground">Configuração</h2>
+                <h2 className="text-sm font-semibold text-foreground">{t("configuration")}</h2>
                 <Button
                     variant="ghost"
                     size="icon"

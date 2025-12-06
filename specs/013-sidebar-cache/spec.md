@@ -2,7 +2,7 @@
 
 **Feature Branch**: `013-sidebar-cache`
 **Created**: 2025-11-30
-**Status**: Draft
+**Status**: Completed
 **Input**: User description: "O menu lateral sempre recarrega quando mudo de página. Quero que ele abra uma versão em cache primeiro, com um indicador pequeno de que está atualizando ao lado do nome 'Projetos'"
 
 ## Clarifications

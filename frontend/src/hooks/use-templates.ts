@@ -28,6 +28,7 @@ export const templateKeys = {
 
 /**
  * Hook to fetch all accessible templates
+ * T009: Increased staleTime to 10 minutes - templates rarely change
  */
 export function useTemplates(workspaceId?: string) {
   return useQuery({
@@ -37,7 +38,7 @@ export function useTemplates(workspaceId?: string) {
       if (error) throw error
       return data
     },
-    staleTime: 60000, // Templates change infrequently, 1 minute stale time
+    staleTime: 10 * 60 * 1000, // 10 minutes - templates rarely change
   })
 }
 
@@ -151,6 +152,11 @@ export function useCreateTemplate() {
         usage_count: 0,
         created_at: new Date().toISOString(),
         updated_at: null,
+        variables: null,
+        initial_message: null,
+        expert_name: null,
+        estimated_outputs: null,
+        is_featured: false,
       }
 
       queryClient.setQueryData<Template[]>(

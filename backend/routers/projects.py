@@ -9,9 +9,14 @@ import httpx
 
 from database import get_db
 from models import Project, Document
-from schemas import ProjectSettings, ProjectSettingsUpdate, ProjectContext, ColorExtractionResult, AssetColorExtractionRequest, AssetColorExtractionResult
+from schemas import (
+    ProjectSettings, ProjectSettingsUpdate, ProjectContext,
+    ColorExtractionResult, AssetColorExtractionRequest, AssetColorExtractionResult,
+    DeleteProjectResponse, CascadeSummary
+)
 from supabase_auth import get_current_user
 from services.color_extraction import extract_colors, validate_image
+from crud import can_delete_project, soft_delete_project
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 
@@ -304,3 +309,63 @@ async def extract_colors_from_asset(
             status_code=500,
             detail=f"Failed to process image: {str(e)}"
         )
+
+
+# ============================================================================
+# PROJECT DELETION ENDPOINT (Feature 020)
+# ============================================================================
+
+@router.delete("/{project_id}", response_model=DeleteProjectResponse)
+async def delete_project(
+    project_id: str,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Soft delete a project and cascade to all child entities.
+
+    - Requires workspace owner or admin role
+    - Sets deleted_at timestamp on project and all related entities
+    - Cascades to: documents, folders, workflow templates, workflow executions
+    - Data remains in database for potential recovery
+
+    Returns cascade summary with counts of affected entities.
+    """
+    user_id = str(current_user.id)
+
+    # Check authorization
+    if not can_delete_project(db, user_id, project_id):
+        raise HTTPException(
+            status_code=403,
+            detail="You do not have permission to delete this project. Only workspace owners and admins can delete projects."
+        )
+
+    # Get project info for response message
+    project = db.query(Project).filter(
+        Project.id == project_id,
+        Project.deleted_at == None
+    ).first()
+
+    if not project:
+        raise HTTPException(
+            status_code=404,
+            detail="Project not found or already deleted"
+        )
+
+    project_name = project.name
+
+    # Perform soft delete with cascade
+    result = soft_delete_project(db, project_id, user_id)
+
+    if not result:
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to delete project"
+        )
+
+    return DeleteProjectResponse(
+        success=True,
+        message=f"Project '{project_name}' has been deleted",
+        deleted_at=result["deleted_at"],
+        cascade_summary=CascadeSummary(**result["cascade_summary"])
+    )

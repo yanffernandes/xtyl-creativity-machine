@@ -189,8 +189,10 @@ async def update_workflow_template(
     if template.is_system:
         raise HTTPException(status_code=403, detail="Cannot modify system templates")
 
-    # Only allow creator to update
-    if template.created_by != str(current_user.id):
+    # Only allow creator to update (compare as strings to handle UUID vs string mismatch)
+    template_creator = str(template.created_by) if template.created_by else None
+    current_user_id = str(current_user.id)
+    if template_creator != current_user_id:
         raise HTTPException(status_code=403, detail="Only template creator can update it")
 
     # Update fields
@@ -263,8 +265,10 @@ async def delete_workflow_template(
     if template.is_system:
         raise HTTPException(status_code=403, detail="Cannot delete system templates")
 
-    # Only allow creator to delete
-    if template.created_by != str(current_user.id):
+    # Only allow creator to delete (compare as strings to handle UUID vs string mismatch)
+    template_creator = str(template.created_by) if template.created_by else None
+    current_user_id = str(current_user.id)
+    if template_creator != current_user_id:
         raise HTTPException(status_code=403, detail="Only template creator can delete it")
 
     # Check for active executions

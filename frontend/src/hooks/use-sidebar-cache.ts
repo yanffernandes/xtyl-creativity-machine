@@ -90,69 +90,58 @@ export function useSidebarCache(workspaceId: string): UseSidebarCacheResult {
   const { data: projects, refetch: refetchProjects } = useProjects(workspaceId)
 
   // ============================================================================
-  // T009: fetchProjectsWithDocs helper
+  // T009 & T030: fetchProjectsWithDocs helper - OPTIMIZED with batch loading
   // ============================================================================
 
   /**
-   * Fetch documents and visual assets for all projects in parallel
+   * T030: Fetch documents for all projects in a SINGLE batch query
+   * Replaces N requests with 1 request using fetchAllProjectsDocuments
    */
   const fetchProjectsWithDocs = useCallback(async (projectList: any[]): Promise<SidebarProject[]> => {
     if (!projectList || projectList.length === 0) return []
 
-    const projectsData = await Promise.all(
-      projectList.map(async (project) => {
-        try {
-          // Fetch documents and assets in parallel for each project
-          const [docsResult, assetsResult] = await Promise.allSettled([
-            documentService.listForSidebar(project.id),
-            api.get(`/projects/${project.id}/assets`)
-          ])
+    try {
+      // T030: Single batch query for all projects' documents
+      const projectIds = projectList.map(p => p.id)
+      const { data: allDocs, error: docsError } = await documentService.fetchAllProjectsDocuments(projectIds)
 
-          // Process documents
-          const documents: SidebarDocument[] =
-            docsResult.status === 'fulfilled' && docsResult.value.data
-              ? docsResult.value.data
-                  .filter((doc: any) => !doc.is_reference_asset)
-                  .map((doc: any) => ({
-                    id: doc.id,
-                    title: doc.title,
-                    status: doc.status || 'draft',
-                    media_type: doc.media_type || 'text',
-                    is_reference_asset: doc.is_reference_asset
-                  }))
-              : []
+      if (docsError) {
+        console.warn('Failed to batch fetch documents:', docsError)
+      }
 
-          // Process visual assets
-          const visualAssets: SidebarVisualAsset[] =
-            assetsResult.status === 'fulfilled'
-              ? (assetsResult.value.data.assets || []).map((asset: any) => ({
-                  id: asset.id,
-                  title: asset.title,
-                  asset_type: asset.asset_type
-                }))
-              : []
+      // Map projects with their documents
+      return projectList.map(project => {
+        const projectDocs = allDocs?.[project.id] || []
 
-          return {
-            id: project.id,
-            name: project.name,
-            description: project.description || null,
-            documents,
-            visualAssets
-          }
-        } catch {
-          // On error, return project with empty arrays
-          return {
-            id: project.id,
-            name: project.name,
-            description: project.description || null,
-            documents: [],
-            visualAssets: []
-          }
+        const documents: SidebarDocument[] = projectDocs
+          .filter((doc: any) => !doc.is_reference_asset)
+          .map((doc: any) => ({
+            id: doc.id,
+            title: doc.title,
+            status: doc.status || 'draft',
+            media_type: doc.media_type || 'text',
+            is_reference_asset: doc.is_reference_asset
+          }))
+
+        return {
+          id: project.id,
+          name: project.name,
+          description: project.description || null,
+          documents,
+          visualAssets: [] // Visual assets can be lazy loaded if needed
         }
       })
-    )
-
-    return projectsData
+    } catch (error) {
+      console.error('Error fetching projects with docs:', error)
+      // Fallback: return projects with empty documents
+      return projectList.map(project => ({
+        id: project.id,
+        name: project.name,
+        description: project.description || null,
+        documents: [],
+        visualAssets: []
+      }))
+    }
   }, [])
 
   // ============================================================================

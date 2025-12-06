@@ -18,7 +18,7 @@ import type { ServiceResult } from '@/types/supabase-services'
 
 export const projectService = {
   /**
-   * List all projects in a workspace
+   * List all projects in a workspace (excludes soft-deleted)
    */
   async listByWorkspace(workspaceId: string): Promise<ServiceResult<Project[]>> {
     try {
@@ -26,6 +26,7 @@ export const projectService = {
         .from('projects')
         .select('*')
         .eq('workspace_id', workspaceId)
+        .is('deleted_at', null)  // Filter out soft-deleted projects (Feature 020)
         .order('created_at', { ascending: false })
 
       if (error) throw error
@@ -36,7 +37,7 @@ export const projectService = {
   },
 
   /**
-   * Get a single project by ID
+   * Get a single project by ID (excludes soft-deleted)
    */
   async get(id: string): Promise<ServiceResult<Project>> {
     try {
@@ -44,6 +45,7 @@ export const projectService = {
         .from('projects')
         .select('*')
         .eq('id', id)
+        .is('deleted_at', null)  // Filter out soft-deleted projects (Feature 020)
         .single()
 
       if (error) throw error

@@ -6,6 +6,7 @@ import { Progress } from '@/components/ui/progress';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { useTranslations } from 'next-intl';
 
 interface ExecutionMonitorProps {
     status: ExecutionStatus;
@@ -29,6 +30,7 @@ export default function ExecutionMonitor({
     const [isExpanded, setIsExpanded] = React.useState(true);
     const [activeTab, setActiveTab] = React.useState<'logs' | 'outputs'>('logs');
     const scrollRef = useRef<HTMLDivElement>(null);
+    const t = useTranslations('workflow');
 
     // Auto-scroll logs
     useEffect(() => {
@@ -76,12 +78,12 @@ export default function ExecutionMonitor({
                     {getStatusIcon()}
                     <div className="flex flex-col">
                         <span className="font-semibold text-sm text-gray-900 dark:text-gray-100 flex items-center gap-2">
-                            Execution {status}
+                            {t('executionStatus', { status: t(status as any) })}
                             {status === 'running' && <span className="text-xs font-normal text-gray-500">({Math.round(progress)}%)</span>}
                         </span>
                         {currentNodeId && status === 'running' && (
                             <span className="text-xs text-gray-500 dark:text-gray-400">
-                                Processing node: {currentNodeId}
+                                {t('processingNode', { nodeId: currentNodeId })}
                             </span>
                         )}
                     </div>
@@ -125,7 +127,7 @@ export default function ExecutionMonitor({
                                 )}
                             >
                                 <Terminal className="w-3 h-3" />
-                                Logs
+                                {t('logs')}
                             </button>
                             <button
                                 onClick={() => setActiveTab('outputs')}
@@ -137,7 +139,7 @@ export default function ExecutionMonitor({
                                 )}
                             >
                                 <Code className="w-3 h-3" />
-                                Outputs
+                                {t('outputs')}
                                 {Object.keys(outputs).length > 0 && (
                                     <span className="bg-blue-500/20 text-blue-400 px-1.5 py-0.5 rounded text-[10px]">
                                         {Object.keys(outputs).length}
@@ -155,7 +157,7 @@ export default function ExecutionMonitor({
                                 {activeTab === 'logs' ? (
                                     // Logs Tab
                                     logs.length === 0 ? (
-                                        <span className="text-gray-600 italic">Waiting for logs...</span>
+                                        <span className="text-gray-600 italic">{t('waitingForLogs')}</span>
                                     ) : (
                                         logs.map((log, i) => (
                                             <div key={i} className="break-words border-l-2 border-gray-800 pl-2 py-0.5 hover:bg-gray-900/50 transition-colors">
@@ -167,7 +169,7 @@ export default function ExecutionMonitor({
                                 ) : (
                                     // Outputs Tab
                                     Object.keys(outputs).length === 0 ? (
-                                        <span className="text-gray-600 italic">No outputs yet...</span>
+                                        <span className="text-gray-600 italic">{t('noOutputsYet')}</span>
                                     ) : (
                                         <div className="space-y-3">
                                             {Object.entries(outputs).map(([nodeId, output]) => (
@@ -179,19 +181,19 @@ export default function ExecutionMonitor({
                                                     <div className="p-3 space-y-2">
                                                         {output.content && (
                                                             <div>
-                                                                <span className="text-gray-500 text-[10px] uppercase tracking-wider">Content:</span>
+                                                                <span className="text-gray-500 text-[10px] uppercase tracking-wider">{t('content')}</span>
                                                                 <p className="mt-1 text-gray-200 whitespace-pre-wrap">{output.content}</p>
                                                             </div>
                                                         )}
                                                         {output.title && (
                                                             <div>
-                                                                <span className="text-gray-500 text-[10px] uppercase tracking-wider">Title:</span>
+                                                                <span className="text-gray-500 text-[10px] uppercase tracking-wider">{t('documentTitle')}:</span>
                                                                 <p className="mt-1 text-gray-200">{output.title}</p>
                                                             </div>
                                                         )}
                                                         {output.file_url && (
                                                             <div>
-                                                                <span className="text-gray-500 text-[10px] uppercase tracking-wider">Image:</span>
+                                                                <span className="text-gray-500 text-[10px] uppercase tracking-wider">{t('image')}</span>
                                                                 <img
                                                                     src={output.file_url}
                                                                     alt={output.title || 'Generated image'}

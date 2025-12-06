@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
+import { useTranslations } from "next-intl"
 import { useAuthStore } from "@/lib/store"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -17,6 +18,9 @@ export default function RegisterPage() {
     const [loading, setLoading] = useState(false)
     const register = useAuthStore((state) => state.register)
     const router = useRouter()
+    const t = useTranslations("auth")
+    const tErrors = useTranslations("errors")
+    const tValidation = useTranslations("validation")
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -31,10 +35,9 @@ export default function RegisterPage() {
                 return
             }
 
-            // With email verification disabled, user is logged in immediately
             router.push("/dashboard")
         } catch (err) {
-            setError("Ocorreu um erro. Tente novamente.")
+            setError(tErrors("generic"))
         } finally {
             setLoading(false)
         }
@@ -44,13 +47,13 @@ export default function RegisterPage() {
         <div className="flex items-center justify-center min-h-screen relative">
             <Card glass className="w-[420px]">
                 <CardHeader>
-                    <CardTitle className="text-3xl text-center">Create Your Account</CardTitle>
-                    <p className="text-center text-text-secondary mt-2">Join XTYL and start creating amazing content.</p>
+                    <CardTitle className="text-3xl text-center">{t("createAccount")}</CardTitle>
+                    <p className="text-center text-text-secondary mt-2">{t("enterCredentials")}</p>
                 </CardHeader>
                 <CardContent>
                     <form onSubmit={handleSubmit} className="space-y-6">
                         <div className="space-y-2">
-                            <Label htmlFor="fullName" className="text-sm font-medium">Full Name</Label>
+                            <Label htmlFor="fullName" className="text-sm font-medium">{t("fullName")}</Label>
                             <Input
                                 id="fullName"
                                 placeholder="John Doe"
@@ -61,7 +64,7 @@ export default function RegisterPage() {
                             />
                         </div>
                         <div className="space-y-2">
-                            <Label htmlFor="email" className="text-sm font-medium">Email</Label>
+                            <Label htmlFor="email" className="text-sm font-medium">{t("email")}</Label>
                             <Input
                                 id="email"
                                 type="email"
@@ -73,7 +76,7 @@ export default function RegisterPage() {
                             />
                         </div>
                         <div className="space-y-2">
-                            <Label htmlFor="password" className="text-sm font-medium">Password</Label>
+                            <Label htmlFor="password" className="text-sm font-medium">{t("password")}</Label>
                             <Input
                                 id="password"
                                 type="password"
@@ -84,7 +87,7 @@ export default function RegisterPage() {
                                 disabled={loading}
                                 minLength={6}
                             />
-                            <p className="text-xs text-text-secondary">Minimo de 6 caracteres</p>
+                            <p className="text-xs text-text-secondary">{tValidation("minLength", { min: 6 })}</p>
                         </div>
                         {error && (
                             <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20">
@@ -92,15 +95,15 @@ export default function RegisterPage() {
                             </div>
                         )}
                         <Button type="submit" className="w-full" size="lg" disabled={loading}>
-                            {loading ? "Criando conta..." : "Create Account"}
+                            {loading ? `${t("signUp")}...` : t("signUp")}
                         </Button>
                         <div className="text-center">
-                            <span className="text-sm text-text-secondary">Already have an account? </span>
+                            <span className="text-sm text-text-secondary">{t("alreadyHaveAccount")} </span>
                             <Link
                                 href="/login"
                                 className="text-sm text-accent-primary hover:text-accent-primary/80 transition-colors font-medium"
                             >
-                                Login
+                                {t("signIn")}
                             </Link>
                         </div>
                     </form>

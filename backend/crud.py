@@ -1,8 +1,8 @@
 from sqlalchemy.orm import Session
-from models import User, Workspace, Project, WorkspaceUser, Document, Folder, ActivityLog, UserPreferences
+from models import User, Workspace, Project, WorkspaceUser, Document, Folder, ActivityLog, UserPreferences, WorkflowTemplate, WorkflowExecution
 from schemas import WorkspaceCreate, ProjectCreate, DocumentCreate, DocumentUpdate, UserUpdate, WorkspaceUpdate, UserPreferencesUpdate
-from datetime import datetime
-from typing import Optional, List
+from datetime import datetime, timezone
+from typing import Optional, List, Dict, Any
 
 
 def get_user_by_email(db: Session, email: str):
@@ -172,7 +172,143 @@ def create_project(db: Session, project: ProjectCreate):
     return db_project
 
 def get_workspace_projects(db: Session, workspace_id: str):
-    return db.query(Project).filter(Project.workspace_id == workspace_id).all()
+    """Get all active (non-deleted) projects in a workspace"""
+    return db.query(Project).filter(
+        Project.workspace_id == workspace_id,
+        Project.deleted_at == None
+    ).all()
+
+
+def get_project(db: Session, project_id: str) -> Optional[Project]:
+    """Get a single project by ID (only if not deleted)"""
+    return db.query(Project).filter(
+        Project.id == project_id,
+        Project.deleted_at == None
+    ).first()
+
+
+def can_delete_project(db: Session, user_id: str, project_id: str) -> bool:
+    """Check if user has permission to delete a project.
+
+    Returns True if user is workspace owner or admin.
+    """
+    import uuid as uuid_module
+
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        return False
+
+    # Convert user_id to string if it's a UUID
+    user_id_str = str(user_id) if hasattr(user_id, 'hex') else user_id
+
+    # Check workspace membership and role
+    workspace_user = db.query(WorkspaceUser).filter(
+        WorkspaceUser.workspace_id == project.workspace_id,
+        WorkspaceUser.user_id == user_id_str
+    ).first()
+
+    if not workspace_user:
+        return False
+
+    # Only owner and admin can delete projects
+    return workspace_user.role in ['owner', 'admin']
+
+
+def soft_delete_project(
+    db: Session,
+    project_id: str,
+    user_id: Optional[str] = None
+) -> Optional[Dict[str, Any]]:
+    """Soft delete a project and cascade to all child entities.
+
+    Args:
+        db: Database session
+        project_id: ID of the project to delete
+        user_id: ID of the user performing the deletion (for activity logging)
+
+    Returns:
+        Dict with deletion summary including cascade counts, or None if project not found
+    """
+    project = db.query(Project).filter(
+        Project.id == project_id,
+        Project.deleted_at == None
+    ).first()
+
+    if not project:
+        return None
+
+    now = datetime.now(timezone.utc)
+    cascade_summary = {
+        "documents": 0,
+        "folders": 0,
+        "workflow_templates": 0,
+        "workflow_executions": 0
+    }
+
+    # Cascade soft delete to documents
+    doc_result = db.query(Document).filter(
+        Document.project_id == project_id,
+        Document.deleted_at == None
+    ).update({"deleted_at": now}, synchronize_session=False)
+    cascade_summary["documents"] = doc_result
+
+    # Cascade soft delete to folders
+    folder_result = db.query(Folder).filter(
+        Folder.project_id == project_id,
+        Folder.deleted_at == None
+    ).update({"deleted_at": now}, synchronize_session=False)
+    cascade_summary["folders"] = folder_result
+
+    # Cascade soft delete to workflow templates
+    template_result = db.query(WorkflowTemplate).filter(
+        WorkflowTemplate.project_id == project_id,
+        WorkflowTemplate.deleted_at == None
+    ).update({"deleted_at": now}, synchronize_session=False)
+    cascade_summary["workflow_templates"] = template_result
+
+    # Get template IDs for cascading to executions
+    template_ids = db.query(WorkflowTemplate.id).filter(
+        WorkflowTemplate.project_id == project_id
+    ).all()
+    template_id_list = [t.id for t in template_ids]
+
+    # Cascade soft delete to workflow executions (via template)
+    if template_id_list:
+        exec_result = db.query(WorkflowExecution).filter(
+            WorkflowExecution.template_id.in_(template_id_list),
+            WorkflowExecution.deleted_at == None
+        ).update({"deleted_at": now}, synchronize_session=False)
+        cascade_summary["workflow_executions"] = exec_result
+
+    # Soft delete the project itself
+    project.deleted_at = now
+
+    # Log activity
+    log_activity(
+        db=db,
+        entity_type="project",
+        entity_id=project_id,
+        action="delete",
+        actor_type="human",
+        user_id=user_id,
+        changes={
+            "before": {
+                "name": project.name,
+                "description": project.description
+            },
+            "after": None,
+            "cascade_summary": cascade_summary
+        }
+    )
+
+    db.commit()
+
+    return {
+        "project_id": project_id,
+        "project_name": project.name,
+        "deleted_at": now,
+        "cascade_summary": cascade_summary
+    }
 
 def get_project_documents(db: Session, project_id: str):
     return db.query(Document).filter(

@@ -1,16 +1,20 @@
 "use client"
 
 import { useParams, useRouter } from "next/navigation"
-import { ArrowLeft } from "lucide-react"
+import { ArrowLeft, Settings } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import ProjectSettingsForm from "@/components/project/ProjectSettingsForm"
 import ProjectContextPreview from "@/components/project/ProjectContextPreview"
+import { useProject } from "@/hooks/use-projects"
 
 export default function ProjectSettingsPage() {
     const params = useParams()
     const router = useRouter()
     const workspaceId = params.id as string
     const projectId = params.projectId as string
+
+    // Fetch project to display name (Feature 020)
+    const { data: project, isLoading: isLoadingProject } = useProject(projectId)
 
     return (
         <div className="min-h-screen bg-surface-primary">
@@ -28,6 +32,15 @@ export default function ProjectSettingsPage() {
                     </Button>
                     <div className="flex items-start justify-between">
                         <div>
+                            {/* Project name badge (Feature 020) */}
+                            {!isLoadingProject && project && (
+                                <div className="flex items-center gap-2 mb-2">
+                                    <Settings className="w-4 h-4 text-text-tertiary" />
+                                    <span className="text-sm font-medium text-text-secondary">
+                                        {project.name}
+                                    </span>
+                                </div>
+                            )}
                             <h1 className="text-3xl font-semibold text-text-primary tracking-tight">
                                 Project Settings
                             </h1>

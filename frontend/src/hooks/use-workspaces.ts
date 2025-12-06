@@ -25,6 +25,7 @@ export const workspaceKeys = {
 
 /**
  * Hook to fetch all workspaces
+ * T008: Increased staleTime to 10 minutes - workspaces change infrequently
  */
 export function useWorkspaces() {
   return useQuery({
@@ -34,12 +35,13 @@ export function useWorkspaces() {
       if (error) throw error
       return data
     },
-    staleTime: 30000, // Consider data fresh for 30 seconds
+    staleTime: 10 * 60 * 1000, // 10 minutes - workspaces rarely change
   })
 }
 
 /**
  * Hook to fetch a single workspace
+ * T008: Increased staleTime to 10 minutes - workspace details rarely change
  */
 export function useWorkspace(id: string) {
   return useQuery({
@@ -50,6 +52,7 @@ export function useWorkspace(id: string) {
       return data
     },
     enabled: !!id,
+    staleTime: 10 * 60 * 1000, // 10 minutes - workspace details rarely change
   })
 }
 

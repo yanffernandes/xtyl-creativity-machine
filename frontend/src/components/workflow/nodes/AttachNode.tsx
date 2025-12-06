@@ -2,7 +2,7 @@
 
 import { memo } from "react";
 import { NodeProps, Handle, Position } from "reactflow";
-import { Paperclip, FileText, Image } from "lucide-react";
+import { Paperclip, FileText, Image, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { glassNodeClasses, handleDefaultClasses } from "@/lib/glass-utils";
 
@@ -28,19 +28,27 @@ function AttachNode({ data, selected }: NodeProps) {
             {/* Body */}
             <div className="p-3 space-y-3">
                 <div className="text-xs text-muted-foreground">
-                    Combines a document with an image asset.
+                    Combina um documento com um asset de imagem.
                 </div>
 
                 {/* Input labels */}
                 <div className="space-y-2">
                     <div className="flex items-center gap-2 text-xs">
-                        <FileText className="w-3 h-3 text-blue-400" />
-                        <span className="text-muted-foreground">Document Input</span>
+                        <FileText className="w-3 h-3 text-emerald-400" />
+                        <span className="text-muted-foreground">Documento (Text Generation)</span>
                     </div>
                     <div className="flex items-center gap-2 text-xs">
                         <Image className="w-3 h-3 text-pink-400" />
-                        <span className="text-muted-foreground">Image Input</span>
+                        <span className="text-muted-foreground">Imagem (Image Generation)</span>
                     </div>
+                </div>
+
+                {/* Requirement hint */}
+                <div className="flex items-start gap-1.5 pt-2 border-t border-white/10">
+                    <AlertCircle className="w-3 h-3 text-amber-400 mt-0.5 shrink-0" />
+                    <span className="text-[10px] text-amber-400/80">
+                        Conecte nós de geração de texto e imagem
+                    </span>
                 </div>
             </div>
 
@@ -49,7 +57,7 @@ function AttachNode({ data, selected }: NodeProps) {
                 type="target"
                 position={Position.Left}
                 id="document"
-                className={cn(handleDefaultClasses, "!bg-blue-400")}
+                className={cn(handleDefaultClasses, "!bg-emerald-400")}
                 style={{ top: '40%' }}
             />
             <Handle

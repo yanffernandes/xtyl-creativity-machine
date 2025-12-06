@@ -11,6 +11,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from "react"
 import { useRouter, useParams } from "next/navigation"
+import { useTranslations } from "next-intl"
 import { useAuthStore } from "@/lib/store"
 import { useSidebarCache } from "@/hooks/use-sidebar-cache"
 import { Button } from "@/components/ui/button"
@@ -34,7 +35,8 @@ import {
   FileImage,
   List,
   Workflow,
-  Loader2
+  Loader2,
+  RefreshCw
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import {
@@ -79,6 +81,8 @@ const projectItemVariants = {
 }
 
 export default function WorkspaceSidebar({ className, onDocumentNavigate }: WorkspaceSidebarProps) {
+  // Persist collapsed state in localStorage with hydration guard
+  const [isHydrated, setIsHydrated] = useState(false)
   const [isCollapsed, setIsCollapsed] = useState(false)
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set())
   const [searchQuery, setSearchQuery] = useState("")
@@ -88,6 +92,7 @@ export default function WorkspaceSidebar({ className, onDocumentNavigate }: Work
   const params = useParams()
   const workspaceId = params.id as string
   const projectId = params.projectId as string
+  const t = useTranslations("sidebar")
 
   // T013-T016: Use sidebar cache hook instead of direct hooks
   const {
@@ -103,6 +108,20 @@ export default function WorkspaceSidebar({ className, onDocumentNavigate }: Work
     invalidate()
   }, [invalidate])
 
+  // Hydrate collapsed state from localStorage on mount
+  useEffect(() => {
+    const saved = localStorage.getItem('sidebar-collapsed') === 'true'
+    setIsCollapsed(saved)
+    setIsHydrated(true)
+  }, [])
+
+  // Persist collapsed state to localStorage (skip initial hydration)
+  useEffect(() => {
+    if (isHydrated) {
+      localStorage.setItem('sidebar-collapsed', String(isCollapsed))
+    }
+  }, [isCollapsed, isHydrated])
+
   // Fetch user data on mount
   useEffect(() => {
     if (authLoading) return
@@ -111,15 +130,15 @@ export default function WorkspaceSidebar({ className, onDocumentNavigate }: Work
     }
   }, [token, authLoading, user, fetchUser])
 
-  // Auto-expand active project
+  // Auto-expand active project (only when sidebar is expanded)
   useEffect(() => {
-    if (projectId) {
+    if (projectId && !isCollapsed) {
       setExpandedProjects(prev => {
         if (prev.has(projectId)) return prev
         return new Set([...prev, projectId])
       })
     }
-  }, [projectId])
+  }, [projectId, isCollapsed])
 
   const toggleProject = (projectId: string) => {
     setExpandedProjects(prev => {
@@ -172,8 +191,8 @@ export default function WorkspaceSidebar({ className, onDocumentNavigate }: Work
     })
   }, [searchQuery, projectsWithDocs])
 
-  // T018: Show skeleton only on initial load (no cache)
-  if (isInitialLoad) {
+  // T018: Show skeleton on initial load (no cache) or before hydration
+  if (isInitialLoad || !isHydrated) {
     return (
       <div
         className={cn(
@@ -227,7 +246,7 @@ export default function WorkspaceSidebar({ className, onDocumentNavigate }: Work
           <ChevronRight className="h-4 w-4" />
         </Button>
         <Separator className="mb-4 w-8" />
-        <div className="flex flex-col gap-2 flex-1 overflow-y-auto w-full px-2">
+        <div className="flex flex-col gap-2 flex-1 overflow-y-auto w-full px-2 mt-1">
           {projectsWithDocs.map((project) => (
             <Button
               key={project.id}
@@ -277,14 +296,27 @@ export default function WorkspaceSidebar({ className, onDocumentNavigate }: Work
             <p className="text-xs text-muted-foreground truncate mt-0.5">{workspace.description}</p>
           )}
         </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => setIsCollapsed(true)}
-          className="ml-2 flex-shrink-0 hover:bg-primary/10"
-        >
-          <ChevronLeft className="h-4 w-4" />
-        </Button>
+        <div className="flex items-center gap-1 ml-2 flex-shrink-0">
+          {/* T043: Manual refresh button for user-triggered updates */}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            className="hover:bg-primary/10"
+            title={t("refresh")}
+          >
+            <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setIsCollapsed(true)}
+            className="hover:bg-primary/10"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
 
       {/* Search */}
@@ -292,7 +324,7 @@ export default function WorkspaceSidebar({ className, onDocumentNavigate }: Work
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Buscar projetos e documentos..."
+            placeholder={t("searchPlaceholder")}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-9 pr-9 h-9 bg-secondary/50 border-0 focus-visible:ring-1"
@@ -311,7 +343,7 @@ export default function WorkspaceSidebar({ className, onDocumentNavigate }: Work
 
         {/* Media Type Filter */}
         <div className="flex gap-1 items-center">
-          <span className="text-xs text-muted-foreground mr-1">Filtro:</span>
+          <span className="text-xs text-muted-foreground mr-1">{t("filter")}:</span>
           <Button
             variant={mediaFilter === "all" ? "default" : "ghost"}
             size="sm"
@@ -320,10 +352,10 @@ export default function WorkspaceSidebar({ className, onDocumentNavigate }: Work
               mediaFilter === "all" ? "px-2.5" : "px-2 w-8"
             )}
             onClick={() => setMediaFilter("all")}
-            title="Todos"
+            title={t("all")}
           >
             <List className={cn("h-3.5 w-3.5", mediaFilter === "all" && "mr-1.5")} />
-            {mediaFilter === "all" && "Todos"}
+            {mediaFilter === "all" && t("all")}
           </Button>
           <Button
             variant={mediaFilter === "text" ? "default" : "ghost"}
@@ -333,10 +365,10 @@ export default function WorkspaceSidebar({ className, onDocumentNavigate }: Work
               mediaFilter === "text" ? "px-2.5" : "px-2 w-8"
             )}
             onClick={() => setMediaFilter("text")}
-            title="Textos"
+            title={t("texts")}
           >
             <FileText className={cn("h-3.5 w-3.5", mediaFilter === "text" && "mr-1.5")} />
-            {mediaFilter === "text" && "Textos"}
+            {mediaFilter === "text" && t("texts")}
           </Button>
           <Button
             variant={mediaFilter === "image" ? "default" : "ghost"}
@@ -346,10 +378,10 @@ export default function WorkspaceSidebar({ className, onDocumentNavigate }: Work
               mediaFilter === "image" ? "px-2.5" : "px-2 w-8"
             )}
             onClick={() => setMediaFilter("image")}
-            title="Imagens"
+            title={t("images")}
           >
             <FileImage className={cn("h-3.5 w-3.5", mediaFilter === "image" && "mr-1.5")} />
-            {mediaFilter === "image" && "Imagens"}
+            {mediaFilter === "image" && t("images")}
           </Button>
         </div>
       </div>
@@ -361,7 +393,7 @@ export default function WorkspaceSidebar({ className, onDocumentNavigate }: Work
           <div className="flex justify-between items-center mb-3 px-2">
             <div className="flex items-center gap-2">
               <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                Projetos ({filteredProjects.length})
+                {t("projects")} ({filteredProjects.length})
               </h3>
               {/* T022-T023: Loading indicator during background refresh */}
               <AnimatePresence>
@@ -382,7 +414,7 @@ export default function WorkspaceSidebar({ className, onDocumentNavigate }: Work
               size="icon"
               className="h-7 w-7 hover:bg-primary/10"
               onClick={() => router.push(`/workspace/${workspaceId}`)}
-              title="Criar novo projeto"
+              title={t("createProject")}
             >
               <FolderPlus className="h-4 w-4" />
             </Button>
@@ -391,7 +423,7 @@ export default function WorkspaceSidebar({ className, onDocumentNavigate }: Work
           {filteredProjects.length === 0 && (
             <div className="text-center py-8 px-4">
               <p className="text-sm text-muted-foreground">
-                {searchQuery ? "Nenhum resultado encontrado" : "Nenhum projeto ainda"}
+                {searchQuery ? t("noResults") : t("noProjects")}
               </p>
             </div>
           )}
@@ -452,28 +484,28 @@ export default function WorkspaceSidebar({ className, onDocumentNavigate }: Work
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuLabel>Minha Conta</DropdownMenuLabel>
+            <DropdownMenuLabel>{t("myAccount")}</DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => router.push(`/workspace/${workspaceId}/profile`)}>
               <User className="mr-2 h-4 w-4" />
-              <span>Perfil</span>
+              <span>{t("profile")}</span>
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => router.push(`/workspace/${workspaceId}/settings`)}>
               <Settings className="mr-2 h-4 w-4" />
-              <span>Configurações</span>
+              <span>{t("settings")}</span>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => router.push(`/workspace/${workspaceId}/templates`)}>
               <Sparkles className="mr-2 h-4 w-4" />
-              <span>Templates</span>
+              <span>{t("templates")}</span>
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => router.push(`/workspace/${workspaceId}/workflows`)}>
               <Workflow className="mr-2 h-4 w-4" />
-              <span>Workflow Templates</span>
+              <span>{t("workflowTemplates")}</span>
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => router.push(`/workspace/${workspaceId}/ai-usage`)}>
               <Activity className="mr-2 h-4 w-4" />
-              <span>Uso de IA</span>
+              <span>{t("aiUsage")}</span>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
@@ -484,7 +516,7 @@ export default function WorkspaceSidebar({ className, onDocumentNavigate }: Work
               className="text-destructive focus:text-destructive"
             >
               <LogOut className="mr-2 h-4 w-4" />
-              <span>Sair</span>
+              <span>{t("logout")}</span>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

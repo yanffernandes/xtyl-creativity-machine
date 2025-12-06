@@ -140,7 +140,8 @@ async def get_current_user(
     if user_id in _user_cache:
         cached_user, cached_time = _user_cache[user_id]
         if now - cached_time < _CACHE_TTL:
-            return cached_user
+            # Merge cached user back into current session to avoid DetachedInstanceError
+            return db.merge(cached_user)
         else:
             # Cache expired, remove it
             del _user_cache[user_id]

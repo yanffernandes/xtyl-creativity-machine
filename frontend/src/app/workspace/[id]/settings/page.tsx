@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
+import { useTranslations } from "next-intl"
 import { useAuthStore } from "@/lib/store"
 import api from "@/lib/api"
 import { Button } from "@/components/ui/button"
@@ -54,6 +55,9 @@ export default function SettingsPage() {
     const { toast } = useToast()
     const { theme, setTheme } = useTheme()
     const confirm = useConfirm()
+    const t = useTranslations("settings")
+    const tCommon = useTranslations("common")
+    const tNav = useTranslations("navigation")
 
     // Supabase hooks for workspace and members
     const { data: workspace, isLoading: workspaceLoading } = useWorkspace(workspaceId)
@@ -111,7 +115,7 @@ export default function SettingsPage() {
             setVisionModels(models)
         } catch (error) {
             console.error("Failed to fetch models", error)
-            toast({ title: "Erro", description: "Falha ao carregar modelos de IA", variant: "destructive" })
+            toast({ title: tCommon("error"), description: t("failedToLoadModels"), variant: "destructive" })
         } finally {
             setModelsLoading(false)
         }
@@ -147,7 +151,7 @@ export default function SettingsPage() {
 
     const handleAddMember = async () => {
         if (!newMemberEmail.trim()) {
-            toast({ title: "Erro", description: "Digite um email válido", variant: "destructive" })
+            toast({ title: tCommon("error"), description: t("enterValidEmail"), variant: "destructive" })
             return
         }
 
@@ -162,13 +166,13 @@ export default function SettingsPage() {
 
             if (user_exists) {
                 toast({
-                    title: "Membro adicionado",
-                    description: message || "O usuário foi adicionado ao workspace."
+                    title: t("memberAdded"),
+                    description: message || t("userAddedToWorkspace")
                 })
             } else if (invite_sent) {
                 toast({
-                    title: "Convite enviado",
-                    description: message || "Um email de convite foi enviado para o usuário."
+                    title: t("inviteSent"),
+                    description: message || t("inviteEmailSent")
                 })
             }
 
@@ -178,8 +182,8 @@ export default function SettingsPage() {
             window.location.reload()
         } catch (error: any) {
             console.error("Failed to add member", error)
-            const errorMsg = error?.response?.data?.detail || "Falha ao adicionar membro"
-            toast({ title: "Erro", description: errorMsg, variant: "destructive" })
+            const errorMsg = error?.response?.data?.detail || t("failedToAddMember")
+            toast({ title: tCommon("error"), description: errorMsg, variant: "destructive" })
         } finally {
             setIsAddingMember(false)
         }
@@ -187,9 +191,9 @@ export default function SettingsPage() {
 
     const handleCancelInvite = async (inviteId: string) => {
         const confirmed = await confirm({
-            title: "Cancelar convite",
-            description: "Tem certeza que deseja cancelar este convite?",
-            confirmLabel: "Cancelar convite",
+            title: t("cancelInvite"),
+            description: t("cancelInviteConfirm"),
+            confirmLabel: t("cancelInviteButton"),
             variant: "destructive"
         })
 
@@ -198,23 +202,23 @@ export default function SettingsPage() {
         try {
             await api.delete(`/workspaces/${workspaceId}/invites/${inviteId}`)
             toast({
-                title: "Convite cancelado",
-                description: "O convite foi cancelado com sucesso."
+                title: t("cancelInvite"),
+                description: t("inviteCancelled")
             })
             fetchPendingInvites()
         } catch (error: any) {
             console.error("Failed to cancel invite", error)
-            const errorMsg = error?.response?.data?.detail || "Falha ao cancelar convite"
-            toast({ title: "Erro", description: errorMsg, variant: "destructive" })
+            const errorMsg = error?.response?.data?.detail || t("failedToCancelInvite")
+            toast({ title: tCommon("error"), description: errorMsg, variant: "destructive" })
         }
     }
 
     const handleRemoveMember = async (memberId: string) => {
         const confirmed = await confirm({
-            title: "Remover membro",
-            description: "Tem certeza que deseja remover este membro?",
-            confirmLabel: "Remover",
-            cancelLabel: "Cancelar",
+            title: t("removeMember"),
+            description: t("removeMemberConfirm"),
+            confirmLabel: t("remove"),
+            cancelLabel: tCommon("cancel"),
             variant: "destructive",
         })
         if (!confirmed) return
@@ -226,7 +230,7 @@ export default function SettingsPage() {
 
     const breadcrumbItems = [
         { label: workspace?.name || "Workspace", href: `/workspace/${workspaceId}`, icon: <Home className="h-3.5 w-3.5" /> },
-        { label: "Configurações", icon: <SettingsIcon className="h-3.5 w-3.5" /> },
+        { label: tNav("settings"), icon: <SettingsIcon className="h-3.5 w-3.5" /> },
     ]
 
     if (isLoading) {
@@ -249,9 +253,9 @@ export default function SettingsPage() {
                     <Breadcrumbs items={breadcrumbItems} className="mb-3" />
                     <div className="flex items-center justify-between">
                         <div>
-                            <h1 className="text-3xl font-bold tracking-tight">Configurações do Workspace</h1>
+                            <h1 className="text-3xl font-bold tracking-tight">{t("title")}</h1>
                             <p className="text-sm text-text-secondary mt-2">
-                                Gerencie as configurações e membros do seu workspace
+                                {t("subtitle")}
                             </p>
                         </div>
                         <Button
@@ -259,7 +263,7 @@ export default function SettingsPage() {
                             onClick={() => router.push(`/workspace/${workspaceId}`)}
                         >
                             <ArrowLeft className="h-4 w-4 mr-2" />
-                            Voltar
+                            {t("back")}
                         </Button>
                     </div>
                 </div>
@@ -270,19 +274,19 @@ export default function SettingsPage() {
                         <TabsList className="mb-6">
                             <TabsTrigger value="general" className="gap-2">
                                 <Settings className="h-4 w-4" />
-                                Geral
+                                {t("general")}
                             </TabsTrigger>
                             <TabsTrigger value="appearance" className="gap-2">
                                 <Palette className="h-4 w-4" />
-                                Aparência
+                                {t("appearance")}
                             </TabsTrigger>
                             <TabsTrigger value="ai-models" className="gap-2">
                                 <Sparkles className="h-4 w-4" />
-                                Modelos de IA
+                                {t("aiModels")}
                             </TabsTrigger>
                             <TabsTrigger value="members" className="gap-2">
                                 <Users className="h-4 w-4" />
-                                Membros
+                                {t("members")}
                             </TabsTrigger>
                         </TabsList>
 
@@ -290,35 +294,35 @@ export default function SettingsPage() {
                         <TabsContent value="general" className="space-y-6">
                             <Card glass>
                                 <CardHeader>
-                                    <CardTitle className="text-xl">Informações do Workspace</CardTitle>
+                                    <CardTitle className="text-xl">{t("workspaceInfo")}</CardTitle>
                                     <CardDescription className="text-text-secondary mt-2">
-                                        Configure as informações básicas do seu workspace
+                                        {t("workspaceInfoDesc")}
                                     </CardDescription>
                                 </CardHeader>
                                 <CardContent className="space-y-6">
                                     <div className="space-y-2">
-                                        <Label htmlFor="name" className="text-sm font-medium">Nome do Workspace</Label>
+                                        <Label htmlFor="name" className="text-sm font-medium">{t("workspaceName")}</Label>
                                         <Input
                                             id="name"
                                             value={name}
                                             onChange={(e) => setName(e.target.value)}
-                                            placeholder="Meu Workspace"
+                                            placeholder={t("workspaceNamePlaceholder")}
                                         />
                                     </div>
 
                                     <div className="space-y-2">
-                                        <Label htmlFor="description" className="text-sm font-medium">Descrição</Label>
+                                        <Label htmlFor="description" className="text-sm font-medium">{t("description")}</Label>
                                         <Textarea
                                             id="description"
                                             value={description}
                                             onChange={(e) => setDescription(e.target.value)}
-                                            placeholder="Descreva seu workspace..."
+                                            placeholder={t("descriptionPlaceholder")}
                                             rows={4}
                                         />
                                     </div>
 
                                     <Button onClick={handleSaveWorkspace} disabled={updateWorkspace.isPending}>
-                                        {updateWorkspace.isPending ? "Salvando..." : "Salvar Alterações"}
+                                        {updateWorkspace.isPending ? t("saving") : t("saveChanges")}
                                     </Button>
                                 </CardContent>
                             </Card>
@@ -328,9 +332,9 @@ export default function SettingsPage() {
                         <TabsContent value="appearance" className="space-y-6">
                             <Card glass>
                                 <CardHeader>
-                                    <CardTitle className="text-xl">Tema</CardTitle>
+                                    <CardTitle className="text-xl">{t("theme")}</CardTitle>
                                     <CardDescription className="text-text-secondary mt-2">
-                                        Escolha entre modo claro, escuro ou automático baseado nas preferências do sistema
+                                        {t("themeDesc")}
                                     </CardDescription>
                                 </CardHeader>
                                 <CardContent className="space-y-4">
@@ -342,7 +346,7 @@ export default function SettingsPage() {
                                             }`}
                                         >
                                             <Sun className="h-6 w-6" />
-                                            <span className="text-sm font-medium">Claro</span>
+                                            <span className="text-sm font-medium">{t("light")}</span>
                                         </button>
 
                                         <button
@@ -352,7 +356,7 @@ export default function SettingsPage() {
                                             }`}
                                         >
                                             <Moon className="h-6 w-6" />
-                                            <span className="text-sm font-medium">Escuro</span>
+                                            <span className="text-sm font-medium">{t("dark")}</span>
                                         </button>
 
                                         <button
@@ -362,12 +366,12 @@ export default function SettingsPage() {
                                             }`}
                                         >
                                             <Settings className="h-6 w-6" />
-                                            <span className="text-sm font-medium">Sistema</span>
+                                            <span className="text-sm font-medium">{t("system")}</span>
                                         </button>
                                     </div>
 
                                     <p className="text-xs text-muted-foreground">
-                                        O modo sistema ajusta automaticamente com base nas preferências do seu dispositivo
+                                        {t("themeHint")}
                                     </p>
                                 </CardContent>
                             </Card>
@@ -377,37 +381,37 @@ export default function SettingsPage() {
                         <TabsContent value="ai-models" className="space-y-6">
                             <Card glass>
                                 <CardHeader>
-                                    <CardTitle className="text-xl">Modelos de IA Disponíveis</CardTitle>
+                                    <CardTitle className="text-xl">{t("aiModelsTitle")}</CardTitle>
                                     <CardDescription className="text-text-secondary mt-2">
-                                        Selecione quais modelos estarão disponíveis no workspace e defina os padrões
+                                        {t("aiModelsDesc")}
                                     </CardDescription>
                                 </CardHeader>
                                 <CardContent className="space-y-6">
                                     {/* Default Text Model */}
                                     <div className="space-y-2">
-                                        <Label htmlFor="text-model" className="text-sm font-medium">Modelo de Texto Padrão</Label>
+                                        <Label htmlFor="text-model" className="text-sm font-medium">{t("defaultTextModel")}</Label>
                                         <Combobox
                                             options={textModels.map(m => ({ value: m.id, label: m.name }))}
                                             value={defaultTextModel}
                                             onValueChange={setDefaultTextModel}
-                                            placeholder="Selecione um modelo"
-                                            searchPlaceholder="Buscar modelo..."
-                                            emptyText="Nenhum modelo encontrado"
+                                            placeholder={t("selectModel")}
+                                            searchPlaceholder={t("searchModel")}
+                                            emptyText={t("noModelFound")}
                                         />
                                         <p className="text-xs text-muted-foreground">
-                                            Os modelos disponíveis são configurados pelo administrador
+                                            {t("modelsConfiguredByAdmin")}
                                         </p>
                                     </div>
 
                                     {/* Attachment Analysis Model */}
                                     <div className="space-y-2">
-                                        <Label htmlFor="attachment-model" className="text-sm font-medium">Modelo para Análise de Anexos</Label>
+                                        <Label htmlFor="attachment-model" className="text-sm font-medium">{t("attachmentModel")}</Label>
                                         <p className="text-xs text-text-secondary">
-                                            Modelo usado para analisar imagens e PDFs enviados no chat (📎)
+                                            {t("attachmentModelDesc")}
                                         </p>
                                         <Combobox
                                             options={[
-                                                { value: "default", label: "Usar modelo de visão padrão" },
+                                                { value: "default", label: t("useDefaultVision") },
                                                 ...visionModels
                                                     .filter(m => {
                                                         // Filter only models with vision capability
@@ -422,14 +426,14 @@ export default function SettingsPage() {
                                             ]}
                                             value={attachmentAnalysisModel || "default"}
                                             onValueChange={(value) => setAttachmentAnalysisModel(value === "default" ? "" : value)}
-                                            placeholder="Usar modelo de visão padrão"
-                                            searchPlaceholder="Buscar modelo vision..."
-                                            emptyText="Nenhum modelo vision encontrado"
+                                            placeholder={t("useDefaultVision")}
+                                            searchPlaceholder={t("searchVisionModel")}
+                                            emptyText={t("noVisionModelFound")}
                                         />
                                     </div>
 
                                     <Button onClick={handleSaveWorkspace} disabled={updateWorkspace.isPending}>
-                                        {updateWorkspace.isPending ? "Salvando..." : "Salvar Alterações"}
+                                        {updateWorkspace.isPending ? t("saving") : t("saveChanges")}
                                     </Button>
                                 </CardContent>
                             </Card>
@@ -439,15 +443,15 @@ export default function SettingsPage() {
                         <TabsContent value="members" className="space-y-6">
                             <Card glass>
                                 <CardHeader>
-                                    <CardTitle className="text-xl">Gerenciar Membros</CardTitle>
+                                    <CardTitle className="text-xl">{t("manageMembers")}</CardTitle>
                                     <CardDescription className="text-text-secondary mt-2">
-                                        Adicione ou remova membros do seu workspace
+                                        {t("manageMembersDesc")}
                                     </CardDescription>
                                 </CardHeader>
                                 <CardContent className="space-y-4">
                                     <div className="flex gap-2">
                                         <Input
-                                            placeholder="Email do novo membro"
+                                            placeholder={t("newMemberEmail")}
                                             value={newMemberEmail}
                                             onChange={(e) => setNewMemberEmail(e.target.value)}
                                             onKeyPress={(e) => e.key === 'Enter' && !isAddingMember && handleAddMember()}
@@ -455,14 +459,14 @@ export default function SettingsPage() {
                                         />
                                         <Button onClick={handleAddMember} disabled={isAddingMember}>
                                             <UserPlus className="h-4 w-4 mr-2" />
-                                            {isAddingMember ? "Adicionando..." : "Adicionar"}
+                                            {isAddingMember ? t("adding") : t("add")}
                                         </Button>
                                     </div>
 
                                     <div className="space-y-2 mt-6">
-                                        <h4 className="text-sm font-medium">Membros atuais</h4>
+                                        <h4 className="text-sm font-medium">{t("currentMembers")}</h4>
                                         {(members || []).length === 0 && pendingInvites.length === 0 ? (
-                                            <p className="text-sm text-muted-foreground">Nenhum membro encontrado</p>
+                                            <p className="text-sm text-muted-foreground">{t("noMembersFound")}</p>
                                         ) : (
                                             <div className="space-y-2">
                                                 {(members || []).map((member) => (
@@ -490,7 +494,7 @@ export default function SettingsPage() {
 
                                                 {pendingInvites.length > 0 && (
                                                     <>
-                                                        <h4 className="text-sm font-medium mt-4 pt-4 border-t">Convites Pendentes</h4>
+                                                        <h4 className="text-sm font-medium mt-4 pt-4 border-t">{t("pendingInvites")}</h4>
                                                         {pendingInvites.map((invite) => (
                                                             <div
                                                                 key={invite.id}
@@ -499,12 +503,12 @@ export default function SettingsPage() {
                                                                 <div>
                                                                     <p className="text-sm font-medium">{invite.email}</p>
                                                                     <p className="text-xs text-muted-foreground">
-                                                                        Convite enviado por {invite.invited_by}
+                                                                        {t("inviteSentBy")} {invite.invited_by}
                                                                     </p>
                                                                 </div>
                                                                 <div className="flex items-center gap-2">
                                                                     <span className="text-xs bg-yellow-100 dark:bg-yellow-900 px-2 py-1 rounded">
-                                                                        Pendente
+                                                                        {t("pending")}
                                                                     </span>
                                                                     <Button
                                                                         variant="ghost"

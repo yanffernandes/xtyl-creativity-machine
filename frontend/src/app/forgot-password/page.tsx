@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
+import { useTranslations } from "next-intl"
 import { useAuthStore } from "@/lib/store"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -16,6 +17,8 @@ export default function ForgotPasswordPage() {
     const [success, setSuccess] = useState(false)
     const [loading, setLoading] = useState(false)
     const resetPassword = useAuthStore((state) => state.resetPassword)
+    const t = useTranslations("auth")
+    const tErrors = useTranslations("errors")
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -33,7 +36,7 @@ export default function ForgotPasswordPage() {
 
             setSuccess(true)
         } catch (err) {
-            setError("Ocorreu um erro. Tente novamente.")
+            setError(tErrors("generic"))
         } finally {
             setLoading(false)
         }
@@ -47,10 +50,10 @@ export default function ForgotPasswordPage() {
                         <Link href="/login" className="hover:text-accent-primary transition-colors">
                             <ArrowLeft className="h-5 w-5" />
                         </Link>
-                        Recuperar Senha
+                        {t("resetPassword")}
                     </CardTitle>
                     <CardDescription className="text-text-secondary mt-2">
-                        Digite seu email para receber o link de recuperacao
+                        {t("checkEmail")}
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -58,18 +61,17 @@ export default function ForgotPasswordPage() {
                         <Alert className="border-green-500/20 bg-green-500/10">
                             <CheckCircle2 className="h-4 w-4 text-green-600" />
                             <AlertDescription className="text-green-700 dark:text-green-300">
-                                Se o email estiver cadastrado, voce recebera um link de recuperacao em instantes.
-                                Verifique sua caixa de entrada e spam.
+                                {t("checkEmail")}
                             </AlertDescription>
                         </Alert>
                     ) : (
                         <form onSubmit={handleSubmit} className="space-y-6">
                             <div className="space-y-2">
-                                <Label htmlFor="email" className="text-sm font-medium">Email</Label>
+                                <Label htmlFor="email" className="text-sm font-medium">{t("email")}</Label>
                                 <Input
                                     id="email"
                                     type="email"
-                                    placeholder="seu@email.com"
+                                    placeholder="you@example.com"
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
                                     required
@@ -82,14 +84,14 @@ export default function ForgotPasswordPage() {
                                 </div>
                             )}
                             <Button type="submit" className="w-full" size="lg" disabled={loading}>
-                                {loading ? "Enviando..." : "Enviar Link de Recuperacao"}
+                                {loading ? `${t("sendResetLink")}...` : t("sendResetLink")}
                             </Button>
                             <div className="text-center">
                                 <Link
                                     href="/login"
                                     className="text-sm text-accent-primary hover:text-accent-primary/80 transition-colors font-medium"
                                 >
-                                    Voltar para o login
+                                    {t("backToLogin")}
                                 </Link>
                             </div>
                         </form>

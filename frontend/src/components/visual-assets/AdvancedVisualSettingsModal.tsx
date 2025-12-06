@@ -19,7 +19,7 @@ import {
     getVisualAssetsSummary,
     type VisualAssetsSummary,
 } from "@/lib/api"
-import { useToast } from "@/hooks/use-toast"
+import { useToast } from "@/components/ui/use-toast"
 
 interface AdvancedVisualSettingsModalProps {
     projectId: string

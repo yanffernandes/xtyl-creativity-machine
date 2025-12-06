@@ -14,12 +14,16 @@ export function QueryProvider({ children }: QueryProviderProps) {
       new QueryClient({
         defaultOptions: {
           queries: {
-            // Default stale time of 30 seconds
-            staleTime: 30 * 1000,
-            // Retry failed queries 1 time
+            // T003: Default stale time of 5 minutes for general data
+            staleTime: 5 * 60 * 1000,
+            // T006: Garbage collection time of 30 minutes
+            gcTime: 30 * 60 * 1000,
+            // T007: Single retry for failed queries
             retry: 1,
-            // Refetch on window focus for fresh data
-            refetchOnWindowFocus: true,
+            // T004: Disable refetch on window focus to prevent unnecessary requests
+            refetchOnWindowFocus: false,
+            // T005: Disable refetch on reconnect
+            refetchOnReconnect: false,
           },
           mutations: {
             // Retry failed mutations 0 times

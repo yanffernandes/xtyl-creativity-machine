@@ -110,7 +110,7 @@ async def get_workflow_execution(
         raise HTTPException(status_code=404, detail="Workflow execution not found")
 
     # Verify user has access (must be the user who created it)
-    if execution.user_id != str(current_user.id):
+    if str(execution.user_id) != str(current_user.id):
         raise HTTPException(status_code=403, detail="Access denied")
 
     return execution
@@ -172,7 +172,7 @@ async def get_execution_jobs(
     if not execution:
         raise HTTPException(status_code=404, detail="Workflow execution not found")
 
-    if execution.user_id != str(current_user.id):
+    if str(execution.user_id) != str(current_user.id):
         raise HTTPException(status_code=403, detail="Access denied")
 
     # Get all jobs for this execution
@@ -197,7 +197,7 @@ async def pause_execution(
     if not execution:
         raise HTTPException(status_code=404, detail="Workflow execution not found")
 
-    if execution.user_id != str(current_user.id):
+    if str(execution.user_id) != str(current_user.id):
         raise HTTPException(status_code=403, detail="Access denied")
 
     if execution.status != "running":
@@ -230,7 +230,7 @@ async def resume_execution(
     if not execution:
         raise HTTPException(status_code=404, detail="Workflow execution not found")
 
-    if execution.user_id != str(current_user.id):
+    if str(execution.user_id) != str(current_user.id):
         raise HTTPException(status_code=403, detail="Access denied")
 
     if execution.status != "paused":
@@ -263,7 +263,7 @@ async def stop_execution(
     if not execution:
         raise HTTPException(status_code=404, detail="Workflow execution not found")
 
-    if execution.user_id != str(current_user.id):
+    if str(execution.user_id) != str(current_user.id):
         raise HTTPException(status_code=403, detail="Access denied")
 
     if execution.status not in ["running", "paused"]:
@@ -297,7 +297,7 @@ async def get_execution_status(
     if not execution:
         raise HTTPException(status_code=404, detail="Workflow execution not found")
 
-    if execution.user_id != str(current_user.id):
+    if str(execution.user_id) != str(current_user.id):
         raise HTTPException(status_code=403, detail="Access denied")
 
     # Get job statistics
@@ -381,7 +381,7 @@ async def stream_execution_progress(
     if not execution:
         raise HTTPException(status_code=404, detail="Workflow execution not found")
 
-    if execution.user_id != str(current_user.id):
+    if str(execution.user_id) != str(current_user.id):
         raise HTTPException(status_code=403, detail="Access denied")
 
     async def event_generator():

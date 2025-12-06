@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
+import { useTranslations } from "next-intl"
 import {
   CommandDialog,
   CommandEmpty,
@@ -43,6 +44,7 @@ export default function CommandPalette({
 }: CommandPaletteProps) {
   const [open, setOpen] = useState(false)
   const router = useRouter()
+  const t = useTranslations("commandPalette")
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
@@ -63,19 +65,19 @@ export default function CommandPalette({
 
   return (
     <CommandDialog open={open} onOpenChange={setOpen}>
-      <CommandInput placeholder="Digite um comando ou busque..." />
+      <CommandInput placeholder={t("placeholder")} />
       <CommandList className="max-h-[400px]">
-        <CommandEmpty>Nenhum resultado encontrado.</CommandEmpty>
+        <CommandEmpty>{t("noResults")}</CommandEmpty>
 
         {/* Actions */}
-        <CommandGroup heading="Ações">
+        <CommandGroup heading={t("actions")}>
           {onCreateDocument && (
             <CommandItem
               onSelect={() => runCommand(onCreateDocument)}
               className="cursor-pointer"
             >
               <Plus className="mr-2 h-4 w-4" />
-              <span>Nova Criação</span>
+              <span>{t("newCreation")}</span>
               <kbd className="ml-auto pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground opacity-100">
                 <span className="text-xs">⌘</span>N
               </kbd>
@@ -87,7 +89,7 @@ export default function CommandPalette({
               className="cursor-pointer"
             >
               <Upload className="mr-2 h-4 w-4" />
-              <span>Upload de Arquivo</span>
+              <span>{t("uploadFile")}</span>
               <kbd className="ml-auto pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground opacity-100">
                 <span className="text-xs">⌘</span>U
               </kbd>
@@ -98,14 +100,14 @@ export default function CommandPalette({
             className="cursor-pointer"
           >
             <FolderOpen className="mr-2 h-4 w-4" />
-            <span>Ver Todos os Projetos</span>
+            <span>{t("viewAllProjects")}</span>
           </CommandItem>
         </CommandGroup>
 
         {projects.length > 0 && (
           <>
             <CommandSeparator />
-            <CommandGroup heading="Projetos">
+            <CommandGroup heading={t("projects")}>
               {projects.slice(0, 5).map((project) => (
                 <CommandItem
                   key={project.id}
@@ -127,7 +129,7 @@ export default function CommandPalette({
         {documents.length > 0 && (
           <>
             <CommandSeparator />
-            <CommandGroup heading="Documentos Recentes">
+            <CommandGroup heading={t("recentDocuments")}>
               {documents.slice(0, 5).map((doc) => (
                 <CommandItem
                   key={doc.id}
@@ -149,7 +151,7 @@ export default function CommandPalette({
         )}
 
         <CommandSeparator />
-        <CommandGroup heading="Configurações">
+        <CommandGroup heading={t("settings")}>
           <CommandItem
             onSelect={() =>
               runCommand(() => router.push(`/workspace/${workspaceId}/profile`))
@@ -157,14 +159,14 @@ export default function CommandPalette({
             className="cursor-pointer"
           >
             <User className="mr-2 h-4 w-4" />
-            <span>Perfil</span>
+            <span>{t("profile")}</span>
           </CommandItem>
           <CommandItem
             onSelect={() => runCommand(() => router.push("/login"))}
             className="cursor-pointer text-destructive"
           >
             <LogOut className="mr-2 h-4 w-4" />
-            <span>Sair</span>
+            <span>{t("logout")}</span>
           </CommandItem>
         </CommandGroup>
       </CommandList>

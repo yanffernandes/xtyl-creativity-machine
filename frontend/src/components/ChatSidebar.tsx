@@ -185,6 +185,7 @@ export default function ChatSidebar({
     const messagesEndRef = useRef<HTMLDivElement>(null)
     const fileInputRef = useRef<HTMLInputElement>(null)
     const contextRef = useRef<HTMLDivElement>(null)
+    const userSelectedModelRef = useRef(false) // Track if user manually selected a model
     const { token, isLoading: authLoading } = useAuthStore()
     const { toast } = useToast()
 
@@ -273,14 +274,17 @@ export default function ChatSidebar({
     }, [currentStreamingContent, toolExecutions, isLoading])
 
     // Update selected model when defaultModel prop changes or when models load
+    // Only auto-set if user hasn't manually selected a model
     useEffect(() => {
+        if (userSelectedModelRef.current) return // User has manually selected, don't override
+
         if (defaultModel && defaultModel !== selectedModel) {
             setSelectedModel(defaultModel)
         } else if (!selectedModel && models.length > 0) {
             // If no model selected and models are available, select the first one
             setSelectedModel(models[0].id)
         }
-    }, [defaultModel, models, selectedModel])
+    }, [defaultModel, models])
 
     // Close context dropdown when clicking outside
     useEffect(() => {
@@ -431,6 +435,7 @@ export default function ChatSidebar({
         setMessages([])
         setCurrentConversationId(null)
         setCreatedDocuments([])
+        userSelectedModelRef.current = false // Reset so defaultModel can take effect again
         toast({ title: "Nova conversa", description: "Conversa anterior salva no histórico." })
     }
 
@@ -1154,7 +1159,8 @@ export default function ChatSidebar({
                                                                         key={model.id}
                                                                         value={model.name}
                                                                         onSelect={() => {
-                                                                            setSelectedModel(model.id === selectedModel ? "" : model.id)
+                                                                            userSelectedModelRef.current = true
+                                                                            setSelectedModel(model.id)
                                                                             setOpenModelSelect(false)
                                                                         }}
                                                                     >
@@ -1181,7 +1187,8 @@ export default function ChatSidebar({
                                                                 key={model.id}
                                                                 value={model.name}
                                                                 onSelect={() => {
-                                                                    setSelectedModel(model.id === selectedModel ? "" : model.id)
+                                                                    userSelectedModelRef.current = true
+                                                                    setSelectedModel(model.id)
                                                                     setOpenModelSelect(false)
                                                                 }}
                                                             >

@@ -18,6 +18,7 @@ import { useTheme } from "next-themes";
 import { useValidateConnection } from "@/hooks/useValidateConnection";
 import { useToast } from "@/components/ui/use-toast";
 import { cn } from "@/lib/utils";
+import { useTranslations } from "next-intl";
 
 import StartNode from "./nodes/StartNode";
 import FinishNode from "./nodes/FinishNode";
@@ -54,6 +55,7 @@ function WorkflowCanvasContent({ className, executionState }: WorkflowCanvasProp
     const { theme } = useTheme();
     const [reactFlowInstance, setReactFlowInstance] = useState<any>(null);
     const { toast } = useToast();
+    const t = useTranslations("workflow");
 
     const {
         nodes,
@@ -129,7 +131,7 @@ function WorkflowCanvasContent({ className, executionState }: WorkflowCanvasProp
             if (!isTypeValid && connectionError) {
                 // Show error toast for invalid connections
                 toast({
-                    title: "Conexão inválida",
+                    title: t("invalidConnection"),
                     description: connectionError,
                     variant: "destructive",
                 });
@@ -211,7 +213,7 @@ function WorkflowCanvasContent({ className, executionState }: WorkflowCanvasProp
                         "!text-xs !text-white/60"
                     )}
                 >
-                    {nodes.length} nós • {edges.length} conexões
+                    {t("nodesCount", { count: nodes.length })} • {t("connectionsCount", { count: edges.length })}
                 </Panel>
             </ReactFlow>
         </div>

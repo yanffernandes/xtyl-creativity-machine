@@ -2,7 +2,7 @@
 
 **Feature Branch**: `014-custom-alerts`
 **Created**: 2025-11-30
-**Status**: Draft
+**Status**: Completed
 **Input**: User description: "Alerts de confirmação de exclusão e outros alertas, atualmente estão usando um alert padrão do navegador, construa algo mais personalizado. Revise em todo o sistema para corrigir isso, implementando da forma mais eficiente possível."
 
 ## Clarifications

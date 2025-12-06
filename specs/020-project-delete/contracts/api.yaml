@@ -1,0 +1,119 @@
+openapi: 3.0.3
+info:
+  title: Project Delete API
+  description: API endpoints for project soft deletion
+  version: 1.0.0
+
+paths:
+  /projects/{project_id}:
+    delete:
+      summary: Soft delete a project
+      description: |
+        Marks a project as deleted by setting the deleted_at timestamp.
+        Cascades soft delete to all child entities (documents, folders, workflows, executions).
+        Requires the user to be the workspace owner or admin.
+      operationId: deleteProject
+      tags:
+        - Projects
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          description: The ID of the project to delete
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Project successfully deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeleteProjectResponse'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: User does not have permission to delete this project
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Project not found or already deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error during cascade delete
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+
+components:
+  schemas:
+    DeleteProjectResponse:
+      type: object
+      required:
+        - success
+        - message
+        - deleted_at
+        - cascade_summary
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Project 'My Project' has been deleted"
+        deleted_at:
+          type: string
+          format: date-time
+          example: "2025-12-05T14:30:00Z"
+        cascade_summary:
+          type: object
+          required:
+            - documents
+            - folders
+            - workflow_templates
+            - workflow_executions
+          properties:
+            documents:
+              type: integer
+              description: Number of documents soft-deleted
+              example: 15
+            folders:
+              type: integer
+              description: Number of folders soft-deleted
+              example: 3
+            workflow_templates:
+              type: integer
+              description: Number of workflow templates soft-deleted
+              example: 2
+            workflow_executions:
+              type: integer
+              description: Number of workflow executions soft-deleted
+              example: 8
+
+    ErrorResponse:
+      type: object
+      required:
+        - detail
+      properties:
+        detail:
+          type: string
+          example: "You do not have permission to delete this project"
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Supabase JWT token

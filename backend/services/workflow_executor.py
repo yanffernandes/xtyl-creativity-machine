@@ -127,7 +127,9 @@ class WorkflowExecutor:
                 "workspace_id": execution.workspace_id,
                 "inputs": execution.config_json or {},
                 "node_outputs": execution.execution_context or {},  # Load existing outputs for resume
-                "total_tokens": execution.total_tokens_used or 0
+                "total_tokens": execution.total_tokens_used or 0,
+                "edges": workflow_def.get("edges", []),  # Include edges for connection-based resolution
+                "nodes": workflow_def.get("nodes", [])   # Include nodes for type lookup
             }
 
             # Execute nodes in order
@@ -264,6 +266,9 @@ class WorkflowExecutor:
         Transforms {{node_id.field}} references into actual values from previous node outputs.
         For example: "Generate an image based on {{text_gen.content}}"
         becomes "Generate an image based on The actual text content..."
+
+        For attach nodes, also injects document_ref and image_ref from connected nodes
+        when they are not explicitly set.
         """
         import copy
         resolved_node = copy.deepcopy(node)
@@ -280,8 +285,89 @@ class WorkflowExecutor:
                 except Exception as e:
                     logger.warning(f"Failed to resolve variable in {key}: {e}")
 
+        # Special handling for attach nodes: auto-resolve connections
+        node_type = node.get("type", "")
+        if node_type in ("attach", "attach_creative"):
+            node_data = self._resolve_attach_node_connections(node, node_data, state)
+
         resolved_node["data"] = node_data
         return resolved_node
+
+    def _resolve_attach_node_connections(
+        self,
+        node: Dict[str, Any],
+        node_data: Dict[str, Any],
+        state: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """
+        Auto-resolve document_ref and image_ref for attach nodes by looking at connected edges.
+
+        This allows attach nodes to work without explicitly setting variable references,
+        by automatically extracting IDs from connected text_generation and image_generation nodes.
+        """
+        node_id = node.get("id")
+        edges = state.get("edges", [])
+        nodes = state.get("nodes", [])
+        node_outputs = state.get("node_outputs", {})
+
+        # Find edges connecting TO this attach node
+        incoming_edges = [e for e in edges if e.get("target") == node_id]
+
+        logger.info(f"AttachNode {node_id}: Found {len(incoming_edges)} incoming edges")
+
+        for edge in incoming_edges:
+            source_node_id = edge.get("source")
+            target_handle = edge.get("targetHandle", "")
+            source_handle = edge.get("sourceHandle", "")
+
+            # Get source node type
+            source_node = self._get_node_by_id(nodes, source_node_id)
+            if not source_node:
+                continue
+
+            source_type = source_node.get("type", "")
+            source_output = node_outputs.get(source_node_id, {})
+
+            logger.info(f"AttachNode: Edge from {source_node_id} ({source_type}) via handle {target_handle}")
+            logger.info(f"AttachNode: Source output keys: {list(source_output.keys())}")
+
+            # Determine if this connection provides document or image
+            # Based on target handle name or source node type
+
+            # Check for document connection (text_generation nodes produce document_ids)
+            if source_type in ("text_generation", "generate_copy"):
+                # Check if document_ref is not already set
+                if not node_data.get("document_ref"):
+                    document_ids = source_output.get("document_ids", [])
+                    if document_ids and len(document_ids) > 0:
+                        node_data["document_ref"] = document_ids[0]
+                        logger.info(f"AttachNode: Auto-resolved document_ref to {document_ids[0]}")
+
+            # Check for image connection (image_generation nodes produce image_ids)
+            elif source_type in ("image_generation", "generate_image"):
+                # Check if image_ref is not already set
+                if not node_data.get("image_ref"):
+                    image_ids = source_output.get("image_ids", [])
+                    if image_ids and len(image_ids) > 0:
+                        node_data["image_ref"] = image_ids[0]
+                        logger.info(f"AttachNode: Auto-resolved image_ref to {image_ids[0]}")
+
+            # Also check based on target handle name for more explicit connections
+            if "document" in target_handle.lower() or "text" in target_handle.lower():
+                if not node_data.get("document_ref"):
+                    document_ids = source_output.get("document_ids", [])
+                    if document_ids and len(document_ids) > 0:
+                        node_data["document_ref"] = document_ids[0]
+                        logger.info(f"AttachNode: Auto-resolved document_ref via handle to {document_ids[0]}")
+
+            if "image" in target_handle.lower():
+                if not node_data.get("image_ref"):
+                    image_ids = source_output.get("image_ids", [])
+                    if image_ids and len(image_ids) > 0:
+                        node_data["image_ref"] = image_ids[0]
+                        logger.info(f"AttachNode: Auto-resolved image_ref via handle to {image_ids[0]}")
+
+        return node_data
 
     def _get_node_by_id(self, nodes: List[Dict], node_id: str) -> Optional[Dict]:
         """

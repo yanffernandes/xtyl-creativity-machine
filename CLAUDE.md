@@ -21,6 +21,10 @@ Auto-generated from all feature plans. Last updated: 2025-11-28
 - Supabase PostgreSQL (existing system_config table) (018-admin-model-visibility)
 - Python 3.11 (Backend migration script) + Alembic (database migrations), SQLAlchemy (ORM), uuid (deterministic ID generation) (019-default-templates)
 - PostgreSQL (Supabase) - tables: `templates`, `workflow_templates` (019-default-templates)
+- Python 3.11 (Backend), TypeScript 5.x (Frontend) + FastAPI, SQLAlchemy, Next.js 14, React 18, Shadcn/UI, Supabase (direct client) (020-project-delete)
+- Supabase PostgreSQL (existing Project, Document, Folder, WorkflowTemplate, WorkflowExecution tables) (020-project-delete)
+- Python 3.11 (Backend), TypeScript 5.x (Frontend) + FastAPI, SQLAlchemy (Backend); Next.js 14, React 18, Shadcn/UI, Framer Motion (Frontend) (021-voice-input-assistant)
+- N/A (audio is processed in memory, not persisted) (021-voice-input-assistant)
 
 ### Core Stack
 - **Backend**: Python 3.11, FastAPI, SQLAlchemy
@@ -92,9 +96,9 @@ TypeScript 5.x (Frontend), Node.js 20+ (Build tools): Follow standard convention
 - Follow mobile-first responsive design
 
 ## Recent Changes
-- 019-default-templates: Added Python 3.11 (Backend migration script) + Alembic (database migrations), SQLAlchemy (ORM), uuid (deterministic ID generation)
-- 018-admin-model-visibility: Added Python 3.11 (Backend), TypeScript 5.x (Frontend) + FastAPI, SQLAlchemy, Next.js 14, React 18, Shadcn/UI
-- 017-automated-testing: Added Python 3.11 (Backend), TypeScript 5.x (Frontend) + pytest, pytest-asyncio, pytest-cov, httpx (Backend); Vitest, @testing-library/react, msw (Frontend)
+- 022-i18n: Added [if applicable, e.g., PostgreSQL, CoreData, files or N/A]
+- 022-i18n: Added [if applicable, e.g., PostgreSQL, CoreData, files or N/A]
+- 021-voice-input-assistant: Added [if applicable, e.g., PostgreSQL, CoreData, files or N/A]
 
 
 <!-- MANUAL ADDITIONS START -->

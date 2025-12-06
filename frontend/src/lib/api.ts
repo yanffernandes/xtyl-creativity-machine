@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { supabase } from './supabase';
+import { getCachedSession, invalidateSessionCache } from './session-cache';
 
 const api = axios.create({
     baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000',
@@ -8,15 +9,12 @@ const api = axios.create({
     },
 });
 
-// Request interceptor to add Supabase access token
+// T017: Request interceptor using cached session to eliminate 50-100ms overhead per request
 api.interceptors.request.use(
     async (config) => {
-        // Get current session from Supabase
-        const { data: { session }, error } = await supabase.auth.getSession();
-
-        if (error) {
-            console.error('[API] Error getting session:', error);
-        }
+        // Get cached session instead of calling getSession() every time
+        // This reduces overhead from 50-100ms to ~0ms for cached sessions
+        const session = await getCachedSession();
 
         if (session?.access_token) {
             config.headers.Authorization = `Bearer ${session.access_token}`;
@@ -48,6 +46,7 @@ api.interceptors.response.use(
                 if (refreshError || !session) {
                     // Refresh failed, redirect to login
                     console.error('Session refresh failed - redirecting to login');
+                    invalidateSessionCache(); // Clear cached session on logout
                     await supabase.auth.signOut();
 
                     if (typeof window !== 'undefined') {

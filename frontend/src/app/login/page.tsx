@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
+import { useTranslations } from "next-intl"
 import { useAuthStore } from "@/lib/store"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -16,6 +17,8 @@ export default function LoginPage() {
     const [loading, setLoading] = useState(false)
     const login = useAuthStore((state) => state.login)
     const router = useRouter()
+    const t = useTranslations("auth")
+    const tErrors = useTranslations("errors")
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -32,7 +35,7 @@ export default function LoginPage() {
 
             router.push("/dashboard")
         } catch (err) {
-            setError("Ocorreu um erro. Tente novamente.")
+            setError(tErrors("generic"))
         } finally {
             setLoading(false)
         }
@@ -42,13 +45,13 @@ export default function LoginPage() {
         <div className="flex items-center justify-center min-h-screen relative">
             <Card glass className="w-[420px]">
                 <CardHeader>
-                    <CardTitle className="text-3xl text-center">Login to XTYL</CardTitle>
-                    <p className="text-center text-text-secondary mt-2">Welcome back! Please enter your details.</p>
+                    <CardTitle className="text-3xl text-center">{t("signIn")}</CardTitle>
+                    <p className="text-center text-text-secondary mt-2">{t("welcomeBack")}</p>
                 </CardHeader>
                 <CardContent>
                     <form onSubmit={handleSubmit} className="space-y-6">
                         <div className="space-y-2">
-                            <Label htmlFor="email" className="text-sm font-medium">Email</Label>
+                            <Label htmlFor="email" className="text-sm font-medium">{t("email")}</Label>
                             <Input
                                 id="email"
                                 type="email"
@@ -60,7 +63,7 @@ export default function LoginPage() {
                             />
                         </div>
                         <div className="space-y-2">
-                            <Label htmlFor="password" className="text-sm font-medium">Password</Label>
+                            <Label htmlFor="password" className="text-sm font-medium">{t("password")}</Label>
                             <Input
                                 id="password"
                                 type="password"
@@ -77,22 +80,22 @@ export default function LoginPage() {
                             </div>
                         )}
                         <Button type="submit" className="w-full" size="lg" disabled={loading}>
-                            {loading ? "Entrando..." : "Login"}
+                            {loading ? `${t("signIn")}...` : t("signIn")}
                         </Button>
                         <div className="text-center space-y-2">
                             <Link
                                 href="/forgot-password"
                                 className="text-sm text-accent-primary hover:text-accent-primary/80 transition-colors font-medium block"
                             >
-                                Esqueci minha senha
+                                {t("forgotPassword")}
                             </Link>
                             <div>
-                                <span className="text-sm text-text-secondary">Nao tem conta? </span>
+                                <span className="text-sm text-text-secondary">{t("dontHaveAccount")} </span>
                                 <Link
                                     href="/register"
                                     className="text-sm text-accent-primary hover:text-accent-primary/80 transition-colors font-medium"
                                 >
-                                    Criar conta
+                                    {t("createAccount")}
                                 </Link>
                             </div>
                         </div>

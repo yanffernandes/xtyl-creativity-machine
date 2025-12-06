@@ -130,6 +130,12 @@ export const NODE_TYPE_CONFIGS: Record<string, NodeTypeConfig> = {
 // CONNECTION VALIDATION
 // ============================================================================
 
+// Node types that can generate documents/files
+export const FILE_GENERATING_NODE_TYPES = [
+  'text_generation',
+  'image_generation',
+];
+
 /**
  * Check if a connection between two node types is valid based on their
  * input/output type compatibility.
@@ -143,6 +149,12 @@ export function isConnectionValid(
 
   if (!sourceConfig || !targetConfig) {
     return false;
+  }
+
+  // Special validation for attach_creative node:
+  // Only allow connections from file-generating nodes
+  if (targetNodeType === 'attach_creative') {
+    return FILE_GENERATING_NODE_TYPES.includes(sourceNodeType);
   }
 
   const outputType = sourceConfig.outputType;
@@ -172,6 +184,11 @@ export function getConnectionError(
 
   if (!sourceConfig || !targetConfig) {
     return 'Unknown node type';
+  }
+
+  // Special error message for attach_creative connections
+  if (targetNodeType === 'attach_creative') {
+    return `O nó "Attach Creative" só pode receber conexões de nós que geram arquivos (Text Generation ou Image Generation)`;
   }
 
   return `Cannot connect: ${sourceConfig.label} outputs ${sourceConfig.outputType}, but ${targetConfig.label} accepts ${targetConfig.inputTypes.join(', ')}`;

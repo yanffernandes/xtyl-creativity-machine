@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
+import { useTranslations } from "next-intl"
 import { useAuthStore } from "@/lib/store"
 import { useProjects, useCreateProject } from "@/hooks/use-projects"
 import { Button } from "@/components/ui/button"
@@ -17,6 +18,8 @@ export default function WorkspacePage() {
     const [isCreating, setIsCreating] = useState(false)
     const { session, isLoading: authLoading } = useAuthStore()
     const router = useRouter()
+    const t = useTranslations("workspace")
+    const tCommon = useTranslations("common")
 
     // Supabase hooks for project operations
     const { data: projects = [], isLoading: projectsLoading } = useProjects(workspaceId)
@@ -56,10 +59,10 @@ export default function WorkspacePage() {
                 <div className="flex justify-between items-center mb-12">
                     <div>
                         <Button variant="ghost" onClick={() => router.push("/dashboard")} className="pl-0 hover:pl-2 transition-all mb-4">
-                            &larr; Back to Dashboard
+                            &larr; {t("backToDashboard")}
                         </Button>
-                        <h1 className="text-4xl font-bold tracking-tight mb-2">Workspace Projects</h1>
-                        <p className="text-text-secondary">Select a project to continue or create a new one</p>
+                        <h1 className="text-4xl font-bold tracking-tight mb-2">{t("workspaceProjects")}</h1>
+                        <p className="text-text-secondary">{t("selectOrCreate")}</p>
                     </div>
                 </div>
 
@@ -77,7 +80,7 @@ export default function WorkspacePage() {
                             </CardHeader>
                             <CardContent>
                                 <p className="text-xs text-text-tertiary">
-                                    Created {new Date(project.created_at).toLocaleDateString()}
+                                    {t("createdAt")} {new Date(project.created_at).toLocaleDateString()}
                                 </p>
                             </CardContent>
                         </Card>
@@ -89,23 +92,23 @@ export default function WorkspacePage() {
                                 <div className="bg-accent-primary/10 p-3 rounded-lg">
                                     <Plus className="h-8 w-8 text-accent-primary" />
                                 </div>
-                                <span className="font-medium">Create New Project</span>
+                                <span className="font-medium">{t("createNewProject")}</span>
                             </Button>
                         ) : (
                             <form onSubmit={handleCreateProject} className="w-full space-y-4">
                                 <div className="space-y-2">
-                                    <Label htmlFor="name" className="text-sm font-medium">Project Name</Label>
+                                    <Label htmlFor="name" className="text-sm font-medium">{t("projectName")}</Label>
                                     <Input
                                         id="name"
-                                        placeholder="My Awesome Project"
+                                        placeholder={t("projectNamePlaceholder")}
                                         value={newProjectName}
                                         onChange={(e) => setNewProjectName(e.target.value)}
                                         autoFocus
                                     />
                                 </div>
                                 <div className="flex gap-2">
-                                    <Button type="submit" size="sm">Create</Button>
-                                    <Button type="button" variant="ghost" size="sm" onClick={() => setIsCreating(false)}>Cancel</Button>
+                                    <Button type="submit" size="sm">{tCommon("create")}</Button>
+                                    <Button type="button" variant="ghost" size="sm" onClick={() => setIsCreating(false)}>{tCommon("cancel")}</Button>
                                 </div>
                             </form>
                         )}

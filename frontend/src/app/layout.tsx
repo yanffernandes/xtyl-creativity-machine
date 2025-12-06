@@ -7,6 +7,9 @@ import { GradientBackground } from "@/components/GradientBackground";
 import { QueryProvider } from "@/components/providers/QueryProvider";
 import { ConfirmDialogProvider } from "@/components/confirm-dialog";
 import { SystemMessageBanner } from "@/components/SystemMessageBanner";
+import { NextIntlClientProvider } from 'next-intl';
+import { getMessages, getLocale } from 'next-intl/server';
+import { LocaleProvider } from "@/contexts/LocaleContext";
 
 /**
  * Inter Variable Font - Premium Typography
@@ -29,31 +32,38 @@ export const metadata: Metadata = {
   description: "AI-powered creativity platform for professionals",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const locale = await getLocale();
+  const messages = await getMessages();
+
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang={locale} suppressHydrationWarning>
       <body
         className={`${inter.variable} font-sans antialiased`}
       >
-        <QueryProvider>
-          <ThemeProvider
-            attribute="class"
-            defaultTheme="system"
-            enableSystem
-            disableTransitionOnChange={false}
-          >
-            <ConfirmDialogProvider>
-              <SystemMessageBanner />
-              <GradientBackground />
-              {children}
-              <Toaster />
-            </ConfirmDialogProvider>
-          </ThemeProvider>
-        </QueryProvider>
+        <NextIntlClientProvider messages={messages}>
+          <LocaleProvider>
+            <QueryProvider>
+              <ThemeProvider
+                attribute="class"
+                defaultTheme="system"
+                enableSystem
+                disableTransitionOnChange={false}
+              >
+                <ConfirmDialogProvider>
+                  <SystemMessageBanner />
+                  <GradientBackground />
+                  {children}
+                  <Toaster />
+                </ConfirmDialogProvider>
+              </ThemeProvider>
+            </QueryProvider>
+          </LocaleProvider>
+        </NextIntlClientProvider>
       </body>
     </html>
   );

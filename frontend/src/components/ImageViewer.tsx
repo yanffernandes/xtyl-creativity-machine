@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/card"
 import { X, Download, Maximize2, Minimize2, ZoomIn, ZoomOut, Sparkles, ChevronLeft, ChevronRight, Trash2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import api from "@/lib/api"
-import { useToast } from "@/hooks/use-toast"
+import { useToast } from "@/components/ui/use-toast"
 import { useConfirm } from "@/components/confirm-dialog"
 
 interface ImageDocument {

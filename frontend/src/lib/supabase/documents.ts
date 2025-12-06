@@ -26,7 +26,108 @@ function generateShareToken(): string {
   return result
 }
 
+// T028: Utility function to group items by a key
+function groupBy<T>(items: T[], key: keyof T): Record<string, T[]> {
+  return items.reduce((acc, item) => {
+    const groupKey = String(item[key])
+    if (!acc[groupKey]) {
+      acc[groupKey] = []
+    }
+    acc[groupKey].push(item)
+    return acc
+  }, {} as Record<string, T[]>)
+}
+
+// Document with attachments type for optimized queries
+export interface DocumentWithAttachments extends Document {
+  document_attachments?: {
+    id: string
+    attachment_type: string
+    visual_assets?: {
+      id: string
+      thumbnail_url: string | null
+      file_name: string | null
+    } | null
+  }[]
+}
+
 export const documentService = {
+  /**
+   * T021-T024: Optimized document list with JOINs
+   * Fetches documents with attachments and visual assets in a single query
+   * Replaces N+1 pattern with Supabase relation syntax
+   */
+  async listByProjectOptimized(projectId: string): Promise<ServiceResult<DocumentWithAttachments[]>> {
+    try {
+      // T022-T024: Single query with JOINs - specific fields only
+      const { data, error } = await supabase
+        .from('documents')
+        .select(`
+          id,
+          title,
+          document_type,
+          status,
+          media_type,
+          created_at,
+          updated_at,
+          document_attachments (
+            id,
+            attachment_type,
+            visual_assets:image_id (
+              id,
+              thumbnail_url,
+              title
+            )
+          )
+        `)
+        .eq('project_id', projectId)
+        .is('deleted_at', null)
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+      return { data: data as DocumentWithAttachments[], error: null }
+    } catch (error) {
+      return { data: null, error: error as Error }
+    }
+  },
+
+  /**
+   * T027: Batch fetch documents for multiple projects (sidebar optimization)
+   * Single query for all projects instead of N queries
+   */
+  async fetchAllProjectsDocuments(projectIds: string[]): Promise<ServiceResult<Record<string, DocumentWithAttachments[]>>> {
+    try {
+      if (projectIds.length === 0) {
+        return { data: {}, error: null }
+      }
+
+      // T029: Limit to 100 documents for sidebar performance
+      const { data, error } = await supabase
+        .from('documents')
+        .select(`
+          id,
+          title,
+          project_id,
+          status,
+          media_type,
+          is_reference_asset,
+          created_at
+        `)
+        .in('project_id', projectIds)
+        .is('deleted_at', null)
+        .order('created_at', { ascending: false })
+        .limit(100)
+
+      if (error) throw error
+
+      // Group documents by project_id
+      const grouped = groupBy(data || [], 'project_id' as keyof typeof data[0])
+      return { data: grouped as Record<string, DocumentWithAttachments[]>, error: null }
+    } catch (error) {
+      return { data: null, error: error as Error }
+    }
+  },
+
   /**
    * List all context files in a project (is_context = true)
    */
