@@ -23,6 +23,7 @@ import httpx
 from sqlalchemy import func, text
 from sqlalchemy.orm import Session
 
+from config import get_openrouter_headers
 from models import UserMemory, SystemConfig
 
 logger = logging.getLogger("memory_service")
@@ -113,12 +114,7 @@ class MemoryService:
             try:
                 response = await client.post(
                     f"{OPENROUTER_BASE_URL}/embeddings",
-                    headers={
-                        "Authorization": f"Bearer {api_key}",
-                        "HTTP-Referer": "https://xtyl.com",
-                        "X-Title": "XTYL Creativity Machine",
-                        "Content-Type": "application/json",
-                    },
+                    headers=get_openrouter_headers(api_key),
                     json={
                         "model": DEFAULT_EMBEDDING_MODEL,
                         "input": text,
@@ -518,12 +514,7 @@ class MemoryService:
             try:
                 response = await client.post(
                     f"{OPENROUTER_BASE_URL}/chat/completions",
-                    headers={
-                        "Authorization": f"Bearer {api_key}",
-                        "HTTP-Referer": "https://xtyl.com",
-                        "X-Title": "XTYL Creativity Machine - Memory Extraction",
-                        "Content-Type": "application/json",
-                    },
+                    headers=get_openrouter_headers(api_key),
                     json={
                         "model": model,
                         "messages": messages,

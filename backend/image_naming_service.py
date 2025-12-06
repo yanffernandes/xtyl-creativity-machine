@@ -9,6 +9,8 @@ import os
 import httpx
 from typing import Optional
 
+from config import get_openrouter_headers
+
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 
 # Default model for naming - fast and cheap
@@ -62,11 +64,7 @@ async def generate_image_title(
         async with httpx.AsyncClient(timeout=10.0) as client:
             response = await client.post(
                 f"{OPENROUTER_BASE_URL}/chat/completions",
-                headers={
-                    "Authorization": f"Bearer {api_key}",
-                    "HTTP-Referer": "https://xtyl.com",
-                    "X-Title": "XTYL Creativity Machine"
-                },
+                headers=get_openrouter_headers(api_key),
                 json={
                     "model": model,
                     "messages": messages,

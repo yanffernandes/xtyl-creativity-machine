@@ -11,6 +11,7 @@ from typing import Dict, Any, Optional, List
 from datetime import datetime
 import uuid
 from storage_service import upload_file
+from config import get_openrouter_headers
 
 # Fallback default model (used if DB is unavailable)
 _DEFAULT_IMAGE_MODEL = "google/gemini-3-pro-image-preview"
@@ -237,12 +238,7 @@ async def generate_image_openrouter(
             "aspect_ratio": aspect_ratio
         }
 
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "HTTP-Referer": "http://localhost:3000",
-        "X-Title": "XTYL Creativity Machine",
-        "Content-Type": "application/json"
-    }
+    headers = get_openrouter_headers(api_key)
 
     try:
         async with httpx.AsyncClient(timeout=120.0) as client:

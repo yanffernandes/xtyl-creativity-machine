@@ -12,6 +12,8 @@ from datetime import datetime, timedelta
 from functools import lru_cache
 import asyncio
 
+from config import get_openrouter_headers
+
 # Cache for model pricing
 _pricing_cache: Dict[str, Dict[str, float]] = {}
 _cache_timestamp: Optional[datetime] = None
@@ -39,11 +41,7 @@ async def fetch_models_pricing() -> Dict[str, Dict[str, float]]:
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.get(
                 "https://openrouter.ai/api/v1/models",
-                headers={
-                    "Authorization": f"Bearer {api_key}",
-                    "HTTP-Referer": "https://xtyl.app",
-                    "X-Title": "XTYL Creativity Machine"
-                }
+                headers=get_openrouter_headers(api_key)
             )
             response.raise_for_status()
             data = response.json()

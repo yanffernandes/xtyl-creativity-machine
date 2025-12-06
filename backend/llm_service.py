@@ -3,6 +3,8 @@ import httpx
 from typing import List, Dict, Any, Optional
 from fastapi import HTTPException
 
+from config import get_openrouter_headers
+
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 
 # Default model fallback (used if DB is unavailable)
@@ -44,11 +46,7 @@ async def list_models():
         try:
             response = await client.get(
                 f"{OPENROUTER_BASE_URL}/models",
-                headers={
-                    "Authorization": f"Bearer {api_key}",
-                    "HTTP-Referer": "https://xtyl.com", # Required by OpenRouter
-                    "X-Title": "XTYL Creativity Machine"
-                }
+                headers=get_openrouter_headers(api_key)
             )
             response.raise_for_status()
             data = response.json()
@@ -75,11 +73,7 @@ async def list_embedding_models():
         try:
             response = await client.get(
                 f"{OPENROUTER_BASE_URL}/embeddings/models",
-                headers={
-                    "Authorization": f"Bearer {api_key}",
-                    "HTTP-Referer": "https://xtyl.com",
-                    "X-Title": "XTYL Creativity Machine"
-                }
+                headers=get_openrouter_headers(api_key)
             )
             response.raise_for_status()
             data = response.json()
@@ -122,12 +116,7 @@ async def chat_completion(
         try:
             response = await client.post(
                 f"{OPENROUTER_BASE_URL}/chat/completions",
-                headers={
-                    "Authorization": f"Bearer {api_key}",
-                    "HTTP-Referer": "https://xtyl.com",
-                    "X-Title": "XTYL Creativity Machine",
-                    "Content-Type": "application/json"
-                },
+                headers=get_openrouter_headers(api_key),
                 json=payload,
                 timeout=60.0
             )
@@ -196,12 +185,7 @@ async def chat_completion_stream(
             async with client.stream(
                 "POST",
                 f"{OPENROUTER_BASE_URL}/chat/completions",
-                headers={
-                    "Authorization": f"Bearer {api_key}",
-                    "HTTP-Referer": "https://xtyl.com",
-                    "X-Title": "XTYL Creativity Machine",
-                    "Content-Type": "application/json"
-                },
+                headers=get_openrouter_headers(api_key),
                 json=payload
             ) as response:
                 response.raise_for_status()

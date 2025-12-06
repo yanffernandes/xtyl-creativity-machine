@@ -18,6 +18,7 @@ from dataclasses import dataclass
 import httpx
 from sqlalchemy.orm import Session
 
+from config import get_openrouter_headers
 from services.model_config_service import ModelConfigService
 
 
@@ -234,12 +235,7 @@ Output ONLY the enhanced prompt:"""
             print("⚠️ OPENROUTER_API_KEY not set, using fallback")
             return None
 
-        headers = {
-            "Authorization": f"Bearer {self.openrouter_api_key}",
-            "HTTP-Referer": "https://xtyl.io",
-            "X-Title": "XTYL Creative Machine",
-            "Content-Type": "application/json"
-        }
+        headers = get_openrouter_headers(self.openrouter_api_key)
 
         payload = {
             "model": model,
