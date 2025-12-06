@@ -1695,7 +1695,7 @@ export default function ChatSidebar({
                     </div>
                 )}
 
-                <form onSubmit={handleSend} className="flex flex-col gap-2">
+                <form onSubmit={handleSend}>
                     <input
                         ref={fileInputRef}
                         type="file"
@@ -1704,102 +1704,134 @@ export default function ChatSidebar({
                         className="hidden"
                     />
 
-                    {/* Textarea com altura flexível */}
-                    <Textarea
-                        value={input}
-                        onChange={(e) => setInput(e.target.value)}
-                        onKeyDown={(e) => {
-                            if (e.key === 'Enter' && !e.shiftKey) {
-                                e.preventDefault()
-                                handleSend(e as any)
-                            }
-                        }}
-                        placeholder="Pergunte qualquer coisa... (Enter para enviar, Shift+Enter para nova linha)"
-                        disabled={isLoading}
-                        className="min-h-[80px] max-h-[300px] resize-y w-full"
-                        rows={3}
-                    />
-
-                    {/* Botões abaixo do textarea */}
-                    <div className="flex items-center gap-2">
-                        <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            onClick={() => setShowTemplateSelector(true)}
+                    {/* Container integrado estilo ChatGPT/Claude */}
+                    <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] backdrop-blur-sm overflow-hidden">
+                        {/* Textarea limpo */}
+                        <Textarea
+                            value={input}
+                            onChange={(e) => setInput(e.target.value)}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter' && !e.shiftKey) {
+                                    e.preventDefault()
+                                    handleSend(e as any)
+                                }
+                            }}
+                            placeholder="Pergunte qualquer coisa..."
                             disabled={isLoading}
-                            title="Usar template de marketing"
-                            className="gap-2"
-                        >
-                            <Sparkles className="h-4 w-4" />
-                            Templates
-                        </Button>
+                            className="min-h-[60px] max-h-[200px] resize-none w-full border-0 bg-transparent px-4 py-3 text-sm focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-0 focus-visible:bg-transparent hover:border-0 hover:bg-transparent transition-none"
+                            rows={2}
+                        />
 
-                        <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            onClick={handleAttachmentClick}
-                            disabled={isLoading || uploadingAttachment}
-                            title="Adicionar anexo (imagem ou PDF)"
-                            className="gap-2"
-                        >
-                            <Paperclip className={cn("h-4 w-4", uploadingAttachment && "animate-spin")} />
-                            Anexar
-                        </Button>
-
-                        {/* Voice Input Button (Feature 021) */}
-                        {isRecordingSupported && (
+                        {/* Barra de ações integrada */}
+                        <div className="flex items-center gap-1 px-2 py-2 border-t border-white/[0.04]">
+                            {/* Botões de ação à esquerda - icon only */}
                             <Button
                                 type="button"
-                                size="sm"
-                                variant={recordingStatus === 'recording' ? 'destructive' : 'outline'}
-                                onClick={handleVoiceInput}
-                                disabled={isLoading || recordingStatus === 'processing'}
-                                title={recordingStatus === 'recording' ? 'Clique para parar' : 'Gravar áudio para transcrever'}
-                                className="gap-2"
+                                size="icon"
+                                variant="ghost"
+                                onClick={() => setShowTemplateSelector(true)}
+                                disabled={isLoading}
+                                title="Usar template"
+                                className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-white/[0.06]"
                             >
+                                <Sparkles className="h-4 w-4" />
+                            </Button>
+
+                            <Button
+                                type="button"
+                                size="icon"
+                                variant="ghost"
+                                onClick={handleAttachmentClick}
+                                disabled={isLoading || uploadingAttachment}
+                                title="Anexar arquivo"
+                                className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-white/[0.06]"
+                            >
+                                <Paperclip className={cn("h-4 w-4", uploadingAttachment && "animate-spin")} />
+                            </Button>
+
+                            {/* Voice Input Button */}
+                            {isRecordingSupported && (
                                 <AnimatePresence mode="wait">
                                     {recordingStatus === 'recording' ? (
                                         <motion.div
-                                            key="recording"
-                                            initial={{ scale: 0 }}
-                                            animate={{ scale: 1 }}
-                                            exit={{ scale: 0 }}
-                                            className="flex items-center gap-2"
+                                            key="recording-bar"
+                                            initial={{ opacity: 0, width: 0 }}
+                                            animate={{ opacity: 1, width: 'auto' }}
+                                            exit={{ opacity: 0, width: 0 }}
+                                            className="flex items-center gap-2 px-2"
                                         >
-                                            <Square className="h-4 w-4" />
-                                            <span className="tabular-nums text-xs">{formatDuration(recordingDuration)}</span>
+                                            <Button
+                                                type="button"
+                                                size="icon"
+                                                variant="ghost"
+                                                onClick={handleVoiceInput}
+                                                title="Parar gravação"
+                                                className="h-8 w-8 text-red-500 hover:text-red-400 hover:bg-red-500/10"
+                                            >
+                                                <Square className="h-4 w-4" />
+                                            </Button>
+                                            <span className="tabular-nums text-xs text-red-400 font-medium">
+                                                {formatDuration(recordingDuration)}
+                                            </span>
                                             <motion.span
                                                 animate={{ opacity: [1, 0.3, 1] }}
                                                 transition={{ repeat: Infinity, duration: 1 }}
-                                                className="h-2 w-2 rounded-full bg-white"
+                                                className="h-2 w-2 rounded-full bg-red-500"
                                             />
                                         </motion.div>
                                     ) : recordingStatus === 'processing' ? (
-                                        <motion.div key="processing">
-                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                        <motion.div
+                                            key="processing"
+                                            initial={{ opacity: 0 }}
+                                            animate={{ opacity: 1 }}
+                                            exit={{ opacity: 0 }}
+                                        >
+                                            <Button
+                                                type="button"
+                                                size="icon"
+                                                variant="ghost"
+                                                disabled
+                                                className="h-8 w-8 text-muted-foreground"
+                                            >
+                                                <Loader2 className="h-4 w-4 animate-spin" />
+                                            </Button>
                                         </motion.div>
                                     ) : (
-                                        <motion.div key="idle">
-                                            <Mic className="h-4 w-4" />
+                                        <motion.div
+                                            key="idle"
+                                            initial={{ opacity: 0 }}
+                                            animate={{ opacity: 1 }}
+                                            exit={{ opacity: 0 }}
+                                        >
+                                            <Button
+                                                type="button"
+                                                size="icon"
+                                                variant="ghost"
+                                                onClick={handleVoiceInput}
+                                                disabled={isLoading}
+                                                title="Gravar áudio"
+                                                className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-white/[0.06]"
+                                            >
+                                                <Mic className="h-4 w-4" />
+                                            </Button>
                                         </motion.div>
                                     )}
                                 </AnimatePresence>
+                            )}
+
+                            <div className="flex-1" />
+
+                            {/* Botão enviar à direita */}
+                            <Button
+                                type="submit"
+                                size="sm"
+                                disabled={isLoading || (!input.trim() && attachments.length === 0)}
+                                className="h-8 px-3 gap-1.5 bg-primary/90 hover:bg-primary"
+                            >
+                                <Send className="h-3.5 w-3.5" />
+                                <span className="text-xs">Enviar</span>
                             </Button>
-                        )}
-
-                        <div className="flex-1" />
-
-                        <Button
-                            type="submit"
-                            size="sm"
-                            disabled={isLoading || (!input.trim() && attachments.length === 0)}
-                            className="gap-2"
-                        >
-                            <Send className="h-4 w-4" />
-                            Enviar
-                        </Button>
+                        </div>
                     </div>
                 </form>
             </div>
