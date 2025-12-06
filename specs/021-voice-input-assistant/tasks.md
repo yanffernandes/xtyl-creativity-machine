@@ -115,7 +115,7 @@
 - [x] T029 [P] Test voice input appends to existing text with space separator
 - [x] T030 [P] Test recording cancels when user navigates away from chat
 - [x] T031 Verify button accessibility (keyboard navigation, aria labels) in frontend/src/components/ChatSidebar.tsx
-- [ ] T032 Run manual testing checklist from quickstart.md
+- [x] T032 Run manual testing checklist from quickstart.md
 
 ---
 
