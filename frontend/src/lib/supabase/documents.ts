@@ -69,7 +69,7 @@ export interface DocumentListItem {
       id: string
       thumbnail_url: string | null
       title: string | null
-    } | null
+    }[] | null
   }[]
 }
 
