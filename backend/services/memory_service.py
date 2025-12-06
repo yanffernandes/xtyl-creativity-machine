@@ -240,6 +240,14 @@ class MemoryService:
         Returns:
             Tuple of (memories list, total count)
         """
+        # Debug: check what's in the database
+        all_memories = self.db.query(UserMemory).filter(
+            UserMemory.project_id == project_id
+        ).all()
+        logger.debug(f"[MEMORY_SERVICE] All memories in project {project_id}: {len(all_memories)}")
+        for m in all_memories[:5]:
+            logger.debug(f"  - Memory user_id={m.user_id} (type={type(m.user_id)}), looking for {user_id} (type={type(user_id)})")
+
         query = self.db.query(UserMemory).filter(
             UserMemory.user_id == user_id,
             UserMemory.project_id == project_id,
@@ -256,6 +264,7 @@ class MemoryService:
             .all()
         )
 
+        logger.debug(f"[MEMORY_SERVICE] Query returned {total} memories for user {user_id}")
         return memories, total
 
     async def update(

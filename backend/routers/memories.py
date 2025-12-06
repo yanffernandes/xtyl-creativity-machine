@@ -54,6 +54,9 @@ async def list_memories(
     get_project_or_404(db, project_id)
     user_id = current_user.id
 
+    # Debug logging
+    print(f"[MEMORIES] Listing memories for user_id={user_id} (type={type(user_id)}), project_id={project_id}")
+
     service = MemoryService(db)
     memories, total = service.list(
         user_id=user_id,
@@ -62,6 +65,8 @@ async def list_memories(
         page=page,
         per_page=per_page,
     )
+
+    print(f"[MEMORIES] Found {total} memories, returning {len(memories)} for page {page}")
 
     return MemoryListResponse(
         memories=[MemoryResponse.model_validate(m) for m in memories],
