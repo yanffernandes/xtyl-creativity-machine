@@ -213,6 +213,109 @@ async def upload_attachment(
         print(f"❌ Error processing attachment: {e}")
         raise HTTPException(status_code=500, detail="Failed to process attachment")
 
+
+# ============================================================================
+# AUDIO TRANSCRIPTION ENDPOINT (Feature 021 - Voice Input)
+# ============================================================================
+
+from fastapi import Form
+from transcription_service import transcribe_audio
+import httpx
+
+# Audio transcription constants
+ALLOWED_AUDIO_TYPES = {
+    "audio/webm", "audio/mp3", "audio/mpeg", "audio/wav",
+    "audio/m4a", "audio/mp4", "audio/x-m4a", "audio/ogg"
+}
+MAX_AUDIO_SIZE = 25 * 1024 * 1024  # 25MB (Whisper limit)
+
+
+@router.post("/transcribe")
+async def transcribe_audio_endpoint(
+    audio: UploadFile = File(...),
+    language_hint: Optional[str] = Form(None),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Transcribe audio file to text using OpenRouter's audio-capable models.
+
+    Args:
+        audio: Audio file (webm, mp3, wav, m4a, mp4, mpeg, ogg)
+        language_hint: Optional ISO 639-1 language code (e.g., "pt", "en")
+
+    Returns:
+        TranscriptionResponse with transcribed text and metadata
+    """
+    # Validate content type - extract base MIME type (ignore codecs parameter)
+    raw_content_type = audio.content_type or ""
+    content_type = raw_content_type.split(";")[0].strip()  # Remove codecs like "audio/webm;codecs=opus"
+    print(f"📝 Transcription request - raw type: {raw_content_type}, base type: {content_type}")
+
+    if content_type not in ALLOWED_AUDIO_TYPES:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error": "invalid_format",
+                "message": "Formato de áudio não suportado. Use WebM, MP3, WAV ou M4A."
+            }
+        )
+
+    # Read and validate size
+    audio_data = await audio.read()
+    if len(audio_data) > MAX_AUDIO_SIZE:
+        raise HTTPException(
+            status_code=413,
+            detail={
+                "error": "file_too_large",
+                "message": "Arquivo de áudio muito grande. Máximo: 25MB."
+            }
+        )
+
+    if len(audio_data) == 0:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error": "empty_audio",
+                "message": "Nenhum áudio detectado no arquivo."
+            }
+        )
+
+    try:
+        result = await transcribe_audio(
+            audio_data=audio_data,
+            audio_format=content_type,
+            language_hint=language_hint
+        )
+        return result
+    except httpx.HTTPStatusError as e:
+        print(f"❌ Transcription API error: {e}")
+        raise HTTPException(
+            status_code=502,
+            detail={
+                "error": "api_error",
+                "message": "Serviço de transcrição indisponível."
+            }
+        )
+    except ValueError as e:
+        print(f"❌ Transcription config error: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error": "transcription_failed",
+                "message": "Erro de configuração do serviço de transcrição."
+            }
+        )
+    except Exception as e:
+        print(f"❌ Transcription error: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error": "transcription_failed",
+                "message": "Falha ao transcrever áudio. Tente novamente."
+            }
+        )
+
+
 @router.post("/tool-approval")
 async def respond_to_tool_approval(
     response: ToolApprovalResponse,
@@ -582,6 +685,15 @@ async def generate_chat_completion_stream(
     Streaming version of chat completion with real-time progress updates.
     Returns Server-Sent Events (SSE) with status updates, tool execution, and final response.
     """
+    # CRITICAL: Extract values from session-bound objects BEFORE the generator starts.
+    # The current_user and db objects are bound to the request session which will be closed
+    # during SSE streaming. We must extract needed values while the session is still active.
+    user_id = str(current_user.id)
+
+    # Read max_iterations from user preferences (must be done before session closes)
+    user_prefs = get_user_preferences(db, user_id)
+    max_iterations = user_prefs.max_iterations if user_prefs else 15
+
     async def event_generator():
         try:
             print(f"\n{'='*80}")
@@ -592,7 +704,7 @@ async def generate_chat_completion_stream(
             print(f"Use RAG: {request.use_rag}")
             print(f"Current Document: {request.current_document.id if request.current_document else None}")
             print(f"Document IDs: {request.document_ids}")
-            print(f"User ID: {current_user.id}")
+            print(f"User ID: {user_id}")
 
             # Build messages including attachments
             messages = []
@@ -771,9 +883,7 @@ Retrieved Context:
             await asyncio.sleep(0.1)  # Small delay for client to connect
 
             # Tool calling loop with streaming updates
-            # Read max_iterations from user preferences, default to 15
-            user_prefs = get_user_preferences(db, str(current_user.id))
-            max_iterations = user_prefs.max_iterations if user_prefs else 15
+            # max_iterations was pre-loaded before generator started
             iteration = 0
             tool_call_history = []  # Track tool calls for infinite loop detection
             total_input_tokens = 0
@@ -906,7 +1016,7 @@ Retrieved Context:
                         workspace_id = get_workspace_id_from_project(log_db, request.project_id)
                         log_ai_usage(
                             db=log_db,
-                            user_id=str(current_user.id),
+                            user_id=user_id,
                             workspace_id=workspace_id,
                             project_id=request.project_id,
                             model=request.model,
@@ -1050,7 +1160,7 @@ Retrieved Context:
                                 workspace_id = get_workspace_id_from_project(log_db, request.project_id)
                                 log_ai_usage(
                                     db=log_db,
-                                    user_id=str(current_user.id),
+                                    user_id=user_id,
                                     workspace_id=workspace_id,
                                     project_id=request.project_id,
                                     model=request.model,
@@ -1224,7 +1334,7 @@ Retrieved Context:
                     workspace_id = get_workspace_id_from_project(log_db, request.project_id)
                     log_ai_usage(
                         db=log_db,
-                        user_id=str(current_user.id),
+                        user_id=user_id,
                         workspace_id=workspace_id,
                         project_id=request.project_id,
                         model=request.model,

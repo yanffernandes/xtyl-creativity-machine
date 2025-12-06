@@ -406,4 +406,104 @@ export async function getActiveSystemMessages(): Promise<ActiveSystemMessagesRes
     return response.data;
 }
 
+// ============================================================================
+// Chat Templates API (Feature 019)
+// ============================================================================
+
+export interface StartChatFromTemplateRequest {
+    template_id: string;
+    variables: Record<string, string>;
+    project_id?: string;
+    title?: string;
+}
+
+export interface StartChatFromTemplateResponse {
+    conversation_id: string;
+    title: string;
+    first_message: string | null;
+}
+
+/**
+ * Start a new chat conversation from a template
+ */
+export async function startChatFromTemplate(
+    request: StartChatFromTemplateRequest
+): Promise<StartChatFromTemplateResponse> {
+    const response = await api.post('/templates/start-chat', request);
+    return response.data;
+}
+
+// ============================================================================
+// Project Deletion API (Feature 020)
+// ============================================================================
+
+export interface CascadeSummary {
+    documents: number;
+    folders: number;
+    workflow_templates: number;
+    workflow_executions: number;
+}
+
+export interface DeleteProjectResponse {
+    success: boolean;
+    message: string;
+    deleted_at: string;
+    cascade_summary: CascadeSummary;
+}
+
+/**
+ * Soft delete a project and cascade to all child entities.
+ * Requires workspace owner or admin role.
+ */
+export async function deleteProject(projectId: string): Promise<DeleteProjectResponse> {
+    const response = await api.delete(`/projects/${projectId}`);
+    return response.data;
+}
+
+// ============================================================================
+// Audio Transcription API (Feature 021 - Voice Input)
+// ============================================================================
+
+export interface TranscriptionResponse {
+    text: string;
+    duration_seconds: number;
+    language: string;
+    processing_time_ms: number;
+}
+
+/**
+ * Transcribe audio file to text using OpenRouter's audio-capable models.
+ *
+ * @param audioBlob - Audio blob from MediaRecorder
+ * @param languageHint - Optional ISO 639-1 language code (e.g., "pt", "en")
+ * @returns TranscriptionResponse with transcribed text and metadata
+ */
+export async function transcribeAudio(
+    audioBlob: Blob,
+    languageHint?: string
+): Promise<TranscriptionResponse> {
+    const formData = new FormData();
+
+    // Determine file extension from MIME type
+    const mimeType = audioBlob.type || 'audio/webm';
+    const extension = mimeType.includes('webm') ? 'webm'
+        : mimeType.includes('mp4') ? 'mp4'
+        : mimeType.includes('ogg') ? 'ogg'
+        : 'webm';
+
+    formData.append('audio', audioBlob, `recording.${extension}`);
+
+    if (languageHint) {
+        formData.append('language_hint', languageHint);
+    }
+
+    const response = await api.post('/chat/transcribe', formData, {
+        headers: {
+            'Content-Type': 'multipart/form-data'
+        }
+    });
+
+    return response.data;
+}
+
 export default api;

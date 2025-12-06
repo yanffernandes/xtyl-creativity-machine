@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Send, Bot, User as UserIcon, Settings, FileText, ChevronDown, ChevronUp, Trash2, Check, ChevronsUpDown, Paperclip, RotateCcw, Sparkles, Folder, Search, X, History, ExternalLink, Image, MoreVertical, Plus, Loader2 } from "lucide-react"
+import { Send, Bot, User as UserIcon, Settings, FileText, ChevronDown, ChevronUp, Trash2, Check, ChevronsUpDown, Paperclip, RotateCcw, Sparkles, Folder, Search, X, History, ExternalLink, Image, MoreVertical, Plus, Loader2, Mic, Square } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/components/ui/use-toast"
 import ReactMarkdown from "react-markdown"
@@ -39,6 +39,10 @@ import { conversationService } from "@/lib/supabase/conversations"
 import { getVisualContext, type VisualContextResponse } from "@/lib/api"
 import VisualContextSelector from "@/components/visual-assets/VisualContextSelector"
 import AdvancedVisualSettingsModal from "@/components/visual-assets/AdvancedVisualSettingsModal"
+import { TemplateSelector, TemplateForm } from "@/components/templates"
+import { startChatFromTemplate, transcribeAudio } from "@/lib/api"
+import { useVoiceRecording } from "@/hooks/useVoiceRecording"
+import { AnimatePresence } from "framer-motion"
 
 // Generate a title from the first user message (truncate at ~50 chars on word boundary)
 function generateTitleFromMessage(content: string): string {
@@ -155,6 +159,10 @@ export default function ChatSidebar({
     const [selectedContextIds, setSelectedContextIds] = useState<string[]>([])
     const [streamingStatus, setStreamingStatus] = useState<StreamingStatus | null>(null)
     const [openTemplates, setOpenTemplates] = useState(false)
+    const [showTemplateSelector, setShowTemplateSelector] = useState(false)
+    const [showTemplateForm, setShowTemplateForm] = useState(false)
+    const [selectedTemplate, setSelectedTemplate] = useState<any>(null)
+    const [isStartingFromTemplate, setIsStartingFromTemplate] = useState(false)
     const [pendingApproval, setPendingApproval] = useState<PendingApproval | null>(null)
     const [attachments, setAttachments] = useState<any[]>([])
     const [uploadingAttachment, setUploadingAttachment] = useState(false)
@@ -188,6 +196,26 @@ export default function ChatSidebar({
     const folders = foldersData ?? []
     const { data: templatesData } = useTemplates(workspaceId)
     const templates = (templatesData ?? []).slice(0, 10) // Top 10 templates
+
+    // Voice recording hook (Feature 021)
+    const {
+        status: recordingStatus,
+        duration: recordingDuration,
+        error: recordingError,
+        isSupported: isRecordingSupported,
+        startRecording,
+        stopRecording,
+        cancelRecording,
+        setStatus: setRecordingStatus,
+        setError: setRecordingError
+    } = useVoiceRecording(() => {
+        // Warning callback at 4:45
+        toast({
+            title: "Aviso",
+            description: "A gravação será encerrada em 15 segundos.",
+            variant: "default"
+        })
+    })
 
     // SSR-safe: Load models from cache after mount, then refresh if stale
     const [hasMounted, setHasMounted] = useState(false)
@@ -292,6 +320,66 @@ export default function ChatSidebar({
         // Increment usage count via Supabase
         await templateService.incrementUsageCount(template.id)
         toast({ title: "Template carregado!", description: template.name })
+    }
+
+    // New template flow - select template then fill form
+    const handleSelectTemplate = (template: any) => {
+        setSelectedTemplate(template)
+        setShowTemplateSelector(false)
+        setShowTemplateForm(true)
+    }
+
+    const handleTemplateFormBack = () => {
+        setShowTemplateForm(false)
+        setSelectedTemplate(null)
+        setShowTemplateSelector(true)
+    }
+
+    const handleStartChatFromTemplate = async (templateId: string, variables: Record<string, string>) => {
+        setIsStartingFromTemplate(true)
+        try {
+            const response = await startChatFromTemplate({
+                template_id: templateId,
+                variables,
+                project_id: projectId,
+            })
+
+            // Close forms
+            setShowTemplateForm(false)
+            setSelectedTemplate(null)
+
+            // Clear current chat and set new conversation
+            setMessages([])
+            setCurrentConversationId(response.conversation_id)
+            setCreatedDocuments([])
+
+            toast({
+                title: "Conversa iniciada!",
+                description: `Template "${selectedTemplate?.name}" aplicado com sucesso.`
+            })
+
+            // If there's a first_message (user's initial request), set it in input and auto-send
+            if (response.first_message) {
+                // Set the message in input field and trigger send after a brief delay
+                setInput(response.first_message)
+                // Use setTimeout to ensure state is updated before sending
+                setTimeout(() => {
+                    const form = document.querySelector('form') as HTMLFormElement
+                    if (form) {
+                        form.requestSubmit()
+                    }
+                }, 100)
+            }
+        } catch (error: any) {
+            console.error("Failed to start chat from template:", error)
+            toast({
+                title: "Erro ao iniciar conversa",
+                description: error.response?.data?.detail || "Falha ao aplicar template",
+                variant: "destructive"
+            })
+        } finally {
+            setIsStartingFromTemplate(false)
+        }
     }
 
     const scrollToBottom = () => {
@@ -508,6 +596,45 @@ export default function ChatSidebar({
 
     const removeAttachment = (index: number) => {
         setAttachments(prev => prev.filter((_, i) => i !== index))
+    }
+
+    // Voice input handler (Feature 021)
+    const handleVoiceInput = async () => {
+        if (recordingStatus === 'recording') {
+            // Stop recording and transcribe
+            const audioBlob = await stopRecording()
+            if (audioBlob) {
+                try {
+                    const result = await transcribeAudio(audioBlob)
+                    // Append transcribed text to existing input with space separator
+                    setInput(prev => prev ? `${prev} ${result.text}` : result.text)
+                    setRecordingStatus('idle')
+                    toast({
+                        title: "Transcrição concluída",
+                        description: `Processado em ${result.processing_time_ms}ms`
+                    })
+                } catch (err: any) {
+                    setRecordingStatus('error')
+                    const errorMessage = err.response?.data?.message || "Falha ao transcrever. Tente novamente."
+                    setRecordingError(errorMessage)
+                    toast({
+                        title: "Erro na transcrição",
+                        description: errorMessage,
+                        variant: "destructive"
+                    })
+                }
+            }
+        } else if (recordingStatus === 'idle' || recordingStatus === 'error') {
+            // Start recording
+            await startRecording()
+        }
+    }
+
+    // Format duration as MM:SS
+    const formatDuration = (seconds: number): string => {
+        const mins = Math.floor(seconds / 60)
+        const secs = seconds % 60
+        return `${mins}:${secs.toString().padStart(2, '0')}`
     }
 
     const handleSend = async (e: React.FormEvent) => {
@@ -1595,49 +1722,18 @@ export default function ChatSidebar({
 
                     {/* Botões abaixo do textarea */}
                     <div className="flex items-center gap-2">
-                        <Popover open={openTemplates} onOpenChange={setOpenTemplates}>
-                            <PopoverTrigger asChild>
-                                <Button
-                                    type="button"
-                                    size="sm"
-                                    variant="outline"
-                                    disabled={isLoading}
-                                    title="Usar template"
-                                    className="gap-2"
-                                >
-                                    <Sparkles className="h-4 w-4" />
-                                    Templates
-                                </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-80 p-0" align="start">
-                                <Command>
-                                    <CommandInput placeholder="Buscar templates..." />
-                                    <CommandList>
-                                        <CommandEmpty>Nenhum template encontrado.</CommandEmpty>
-                                        <CommandGroup heading="Templates Populares">
-                                            {templates.map((template) => (
-                                                <CommandItem
-                                                    key={template.id}
-                                                    onSelect={() => useTemplate(template)}
-                                                    className="cursor-pointer"
-                                                >
-                                                    <span className="mr-2">{template.icon}</span>
-                                                    <div className="flex-1">
-                                                        <div className="text-sm font-medium">{template.name}</div>
-                                                        <div className="text-xs text-muted-foreground line-clamp-1">
-                                                            {template.description}
-                                                        </div>
-                                                    </div>
-                                                    <Badge variant="secondary" className="text-xs ml-2">
-                                                        {template.category}
-                                                    </Badge>
-                                                </CommandItem>
-                                            ))}
-                                        </CommandGroup>
-                                    </CommandList>
-                                </Command>
-                            </PopoverContent>
-                        </Popover>
+                        <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setShowTemplateSelector(true)}
+                            disabled={isLoading}
+                            title="Usar template de marketing"
+                            className="gap-2"
+                        >
+                            <Sparkles className="h-4 w-4" />
+                            Templates
+                        </Button>
 
                         <Button
                             type="button"
@@ -1651,6 +1747,47 @@ export default function ChatSidebar({
                             <Paperclip className={cn("h-4 w-4", uploadingAttachment && "animate-spin")} />
                             Anexar
                         </Button>
+
+                        {/* Voice Input Button (Feature 021) */}
+                        {isRecordingSupported && (
+                            <Button
+                                type="button"
+                                size="sm"
+                                variant={recordingStatus === 'recording' ? 'destructive' : 'outline'}
+                                onClick={handleVoiceInput}
+                                disabled={isLoading || recordingStatus === 'processing'}
+                                title={recordingStatus === 'recording' ? 'Clique para parar' : 'Gravar áudio para transcrever'}
+                                className="gap-2"
+                            >
+                                <AnimatePresence mode="wait">
+                                    {recordingStatus === 'recording' ? (
+                                        <motion.div
+                                            key="recording"
+                                            initial={{ scale: 0 }}
+                                            animate={{ scale: 1 }}
+                                            exit={{ scale: 0 }}
+                                            className="flex items-center gap-2"
+                                        >
+                                            <Square className="h-4 w-4" />
+                                            <span className="tabular-nums text-xs">{formatDuration(recordingDuration)}</span>
+                                            <motion.span
+                                                animate={{ opacity: [1, 0.3, 1] }}
+                                                transition={{ repeat: Infinity, duration: 1 }}
+                                                className="h-2 w-2 rounded-full bg-white"
+                                            />
+                                        </motion.div>
+                                    ) : recordingStatus === 'processing' ? (
+                                        <motion.div key="processing">
+                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                        </motion.div>
+                                    ) : (
+                                        <motion.div key="idle">
+                                            <Mic className="h-4 w-4" />
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
+                            </Button>
+                        )}
 
                         <div className="flex-1" />
 
@@ -1666,6 +1803,25 @@ export default function ChatSidebar({
                     </div>
                 </form>
             </div>
+
+            {/* Template Selector Modal */}
+            <TemplateSelector
+                open={showTemplateSelector}
+                onOpenChange={setShowTemplateSelector}
+                templates={templatesData ?? []}
+                isLoading={false}
+                onSelectTemplate={handleSelectTemplate}
+            />
+
+            {/* Template Form Modal */}
+            <TemplateForm
+                open={showTemplateForm}
+                onOpenChange={setShowTemplateForm}
+                template={selectedTemplate}
+                onSubmit={handleStartChatFromTemplate}
+                onBack={handleTemplateFormBack}
+                isSubmitting={isStartingFromTemplate}
+            />
         </div >
     )
 }

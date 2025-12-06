@@ -279,16 +279,34 @@ class AIUsageSummary(BaseModel):
 
 
 # Template Schemas
+
+class TemplateVariable(BaseModel):
+    """Definition of a variable in a template form"""
+    key: str  # Variable key used in prompt: {{key}}
+    label: str  # Display label
+    type: str = "text"  # text, textarea, select
+    placeholder: Optional[str] = None
+    required: bool = True
+    options: Optional[List[str]] = None  # For select type
+    default: Optional[str] = None
+
+
 class TemplateBase(BaseModel):
     name: str
     description: Optional[str] = None
-    category: str  # 'ads', 'landing_page', 'email', 'social_media', 'seo', 'creative'
+    category: str  # 'trafego_pago', 'social_media', 'email', 'copy', 'seo', 'criativo'
     icon: Optional[str] = None
     prompt: str
+    variables: Optional[List[TemplateVariable]] = []
+    initial_message: Optional[str] = None
+    expert_name: Optional[str] = None
+    estimated_outputs: Optional[str] = None
     tags: Optional[List[str]] = None
+
 
 class TemplateCreate(TemplateBase):
     pass
+
 
 class TemplateUpdate(BaseModel):
     name: Optional[str] = None
@@ -296,8 +314,14 @@ class TemplateUpdate(BaseModel):
     category: Optional[str] = None
     icon: Optional[str] = None
     prompt: Optional[str] = None
+    variables: Optional[List[TemplateVariable]] = None
+    initial_message: Optional[str] = None
+    expert_name: Optional[str] = None
+    estimated_outputs: Optional[str] = None
     tags: Optional[List[str]] = None
     is_active: Optional[bool] = None
+    is_featured: Optional[bool] = None
+
 
 class Template(TemplateBase):
     id: str
@@ -305,12 +329,34 @@ class Template(TemplateBase):
     user_id: Optional[str] = None
     is_system: bool
     is_active: bool
+    is_featured: bool = False
     usage_count: int
     created_at: datetime
     updated_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True
+
+
+class TemplateListResponse(BaseModel):
+    """Response for listing templates"""
+    templates: List[Template]
+    total: int
+
+
+class CreateChatFromTemplateRequest(BaseModel):
+    """Request to create a chat conversation from a template"""
+    template_id: str
+    project_id: str
+    variables: Dict[str, str]  # key-value pairs for variable substitution
+    title: Optional[str] = None  # Optional custom title for the conversation
+
+
+class CreateChatFromTemplateResponse(BaseModel):
+    """Response after creating chat from template"""
+    conversation_id: str
+    title: str
+    first_message: Optional[str] = None  # The AI's first response if generated
 
 
 # ============================================================================
@@ -1315,3 +1361,41 @@ class DetachImageResponse(BaseModel):
     success: bool
     message: str
     image_id: str  # ID of the detached image (still available in library)
+
+
+# ============================================================================
+# PROJECT DELETION SCHEMAS (Feature 020)
+# ============================================================================
+
+class CascadeSummary(BaseModel):
+    """Summary of cascade-deleted entities"""
+    documents: int = 0
+    folders: int = 0
+    workflow_templates: int = 0
+    workflow_executions: int = 0
+
+
+class DeleteProjectResponse(BaseModel):
+    """Response from soft delete project endpoint"""
+    success: bool = True
+    message: str
+    deleted_at: datetime
+    cascade_summary: CascadeSummary
+
+
+# ============================================================================
+# AUDIO TRANSCRIPTION SCHEMAS (Feature 021 - Voice Input)
+# ============================================================================
+
+class TranscriptionResponse(BaseModel):
+    """Response from audio transcription endpoint"""
+    text: str
+    duration_seconds: float = 0.0
+    language: str = "auto"
+    processing_time_ms: int = 0
+
+
+class TranscriptionError(BaseModel):
+    """Error response for transcription failures"""
+    error: str  # Error type identifier
+    message: str  # Human-readable error message in Portuguese
