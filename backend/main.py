@@ -126,8 +126,18 @@ async def root():
 @app.get("/health")
 async def health_check():
     """
-    Health check endpoint for monitoring and load balancers.
-    Verifies connectivity to critical services.
+    Lightweight health check endpoint for monitoring and load balancers.
+    Returns immediately without checking external services to minimize CPU usage.
+    Use /health/detailed for full service connectivity checks.
+    """
+    return {"status": "healthy"}
+
+
+@app.get("/health/detailed")
+async def health_check_detailed():
+    """
+    Detailed health check that verifies connectivity to all services.
+    Use sparingly as this creates connections to DB, Redis, and R2.
     """
     health_status = {
         "status": "healthy",
