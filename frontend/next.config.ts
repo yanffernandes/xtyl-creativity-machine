@@ -1,15 +1,11 @@
 import type { NextConfig } from "next";
 import createNextIntlPlugin from 'next-intl/plugin';
-import { withSentryConfig } from '@sentry/nextjs';
 
 const withNextIntl = createNextIntlPlugin('./src/i18n/request.ts');
 
 const nextConfig: NextConfig = {
   // Enable standalone output for Docker production builds
   output: 'standalone',
-
-  // Enable source maps for Sentry error tracking
-  productionBrowserSourceMaps: true,
 
   // Allow images from MinIO storage and backend
   images: {
@@ -66,16 +62,4 @@ const nextConfig: NextConfig = {
   },
 };
 
-// Sentry configuration options
-const sentryWebpackPluginOptions = {
-  // Suppresses source map uploading logs during build
-  silent: true,
-  org: process.env.SENTRY_ORG,
-  project: process.env.SENTRY_PROJECT,
-  authToken: process.env.SENTRY_AUTH_TOKEN,
-};
-
-export default withSentryConfig(
-  withNextIntl(nextConfig),
-  sentryWebpackPluginOptions
-);
+export default withNextIntl(nextConfig);

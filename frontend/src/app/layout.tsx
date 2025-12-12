@@ -10,6 +10,7 @@ import { SystemMessageBanner } from "@/components/SystemMessageBanner";
 import { NextIntlClientProvider } from 'next-intl';
 import { getMessages, getLocale } from 'next-intl/server';
 import { LocaleProvider } from "@/contexts/LocaleContext";
+import { SentryProvider } from "@/components/providers/SentryProvider";
 
 /**
  * Inter Variable Font - Premium Typography
@@ -45,9 +46,10 @@ export default async function RootLayout({
       <body
         className={`${inter.variable} font-sans antialiased`}
       >
-        <NextIntlClientProvider messages={messages}>
-          <LocaleProvider>
-            <QueryProvider>
+        <SentryProvider>
+          <NextIntlClientProvider messages={messages}>
+            <LocaleProvider>
+              <QueryProvider>
               <ThemeProvider
                 attribute="class"
                 defaultTheme="system"
@@ -62,8 +64,9 @@ export default async function RootLayout({
                 </ConfirmDialogProvider>
               </ThemeProvider>
             </QueryProvider>
-          </LocaleProvider>
-        </NextIntlClientProvider>
+            </LocaleProvider>
+          </NextIntlClientProvider>
+        </SentryProvider>
       </body>
     </html>
   );
