@@ -11,11 +11,6 @@ const nextConfig: NextConfig = {
   // Enable source maps for Sentry error tracking
   productionBrowserSourceMaps: true,
 
-  // Enable instrumentation for Sentry
-  experimental: {
-    instrumentationHook: true,
-  },
-
   // Allow images from MinIO storage and backend
   images: {
     remotePatterns: [
