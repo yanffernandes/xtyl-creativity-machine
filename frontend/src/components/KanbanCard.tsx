@@ -4,7 +4,7 @@ import { useSortable } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { FileText, GripVertical, Star, Trash2, Image as ImageIcon, MoreHorizontal, Library } from "lucide-react"
+import { FileText, GripVertical, Trash2, Image as ImageIcon, MoreHorizontal, Library } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -35,7 +35,6 @@ interface Document {
   created_at: string
   type: "creation" | "context"
   content?: string
-  is_context?: boolean
   attachments?: ImageAttachment[]
   // Feature 028 T053: Tags support
   tags?: string[]
@@ -45,7 +44,6 @@ interface Document {
 interface KanbanCardProps {
   document: Document
   onSelect: (doc: Document) => void
-  onToggleContext?: (e: React.MouseEvent, doc: Document) => void
   onDelete?: (e: React.MouseEvent, doc: Document) => void
   /** Feature 028 T031: Add document content to copy library */
   onAddToLibrary?: (doc: Document) => void
@@ -57,7 +55,6 @@ interface KanbanCardProps {
 export default function KanbanCard({
   document,
   onSelect,
-  onToggleContext,
   onDelete,
   onAddToLibrary,
   isSelected = false,
@@ -119,25 +116,6 @@ export default function KanbanCard({
             >
               <GripVertical className="h-4 w-4 text-muted-foreground" />
             </div>
-            {onToggleContext && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className={cn(
-                  "h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity",
-                  document.is_context && "opacity-100 text-yellow-500 hover:text-yellow-600"
-                )}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onToggleContext(e, document)
-                }}
-              >
-                <Star
-                  className="h-4 w-4"
-                  fill={document.is_context ? "currentColor" : "none"}
-                />
-              </Button>
-            )}
             {onDelete && (
               <Button
                 variant="ghost"
@@ -220,11 +198,6 @@ export default function KanbanCard({
 
         <div className="flex items-center justify-between text-xs text-muted-foreground">
           <span>{new Date(document.created_at).toLocaleDateString('pt-BR')}</span>
-          {document.is_context && (
-            <span className="bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-500 px-2 py-0.5 rounded-full font-medium">
-              Contexto
-            </span>
-          )}
         </div>
       </CardContent>
     </Card>

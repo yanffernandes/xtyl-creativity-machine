@@ -15,7 +15,6 @@ interface Document {
   created_at: string
   type: "creation" | "context"
   content?: string
-  is_context?: boolean
 }
 
 interface Column {
@@ -29,7 +28,6 @@ interface KanbanColumnProps {
   column: Column
   documents: Document[]
   onSelectDocument: (doc: Document) => void
-  onToggleContext?: (e: React.MouseEvent, doc: Document) => void
   onDelete?: (e: React.MouseEvent, doc: Document) => void
   /** Feature 028 T031: Add document to copy library */
   onAddToLibrary?: (doc: Document) => void
@@ -42,7 +40,6 @@ export default function KanbanColumn({
   column,
   documents,
   onSelectDocument,
-  onToggleContext,
   onDelete,
   onAddToLibrary,
   selectedIds,
@@ -91,7 +88,6 @@ export default function KanbanColumn({
                   key={doc.id}
                   document={doc}
                   onSelect={onSelectDocument}
-                  onToggleContext={onToggleContext}
                   onDelete={onDelete}
                   onAddToLibrary={onAddToLibrary}
                   isSelected={selectedIds?.has(doc.id)}

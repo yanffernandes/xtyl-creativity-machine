@@ -14,7 +14,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { useParams, useRouter, useSearchParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import {
@@ -25,7 +25,6 @@ import {
   Loader2,
   Wand2,
   LayoutGrid,
-  Library,
 } from 'lucide-react';
 import { useAuthStore } from '@/lib/store';
 import { useProjectBootstrap } from '@/hooks/useProjectBootstrap';
@@ -45,16 +44,12 @@ import { VariationGrid } from '@/components/image-studio/VariationGrid';
 import { ImageExpandModal } from '@/components/image-studio/ImageExpandModal';
 import { DocumentPromptSource } from '@/components/image-studio/DocumentPromptSource';
 import { VisualContextPreview } from '@/components/image-studio/VisualContextPreview';
-import { BatchCopyQueue } from '@/components/image-studio/BatchCopyQueue';
 import { GenerationSummary } from '@/components/image-studio/GenerationSummary';
-import { CopyLibraryDrawer } from '@/components/copy-library';
 import type { GeneratedImage } from '@/types/image-studio';
-import type { BatchCopyItem } from '@/types/agency-studio';
 
 export default function StudioPage() {
   const params = useParams();
   const router = useRouter();
-  const searchParams = useSearchParams();
   const workspaceId = params.id as string;
   const projectId = params.projectId as string;
 
@@ -64,11 +59,6 @@ export default function StudioPage() {
   // Document prompt source state
   const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(null);
   const [useAgent, setUseAgent] = useState(false);
-
-  // Feature 028 T017-T021: Batch copy queue state
-  const [batchQueue, setBatchQueue] = useState<BatchCopyItem[]>([]);
-  const [activeBatchItemId, setActiveBatchItemId] = useState<string | null>(null);
-  const [isBatchGenerating, setIsBatchGenerating] = useState(false);
 
   // Generation summary expanded state
   const [showGenerationSummary, setShowGenerationSummary] = useState(true);
@@ -108,38 +98,6 @@ export default function StudioPage() {
     }
   }, [authLoading, session, router]);
 
-  // Feature 028 T018: Load copies from query params
-  useEffect(() => {
-    const copiesParam = searchParams.get('copies');
-    if (copiesParam && bootstrapData?.recent_documents) {
-      const copyIds = copiesParam.split(',').filter(Boolean);
-      const documents = bootstrapData.recent_documents;
-
-      const queueItems: BatchCopyItem[] = copyIds
-        .map((id) => {
-          const doc = documents.find((d: { id: string }) => d.id === id);
-          if (doc) {
-            return {
-              id: doc.id,
-              title: doc.title || 'Sem título',
-              content: doc.content || '',
-              status: 'pending' as const,
-            };
-          }
-          return null;
-        })
-        .filter((item): item is BatchCopyItem => item !== null);
-
-      if (queueItems.length > 0) {
-        setBatchQueue(queueItems);
-        // Set the first item's content as the initial prompt
-        studio.setPrompt(queueItems[0].content);
-        setSelectedDocumentId(queueItems[0].id);
-        toast.success(`${queueItems.length} copies carregadas na fila`);
-      }
-    }
-  }, [searchParams, bootstrapData?.recent_documents]);
-
   const handleBack = () => {
     router.push(`/workspace/${workspaceId}/project/${projectId}`);
   };
@@ -175,13 +133,6 @@ export default function StudioPage() {
     await promptGenerator.generateCreativePrompt(content);
   }, [bootstrapData?.recent_documents, selectedDocumentId, studio.prompt, promptGenerator]);
 
-
-  // Feature 028 T030: Handler for copy library - use copy content as prompt
-  const handleUseCopyAsPrompt = useCallback((content: string) => {
-    studio.setPrompt(content);
-    toast.success('Copy aplicada como prompt');
-  }, [studio]);
-
   // Handler for attaching image to selected document
   const handleAttachImage = useCallback(
     async (image: GeneratedImage) => {
@@ -193,94 +144,6 @@ export default function StudioPage() {
     },
     [selectedDocumentId, studio]
   );
-
-  // Feature 028 T019-T021: Batch generation handlers
-  const handleRemoveFromQueue = useCallback((itemId: string) => {
-    setBatchQueue((prev) => prev.filter((item) => item.id !== itemId));
-  }, []);
-
-  const handleClearQueue = useCallback(() => {
-    setBatchQueue([]);
-    setActiveBatchItemId(null);
-  }, []);
-
-  const handleSelectQueueItem = useCallback((item: BatchCopyItem) => {
-    studio.setPrompt(item.content);
-    setSelectedDocumentId(item.id);
-  }, [studio]);
-
-  // T019: Batch generation loop
-  const handleStartBatchGeneration = useCallback(async () => {
-    if (batchQueue.length === 0 || isBatchGenerating) return;
-
-    setIsBatchGenerating(true);
-
-    for (let i = 0; i < batchQueue.length; i++) {
-      const item = batchQueue[i];
-
-      // Update item to generating status
-      setBatchQueue((prev) =>
-        prev.map((q) =>
-          q.id === item.id ? { ...q, status: 'generating' as const } : q
-        )
-      );
-      setActiveBatchItemId(item.id);
-
-      // Set the prompt and document for this item
-      studio.setPrompt(item.content);
-      setSelectedDocumentId(item.id);
-
-      try {
-        // Generate images for this item
-        await studio.generate();
-
-        // T021: Link generated images to original document
-        const generatedImageIds = studio.variations
-          .filter((v) => v.success && v.documentId)
-          .map((v) => v.documentId as string);
-
-        // Update item to complete
-        setBatchQueue((prev) =>
-          prev.map((q) =>
-            q.id === item.id
-              ? { ...q, status: 'complete' as const, generatedImages: generatedImageIds }
-              : q
-          )
-        );
-      } catch (error) {
-        // Update item to error
-        setBatchQueue((prev) =>
-          prev.map((q) =>
-            q.id === item.id
-              ? {
-                  ...q,
-                  status: 'error' as const,
-                  error: error instanceof Error ? error.message : 'Erro desconhecido',
-                }
-              : q
-          )
-        );
-      }
-
-      // Wait a bit between generations to avoid rate limiting
-      if (i < batchQueue.length - 1) {
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-      }
-    }
-
-    setIsBatchGenerating(false);
-    setActiveBatchItemId(null);
-    toast.success('Geração em lote concluída!');
-  }, [batchQueue, isBatchGenerating, studio]);
-
-  // Calculate batch progress
-  const batchProgress = batchQueue.length > 0
-    ? Math.round(
-        (batchQueue.filter((i) => i.status === 'complete' || i.status === 'error').length /
-          batchQueue.length) *
-          100
-      )
-    : 0;
 
   // Loading state
   if (authLoading || bootstrapLoading) {
@@ -328,18 +191,6 @@ export default function StudioPage() {
 
             {/* Right side */}
             <div className="flex items-center gap-3">
-              {/* Feature 028 T030: Copy Library access */}
-              <CopyLibraryDrawer
-                workspaceId={workspaceId}
-                onUseAsPrompt={handleUseCopyAsPrompt}
-                trigger={
-                  <Button variant="outline" size="sm">
-                    <Library className="h-4 w-4 mr-2" />
-                    Biblioteca de Copy
-                  </Button>
-                }
-              />
-
               {studio.variations.length > 0 && (
                 <Button
                   variant="ghost"
@@ -373,32 +224,6 @@ export default function StudioPage() {
             {/* Left panel - Controls */}
             <div className="w-[400px] flex-shrink-0 border-r border-gray-200/50 dark:border-gray-800/50 overflow-y-auto">
               <div className="p-6 space-y-6">
-                {/* Feature 028 T017-T020: Batch copy queue */}
-                {batchQueue.length > 0 && (
-                  <BatchCopyQueue
-                    items={batchQueue}
-                    activeItemId={activeBatchItemId || undefined}
-                    onRemoveItem={handleRemoveFromQueue}
-                    onClearQueue={handleClearQueue}
-                    onSelectItem={handleSelectQueueItem}
-                    progress={batchProgress}
-                    isGenerating={isBatchGenerating}
-                    compact
-                  />
-                )}
-
-                {/* Batch generation button */}
-                {batchQueue.length > 0 && !isBatchGenerating && (
-                  <Button
-                    onClick={handleStartBatchGeneration}
-                    className="w-full gap-2 bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600"
-                    disabled={studio.isGenerating}
-                  >
-                    <Sparkles className="h-4 w-4" />
-                    Gerar Imagens para Todas as Copies ({batchQueue.filter(i => i.status === 'pending').length})
-                  </Button>
-                )}
-
                 {/* Prompt input */}
                 <PromptInput
                   value={studio.prompt}

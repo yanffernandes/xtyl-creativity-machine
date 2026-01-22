@@ -14,7 +14,6 @@ import { Loader2, ArrowLeft, Home, User } from "lucide-react"
 import WorkspaceSidebar from "@/components/WorkspaceSidebar"
 import Breadcrumbs from "@/components/Breadcrumbs"
 import { useWorkspace } from "@/hooks/use-workspaces"
-import { LocaleSwitcher } from "@/components/LocaleSwitcher"
 
 export default function ProfilePage() {
     const params = useParams()
@@ -126,7 +125,6 @@ export default function ProfilePage() {
                                     placeholder={t("keepCurrentPassword")}
                                 />
                             </div>
-                            <LocaleSwitcher />
                         </CardContent>
                         <CardFooter className="flex justify-end pt-2">
                             <Button onClick={handleSave} disabled={isSaving}>

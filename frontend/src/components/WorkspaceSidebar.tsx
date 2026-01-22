@@ -34,7 +34,6 @@ import {
   FileText,
   FileImage,
   List,
-  Workflow,
   Loader2,
   RefreshCw
 } from "lucide-react"
@@ -498,10 +497,6 @@ export default function WorkspaceSidebar({ className, onDocumentNavigate }: Work
             <DropdownMenuItem onClick={() => router.push(`/workspace/${workspaceId}/templates`)}>
               <Sparkles className="mr-2 h-4 w-4" />
               <span>{t("templates")}</span>
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => router.push(`/workspace/${workspaceId}/workflows`)}>
-              <Workflow className="mr-2 h-4 w-4" />
-              <span>{t("workflowTemplates")}</span>
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => router.push(`/workspace/${workspaceId}/ai-usage`)}>
               <Activity className="mr-2 h-4 w-4" />

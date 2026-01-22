@@ -8,7 +8,7 @@ import { useWorkspace } from "@/hooks/use-workspaces"
 import { useProjects } from "@/hooks/use-projects"
 import { useDocuments } from "@/hooks/use-documents"
 import { documentService } from "@/lib/supabase/documents"
-import { useContextFiles, useToggleContext } from "@/hooks/use-context-files"
+import { useContextFiles } from "@/hooks/use-context-files"
 import { useCreateCopy } from "@/hooks/useCopyLibrary"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -17,7 +17,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Card } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { useToast } from "@/components/ui/use-toast"
-import { Loader2, Plus, Upload, FileText, MoreHorizontal, Trash, X, Star, FolderOpen, Home, Sparkles, Download, FileType, Share2, Workflow, ArrowRight, Settings, History } from "lucide-react"
+import { Loader2, Plus, Upload, FileText, MoreHorizontal, Trash, X, FolderOpen, Home, Sparkles, Download, FileType, Share2, ArrowRight, Settings, History } from "lucide-react"
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -74,7 +74,6 @@ interface DocumentAttachment {
 function KanbanBoardWithMultiSelect({
     documents,
     onSelectDocument,
-    onToggleContext,
     onDelete,
     onStatusChange,
     onAddToLibrary,
@@ -83,7 +82,6 @@ function KanbanBoardWithMultiSelect({
 }: {
     documents: Document[]
     onSelectDocument: (doc: Document) => void
-    onToggleContext?: (e: React.MouseEvent, doc: Document) => void
     onDelete?: (e: React.MouseEvent, doc: Document) => void
     onStatusChange?: (docId: string, newStatus: string) => void
     onAddToLibrary?: (doc: Document) => void
@@ -102,7 +100,6 @@ function KanbanBoardWithMultiSelect({
             <KanbanBoard
                 documents={documents}
                 onSelectDocument={onSelectDocument}
-                onToggleContext={onToggleContext}
                 onDelete={onDelete}
                 onStatusChange={onStatusChange}
                 onAddToLibrary={onAddToLibrary}
@@ -181,7 +178,6 @@ export default function ProjectPage() {
     const { data: projects = [] } = useProjects(workspaceId)
     const { data: documents = [], isLoading: docsLoading, isRefreshing: docsRefreshing, isInitialLoad: docsInitialLoad, refetch: refetchDocuments } = useDocuments(projectId)
     const { data: contextFiles = [], isLoading: contextLoading, refetch: refetchContextFiles } = useContextFiles(projectId)
-    const toggleContextMutation = useToggleContext()
     // Feature 028 T031: Copy Library mutation
     const createCopyMutation = useCreateCopy(workspaceId)
 
@@ -692,22 +688,6 @@ export default function ProjectPage() {
         }
     }
 
-    const handleToggleContext = async (e: React.MouseEvent, doc: Document) => {
-        e.stopPropagation()
-        try {
-            await toggleContextMutation.mutateAsync(doc.id)
-            // The mutation will invalidate queries and show toast automatically
-            // Also update local state for immediate UI feedback
-            const updatedDoc = { ...doc, is_context: !doc.is_context }
-            setCreations(prev => prev.map(d => d.id === doc.id ? updatedDoc : d))
-            if (selectedDoc?.id === doc.id) {
-                setSelectedDoc(updatedDoc)
-            }
-        } catch (error) {
-            console.error("Failed to toggle context", error)
-        }
-    }
-
     // Feature 028 T031: Add document to copy library
     const handleAddToLibrary = async (doc: Document) => {
         if (!doc.content && doc.media_type !== 'text') {
@@ -926,14 +906,6 @@ export default function ProjectPage() {
                             >
                                 Assets Visuais
                             </button>
-                            <button
-                                onClick={() => router.push(`/workspace/${workspaceId}/project/${projectId}/workflows`)}
-                                className="flex-1 py-3 text-sm font-medium border-b-2 transition-colors border-transparent text-text-secondary hover:text-text-primary flex items-center justify-center gap-2"
-                            >
-                                <Workflow className="h-4 w-4" />
-                                Workflows
-                                <ArrowRight className="h-3 w-3" />
-                            </button>
                         </div>
                     </div>
                 )}
@@ -986,17 +958,6 @@ export default function ProjectPage() {
                                     </h2>
                                 )}
                                 <div className="flex gap-2 items-center">
-                                    {selectedDoc.type === "creation" && (
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            onClick={(e) => handleToggleContext(e, selectedDoc)}
-                                            className={selectedDoc.is_context ? "text-yellow-500" : "text-muted-foreground"}
-                                            title={selectedDoc.is_context ? "Remover dos favoritos" : "Adicionar aos favoritos"}
-                                        >
-                                            <Star className="h-4 w-4" fill={selectedDoc.is_context ? "currentColor" : "none"} />
-                                        </Button>
-                                    )}
                                     <DropdownMenu>
                                         <DropdownMenuTrigger asChild>
                                             <Button variant="ghost" size="icon">
@@ -1169,7 +1130,6 @@ export default function ProjectPage() {
                                             <KanbanBoardWithMultiSelect
                                                 documents={kanbanDocuments}
                                                 onSelectDocument={handleSelectDocument}
-                                                onToggleContext={handleToggleContext}
                                                 onDelete={handleDelete}
                                                 onStatusChange={(docId, newStatus) => {
                                                     setCreations(prev => prev.map(d =>
@@ -1205,14 +1165,6 @@ export default function ProjectPage() {
                                                                 <div className="text-sm text-muted-foreground">{doc.status}</div>
                                                             </div>
                                                             <div className="flex gap-1">
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="icon"
-                                                                    className={`h-8 w-8 ${doc.is_context ? "text-yellow-500" : "text-muted-foreground/50"}`}
-                                                                    onClick={(e) => handleToggleContext(e, doc)}
-                                                                >
-                                                                    ★
-                                                                </Button>
                                                                 <Button
                                                                     variant="ghost"
                                                                     size="icon"
@@ -1284,18 +1236,6 @@ export default function ProjectPage() {
                                                                     {file.status === 'processing' ? 'Processando...' : 'Pronto para uso'}
                                                                 </p>
                                                             </div>
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="icon"
-                                                                className="h-8 w-8 text-yellow-500"
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation()
-                                                                    handleToggleContext(e, { ...file, type: "context" as const })
-                                                                }}
-                                                                title="Remover do contexto"
-                                                            >
-                                                                <Star className="h-4 w-4" fill="currentColor" />
-                                                            </Button>
                                                         </div>
                                                     </Card>
                                                 ))}

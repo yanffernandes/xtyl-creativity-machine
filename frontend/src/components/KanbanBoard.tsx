@@ -19,7 +19,7 @@ import {
 import { arrayMove, SortableContext, sortableKeyboardCoordinates } from "@dnd-kit/sortable"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { FileText, GripVertical, Star, Trash2, MousePointer2 } from "lucide-react"
+import { FileText, GripVertical, Trash2, MousePointer2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import KanbanCard from "./KanbanCard"
 import KanbanColumn from "./KanbanColumn"
@@ -33,14 +33,12 @@ interface Document {
   created_at: string
   type: "creation" | "context"
   content?: string
-  is_context?: boolean
   is_reference_asset?: boolean
 }
 
 interface KanbanBoardProps {
   documents: Document[]
   onSelectDocument: (doc: Document) => void
-  onToggleContext?: (e: React.MouseEvent, doc: Document) => void
   onDelete?: (e: React.MouseEvent, doc: Document) => void
   onStatusChange?: (docId: string, newStatus: string) => void
   /** Feature 028 T031: Add document to copy library */
@@ -86,7 +84,6 @@ const COLUMNS = [
 export default function KanbanBoard({
   documents,
   onSelectDocument,
-  onToggleContext,
   onDelete,
   onStatusChange,
   onAddToLibrary,
@@ -255,7 +252,6 @@ export default function KanbanBoard({
               column={column}
               documents={columnDocs}
               onSelectDocument={onSelectDocument}
-              onToggleContext={onToggleContext}
               onDelete={onDelete}
               onAddToLibrary={onAddToLibrary}
               selectedIds={selectedIds}
