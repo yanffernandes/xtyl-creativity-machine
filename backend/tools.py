@@ -2,7 +2,7 @@
 AI Agent Tools for document and folder manipulation
 """
 from sqlalchemy.orm import Session
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Callable
 from models import Document, Folder
 from crud import (
     get_document, get_project_documents, update_document, create_document,
@@ -639,14 +639,17 @@ async def generate_image_tool(
             # Continue with original prompt
             enriched_prompt = prompt
 
-    # T041: Fetch visual context for the project
+    # T041/Feature 028: Fetch visual context using intelligent AI-based selection
     reference_image_urls = []
     visual_context_asset_ids = []
     visual_context_info = None
 
     if not skip_visual_context:
         try:
-            visual_context = visual_asset_service.get_visual_context(db, project_id)
+            # Use prompt for intelligent selection based on context
+            visual_context = await visual_asset_service.get_intelligent_visual_context(
+                db, project_id, prompt
+            )
             if visual_context.is_enabled and visual_context.assets:
                 reference_image_urls = [asset.file_url for asset in visual_context.assets if asset.file_url]
                 visual_context_asset_ids = [asset.id for asset in visual_context.assets]
@@ -655,7 +658,7 @@ async def generate_image_tool(
                     "asset_count": len(visual_context.assets),
                     "asset_ids": visual_context_asset_ids
                 }
-                print(f"📎 Visual context enabled: {len(reference_image_urls)} reference images")
+                print(f"📎 Visual context enabled: {len(reference_image_urls)} intelligently selected assets")
                 for url in reference_image_urls:
                     print(f"   - {url[:80]}...")
         except Exception as vc_error:
@@ -1658,16 +1661,18 @@ TOOL_DEFINITIONS = [
 async def execute_tool(
     tool_name: str,
     tool_args: Dict[str, Any],
-    db: Session
+    db: Session,
+    event_callback: Optional[Callable] = None
 ) -> Dict[str, Any]:
     """
     Execute a tool by name with given arguments.
-    
+
     Args:
         tool_name: Name of the tool to execute
         tool_args: Arguments for the tool
         db: Database session
-        
+        event_callback: Optional callback for progressive SSE events (Feature 026)
+
     Returns:
         Tool execution result
     """

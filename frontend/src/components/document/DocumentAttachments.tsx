@@ -16,7 +16,8 @@ import { Card } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useConfirm } from "@/components/confirm-dialog";
 import { useToast } from "@/components/ui/use-toast";
-import api, { detachImageFromDocument, deleteImagePermanently } from "@/lib/api";
+import { supabase } from "@/lib/supabase";
+import { detachImageFromDocument, deleteImagePermanently } from "@/lib/api";
 import ImageLightbox, { LightboxImage } from "@/components/ui/ImageLightbox";
 
 interface ImageAttachment {
@@ -38,12 +39,14 @@ interface DocumentAttachmentsProps {
   documentId: string;
   onAttachImage: () => void;
   onViewImage?: (imageId: string) => void;
+  compact?: boolean;
 }
 
 export default function DocumentAttachments({
   documentId,
   onAttachImage,
   onViewImage,
+  compact = false,
 }: DocumentAttachmentsProps) {
   const [attachments, setAttachments] = useState<ImageAttachment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -53,12 +56,48 @@ export default function DocumentAttachments({
   const confirm = useConfirm();
   const { toast } = useToast();
 
+  // Fetch attachments directly from Supabase for better performance
   const fetchAttachments = async () => {
     try {
       setLoading(true);
-      const response = await api.get(`/documents/${documentId}/attachments`);
-      setAttachments(response.data);
-      setImageErrors(new Set()); // Reset errors on refresh
+
+      // Get attachments for this document
+      const { data: attachmentsData, error: attError } = await supabase
+        .from('document_attachments')
+        .select('id, image_id, is_primary, attachment_order, created_at')
+        .eq('document_id', documentId)
+        .order('attachment_order', { ascending: true });
+
+      if (attError) throw attError;
+
+      if (!attachmentsData || attachmentsData.length === 0) {
+        setAttachments([]);
+        return;
+      }
+
+      // Get unique image IDs to fetch image details
+      const imageIds = [...new Set(attachmentsData.map(a => a.image_id))];
+
+      const { data: images, error: imgError } = await supabase
+        .from('documents')
+        .select('id, title, file_url, thumbnail_url')
+        .in('id', imageIds);
+
+      if (imgError) throw imgError;
+
+      // Create image map for fast lookup
+      const imageMap = Object.fromEntries(
+        (images || []).map(img => [img.id, img])
+      );
+
+      // Merge attachments with image data
+      const mergedAttachments: ImageAttachment[] = attachmentsData.map(att => ({
+        ...att,
+        image: imageMap[att.image_id] || undefined
+      }));
+
+      setAttachments(mergedAttachments);
+      setImageErrors(new Set());
     } catch (error) {
       console.error("Error fetching attachments:", error);
     } finally {
@@ -82,9 +121,20 @@ export default function DocumentAttachments({
 
   const handleSetPrimary = async (attachmentId: string) => {
     try {
-      await api.put(`/documents/${documentId}/attachments/${attachmentId}`, null, {
-        params: { is_primary: true },
-      });
+      // First, reset all attachments for this document to non-primary
+      await supabase
+        .from('document_attachments')
+        .update({ is_primary: false })
+        .eq('document_id', documentId);
+
+      // Then set the selected one as primary
+      const { error } = await supabase
+        .from('document_attachments')
+        .update({ is_primary: true })
+        .eq('id', attachmentId);
+
+      if (error) throw error;
+
       await fetchAttachments();
       toast({
         title: "Imagem principal definida",
@@ -170,19 +220,26 @@ export default function DocumentAttachments({
     setImageErrors((prev) => new Set(prev).add(attachmentId));
   };
 
+  // Compact grid classes for smaller thumbnails
+  const gridClasses = compact
+    ? "grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-8 gap-2"
+    : "grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3";
+
+  const thumbnailClasses = compact ? "aspect-square" : "aspect-square";
+
   if (loading) {
     return (
-      <div className="space-y-4">
+      <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+          <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
             Imagens Anexadas
           </h3>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {[1, 2, 3].map((i) => (
+        <div className={gridClasses}>
+          {[1, 2, 3, 4].map((i) => (
             <div
               key={i}
-              className="aspect-square bg-gray-200 dark:bg-gray-800 rounded-lg animate-pulse"
+              className={`${thumbnailClasses} bg-gray-200 dark:bg-gray-800 rounded-lg animate-pulse`}
             />
           ))}
         </div>
@@ -192,36 +249,30 @@ export default function DocumentAttachments({
 
   return (
     <TooltipProvider>
-      <div className="space-y-4">
+      <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-            Imagens Anexadas
+          <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
+            Imagens Anexadas {attachments.length > 0 && <span className="text-muted-foreground font-normal">({attachments.length})</span>}
           </h3>
-          <Button onClick={onAttachImage} size="sm" className="gap-2">
-            <Plus className="w-4 h-4" />
-            Anexar Imagens
+          <Button onClick={onAttachImage} size="sm" variant="outline" className="gap-1.5 h-7 text-xs">
+            <Plus className="w-3.5 h-3.5" />
+            Anexar
           </Button>
         </div>
 
         {attachments.length === 0 ? (
-          <Card className="p-8 text-center">
-            <div className="flex flex-col items-center gap-4">
-              <div className="w-16 h-16 rounded-full bg-blue-100 dark:bg-blue-950 flex items-center justify-center">
-                <ImageIcon className="w-8 h-8 text-[#5B8DEF]" />
-              </div>
-              <div>
-                <p className="text-gray-600 dark:text-gray-400 mb-2">
-                  Nenhuma imagem anexada
-                </p>
-                <Button onClick={onAttachImage} variant="outline" size="sm">
-                  <Plus className="w-4 h-4 mr-2" />
-                  Anexar sua primeira imagem
-                </Button>
-              </div>
-            </div>
-          </Card>
+          <div className="py-6 text-center border border-dashed rounded-lg bg-gray-50/50 dark:bg-gray-900/30">
+            <ImageIcon className="w-8 h-8 mx-auto text-muted-foreground/50 mb-2" />
+            <p className="text-sm text-muted-foreground mb-2">
+              Nenhuma imagem anexada
+            </p>
+            <Button onClick={onAttachImage} variant="ghost" size="sm" className="text-xs">
+              <Plus className="w-3.5 h-3.5 mr-1.5" />
+              Anexar imagem
+            </Button>
+          </div>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          <div className={gridClasses}>
             <AnimatePresence>
               {attachments.map((attachment, index) => {
                 const hasError = imageErrors.has(attachment.id);
@@ -233,16 +284,15 @@ export default function DocumentAttachments({
                     initial={{ opacity: 0, scale: 0.9 }}
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, scale: 0.9 }}
-                    transition={{ delay: index * 0.05 }}
+                    transition={{ delay: index * 0.03 }}
                   >
-                    <Card className="group relative overflow-hidden hover:shadow-lg transition-all duration-300">
-                      <div className="aspect-square relative">
+                    <div className="group relative overflow-hidden rounded-lg border border-border bg-muted/30 hover:border-primary/50 transition-all duration-200">
+                      <div className={thumbnailClasses + " relative"}>
                         {hasError ? (
-                          // Error placeholder for missing images
-                          <div className="w-full h-full flex flex-col items-center justify-center bg-gray-100 dark:bg-gray-800 gap-2">
-                            <AlertTriangle className="w-8 h-8 text-amber-500" />
-                            <span className="text-xs text-gray-500 dark:text-gray-400 text-center px-2">
-                              Imagem indisponível
+                          <div className="w-full h-full flex flex-col items-center justify-center bg-gray-100 dark:bg-gray-800 gap-1">
+                            <AlertTriangle className="w-5 h-5 text-amber-500" />
+                            <span className="text-[10px] text-muted-foreground">
+                              Erro
                             </span>
                           </div>
                         ) : (
@@ -254,34 +304,31 @@ export default function DocumentAttachments({
                           />
                         )}
 
-                        {/* Primary Badge */}
+                        {/* Primary Badge - Smaller */}
                         {attachment.is_primary && (
-                          <div className="absolute top-2 left-2">
-                            <div className="bg-yellow-400 text-yellow-900 px-2 py-1 rounded-full text-xs font-semibold flex items-center gap-1">
-                              <Star className="w-3 h-3 fill-current" />
-                              Principal
+                          <div className="absolute top-1 left-1">
+                            <div className="bg-yellow-400/90 backdrop-blur-sm text-yellow-900 p-1 rounded-full">
+                              <Star className="w-2.5 h-2.5 fill-current" />
                             </div>
                           </div>
                         )}
 
-                        {/* Hover Actions - Three distinct buttons */}
-                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1">
-                          {/* View Button */}
+                        {/* Hover Actions - Compact */}
+                        <div className="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1 p-1">
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <Button
                                 size="icon"
                                 variant="secondary"
                                 onClick={() => handleViewImage(attachment, index)}
-                                className="h-8 w-8"
+                                className="h-6 w-6"
                               >
-                                <Eye className="w-4 h-4" />
+                                <Eye className="w-3 h-3" />
                               </Button>
                             </TooltipTrigger>
-                            <TooltipContent>Visualizar</TooltipContent>
+                            <TooltipContent side="top">Visualizar</TooltipContent>
                           </Tooltip>
 
-                          {/* Set Primary Button */}
                           {!attachment.is_primary && (
                             <Tooltip>
                               <TooltipTrigger asChild>
@@ -289,53 +336,45 @@ export default function DocumentAttachments({
                                   size="icon"
                                   variant="secondary"
                                   onClick={() => handleSetPrimary(attachment.id)}
-                                  className="h-8 w-8"
+                                  className="h-6 w-6"
                                 >
-                                  <Star className="w-4 h-4" />
+                                  <Star className="w-3 h-3" />
                                 </Button>
                               </TooltipTrigger>
-                              <TooltipContent>Definir como principal</TooltipContent>
+                              <TooltipContent side="top">Principal</TooltipContent>
                             </Tooltip>
                           )}
 
-                          {/* Detach Button */}
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <Button
                                 size="icon"
                                 variant="outline"
                                 onClick={() => handleDetach(attachment.id)}
-                                className="h-8 w-8 bg-white/10 hover:bg-white/20 border-white/20"
+                                className="h-6 w-6 bg-white/10 hover:bg-white/20 border-white/20"
                               >
-                                <Link2Off className="w-4 h-4" />
+                                <Link2Off className="w-3 h-3" />
                               </Button>
                             </TooltipTrigger>
-                            <TooltipContent>Desanexar (mantém na biblioteca)</TooltipContent>
+                            <TooltipContent side="top">Desanexar</TooltipContent>
                           </Tooltip>
 
-                          {/* Delete Permanently Button */}
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <Button
                                 size="icon"
                                 variant="destructive"
                                 onClick={() => handleDeletePermanently(attachment.id)}
-                                className="h-8 w-8"
+                                className="h-6 w-6"
                               >
-                                <Trash2 className="w-4 h-4" />
+                                <Trash2 className="w-3 h-3" />
                               </Button>
                             </TooltipTrigger>
-                            <TooltipContent>Excluir permanentemente</TooltipContent>
+                            <TooltipContent side="top">Excluir</TooltipContent>
                           </Tooltip>
                         </div>
                       </div>
-
-                      <div className="p-3">
-                        <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                          {attachment.image?.title || "Sem título"}
-                        </p>
-                      </div>
-                    </Card>
+                    </div>
                   </motion.div>
                 );
               })}

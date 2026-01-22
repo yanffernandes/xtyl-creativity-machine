@@ -16,16 +16,28 @@ import os
 # Configure rate limiter with Redis backend (falls back to memory if Redis unavailable)
 def get_limiter():
     """Get rate limiter instance configured with Redis or in-memory backend."""
-    redis_url = os.getenv("REDIS_URL", "redis://redis:6379/0")
+    redis_url = os.getenv("REDIS_URL", "")
+
+    # Skip Redis if not configured or in development without Redis
+    if not redis_url or redis_url == "redis://redis:6379/0":
+        # Use in-memory storage for local development
+        print("⚠️ Rate limiter using in-memory storage (no Redis)")
+        return Limiter(
+            key_func=get_remote_address,
+            strategy="fixed-window"
+        )
 
     try:
-        return Limiter(
+        limiter = Limiter(
             key_func=get_remote_address,
             storage_uri=redis_url,
             strategy="fixed-window"
         )
-    except Exception:
+        print(f"✓ Rate limiter connected to Redis: {redis_url[:20]}...")
+        return limiter
+    except Exception as e:
         # Fallback to in-memory storage if Redis is unavailable
+        print(f"⚠️ Redis unavailable ({e}), rate limiter using in-memory storage")
         return Limiter(
             key_func=get_remote_address,
             strategy="fixed-window"

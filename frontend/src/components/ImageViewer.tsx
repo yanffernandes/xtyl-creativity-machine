@@ -1,11 +1,10 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useTranslations } from "next-intl"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
-import { X, Download, Maximize2, Minimize2, ZoomIn, ZoomOut, Sparkles, ChevronLeft, ChevronRight, Trash2 } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { X, Download, ZoomIn, ZoomOut, Sparkles, ChevronLeft, ChevronRight, Trash2, Loader2 } from "lucide-react"
 import api from "@/lib/api"
 import { useToast } from "@/components/ui/use-toast"
 import { useConfirm } from "@/components/confirm-dialog"
@@ -33,12 +32,58 @@ export default function ImageViewer({ image, onClose, onRefine, onArchive, allIm
   const t = useTranslations("imageViewer")
   const tCommon = useTranslations("common")
   const format = useFormatter()
-  const [isFullscreen, setIsFullscreen] = useState(false)
   const [zoom, setZoom] = useState(100)
   const [isEditingTitle, setIsEditingTitle] = useState(false)
   const [editedTitle, setEditedTitle] = useState(image?.title || "")
+  const [isDownloading, setIsDownloading] = useState(false)
   const { toast } = useToast()
   const confirm = useConfirm()
+
+  // Zoom handlers - must be before early return to maintain hook order
+  const handleZoomIn = useCallback(() => {
+    setZoom(prev => Math.min(prev + 25, 300))
+  }, [])
+
+  const handleZoomOut = useCallback(() => {
+    setZoom(prev => Math.max(prev - 25, 50))
+  }, [])
+
+  // Reset zoom when image changes
+  useEffect(() => {
+    setZoom(100)
+  }, [image?.id])
+
+  // Keyboard navigation
+  useEffect(() => {
+    if (!image) return
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      switch (e.key) {
+        case "Escape":
+          onClose()
+          break
+        case "ArrowLeft":
+          handlePrevious()
+          break
+        case "ArrowRight":
+          handleNext()
+          break
+        case "+":
+        case "=":
+          handleZoomIn()
+          break
+        case "-":
+          handleZoomOut()
+          break
+        case "0":
+          setZoom(100)
+          break
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
+  }, [image, allImages, onClose, handleZoomIn, handleZoomOut])
 
   if (!image) return null
 
@@ -48,7 +93,6 @@ export default function ImageViewer({ image, onClose, onRefine, onArchive, allIm
 
   const handlePrevious = () => {
     if (hasPrevious && allImages[currentIndex - 1]) {
-      // Trigger navigation to previous image
       window.dispatchEvent(new CustomEvent('navigate-image', {
         detail: { imageId: allImages[currentIndex - 1].id }
       }))
@@ -57,19 +101,34 @@ export default function ImageViewer({ image, onClose, onRefine, onArchive, allIm
 
   const handleNext = () => {
     if (hasNext && allImages[currentIndex + 1]) {
-      // Trigger navigation to next image
       window.dispatchEvent(new CustomEvent('navigate-image', {
         detail: { imageId: allImages[currentIndex + 1].id }
       }))
     }
   }
 
-  const handleDownload = () => {
-    if (image.file_url) {
+  // Download using fetch+blob to handle cross-origin URLs (R2/CDN)
+  const handleDownload = async () => {
+    if (!image.file_url) return
+
+    setIsDownloading(true)
+    try {
+      const response = await fetch(image.file_url)
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
       const link = document.createElement('a')
-      link.href = image.file_url
-      link.download = `${image.title}.png`
+      link.href = url
+      link.download = `${image.title || 'image'}.png`
+      document.body.appendChild(link)
       link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error("Download failed:", error)
+      // Fallback: open in new tab if fetch fails (CORS)
+      window.open(image.file_url, '_blank')
+    } finally {
+      setIsDownloading(false)
     }
   }
 
@@ -90,12 +149,10 @@ export default function ImageViewer({ image, onClose, onRefine, onArchive, allIm
         description: t("archivedDesc")
       })
 
-      // Notify parent component
       if (onArchive) {
         onArchive(image.id)
       }
 
-      // Close viewer
       onClose()
     } catch (error) {
       console.error("Failed to archive image:", error)
@@ -105,14 +162,6 @@ export default function ImageViewer({ image, onClose, onRefine, onArchive, allIm
         variant: "destructive"
       })
     }
-  }
-
-  const handleZoomIn = () => {
-    setZoom(prev => Math.min(prev + 25, 200))
-  }
-
-  const handleZoomOut = () => {
-    setZoom(prev => Math.max(prev - 25, 50))
   }
 
   const handleStartEditTitle = () => {
@@ -143,11 +192,9 @@ export default function ImageViewer({ image, onClose, onRefine, onArchive, allIm
         description: t("titleUpdatedDesc")
       })
 
-      // Update local state
       image.title = trimmedTitle
       setIsEditingTitle(false)
 
-      // Trigger refresh in parent
       window.dispatchEvent(new CustomEvent('image-title-updated', {
         detail: { imageId: image.id, newTitle: trimmedTitle }
       }))
@@ -170,7 +217,15 @@ export default function ImageViewer({ image, onClose, onRefine, onArchive, allIm
     if (e.key === "Enter") {
       handleSaveTitle()
     } else if (e.key === "Escape") {
+      e.stopPropagation()
       handleCancelEditTitle()
+    }
+  }
+
+  // Close when clicking backdrop
+  const handleBackdropClick = (e: React.MouseEvent) => {
+    if (e.target === e.currentTarget) {
+      onClose()
     }
   }
 
@@ -178,13 +233,14 @@ export default function ImageViewer({ image, onClose, onRefine, onArchive, allIm
 
   return (
     <div
-      className={cn(
-        "fixed top-0 right-0 bottom-0 left-[280px] bg-background/95 backdrop-blur-sm z-50 flex flex-col",
-        isFullscreen ? "p-0" : "p-6"
-      )}
+      className="fixed inset-0 z-[60] bg-black/95 backdrop-blur-sm flex flex-col"
+      onClick={handleBackdropClick}
     >
       {/* Header */}
-      <div className="flex items-center justify-between mb-4 px-4 py-3 bg-card/50 rounded-lg border">
+      <div
+        className="flex items-center justify-between px-6 py-4 bg-gradient-to-b from-black/50 to-transparent"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="flex-1 min-w-0">
           {isEditingTitle ? (
             <input
@@ -194,11 +250,11 @@ export default function ImageViewer({ image, onClose, onRefine, onArchive, allIm
               onKeyDown={handleTitleKeyDown}
               onBlur={handleSaveTitle}
               autoFocus
-              className="text-lg font-semibold bg-background border rounded px-2 py-1 w-full max-w-md"
+              className="text-lg font-semibold bg-white/10 border border-white/20 rounded px-2 py-1 w-full max-w-md text-white"
             />
           ) : (
             <h2
-              className="text-lg font-semibold truncate cursor-pointer hover:text-primary transition-colors"
+              className="text-lg font-semibold truncate cursor-pointer hover:text-white/80 transition-colors text-white"
               onClick={handleStartEditTitle}
               title={t("clickToEdit")}
             >
@@ -207,17 +263,17 @@ export default function ImageViewer({ image, onClose, onRefine, onArchive, allIm
           )}
           <div className="flex items-center gap-4 mt-1">
             {metadata.model && (
-              <span className="text-xs text-muted-foreground">
+              <span className="text-xs text-white/60">
                 {t("model", { model: metadata.model.split('/').pop() })}
               </span>
             )}
             {metadata.size && (
-              <span className="text-xs text-muted-foreground">
+              <span className="text-xs text-white/60">
                 {metadata.size}
               </span>
             )}
             {image.created_at && (
-              <span className="text-xs text-muted-foreground">
+              <span className="text-xs text-white/60">
                 {format.dateTime(new Date(image.created_at), { dateStyle: "short" })}
               </span>
             )}
@@ -227,16 +283,17 @@ export default function ImageViewer({ image, onClose, onRefine, onArchive, allIm
         <div className="flex items-center gap-2">
           {/* Navigation */}
           {allImages.length > 1 && (
-            <div className="flex items-center gap-1 mr-2 border-r pr-2">
+            <div className="flex items-center gap-1 mr-2 border-r border-white/20 pr-2">
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={handlePrevious}
                 disabled={!hasPrevious}
+                className="text-white hover:bg-white/20 disabled:opacity-30"
               >
                 <ChevronLeft className="h-4 w-4" />
               </Button>
-              <span className="text-sm text-muted-foreground px-2">
+              <span className="text-sm text-white/60 px-2">
                 {currentIndex + 1} / {allImages.length}
               </span>
               <Button
@@ -244,6 +301,7 @@ export default function ImageViewer({ image, onClose, onRefine, onArchive, allIm
                 size="sm"
                 onClick={handleNext}
                 disabled={!hasNext}
+                className="text-white hover:bg-white/20 disabled:opacity-30"
               >
                 <ChevronRight className="h-4 w-4" />
               </Button>
@@ -251,46 +309,43 @@ export default function ImageViewer({ image, onClose, onRefine, onArchive, allIm
           )}
 
           {/* Zoom Controls */}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleZoomOut}
-            disabled={zoom <= 50}
-          >
-            <ZoomOut className="h-4 w-4" />
-          </Button>
-          <span className="text-sm text-muted-foreground w-12 text-center">
-            {zoom}%
-          </span>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleZoomIn}
-            disabled={zoom >= 200}
-          >
-            <ZoomIn className="h-4 w-4" />
-          </Button>
-
-          {/* Fullscreen */}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setIsFullscreen(!isFullscreen)}
-          >
-            {isFullscreen ? (
-              <Minimize2 className="h-4 w-4" />
-            ) : (
-              <Maximize2 className="h-4 w-4" />
-            )}
-          </Button>
+          <div className="flex items-center gap-1 bg-black/30 rounded-lg px-2 py-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleZoomOut}
+              disabled={zoom <= 50}
+              className="h-8 w-8 p-0 text-white hover:bg-white/20 disabled:opacity-30"
+            >
+              <ZoomOut className="h-4 w-4" />
+            </Button>
+            <span className="text-sm text-white w-12 text-center">
+              {zoom}%
+            </span>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleZoomIn}
+              disabled={zoom >= 300}
+              className="h-8 w-8 p-0 text-white hover:bg-white/20 disabled:opacity-30"
+            >
+              <ZoomIn className="h-4 w-4" />
+            </Button>
+          </div>
 
           {/* Download */}
           <Button
             variant="ghost"
             size="sm"
             onClick={handleDownload}
+            disabled={isDownloading}
+            className="text-white hover:bg-white/20"
           >
-            <Download className="h-4 w-4" />
+            {isDownloading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Download className="h-4 w-4" />
+            )}
           </Button>
 
           {/* Archive */}
@@ -298,7 +353,7 @@ export default function ImageViewer({ image, onClose, onRefine, onArchive, allIm
             variant="ghost"
             size="sm"
             onClick={handleArchive}
-            className="text-destructive hover:text-destructive"
+            className="text-red-400 hover:bg-red-500/20 hover:text-red-300"
           >
             <Trash2 className="h-4 w-4" />
           </Button>
@@ -309,6 +364,7 @@ export default function ImageViewer({ image, onClose, onRefine, onArchive, allIm
               variant="default"
               size="sm"
               onClick={() => onRefine(image.id)}
+              className="bg-white/10 hover:bg-white/20 text-white"
             >
               <Sparkles className="h-4 w-4 mr-2" />
               {t("refine")}
@@ -320,50 +376,58 @@ export default function ImageViewer({ image, onClose, onRefine, onArchive, allIm
             variant="ghost"
             size="sm"
             onClick={onClose}
+            className="text-white hover:bg-white/20"
           >
             <X className="h-4 w-4" />
           </Button>
         </div>
       </div>
 
-      {/* Image Container */}
-      <div className="flex-1 flex items-center justify-center overflow-auto">
-        <div
-          className="relative"
+      {/* Image Container - Fullscreen with proper sizing */}
+      <div
+        className="flex-1 flex items-center justify-center overflow-hidden p-4"
+        onClick={handleBackdropClick}
+      >
+        <img
+          src={image.file_url || image.thumbnail_url}
+          alt={image.title}
+          className="object-contain rounded-lg shadow-2xl"
           style={{
-            transform: `scale(${zoom / 100})`,
-            transition: 'transform 0.2s ease-in-out'
+            maxWidth: '90vw',
+            maxHeight: 'calc(100vh - 180px)',
+            transform: zoom !== 100 ? `scale(${zoom / 100})` : 'none',
+            transformOrigin: 'center center',
+            transition: 'transform 0.2s ease-out'
           }}
-        >
-          <img
-            src={image.file_url || image.thumbnail_url}
-            alt={image.title}
-            className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
-          />
-        </div>
+          onClick={(e) => e.stopPropagation()}
+          draggable={false}
+        />
       </div>
 
-      {/* Footer - Prompt */}
+      {/* Footer - Prompt (collapsible) */}
       {image.content && (
-        <Card className="mt-4 p-4 bg-card/50">
-          <div className="flex items-start gap-2">
-            <Sparkles className="h-4 w-4 mt-1 text-muted-foreground flex-shrink-0" />
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium mb-1">{t("prompt")}</p>
-              <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-                {image.content}
-              </p>
+        <div
+          className="px-6 py-3 bg-gradient-to-t from-black/50 to-transparent"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <Card className="p-3 bg-white/5 border-white/10 max-w-3xl mx-auto">
+            <div className="flex items-start gap-2">
+              <Sparkles className="h-4 w-4 mt-0.5 text-white/60 flex-shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-medium text-white/80 mb-1">{t("prompt")}</p>
+                <p className="text-xs text-white/60 line-clamp-2">
+                  {image.content}
+                </p>
+              </div>
             </div>
-          </div>
-        </Card>
+          </Card>
+        </div>
       )}
 
       {/* Keyboard Navigation Hint */}
-      {allImages.length > 1 && (
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-xs text-muted-foreground bg-card/80 px-3 py-1 rounded-full">
-          {t("navigationHint")}
-        </div>
-      )}
+      <div className="absolute bottom-20 left-1/2 -translate-x-1/2 text-xs text-white/40 bg-black/30 px-4 py-2 rounded-full">
+        {t("navigationHint") || "Use arrow keys to navigate • +/- to zoom • Esc to close"}
+      </div>
     </div>
   )
 }

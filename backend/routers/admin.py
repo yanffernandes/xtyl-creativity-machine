@@ -1742,3 +1742,157 @@ async def update_memory_config(
 
     # Return updated config
     return await get_memory_config(admin=admin, db=db)
+
+
+# =============================================================================
+# Phase 10: Image Generation Configuration (Feature 026 - Smart Image Generation)
+# =============================================================================
+
+from schemas import ImageGenerationConfig, ImageGenerationConfigUpdate
+from image_generation_service import DEFAULT_VARIATION_MODIFIERS
+
+
+@router.get("/config/image-generation", response_model=ImageGenerationConfig)
+async def get_image_generation_config(
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """
+    Get image generation variation configuration.
+
+    Returns the current configuration for image variations:
+    - count: Number of variations to generate per request (1-3)
+    - modifiers: Style modifiers for each variation
+    - enabled: Whether variation system is enabled
+    """
+    from models import SystemConfig
+    import json
+
+    config = db.query(SystemConfig).filter(
+        SystemConfig.key == "image_generation_default_variations"
+    ).first()
+
+    if not config:
+        return ImageGenerationConfig(
+            count=2,
+            modifiers=DEFAULT_VARIATION_MODIFIERS,
+            enabled=True
+        )
+
+    # Parse value
+    value = config.value
+    if isinstance(value, str):
+        try:
+            value = json.loads(value)
+        except (json.JSONDecodeError, ValueError):
+            return ImageGenerationConfig(
+                count=2,
+                modifiers=DEFAULT_VARIATION_MODIFIERS,
+                enabled=True
+            )
+
+    return ImageGenerationConfig(
+        count=value.get("count", 2),
+        modifiers=value.get("modifiers", DEFAULT_VARIATION_MODIFIERS),
+        enabled=value.get("enabled", True)
+    )
+
+
+@router.put("/config/image-generation", response_model=ImageGenerationConfig)
+async def update_image_generation_config(
+    update: ImageGenerationConfigUpdate,
+    request: Request,
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """
+    Update image generation variation configuration.
+
+    Accepts partial updates:
+    - count: Number of variations (1-3)
+    - modifiers: Style modifiers (must have at least 3 items)
+    - enabled: Enable/disable variation system
+
+    All changes are logged for audit purposes.
+    """
+    from models import SystemConfig
+    import json
+
+    admin_service = AdminService(db)
+
+    # Get current config
+    config = db.query(SystemConfig).filter(
+        SystemConfig.key == "image_generation_default_variations"
+    ).first()
+
+    if config:
+        current_value = config.value
+        if isinstance(current_value, str):
+            try:
+                current_value = json.loads(current_value)
+            except (json.JSONDecodeError, ValueError):
+                current_value = {
+                    "count": 2,
+                    "modifiers": DEFAULT_VARIATION_MODIFIERS,
+                    "enabled": True
+                }
+    else:
+        current_value = {
+            "count": 2,
+            "modifiers": DEFAULT_VARIATION_MODIFIERS,
+            "enabled": True
+        }
+
+    old_value = current_value.copy()
+
+    # Apply updates
+    if update.count is not None:
+        if update.count < 1 or update.count > 3:
+            raise HTTPException(
+                status_code=400,
+                detail="count must be between 1 and 3"
+            )
+        current_value["count"] = update.count
+
+    if update.modifiers is not None:
+        if len(update.modifiers) < 3:
+            raise HTTPException(
+                status_code=400,
+                detail="modifiers must have at least 3 items"
+            )
+        current_value["modifiers"] = update.modifiers
+
+    if update.enabled is not None:
+        current_value["enabled"] = update.enabled
+
+    # Save to database
+    if config:
+        config.value = current_value
+        config.updated_by = admin.id
+    else:
+        new_config = SystemConfig(
+            key="image_generation_default_variations",
+            value=current_value,
+            description="Configuração padrão de variações para geração de imagens",
+            updated_by=admin.id,
+        )
+        db.add(new_config)
+
+    db.commit()
+
+    # Audit log
+    await admin_service.audit_log(
+        admin_id=admin.id,
+        action="image_generation.config.update",
+        entity_type="image_generation_config",
+        entity_id="variation_settings",
+        old_value=old_value,
+        new_value=current_value,
+        request=request,
+    )
+
+    return ImageGenerationConfig(
+        count=current_value["count"],
+        modifiers=current_value["modifiers"],
+        enabled=current_value["enabled"]
+    )

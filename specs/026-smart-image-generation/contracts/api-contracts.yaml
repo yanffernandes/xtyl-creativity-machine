@@ -1,0 +1,278 @@
+openapi: 3.0.3
+info:
+  title: Smart Image Generation API
+  description: API contracts for image variation generation feature
+  version: 1.0.0
+
+paths:
+  /admin/config/image-generation:
+    get:
+      summary: Get image generation configuration
+      description: Retrieve current global configuration for image variations
+      tags:
+        - Admin
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Configuration retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImageGenerationConfig'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Admin access required
+
+    put:
+      summary: Update image generation configuration
+      description: Update global configuration for image variations
+      tags:
+        - Admin
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ImageGenerationConfigUpdate'
+      responses:
+        '200':
+          description: Configuration updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImageGenerationConfig'
+        '400':
+          description: Invalid configuration values
+        '401':
+          description: Unauthorized
+        '403':
+          description: Admin access required
+
+  /image-generation/generate-variations:
+    post:
+      summary: Generate multiple image variations
+      description: Generate N variations of an image based on prompt with style modifiers
+      tags:
+        - Image Generation
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenerateVariationsRequest'
+      responses:
+        '200':
+          description: Variations generation started (SSE stream)
+          content:
+            text/event-stream:
+              schema:
+                $ref: '#/components/schemas/VariationSSEEvent'
+        '400':
+          description: Invalid request
+        '401':
+          description: Unauthorized
+        '429':
+          description: Rate limit exceeded
+
+  /documents/variation-set/{variation_set_id}:
+    get:
+      summary: Get all variations in a set
+      description: Retrieve all documents belonging to a variation set
+      tags:
+        - Documents
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: variation_set_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Variations retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DocumentWithVariation'
+        '404':
+          description: Variation set not found
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    ImageGenerationConfig:
+      type: object
+      properties:
+        count:
+          type: integer
+          minimum: 1
+          maximum: 3
+          description: Default number of variations to generate
+          example: 2
+        modifiers:
+          type: array
+          items:
+            type: string
+          minItems: 3
+          description: Style modifiers for each variation
+          example:
+            - "versão minimalista e clean, com espaço em branco, tipografia elegante"
+            - "versão vibrante e impactante, cores saturadas, elementos dinâmicos"
+            - "versão sofisticada e premium, tons neutros, composição equilibrada"
+        enabled:
+          type: boolean
+          description: Whether variation system is enabled
+          example: true
+      required:
+        - count
+        - modifiers
+        - enabled
+
+    ImageGenerationConfigUpdate:
+      type: object
+      properties:
+        count:
+          type: integer
+          minimum: 1
+          maximum: 3
+          description: New default number of variations
+        enabled:
+          type: boolean
+          description: Enable or disable variation system
+        modifiers:
+          type: array
+          items:
+            type: string
+          minItems: 3
+          description: Custom style modifiers (optional)
+
+    GenerateVariationsRequest:
+      type: object
+      properties:
+        prompt:
+          type: string
+          description: User prompt for image generation
+          example: "Cria uma imagem para anunciar nosso novo produto"
+        project_id:
+          type: string
+          format: uuid
+          description: Project context for brand assets
+        aspect_ratio:
+          type: string
+          enum: ["1:1", "16:9", "9:16", "4:3", "3:4"]
+          default: "1:1"
+          description: Aspect ratio for generated images
+        override_variations:
+          type: integer
+          minimum: 1
+          maximum: 3
+          description: Override default variation count for this request
+        skip_prompt_enrichment:
+          type: boolean
+          default: false
+          description: Skip automatic prompt enhancement
+        skip_visual_context:
+          type: boolean
+          default: false
+          description: Skip project visual assets injection
+        attach_to_document_id:
+          type: string
+          format: uuid
+          description: Optional document to attach images to
+      required:
+        - prompt
+        - project_id
+
+    VariationSSEEvent:
+      type: object
+      description: Server-Sent Event for variation completion
+      properties:
+        type:
+          type: string
+          enum:
+            - variation_started
+            - variation_complete
+            - variation_failed
+            - all_variations_complete
+          example: "variation_complete"
+        data:
+          type: object
+          properties:
+            variation_set_id:
+              type: string
+              format: uuid
+            variation_index:
+              type: integer
+              description: Index of this variation (0-based)
+            total_variations:
+              type: integer
+              description: Total number of variations being generated
+            image_url:
+              type: string
+              format: uri
+              description: URL of the generated image
+            thumbnail_url:
+              type: string
+              format: uri
+              description: URL of the thumbnail
+            document_id:
+              type: string
+              format: uuid
+              description: ID of the created document
+            modifier_used:
+              type: string
+              description: Style modifier applied to this variation
+            error:
+              type: string
+              description: Error message if variation failed
+
+    DocumentWithVariation:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        file_url:
+          type: string
+          format: uri
+        thumbnail_url:
+          type: string
+          format: uri
+        variation_set_id:
+          type: string
+          format: uuid
+        variation_index:
+          type: integer
+        variation_modifier:
+          type: string
+        metadata:
+          type: object
+          properties:
+            original_prompt:
+              type: string
+            enriched_prompt:
+              type: string
+            model_used:
+              type: string
+            generation_config:
+              type: object
+        created_at:
+          type: string
+          format: date-time

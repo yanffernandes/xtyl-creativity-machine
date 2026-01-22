@@ -31,6 +31,11 @@ interface KanbanColumnProps {
   onSelectDocument: (doc: Document) => void
   onToggleContext?: (e: React.MouseEvent, doc: Document) => void
   onDelete?: (e: React.MouseEvent, doc: Document) => void
+  /** Feature 028 T031: Add document to copy library */
+  onAddToLibrary?: (doc: Document) => void
+  /** Feature 028 T015: Multi-select support */
+  selectedIds?: Set<string>
+  onMultiSelect?: (doc: Document, e: React.MouseEvent) => void
 }
 
 export default function KanbanColumn({
@@ -38,7 +43,10 @@ export default function KanbanColumn({
   documents,
   onSelectDocument,
   onToggleContext,
-  onDelete
+  onDelete,
+  onAddToLibrary,
+  selectedIds,
+  onMultiSelect
 }: KanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({
     id: column.id,
@@ -85,6 +93,9 @@ export default function KanbanColumn({
                   onSelect={onSelectDocument}
                   onToggleContext={onToggleContext}
                   onDelete={onDelete}
+                  onAddToLibrary={onAddToLibrary}
+                  isSelected={selectedIds?.has(doc.id)}
+                  onMultiSelect={onMultiSelect}
                 />
               ))
             )}

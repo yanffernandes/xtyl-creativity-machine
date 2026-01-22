@@ -1,12 +1,17 @@
 """
 Image Generation Router
-Endpoints for AI-powered image generation using OpenRouter
+Endpoints for AI-powered image generation using OpenRouter.
+Includes Visual Generation Studio endpoints (Feature 027).
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
+from sqlalchemy import desc
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
+import asyncio
+import uuid
 
 
 class ReferenceAsset(BaseModel):
@@ -15,6 +20,7 @@ class ReferenceAsset(BaseModel):
     usage_mode: str  # 'style', 'compose', 'base'
 from database import get_db
 import models
+from models import StylePreset
 from image_generation_service import (
     generate_and_store_image,
     DEFAULT_MODEL
@@ -23,11 +29,22 @@ from image_naming_service import generate_image_title
 from services.model_config_service import ModelConfigService
 from ai_usage_service import log_ai_usage
 from pricing_service import calculate_image_cost, fetch_generation_cost
-from supabase_auth import get_current_user
+from supabase_auth import get_current_user, get_current_user_from_token
 from models import User, Project
 from services.visual_asset_service import visual_asset_service
+from services.prompt_enrichment_service import (
+    PromptEnrichmentService,
+    get_brand_context_for_project
+)
+from schemas import (
+    StylePreset as StylePresetSchema, StylePresetList,
+    ImageBatchRequest, ImageBatchResponse, ImageBatchProgress
+)
 import time
 import json
+
+# In-memory storage for batch progress (in production, use Redis)
+batch_progress_store: Dict[str, ImageBatchProgress] = {}
 
 router = APIRouter(prefix="/image-generation", tags=["image-generation"])
 
@@ -171,16 +188,20 @@ async def generate_image(
                     print(f"Warning: Asset {ref_asset.id} not found or invalid")
 
         # T042: Auto-inject visual context if no manual references and not skipped
+        # Feature 028: Uses intelligent AI-based asset selection based on prompt
         elif not request.skip_visual_context:
             try:
-                visual_context = visual_asset_service.get_visual_context(db, request.project_id)
+                # Use intelligent selection based on prompt context
+                visual_context = await visual_asset_service.get_intelligent_visual_context(
+                    db, request.project_id, request.prompt
+                )
                 if visual_context.is_enabled and visual_context.assets:
                     for asset in visual_context.assets:
                         if asset.file_url:
                             reference_image_urls.append(asset.file_url)
                             visual_context_asset_ids.append(asset.id)
                     visual_context_used = True
-                    print(f"📎 Visual context auto-injected: {len(reference_image_urls)} reference images")
+                    print(f"📎 Visual context auto-injected: {len(reference_image_urls)} intelligently selected assets")
             except Exception as vc_error:
                 print(f"⚠️ Failed to fetch visual context: {vc_error}")
 
@@ -553,3 +574,508 @@ async def get_image_metadata(
         "generation_metadata": document.generation_metadata,
         "created_at": document.created_at
     }
+
+
+# ============================================================================
+# VISUAL GENERATION STUDIO ENDPOINTS (Feature 027)
+# ============================================================================
+
+@router.get("/style-presets", response_model=StylePresetList)
+async def get_style_presets(
+    db: Session = Depends(get_db)
+):
+    """
+    Get all active style presets for image generation, grouped by type.
+
+    Returns:
+    - visual_styles: Aesthetic/visual style presets (photographic, watercolor, etc.)
+    - layouts: Structure/layout presets for marketing (banner, carousel, etc.)
+
+    Feature 027 - Visual Generation Studio
+    """
+    presets = db.query(StylePreset).filter(
+        StylePreset.is_active == True
+    ).order_by(StylePreset.sort_order).all()
+
+    # Separate by preset_type
+    visual_styles = [StylePresetSchema.model_validate(p) for p in presets if p.preset_type == 'visual_style']
+    layouts = [StylePresetSchema.model_validate(p) for p in presets if p.preset_type == 'layout']
+
+    return StylePresetList(
+        visual_styles=visual_styles,
+        layouts=layouts,
+        total=len(presets)
+    )
+
+
+async def generate_batch_variation(
+    variation_index: int,
+    prompt: str,
+    style_modifier: str,
+    project_id: str,
+    model: str,
+    aspect_ratio: str,
+    creativity: float,
+    batch_id: str,
+    user_id: str,
+    reference_image_url: Optional[str] = None,
+    visual_context_urls: Optional[List[str]] = None,
+    project_context: Optional[str] = None,
+    # Feature 028: Asset tracking
+    visual_context_asset_ids: Optional[List[str]] = None,
+    visual_context_source: Optional[str] = None,
+    asset_mode: Optional[str] = None,
+    campaign_id: Optional[str] = None,
+    tags: Optional[List[str]] = None,
+    channel: Optional[str] = None,
+    # Feature 028: Brand context tracking
+    brand_context_applied: bool = False
+) -> Dict[str, Any]:
+    """Generate a single variation for a batch request.
+
+    Note: Creates its own database session to avoid conflicts during parallel execution.
+    """
+    from database import SessionLocal
+
+    db = SessionLocal()
+    try:
+        # Combine prompt with style modifier and project context
+        enhanced_prompt = prompt
+
+        # Add project context to prompt if available
+        if project_context:
+            enhanced_prompt = f"{enhanced_prompt}. Context: {project_context}"
+
+        # Feature 028: Add asset mode instruction if using manual references
+        if visual_context_urls and asset_mode and visual_context_source == "manual":
+            if asset_mode == "style":
+                enhanced_prompt = f"{enhanced_prompt}. Use the visual style from the reference images."
+            elif asset_mode == "compose":
+                enhanced_prompt = f"{enhanced_prompt}. Incorporate elements from the reference images."
+            elif asset_mode == "base":
+                enhanced_prompt = f"{enhanced_prompt}. Use the reference images as the base."
+
+        # Add style modifier
+        if style_modifier:
+            enhanced_prompt = f"{enhanced_prompt}. Style: {style_modifier}"
+
+        # Combine reference image with visual context
+        all_reference_urls = []
+        if reference_image_url:
+            all_reference_urls.append(reference_image_url)
+        if visual_context_urls:
+            all_reference_urls.extend(visual_context_urls)
+
+        # Generate the image
+        result = await generate_and_store_image(
+            prompt=enhanced_prompt,
+            project_id=project_id,
+            model=model,
+            aspect_ratio=aspect_ratio,
+            quality="standard",
+            style=None,
+            base_image_url=reference_image_url,
+            reference_image_urls=all_reference_urls if all_reference_urls else None
+        )
+
+        # Generate title
+        image_title = await generate_image_title(prompt)
+
+        # Build generation metadata with visual context info (T036)
+        generation_metadata = {
+            **result["generation_metadata"],
+            "style_modifier": style_modifier,
+            "creativity": creativity,
+            "batch_id": batch_id
+        }
+
+        # Feature 028: Log visual context usage
+        if visual_context_asset_ids:
+            generation_metadata["visual_context"] = {
+                "source": visual_context_source,  # 'manual' or 'auto'
+                "asset_ids": visual_context_asset_ids,
+                "asset_count": len(visual_context_asset_ids),
+                "asset_mode": asset_mode
+            }
+
+        # Feature 028: Add campaign metadata
+        if campaign_id:
+            generation_metadata["campaign_id"] = campaign_id
+
+        # Feature 028: Log brand context usage (T040)
+        generation_metadata["brand_context_applied"] = brand_context_applied
+
+        # Create document
+        variation_set_id = uuid.UUID(batch_id)
+        document = models.Document(
+            title=image_title,
+            content=prompt,
+            media_type="image",
+            status="art_ok",
+            project_id=project_id,
+            file_url=result["file_url"],
+            thumbnail_url=result["thumbnail_url"],
+            generation_metadata=generation_metadata,
+            variation_set_id=variation_set_id,
+            variation_index=variation_index,
+            variation_modifier=style_modifier,
+            # Feature 028: Link to campaign
+            campaign_id=campaign_id,
+            tags=tags,
+            channel=channel
+        )
+
+        db.add(document)
+        db.commit()
+        db.refresh(document)
+
+        return {
+            "success": True,
+            "index": variation_index,
+            "document_id": document.id,
+            "file_url": document.file_url,
+            "thumbnail_url": document.thumbnail_url,
+            "title": document.title,
+            "modifier": style_modifier
+        }
+
+    except Exception as e:
+        db.rollback()
+        return {
+            "success": False,
+            "index": variation_index,
+            "error": str(e),
+            "modifier": style_modifier
+        }
+    finally:
+        db.close()
+
+
+async def process_batch_generation(
+    batch_id: str,
+    request: ImageBatchRequest,
+    user_id: str,
+    db: Session
+):
+    """Background task to process batch image generation."""
+    from routers.projects import format_project_context
+
+    count = request.count
+    batch_progress_store[batch_id] = ImageBatchProgress(
+        batch_id=batch_id,
+        total=count,
+        completed=0,
+        failed=0,
+        images=[],
+        errors=[]
+    )
+
+    # Fetch project settings for context
+    project_context = None
+    project = db.query(Project).filter(Project.id == request.project_id).first()
+    if project and project.settings:
+        project_context = format_project_context(project.settings)
+        if project_context:
+            print(f"📋 Project context loaded for batch generation")
+
+    # Feature 028 (T038): Apply brand context enrichment if enabled
+    enriched_prompt = request.prompt
+    brand_context_applied = False
+
+    # Default to True if not specified (backwards compatible)
+    apply_brand_context = request.apply_brand_context if hasattr(request, 'apply_brand_context') else True
+
+    if apply_brand_context:
+        try:
+            brand_context = await get_brand_context_for_project(db, request.project_id)
+            if brand_context:
+                print(f"🎨 Enriching prompt with brand context...")
+                enrichment_service = PromptEnrichmentService(db)
+                enrichment_result = await enrichment_service.enrich_prompt(
+                    prompt=request.prompt,
+                    project_id=request.project_id,
+                    brand_context=brand_context
+                )
+                enriched_prompt = enrichment_result["enriched_prompt"]
+                brand_context_applied = enrichment_result["brand_context_applied"]
+                if brand_context_applied:
+                    print(f"✨ Prompt enriched with brand context: {enriched_prompt[:100]}...")
+        except Exception as enrich_error:
+            print(f"⚠️ Failed to enrich prompt with brand context: {enrich_error}")
+            # Continue with original prompt
+
+    # Feature 028: Fetch visual context assets
+    # Priority: manual reference_assets > automatic intelligent selection
+    visual_context_urls = []
+    visual_context_asset_ids = []
+    visual_context_source = None  # 'manual' or 'auto'
+    asset_mode = request.asset_mode or "style"
+
+    # Check for manual reference assets first
+    if request.reference_assets:
+        # Fetch manually specified assets
+        for asset_id in request.reference_assets[:5]:  # Limit to 5
+            asset = db.query(models.Document).filter(
+                models.Document.id == asset_id,
+                models.Document.project_id == request.project_id,
+                models.Document.is_reference_asset == True,
+                models.Document.deleted_at == None
+            ).first()
+            if asset and asset.file_url:
+                visual_context_urls.append(asset.file_url)
+                visual_context_asset_ids.append(asset.id)
+        if visual_context_urls:
+            visual_context_source = "manual"
+            print(f"📎 Manual reference assets loaded: {len(visual_context_urls)} assets (mode: {asset_mode})")
+    else:
+        # Fallback to intelligent AI-based selection
+        try:
+            visual_context = await visual_asset_service.get_intelligent_visual_context(
+                db, request.project_id, request.prompt
+            )
+            if visual_context.is_enabled and visual_context.assets:
+                for asset in visual_context.assets:
+                    if asset.file_url:
+                        visual_context_urls.append(asset.file_url)
+                        visual_context_asset_ids.append(asset.id)
+                if visual_context_urls:
+                    visual_context_source = "auto"
+                    print(f"📎 Auto visual context loaded: {len(visual_context_urls)} intelligently selected assets for batch")
+        except Exception as vc_error:
+            print(f"⚠️ Failed to fetch visual context for batch: {vc_error}")
+
+    # Build style modifier from visual_style and/or layout presets
+    modifiers = []
+
+    # Check for visual_style preset (new field or legacy style_preset)
+    visual_style_slug = request.visual_style or request.style_preset
+    if visual_style_slug:
+        preset = db.query(StylePreset).filter(
+            StylePreset.slug == visual_style_slug,
+            StylePreset.is_active == True
+        ).first()
+        if preset:
+            modifiers.append(preset.prompt_modifier)
+
+    # Check for layout preset
+    if request.layout:
+        layout_preset = db.query(StylePreset).filter(
+            StylePreset.slug == request.layout,
+            StylePreset.is_active == True
+        ).first()
+        if layout_preset:
+            modifiers.append(layout_preset.prompt_modifier)
+
+    # Combine modifiers
+    style_modifier_base = ". ".join(modifiers) if modifiers else ""
+
+    # Default creativity-based modifiers for variations
+    creativity_modifiers = [
+        "faithful to the original concept",
+        "with subtle creative variations",
+        "with moderate artistic interpretation",
+        "with bold creative expression"
+    ]
+
+    # Generate variations in parallel for better performance
+    # Create all tasks first
+    tasks = []
+    for i in range(count):
+        creativity_idx = min(i, len(creativity_modifiers) - 1)
+        style_mod = f"{style_modifier_base}, {creativity_modifiers[creativity_idx]}" if style_modifier_base else creativity_modifiers[creativity_idx]
+
+        task = generate_batch_variation(
+            variation_index=i,
+            prompt=enriched_prompt,  # Use enriched prompt if brand context was applied
+            style_modifier=style_mod,
+            project_id=request.project_id,
+            model=request.model,
+            aspect_ratio=request.aspect_ratio,
+            creativity=request.creativity,
+            batch_id=batch_id,
+            user_id=user_id,
+            reference_image_url=request.reference_image_url,
+            visual_context_urls=visual_context_urls if visual_context_urls else None,
+            project_context=project_context,
+            # Feature 028: Pass visual context metadata
+            visual_context_asset_ids=visual_context_asset_ids if visual_context_asset_ids else None,
+            visual_context_source=visual_context_source,
+            asset_mode=asset_mode,
+            campaign_id=request.campaign_id,
+            tags=request.tags,
+            channel=request.channel,
+            # Feature 028: Pass brand context flag (T040)
+            brand_context_applied=brand_context_applied
+        )
+        tasks.append(task)
+
+    # Execute all image generations in parallel
+    print(f"🚀 Starting parallel generation of {count} images...")
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+
+    # Process results and update progress
+    progress = batch_progress_store[batch_id]
+    for i, result in enumerate(results):
+        if isinstance(result, Exception):
+            # Handle exceptions from gather
+            progress.failed += 1
+            progress.errors.append(str(result))
+        elif result.get("success"):
+            progress.completed += 1
+            progress.images.append(result)
+        else:
+            progress.failed += 1
+            progress.errors.append(result.get("error", "Unknown error"))
+
+    batch_progress_store[batch_id] = progress
+    print(f"✅ Parallel generation complete: {progress.completed} succeeded, {progress.failed} failed")
+
+
+@router.post("/generate-batch", response_model=ImageBatchResponse)
+async def generate_image_batch(
+    request: ImageBatchRequest,
+    background_tasks: BackgroundTasks,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Generate multiple image variations in parallel.
+
+    Starts background generation and returns a batch_id immediately.
+    Use GET /batch/{batch_id}/stream to monitor progress via SSE.
+
+    Feature 027 - Visual Generation Studio
+    """
+    # Verify project exists
+    project = db.query(Project).filter(
+        Project.id == request.project_id,
+        Project.deleted_at == None
+    ).first()
+
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    # Generate batch ID
+    batch_id = str(uuid.uuid4())
+
+    # Start background task
+    background_tasks.add_task(
+        process_batch_generation,
+        batch_id=batch_id,
+        request=request,
+        user_id=str(current_user.id),
+        db=db
+    )
+
+    return ImageBatchResponse(
+        batch_id=batch_id,
+        status="processing",
+        message=f"Generating {request.count} variations"
+    )
+
+
+@router.get("/batch/{batch_id}/stream")
+async def stream_batch_progress(
+    batch_id: str,
+    token: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    """
+    Stream batch generation progress via Server-Sent Events (SSE).
+
+    Token is passed via query parameter since EventSource doesn't support headers.
+
+    Events:
+    - variation_started: When a variation begins generating
+    - variation_complete: When a variation finishes (includes image data)
+    - variation_failed: When a variation fails
+    - batch_complete: When all variations are done
+
+    Feature 027 - Visual Generation Studio
+    """
+    # Authenticate via query parameter token (SSE doesn't support headers)
+    if not token:
+        raise HTTPException(status_code=401, detail="Token required for SSE authentication")
+
+    current_user = await get_current_user_from_token(token, db)
+
+    async def event_generator():
+        last_completed = 0
+        last_failed = 0
+
+        while True:
+            progress = batch_progress_store.get(batch_id)
+
+            if not progress:
+                yield f"data: {json.dumps({'type': 'error', 'message': 'Batch not found'})}\n\n"
+                break
+
+            # Send new completed images
+            if progress.completed > last_completed:
+                for i in range(last_completed, progress.completed):
+                    if i < len(progress.images):
+                        event_data = {
+                            "type": "variation_complete",
+                            "data": progress.images[i]
+                        }
+                        yield f"data: {json.dumps(event_data)}\n\n"
+                last_completed = progress.completed
+
+            # Send new errors
+            if progress.failed > last_failed:
+                for i in range(last_failed, progress.failed):
+                    if i < len(progress.errors):
+                        event_data = {
+                            "type": "variation_failed",
+                            "data": {"error": progress.errors[i]}
+                        }
+                        yield f"data: {json.dumps(event_data)}\n\n"
+                last_failed = progress.failed
+
+            # Check if complete
+            if progress.completed + progress.failed >= progress.total:
+                event_data = {
+                    "type": "batch_complete",
+                    "data": {
+                        "batch_id": batch_id,
+                        "total": progress.total,
+                        "completed": progress.completed,
+                        "failed": progress.failed,
+                        "images": progress.images
+                    }
+                }
+                yield f"data: {json.dumps(event_data)}\n\n"
+                # Clean up
+                del batch_progress_store[batch_id]
+                break
+
+            await asyncio.sleep(0.5)
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no"
+        }
+    )
+
+
+@router.get("/batch/{batch_id}/status", response_model=ImageBatchProgress)
+async def get_batch_status(
+    batch_id: str,
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get current status of a batch generation.
+
+    Use this for polling instead of SSE if needed.
+    Feature 027 - Visual Generation Studio
+    """
+    progress = batch_progress_store.get(batch_id)
+
+    if not progress:
+        raise HTTPException(status_code=404, detail="Batch not found or already completed")
+
+    return progress

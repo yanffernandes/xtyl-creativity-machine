@@ -207,15 +207,24 @@ export const documentService = {
   /**
    * List all documents in a project (excludes deleted)
    * Includes attachments with their image data for Kanban preview
+   * @param projectId - Project ID
+   * @param campaignId - Optional campaign ID to filter by (Feature 028)
    */
-  async listByProject(projectId: string): Promise<ServiceResult<Document[]>> {
+  async listByProject(projectId: string, campaignId?: string | null): Promise<ServiceResult<Document[]>> {
     try {
       // First get documents
-      const { data: documents, error: docsError } = await supabase
+      let query = supabase
         .from('documents')
         .select('*')
         .eq('project_id', projectId)
         .is('deleted_at', null)
+
+      // Feature 028: Filter by campaign if specified
+      if (campaignId) {
+        query = query.eq('campaign_id', campaignId)
+      }
+
+      const { data: documents, error: docsError } = await query
         .order('created_at', { ascending: false })
 
       if (docsError) throw docsError

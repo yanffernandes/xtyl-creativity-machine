@@ -180,6 +180,10 @@ class DocumentUpdate(BaseModel):
     thumbnail_url: Optional[str] = None
     generation_metadata: Optional[Dict[str, Any]] = None
     is_context: Optional[bool] = None
+    # Feature 028: Tags and metadata (T051)
+    tags: Optional[List[str]] = None
+    campaign_id: Optional[str] = None
+    channel: Optional[str] = None
 
 class Document(DocumentBase):
     id: str
@@ -195,6 +199,10 @@ class Document(DocumentBase):
     asset_type: Optional[str] = None
     asset_metadata: Optional[Dict[str, Any]] = None
     is_context: Optional[bool] = False  # Context file for RAG
+    # Feature 028: Tags and metadata (T051)
+    tags: Optional[List[str]] = None
+    campaign_id: Optional[str] = None
+    channel: Optional[str] = None
     created_at: datetime
     updated_at: Optional[datetime] = None
     attachments: Optional[List['DocumentAttachment']] = None  # Include attached images
@@ -1495,3 +1503,278 @@ class MemoryOperation(BaseModel):
 class MemoryUpdateResult(BaseModel):
     """Result from memory update LLM"""
     memory: List[MemoryOperation]
+
+
+# ============================================================================
+# IMAGE BATCH GENERATION (Feature 027 - Visual Generation Studio)
+# ============================================================================
+
+class ImageBatchRequest(BaseModel):
+    """Request to generate multiple image variations"""
+    prompt: str = Field(..., min_length=1)
+    project_id: str
+    count: int = Field(4, ge=1, le=8)
+    model: Optional[str] = None
+    visual_style: Optional[str] = None  # Style preset slug
+    layout: Optional[str] = None  # Layout preset slug
+    style_preset: Optional[str] = None  # Legacy field, use visual_style
+    size: Optional[str] = "1024x1024"
+    aspect_ratio: Optional[str] = None
+    creativity: float = Field(0.5, ge=0.0, le=1.0)
+    reference_image_url: Optional[str] = None  # Base image URL for variations
+    # Feature 028: Visual context and campaign support
+    reference_assets: Optional[List[str]] = Field(None, description="Visual asset UUIDs to use as reference")
+    asset_mode: Optional[str] = Field("style", description="How to use assets: style, compose, base")
+    apply_brand_context: bool = Field(True, description="Whether to apply brand context enrichment")
+    campaign_id: Optional[str] = None
+    tags: Optional[List[str]] = None
+    channel: Optional[str] = None
+
+
+class ImageBatchImage(BaseModel):
+    """Single image result from batch generation"""
+    id: str
+    url: str
+    prompt: str
+    variation_index: int
+    file_url: Optional[str] = None
+    thumbnail_url: Optional[str] = None
+
+
+class ImageBatchProgress(BaseModel):
+    """Progress tracking for batch generation"""
+    batch_id: str
+    total: int
+    completed: int
+    failed: int
+    images: List[ImageBatchImage] = []
+    errors: List[str] = []
+    status: str = "processing"
+
+
+class ImageBatchResponse(BaseModel):
+    """Initial response when starting batch generation"""
+    batch_id: str
+    status: str
+    message: str
+
+
+# ============================================================================
+# STYLE PRESETS (Feature 027 - Visual Generation Studio)
+# ============================================================================
+
+class StylePreset(BaseModel):
+    """Style preset for image generation"""
+    id: UUID
+    name: str
+    name_pt: str
+    slug: str
+    prompt_modifier: str
+    thumbnail_url: Optional[str] = None
+    category: str = "general"
+    preset_type: str = "visual_style"  # 'visual_style' or 'layout'
+    sort_order: int = 0
+    is_active: bool = True
+    created_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class StylePresetList(BaseModel):
+    """List of style presets"""
+    presets: List[StylePreset]
+    total: int
+
+
+# ============================================================================
+# BOOTSTRAP DATA (Feature 027 - Visual Generation Studio)
+# ============================================================================
+
+class ModelsConfig(BaseModel):
+    """Available models for text and image generation"""
+    text: List[AvailableModel] = []
+    image: List[AvailableModel] = []
+    default_image_model: Optional[str] = None
+
+
+class BootstrapData(BaseModel):
+    """Optimized bootstrap response for project page loading"""
+    project: Optional['Project'] = None
+    settings: Optional[dict] = None
+    models: ModelsConfig = ModelsConfig()
+    visual_context: List[VisualAsset] = []
+    memories: List[MemoryResponse] = []
+    recent_documents: List['Document'] = []
+    style_presets: List[StylePreset] = []
+
+    class Config:
+        from_attributes = True
+
+
+# ============================================================================
+# IMAGE GENERATION CONFIG (Admin Settings)
+# ============================================================================
+
+class ImageGenerationConfig(BaseModel):
+    """Configuration for image generation variations"""
+    count: int = Field(2, ge=1, le=8, description="Number of variations to generate")
+    modifiers: List[str] = Field(default_factory=list, description="Prompt modifiers for variations")
+    enabled: bool = True
+
+    class Config:
+        from_attributes = True
+
+
+class ImageGenerationConfigUpdate(BaseModel):
+    """Update configuration for image generation"""
+    count: Optional[int] = Field(None, ge=1, le=8)
+    modifiers: Optional[List[str]] = None
+    enabled: Optional[bool] = None
+
+
+# ============================================================================
+# AGENCY STUDIO FLOW (Feature 028)
+# ============================================================================
+
+# Copy Library schemas
+class CopyLibraryItemBase(BaseModel):
+    """Base schema for copy library items"""
+    title: str = Field(..., min_length=1, max_length=255)
+    content: str = Field(..., min_length=1, max_length=10000)
+    tags: List[str] = Field(default_factory=list, max_length=20)
+
+
+class CopyLibraryItemCreate(CopyLibraryItemBase):
+    """Schema for creating a copy library item"""
+    pass
+
+
+class CopyLibraryItemUpdate(BaseModel):
+    """Schema for updating a copy library item"""
+    title: Optional[str] = Field(None, min_length=1, max_length=255)
+    content: Optional[str] = Field(None, min_length=1, max_length=10000)
+    tags: Optional[List[str]] = Field(None, max_length=20)
+
+
+class CopyLibraryItem(CopyLibraryItemBase):
+    """Schema for copy library item response"""
+    id: str
+    workspace_id: str
+    created_by: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class CopyLibraryList(BaseModel):
+    """List of copy library items"""
+    items: List[CopyLibraryItem]
+    total: int
+
+
+# Campaign schemas
+class CampaignBase(BaseModel):
+    """Base schema for campaigns"""
+    name: str = Field(..., min_length=1, max_length=255)
+    channel: Optional[str] = Field(None, max_length=100)
+    metadata: Optional[dict] = Field(default_factory=dict)
+
+
+class CampaignCreate(CampaignBase):
+    """Schema for creating a campaign"""
+    pass
+
+
+class CampaignUpdate(BaseModel):
+    """Schema for updating a campaign"""
+    name: Optional[str] = Field(None, min_length=1, max_length=255)
+    channel: Optional[str] = Field(None, max_length=100)
+    metadata: Optional[dict] = None
+
+
+class Campaign(CampaignBase):
+    """Schema for campaign response"""
+    id: str
+    project_id: str
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class CampaignList(BaseModel):
+    """List of campaigns"""
+    items: List[Campaign]
+    total: int
+
+
+# Image Mask schemas
+class ImageMaskCreate(BaseModel):
+    """Schema for creating an image mask"""
+    document_id: str
+    mask_base64: str = Field(..., description="PNG mask as base64 (white=edit, black=preserve)")
+    prompt: str = Field(..., min_length=1, max_length=2000)
+    model: Optional[str] = None
+
+
+class ImageMask(BaseModel):
+    """Schema for image mask response"""
+    id: str
+    document_id: str
+    mask_url: str
+    prompt: Optional[str] = None
+    result_document_id: Optional[str] = None
+    created_by: Optional[str] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class RefineWithMaskResponse(BaseModel):
+    """Response from refine with mask endpoint"""
+    mask_id: str
+    status: str
+    result_document_id: Optional[str] = None
+
+
+# Document Version schemas
+class VersionEntry(BaseModel):
+    """Single version entry in document history"""
+    version: int
+    title: str
+    content: str
+    created_at: datetime
+    created_by: Optional[str] = None
+
+
+class VersionHistoryResponse(BaseModel):
+    """Document version history response"""
+    document_id: str
+    current_version: int
+    versions: List[VersionEntry]
+
+
+# Extended ImageBatchRequest for Feature 028
+class ImageBatchRequestExtended(BaseModel):
+    """Extended batch request with visual context and campaign support"""
+    prompt: str = Field(..., min_length=1)
+    project_id: str
+    count: int = Field(4, ge=1, le=8)
+    model: Optional[str] = None
+    visual_style: Optional[str] = None
+    layout: Optional[str] = None
+    style_preset: Optional[str] = None  # Legacy
+    size: Optional[str] = "1024x1024"
+    aspect_ratio: Optional[str] = None
+    # Feature 028 additions
+    reference_assets: Optional[List[str]] = Field(None, description="Visual asset UUIDs to use as reference")
+    asset_mode: Optional[str] = Field("style", description="How to use assets: style, compose, base")
+    apply_brand_context: bool = Field(True, description="Whether to apply brand context enrichment")
+    campaign_id: Optional[str] = None
+    tags: Optional[List[str]] = None
+    channel: Optional[str] = None

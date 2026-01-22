@@ -7,7 +7,7 @@ const nextConfig: NextConfig = {
   // Enable standalone output for Docker production builds
   output: 'standalone',
 
-  // Allow images from MinIO storage and backend
+  // Allow images from MinIO storage, backend, and Cloudflare R2
   images: {
     remotePatterns: [
       {
@@ -25,6 +25,10 @@ const nextConfig: NextConfig = {
       {
         protocol: 'https',
         hostname: '*.s3.amazonaws.com',
+      },
+      {
+        protocol: 'https',
+        hostname: '*.r2.dev',
       },
     ],
   },
@@ -54,7 +58,7 @@ const nextConfig: NextConfig = {
           },
           {
             key: 'Permissions-Policy',
-            value: 'camera=(), microphone=(), geolocation=()',
+            value: 'camera=(), microphone=(self), geolocation=()',
           },
         ],
       },

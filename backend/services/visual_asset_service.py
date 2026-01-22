@@ -2,6 +2,7 @@
 Visual Asset Service
 Handles AI classification, visual context settings, and asset rotation logic
 Feature: 011-smart-visual-assets
+Feature: 028-image-architecture-refactor - Added intelligent asset selection
 """
 
 from typing import Optional, List, Dict, Any
@@ -10,6 +11,8 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func, and_, or_
 import json
 import asyncio
+import os
+import httpx
 
 from models import Document, Project, AssistantVisualSettings, AssistantAssetSelection, AssetUsageHistory
 from schemas import (
@@ -18,6 +21,8 @@ from schemas import (
     AssistantVisualSettingsUpdate, AssetSelection, AssetSelectionList, VisualContextResponse
 )
 from vision_service import vision_service
+from config import get_openrouter_headers
+from services.model_config_service import ModelConfigService
 
 # Classification prompt for AI vision analysis
 CLASSIFICATION_PROMPT = """You are a visual asset classifier. Analyze this image carefully and classify it.
@@ -48,6 +53,47 @@ Think step by step:
 6. Only if none of the above → "Outro"
 
 Return ONLY the JSON object, no other text."""
+
+
+# Prompt for intelligent asset selection based on user prompt
+ASSET_SELECTION_PROMPT = """You are a visual brand asset selector for professional image generation.
+
+Your task: Select the most relevant visual assets from a brand library to use as references for generating a new image.
+
+## SELECTION CRITERIA
+
+1. **Logo Assets (ALWAYS PRIORITIZE)**
+   - ALWAYS include at least 1 logo if available
+   - Logos ensure brand consistency in generated images
+
+2. **Contextual Relevance**
+   - Match assets to the theme/subject of the prompt
+   - "summer promotion" → prefer bright, outdoor, beach-related assets
+   - "professional meeting" → prefer corporate, formal assets
+   - "product launch" → prefer product photos, clean backgrounds
+
+3. **Visual Style Matching**
+   - Consider the mood: formal vs casual, vibrant vs muted
+   - Match color schemes when possible
+   - Consider the target audience implied by the prompt
+
+4. **Diversity**
+   - Include variety: don't select all from same category
+   - Balance between brand elements (logos) and contextual elements
+
+## INPUT FORMAT
+You will receive:
+- User prompt: The image generation request
+- Available assets: List with id, category, tags, and description
+
+## OUTPUT FORMAT
+Return ONLY a valid JSON object:
+{
+  "selected_ids": ["id1", "id2", "id3"],
+  "reasoning": "Brief explanation of selection logic"
+}
+
+Select 3-7 assets maximum. Prioritize quality over quantity."""
 
 
 class VisualAssetService:
@@ -521,49 +567,268 @@ class VisualAssetService:
         return self.get_asset_selections(db, project_id)
 
     # =========================================================================
-    # VISUAL CONTEXT (US3)
+    # VISUAL CONTEXT (US3) - Simplified: Always returns assets automatically
     # =========================================================================
 
     def get_visual_context(
         self,
         db: Session,
         project_id: str,
-        limit: int = 5
+        limit: int = 7
     ) -> VisualContextResponse:
         """
-        Get resolved visual context for image generation
+        Get resolved visual context for image generation.
+
+        SIMPLIFIED: Always returns up to 7 assets automatically using
+        the rotation algorithm. No need for user to enable or configure.
 
         Args:
             db: Database session
             project_id: Project ID
-            limit: Maximum assets to return (NFR-003: max 5)
+            limit: Maximum assets to return (default: 7)
 
         Returns:
             VisualContextResponse with assets
         """
-        settings = self.get_or_create_visual_settings(db, project_id)
+        limit = min(limit, 7)  # Max 7 assets per generation
 
-        if not settings.is_enabled:
+        # Always use auto-rotation to get the best assets
+        assets = self._get_auto_context_assets(
+            db,
+            project_id,
+            assets_per_category=2,  # Default 2 per category
+            limit=limit
+        )
+
+        if not assets:
             return VisualContextResponse(
-                is_enabled=False,
-                message="Visual context is disabled for this project"
+                is_enabled=True,
+                mode=VisualContextMode.AUTO,
+                assets=[],
+                message="No visual assets available for this project"
             )
-
-        limit = min(limit, 5)  # NFR-003: max 5 assets per generation
-
-        if settings.mode == "manual":
-            # Get manual selections
-            assets = self._get_manual_context_assets(db, settings.id, limit)
-        else:
-            # Get auto-rotated assets
-            assets = self._get_auto_context_assets(db, project_id, settings.assets_per_category, limit)
 
         return VisualContextResponse(
             is_enabled=True,
-            mode=VisualContextMode(settings.mode),
+            mode=VisualContextMode.AUTO,
             assets=assets,
-            message=f"Using {len(assets)} visual assets as references"
+            message=f"Using {len(assets)} visual assets as brand references"
         )
+
+    async def get_intelligent_visual_context(
+        self,
+        db: Session,
+        project_id: str,
+        prompt: str,
+        limit: int = 7
+    ) -> VisualContextResponse:
+        """
+        Get intelligently selected visual context based on the user's prompt.
+
+        Uses AI to analyze the prompt and select the most relevant assets
+        from the project's visual library based on tags, descriptions, and categories.
+
+        Args:
+            db: Database session
+            project_id: Project ID
+            prompt: The user's image generation prompt
+            limit: Maximum assets to return (default: 7)
+
+        Returns:
+            VisualContextResponse with intelligently selected assets
+        """
+        limit = min(limit, 7)
+
+        # Get all available assets for the project
+        all_assets = self._get_all_project_assets(db, project_id)
+
+        if not all_assets:
+            return VisualContextResponse(
+                is_enabled=True,
+                mode=VisualContextMode.AUTO,
+                assets=[],
+                message="No visual assets available for this project"
+            )
+
+        # If few assets, just return all of them
+        if len(all_assets) <= limit:
+            return VisualContextResponse(
+                is_enabled=True,
+                mode=VisualContextMode.AUTO,
+                assets=all_assets,
+                message=f"Using all {len(all_assets)} visual assets as brand references"
+            )
+
+        # Use AI to select the most relevant assets
+        selected_assets = await self._select_assets_with_ai(
+            db, prompt, all_assets, limit
+        )
+
+        if not selected_assets:
+            # Fallback to rotation algorithm if AI selection fails
+            print("⚠️ AI asset selection failed, falling back to rotation algorithm")
+            selected_assets = self._get_auto_context_assets(
+                db, project_id, assets_per_category=2, limit=limit
+            )
+
+        return VisualContextResponse(
+            is_enabled=True,
+            mode=VisualContextMode.AUTO,
+            assets=selected_assets,
+            message=f"Using {len(selected_assets)} intelligently selected assets"
+        )
+
+    def _get_all_project_assets(
+        self,
+        db: Session,
+        project_id: str
+    ) -> List[VisualAsset]:
+        """Get all classified assets for a project"""
+        assets = db.query(Document).filter(
+            Document.project_id == project_id,
+            Document.is_reference_asset == True,
+            Document.deleted_at == None,
+            Document.asset_category != None  # Only classified assets
+        ).all()
+
+        return [
+            VisualAsset(
+                id=asset.id,
+                project_id=asset.project_id,
+                name=asset.title,
+                file_url=asset.file_url,
+                thumbnail_url=asset.thumbnail_url,
+                category=AssetCategory(asset.asset_category) if asset.asset_category else None,
+                tags=asset.asset_tags,
+                ai_description=asset.ai_description,
+                is_classified=asset.asset_category is not None,
+                created_at=asset.created_at,
+                updated_at=asset.updated_at
+            )
+            for asset in assets
+        ]
+
+    async def _select_assets_with_ai(
+        self,
+        db: Session,
+        prompt: str,
+        available_assets: List[VisualAsset],
+        limit: int
+    ) -> Optional[List[VisualAsset]]:
+        """
+        Use AI to select the most relevant assets for the given prompt.
+
+        Args:
+            db: Database session
+            prompt: User's image generation prompt
+            available_assets: List of all available assets
+            limit: Maximum number of assets to select
+
+        Returns:
+            List of selected VisualAsset objects, or None if selection fails
+        """
+        openrouter_api_key = os.getenv("OPENROUTER_API_KEY", "")
+        if not openrouter_api_key:
+            print("⚠️ OPENROUTER_API_KEY not set, skipping AI asset selection")
+            return None
+
+        # Get the model for asset selection (use prompt enrichment model - fast & cheap)
+        model_config = ModelConfigService(db)
+        model = model_config.get_model(ModelConfigService.MODEL_PROMPT_ENRICHMENT)
+
+        # Build asset descriptions for the AI
+        asset_descriptions = []
+        for asset in available_assets:
+            tags_str = ", ".join(asset.tags[:5]) if asset.tags else "none"
+            desc = asset.ai_description[:100] if asset.ai_description else "no description"
+            asset_descriptions.append({
+                "id": asset.id,
+                "category": asset.category.value if asset.category else "unknown",
+                "tags": tags_str,
+                "description": desc
+            })
+
+        user_message = f"""User prompt: "{prompt}"
+
+Available assets ({len(available_assets)} total):
+{json.dumps(asset_descriptions, indent=2)}
+
+Select the {limit} most relevant assets for this image generation request.
+Remember: ALWAYS include at least 1 logo if available."""
+
+        headers = get_openrouter_headers(openrouter_api_key)
+        payload = {
+            "model": model,
+            "messages": [
+                {"role": "system", "content": ASSET_SELECTION_PROMPT},
+                {"role": "user", "content": user_message}
+            ],
+            "max_tokens": 500,
+            "temperature": 0.3  # Lower temperature for more consistent selection
+        }
+
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                response = await client.post(
+                    "https://openrouter.ai/api/v1/chat/completions",
+                    headers=headers,
+                    json=payload
+                )
+
+                if response.status_code != 200:
+                    print(f"❌ AI asset selection failed: {response.status_code}")
+                    return None
+
+                data = response.json()
+                content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+
+                # Parse the response
+                selected_ids = self._parse_asset_selection_response(content)
+
+                if not selected_ids:
+                    return None
+
+                # Filter assets by selected IDs, maintaining order
+                asset_map = {a.id: a for a in available_assets}
+                selected_assets = [
+                    asset_map[aid] for aid in selected_ids
+                    if aid in asset_map
+                ][:limit]
+
+                if selected_assets:
+                    print(f"✨ AI selected {len(selected_assets)} assets: {[a.category.value if a.category else 'unknown' for a in selected_assets]}")
+
+                return selected_assets if selected_assets else None
+
+        except Exception as e:
+            print(f"❌ AI asset selection error: {e}")
+            return None
+
+    def _parse_asset_selection_response(self, response_text: str) -> Optional[List[str]]:
+        """Parse AI response to extract selected asset IDs"""
+        try:
+            # Extract JSON from response
+            json_start = response_text.find("{")
+            json_end = response_text.rfind("}") + 1
+
+            if json_start == -1 or json_end == 0:
+                return None
+
+            json_str = response_text[json_start:json_end]
+            data = json.loads(json_str)
+
+            selected_ids = data.get("selected_ids", [])
+
+            if selected_ids:
+                reasoning = data.get("reasoning", "")
+                if reasoning:
+                    print(f"🧠 Asset selection reasoning: {reasoning}")
+
+            return selected_ids if isinstance(selected_ids, list) else None
+
+        except (json.JSONDecodeError, KeyError) as e:
+            print(f"Failed to parse asset selection response: {e}")
+            return None
 
     def _get_manual_context_assets(
         self,

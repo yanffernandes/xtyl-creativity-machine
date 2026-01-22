@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react';
 import { X, AlertTriangle, Info, Megaphone, Wrench } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { getActiveSystemMessages, type ActiveSystemMessage } from '@/lib/api';
+import { useSystemMessages } from '@/hooks/use-system-messages';
+import type { SystemMessage } from '@/types/supabase';
 
 const MESSAGE_CONFIG = {
   maintenance: {
@@ -53,29 +54,15 @@ function dismissMessage(messageId: string): void {
 }
 
 export function SystemMessageBanner() {
-  const [messages, setMessages] = useState<ActiveSystemMessage[]>([]);
   const [dismissedIds, setDismissedIds] = useState<string[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+
+  // Use Supabase directly via React Query hook
+  const { data: messages = [], isLoading } = useSystemMessages({
+    refetchInterval: 5 * 60 * 1000, // Refresh every 5 minutes
+  });
 
   useEffect(() => {
     setDismissedIds(getDismissedMessages());
-
-    async function fetchMessages() {
-      try {
-        const response = await getActiveSystemMessages();
-        setMessages(response.messages);
-      } catch (error) {
-        console.error('Failed to fetch system messages:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    }
-
-    fetchMessages();
-
-    // Refresh messages every 5 minutes
-    const interval = setInterval(fetchMessages, 5 * 60 * 1000);
-    return () => clearInterval(interval);
   }, []);
 
   const handleDismiss = (messageId: string) => {
@@ -85,7 +72,7 @@ export function SystemMessageBanner() {
 
   // Filter out dismissed messages
   const visibleMessages = messages.filter(
-    (msg) => !msg.dismissible || !dismissedIds.includes(msg.id)
+    (msg: SystemMessage) => !msg.dismissible || !dismissedIds.includes(msg.id)
   );
 
   if (isLoading || visibleMessages.length === 0) {
@@ -94,7 +81,7 @@ export function SystemMessageBanner() {
 
   return (
     <div className="fixed top-0 left-0 right-0 z-50 flex flex-col">
-      {visibleMessages.map((message) => {
+      {visibleMessages.map((message: SystemMessage) => {
         const config = MESSAGE_CONFIG[message.type] || MESSAGE_CONFIG.info;
         const Icon = config.icon;
 
@@ -112,7 +99,7 @@ export function SystemMessageBanner() {
               <span className="font-semibold">{message.title}</span>
               {message.content && (
                 <>
-                  <span className="opacity-60">—</span>
+                  <span className="opacity-60">-</span>
                   <span className="opacity-90">{message.content}</span>
                 </>
               )}

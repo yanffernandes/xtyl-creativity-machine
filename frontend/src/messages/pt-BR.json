@@ -404,6 +404,8 @@
     "waitingApproval": "Aguardando aprovação:",
     "autoExecuting": "Auto-executando:",
     "operationCancelled": "Operação cancelada",
+    "operationCancelledDescription": "A operação foi interrompida pelo usuário.",
+    "cancel": "Cancelar",
     "toolExecutionCancelled": "A execução da ferramenta foi cancelada.",
     "failedApproval": "Falha ao enviar resposta de aprovação.",
     "createdDocuments": "Documentos criados nesta conversa",

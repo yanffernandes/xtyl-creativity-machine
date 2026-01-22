@@ -19,7 +19,7 @@ import {
 import { arrayMove, SortableContext, sortableKeyboardCoordinates } from "@dnd-kit/sortable"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { FileText, GripVertical, Star, Trash2 } from "lucide-react"
+import { FileText, GripVertical, Star, Trash2, MousePointer2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import KanbanCard from "./KanbanCard"
 import KanbanColumn from "./KanbanColumn"
@@ -43,6 +43,11 @@ interface KanbanBoardProps {
   onToggleContext?: (e: React.MouseEvent, doc: Document) => void
   onDelete?: (e: React.MouseEvent, doc: Document) => void
   onStatusChange?: (docId: string, newStatus: string) => void
+  /** Feature 028 T031: Add document to copy library */
+  onAddToLibrary?: (doc: Document) => void
+  /** Feature 028 T015: Multi-select support */
+  selectedIds?: Set<string>
+  onMultiSelect?: (doc: Document, e: React.MouseEvent) => void
 }
 
 const COLUMNS = [
@@ -83,7 +88,10 @@ export default function KanbanBoard({
   onSelectDocument,
   onToggleContext,
   onDelete,
-  onStatusChange
+  onStatusChange,
+  onAddToLibrary,
+  selectedIds,
+  onMultiSelect
 }: KanbanBoardProps) {
   const [activeId, setActiveId] = useState<string | null>(null)
   const [overId, setOverId] = useState<string | null>(null)
@@ -174,7 +182,7 @@ export default function KanbanBoard({
 
     const activeContainer = findContainer(active.id as string)
     // Use the over id to find the container, prioritizing columns
-    let overContainer = COLUMNS.find(col => col.id === over.id)?.id || findContainer(over.id as string)
+    const overContainer = COLUMNS.find(col => col.id === over.id)?.id || findContainer(over.id as string)
 
     if (activeContainer !== overContainer) {
       const doc = documents.find(d => d.id === active.id)
@@ -217,6 +225,8 @@ export default function KanbanBoard({
 
   const activeDocument = activeId ? documents.find(d => d.id === activeId) : null
 
+  const hasSelection = selectedIds && selectedIds.size > 0
+
   return (
     <DndContext
       sensors={sensors}
@@ -226,6 +236,15 @@ export default function KanbanBoard({
       onDragEnd={handleDragEnd}
       onDragCancel={handleDragCancel}
     >
+      {/* Multi-select hint */}
+      {!hasSelection && (
+        <div className="flex items-center gap-2 mb-3 px-1 text-xs text-muted-foreground opacity-60 hover:opacity-100 transition-opacity">
+          <MousePointer2 className="h-3 w-3" />
+          <span>
+            Dica: Use <kbd className="px-1.5 py-0.5 rounded bg-muted text-[10px] font-mono">Ctrl</kbd>+clique ou <kbd className="px-1.5 py-0.5 rounded bg-muted text-[10px] font-mono">Shift</kbd>+clique para selecionar múltiplas copies e gerar imagens em lote
+          </span>
+        </div>
+      )}
       <div className="flex gap-4 h-full overflow-x-auto pb-4 scrollbar-thin">
         {COLUMNS.map((column) => {
           const columnDocs = getDocsByStatus(column.id)
@@ -238,6 +257,9 @@ export default function KanbanBoard({
               onSelectDocument={onSelectDocument}
               onToggleContext={onToggleContext}
               onDelete={onDelete}
+              onAddToLibrary={onAddToLibrary}
+              selectedIds={selectedIds}
+              onMultiSelect={onMultiSelect}
             />
           )
         })}

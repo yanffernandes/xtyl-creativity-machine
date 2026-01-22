@@ -4,8 +4,16 @@ import { useSortable } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { FileText, GripVertical, Star, Trash2, Image as ImageIcon } from "lucide-react"
+import { FileText, GripVertical, Star, Trash2, Image as ImageIcon, MoreHorizontal, Library } from "lucide-react"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
+import { TagDisplay } from "@/components/document/TagInput"
+import { CheckCircle2 } from "lucide-react"
 
 interface ImageAttachment {
   id: string
@@ -29,6 +37,9 @@ interface Document {
   content?: string
   is_context?: boolean
   attachments?: ImageAttachment[]
+  // Feature 028 T053: Tags support
+  tags?: string[]
+  channel?: string
 }
 
 interface KanbanCardProps {
@@ -36,13 +47,21 @@ interface KanbanCardProps {
   onSelect: (doc: Document) => void
   onToggleContext?: (e: React.MouseEvent, doc: Document) => void
   onDelete?: (e: React.MouseEvent, doc: Document) => void
+  /** Feature 028 T031: Add document content to copy library */
+  onAddToLibrary?: (doc: Document) => void
+  /** Feature 028 T015: Multi-select support */
+  isSelected?: boolean
+  onMultiSelect?: (doc: Document, e: React.MouseEvent) => void
 }
 
 export default function KanbanCard({
   document,
   onSelect,
   onToggleContext,
-  onDelete
+  onDelete,
+  onAddToLibrary,
+  isSelected = false,
+  onMultiSelect
 }: KanbanCardProps) {
   const {
     attributes,
@@ -58,6 +77,19 @@ export default function KanbanCard({
     transition,
   }
 
+  // Feature 028 T015: Handle click with multi-select support
+  const handleClick = (e: React.MouseEvent) => {
+    if (isDragging) return
+
+    // Ctrl/Cmd+click or Shift+click for multi-select
+    if ((e.ctrlKey || e.metaKey || e.shiftKey) && onMultiSelect) {
+      e.preventDefault()
+      onMultiSelect(document, e)
+    } else {
+      onSelect(document)
+    }
+  }
+
   return (
     <Card
       ref={setNodeRef}
@@ -65,13 +97,20 @@ export default function KanbanCard({
       className={cn(
         "cursor-pointer hover:shadow-md transition-all bg-card group relative border-border",
         "hover:scale-[1.02] hover:border-primary/50",
-        isDragging && "opacity-50 rotate-2 scale-105 shadow-2xl z-50"
+        isDragging && "opacity-50 rotate-2 scale-105 shadow-2xl z-50",
+        // Feature 028 T015: Selected state styling
+        isSelected && "ring-2 ring-primary border-primary bg-primary/5"
       )}
-      onClick={() => !isDragging && onSelect(document)}
+      onClick={handleClick}
     >
       <CardContent className="p-4">
         <div className="flex items-start justify-between mb-2">
-          <FileText className="h-5 w-5 text-muted-foreground shrink-0" />
+          {/* Feature 028 T015: Selection indicator */}
+          {isSelected ? (
+            <CheckCircle2 className="h-5 w-5 text-primary shrink-0" />
+          ) : (
+            <FileText className="h-5 w-5 text-muted-foreground shrink-0" />
+          )}
           <div className="flex items-center gap-1">
             <div
               {...attributes}
@@ -112,6 +151,29 @@ export default function KanbanCard({
                 <Trash2 className="h-4 w-4" />
               </Button>
             )}
+            {/* Feature 028 T031: More actions dropdown */}
+            {onAddToLibrary && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <MoreHorizontal className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                  <DropdownMenuItem
+                    onClick={() => onAddToLibrary(document)}
+                  >
+                    <Library className="h-4 w-4 mr-2" />
+                    Adicionar à Biblioteca
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
           </div>
         </div>
         <p className="font-semibold text-sm line-clamp-2 mb-3">{document.title}</p>
@@ -146,6 +208,13 @@ export default function KanbanCard({
                 +{document.attachments.length - 3}
               </div>
             )}
+          </div>
+        )}
+
+        {/* Feature 028 T053: Tags display */}
+        {document.tags && document.tags.length > 0 && (
+          <div className="mb-2">
+            <TagDisplay tags={document.tags} maxVisible={2} />
           </div>
         )}
 

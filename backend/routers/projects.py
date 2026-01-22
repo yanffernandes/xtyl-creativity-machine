@@ -1,18 +1,22 @@
 """
 Project Settings Router
 Endpoints for managing project settings (client info, target audience, brand voice, etc.)
+Includes bootstrap endpoint for optimized project page loading (Feature 027).
 """
 from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, Query, Body
 from sqlalchemy.orm import Session
+from sqlalchemy import desc
 from typing import List, Optional
 import httpx
 
 from database import get_db
-from models import Project, Document
+from models import Project, Document, StylePreset, UserMemory, Workspace, WorkspaceUser
 from schemas import (
     ProjectSettings, ProjectSettingsUpdate, ProjectContext,
     ColorExtractionResult, AssetColorExtractionRequest, AssetColorExtractionResult,
-    DeleteProjectResponse, CascadeSummary
+    DeleteProjectResponse, CascadeSummary,
+    BootstrapData, ModelsConfig, Project as ProjectSchema, VisualAsset, MemoryResponse,
+    Document as DocumentSchema, StylePreset as StylePresetSchema, AvailableModel
 )
 from supabase_auth import get_current_user
 from services.color_extraction import extract_colors, validate_image
@@ -368,4 +372,194 @@ async def delete_project(
         message=f"Project '{project_name}' has been deleted",
         deleted_at=result["deleted_at"],
         cascade_summary=CascadeSummary(**result["cascade_summary"])
+    )
+
+
+# ============================================================================
+# BOOTSTRAP ENDPOINT (Feature 027 - Visual Generation Studio)
+# ============================================================================
+
+async def get_available_models(db: Session) -> dict:
+    """Get available text and image models from OpenRouter, plus default from system_config"""
+    from llm_service import list_models as get_text_models
+    from image_generation_service import get_available_models as get_available_image_models
+    from models import SystemConfig
+    import json
+
+    text_models = []
+    image_models = []
+    default_image_model = None
+
+    # Get default image model from system_config
+    try:
+        ai_models_config = db.query(SystemConfig).filter(SystemConfig.key == "ai_models").first()
+        if ai_models_config and ai_models_config.value:
+            config_data = json.loads(ai_models_config.value) if isinstance(ai_models_config.value, str) else ai_models_config.value
+            default_image_model = config_data.get("defaults", {}).get("image_generation")
+    except Exception:
+        pass
+
+    try:
+        text_models_data = await get_text_models()
+        text_models = [
+            AvailableModel(
+                id=m.get("id", ""),
+                name=m.get("name", m.get("id", "")),
+                description=m.get("description"),
+                context_length=m.get("context_length"),
+                pricing_prompt=str(m.get("pricing", {}).get("prompt", "")) if m.get("pricing") else None,
+                pricing_completion=str(m.get("pricing", {}).get("completion", "")) if m.get("pricing") else None,
+                top_provider=m.get("top_provider", {}).get("context_length") if m.get("top_provider") else None,
+            )
+            for m in text_models_data
+        ]
+    except Exception:
+        pass
+
+    try:
+        image_models_data = await get_available_image_models()
+        image_models = [
+            AvailableModel(
+                id=m.get("id", ""),
+                name=m.get("name", m.get("id", "")),
+                description=m.get("description"),
+                output_modalities=["image"],
+            )
+            for m in image_models_data
+        ]
+    except Exception:
+        pass
+
+    return {"text": text_models, "image": image_models, "default_image_model": default_image_model}
+
+
+@router.get("/{project_id}/bootstrap", response_model=BootstrapData)
+async def get_project_bootstrap(
+    project_id: str,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Get all data needed to load the project page in a single request.
+
+    This endpoint aggregates multiple data sources to reduce initial page load from 8+ requests to 1:
+    - Project info and settings
+    - Available text and image models
+    - Visual context assets (up to 5)
+    - User memories for this project (up to 10)
+    - Recent documents (up to 10)
+    - Style presets for image generation
+
+    Feature 027 - Visual Generation Studio
+    """
+    user_id = str(current_user.id)
+
+    # Get project and verify access
+    project = db.query(Project).filter(
+        Project.id == project_id,
+        Project.deleted_at == None
+    ).first()
+
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    # Verify user has access to this project's workspace
+    workspace_access = db.query(WorkspaceUser).filter(
+        WorkspaceUser.workspace_id == project.workspace_id,
+        WorkspaceUser.user_id == user_id
+    ).first()
+
+    if not workspace_access:
+        raise HTTPException(status_code=403, detail="Access denied to this project")
+
+    # Get models (async) - pass db for fetching default model from system_config
+    models = await get_available_models(db)
+
+    # Get visual context assets (reference images for this project)
+    visual_assets = db.query(Document).filter(
+        Document.project_id == project_id,
+        Document.is_reference_asset == True,
+        Document.deleted_at == None
+    ).order_by(desc(Document.created_at)).limit(5).all()
+
+    visual_context = [
+        VisualAsset(
+            id=a.id,
+            project_id=a.project_id,
+            name=a.title or f"Asset {a.id}",
+            file_url=a.file_url,
+            thumbnail_url=a.thumbnail_url,
+            category=a.asset_category,
+            tags=a.asset_tags,
+            ai_description=a.ai_description,
+            is_classified=bool(a.asset_category),
+            created_at=a.created_at,
+            updated_at=a.updated_at
+        )
+        for a in visual_assets
+    ]
+
+    # Get user memories for this project
+    memories = db.query(UserMemory).filter(
+        UserMemory.user_id == current_user.id,
+        UserMemory.project_id == project_id
+    ).order_by(desc(UserMemory.created_at)).limit(10).all()
+
+    memories_response = [
+        MemoryResponse(
+            id=m.id,
+            user_id=m.user_id,
+            project_id=m.project_id,
+            content=m.content,
+            category=m.category,
+            source_conversation_id=m.source_conversation_id,
+            created_at=m.created_at,
+            updated_at=m.updated_at
+        )
+        for m in memories
+    ]
+
+    # Get recent documents (excluding reference assets)
+    recent_docs = db.query(Document).filter(
+        Document.project_id == project_id,
+        Document.is_reference_asset == False,
+        Document.deleted_at == None
+    ).order_by(desc(Document.created_at)).limit(10).all()
+
+    recent_documents = [
+        DocumentSchema.model_validate(d)
+        for d in recent_docs
+    ]
+
+    # Get active style presets
+    style_presets = db.query(StylePreset).filter(
+        StylePreset.is_active == True
+    ).order_by(StylePreset.sort_order).all()
+
+    style_presets_response = [
+        StylePresetSchema.model_validate(sp)
+        for sp in style_presets
+    ]
+
+    # Build project response
+    project_response = ProjectSchema(
+        id=project.id,
+        name=project.name,
+        description=project.description,
+        settings=project.settings,
+        created_at=project.created_at
+    )
+
+    return BootstrapData(
+        project=project_response,
+        settings=project.settings,
+        models=ModelsConfig(
+            text=models.get("text", []),
+            image=models.get("image", []),
+            default_image_model=models.get("default_image_model")
+        ),
+        visual_context=visual_context,
+        memories=memories_response,
+        recent_documents=recent_documents,
+        style_presets=style_presets_response
     )

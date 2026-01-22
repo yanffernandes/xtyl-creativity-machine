@@ -59,8 +59,10 @@ class BrandContext:
         parts = []
 
         if self.color_palette:
-            colors = ", ".join(self.color_palette[:6])  # Max 6 colors
-            parts.append(f"Use this color palette as reference: {colors}")
+            # Convert hex codes to descriptive color names to avoid them appearing in the image
+            color_descriptions = [self._hex_to_description(c) for c in self.color_palette[:6]]
+            colors = ", ".join(color_descriptions)
+            parts.append(f"Incorporate these colors naturally into the scene: {colors}")
 
         fonts = []
         if self.typography_primary:
@@ -73,41 +75,135 @@ class BrandContext:
 
         return "; ".join(parts) if parts else ""
 
+    def _hex_to_description(self, hex_color: str) -> str:
+        """Convert hex color to a descriptive name to avoid hex codes in prompts."""
+        # Remove # if present
+        hex_color = hex_color.lstrip('#').upper()
+
+        # Basic color mapping based on hex ranges
+        try:
+            r = int(hex_color[0:2], 16)
+            g = int(hex_color[2:4], 16)
+            b = int(hex_color[4:6], 16)
+        except (ValueError, IndexError):
+            return "neutral tone"
+
+        # Determine lightness
+        lightness = (r + g + b) / 3
+        light_prefix = ""
+        if lightness > 200:
+            light_prefix = "light "
+        elif lightness < 60:
+            light_prefix = "deep "
+        elif lightness < 100:
+            light_prefix = "dark "
+
+        # Determine dominant color
+        max_val = max(r, g, b)
+        min_val = min(r, g, b)
+
+        if max_val - min_val < 30:  # Grayscale
+            if lightness > 200:
+                return "white"
+            elif lightness < 50:
+                return "black"
+            else:
+                return f"{light_prefix}gray"
+
+        # Color determination
+        if r >= g and r >= b:
+            if r - g < 30 and g > b:
+                return f"{light_prefix}golden yellow"
+            elif r - b < 30 and b > g:
+                return f"{light_prefix}magenta pink"
+            elif g > 100:
+                return f"{light_prefix}orange"
+            else:
+                return f"{light_prefix}red"
+        elif g >= r and g >= b:
+            if g - r < 30:
+                return f"{light_prefix}lime green"
+            elif g - b < 50 and b > 100:
+                return f"{light_prefix}teal"
+            else:
+                return f"{light_prefix}green"
+        else:  # b is dominant
+            if b - r < 50 and r > 100:
+                return f"{light_prefix}purple"
+            elif b - g < 30:
+                return f"{light_prefix}cyan"
+            else:
+                return f"{light_prefix}blue"
+
 
 # System prompt for the enrichment model
-ENRICHMENT_SYSTEM_PROMPT = """You are an expert prompt engineer specializing in AI image generation. Your task is to enhance user prompts to produce higher quality, more professional images.
+ENRICHMENT_SYSTEM_PROMPT = """You are an elite creative director and prompt engineer at a top-tier design agency. Your specialty is transforming simple ideas into stunning, award-winning visual concepts for AI image generation.
 
-## Your Role
-Take a simple user prompt and expand it with:
-1. Technical details (lighting, composition, perspective)
-2. Style specifications (artistic style, mood, atmosphere)
-3. Quality descriptors (high resolution, professional, detailed)
-4. Any provided brand context (colors, fonts, visual style)
+## YOUR MISSION
+Transform basic prompts into professional-grade image specifications that produce:
+- **4K/8K quality** imagery worthy of premium advertising campaigns
+- **Contemporary, cutting-edge** aesthetics (2024-2025 design trends)
+- **Sophisticated compositions** with intentional visual hierarchy
+- **Brand-aligned visuals** that feel cohesive and intentional
 
-## Guidelines
-- Keep the original intent and subject matter
-- Add 2-3 relevant technical/style improvements
-- Incorporate brand colors naturally if provided
-- Keep the enhanced prompt concise (under 300 words)
-- Output ONLY the enhanced prompt, no explanations
+## MANDATORY QUALITY STANDARDS
+Every enhanced prompt MUST include:
+1. **Resolution & Fidelity**: "4K", "8K", "ultra-detailed", "sharp focus", "high resolution"
+2. **Professional Context**: "shot by professional photographer", "studio quality", "commercial grade", "advertising quality"
+3. **Modern Aesthetics**: Contemporary design language, avoid dated/generic looks
+4. **Lighting Excellence**: Specific lighting setup (soft diffused, dramatic rim light, golden hour, studio strobes)
+5. **Composition Rules**: Rule of thirds, leading lines, negative space, depth of field
 
-## Examples
-User: "A coffee cup on a table"
-Enhanced: "A steaming artisanal coffee cup on a rustic wooden table, morning light streaming through window, soft bokeh background, professional food photography, warm earthy tones, high detail, 4K quality"
+## STYLE DIRECTIVES
+- **NEVER** produce anything that looks stock, generic, clipart-like, or amateur
+- **ALWAYS** aim for: Apple-level polish, Airbnb-quality photography, premium brand aesthetics
+- **PRIORITIZE**: Clean lines, sophisticated color grading, intentional whitespace, modern typography integration
+- **EMBRACE**: Minimalism with impact, bold but refined, elegant simplicity
 
-User: "Company logo for tech startup"
-Enhanced: "Modern minimalist tech company logo, clean geometric shapes, gradient blue to purple, vector style, centered composition, professional corporate branding, crisp edges, scalable design"
+## BRAND INTEGRATION (when provided)
+- Weave brand colors naturally into the scene (lighting, props, backgrounds, accents)
+- Respect typography personality (if elegant fonts → elegant imagery; if bold → bold visuals)
+- Maintain visual consistency that could belong in the brand's marketing materials
+
+## CRITICAL RESTRICTIONS - NEVER DO THIS
+- **NEVER** include hex color codes (like #FF5733, #0C3274) as visible text in the image
+- **NEVER** render color swatches, color bars, color palettes, or color samples as visual elements
+- **NEVER** include company names, brand names, or business names as visible text or watermarks
+- **NEVER** add technical color values (RGB, HEX, CMYK, Pantone) anywhere in the image
+- **NEVER** describe colors by their codes - use natural descriptions instead: "deep navy blue" not "#0C3274"
+- Use colors naturally through lighting, objects, clothing, backgrounds - NOT as labeled graphic elements
+- The brand logo will be automatically included via visual asset references - do not describe or add text logos
+- Focus on the visual scene, not on displaying brand identity elements as text
+
+## OUTPUT RULES
+- Output ONLY the enhanced prompt, no explanations or commentary
+- Keep under 400 words but be comprehensive
+- Write in English for best AI model compatibility
+- End with key quality anchors: "masterpiece, trending on Behance, award-winning design"
+
+## EXAMPLES
+
+User: "A coffee cup"
+Enhanced: "Artisanal ceramic coffee cup with steam wisps rising elegantly, placed on polished marble surface, soft morning light streaming through sheer curtains creating gentle shadows, shallow depth of field with creamy bokeh, professional food photography, warm neutral color palette with touches of terracotta, minimalist Scandinavian aesthetic, shot on medium format camera, 4K ultra-detailed, masterpiece quality, trending on Behance"
+
+User: "Logo for tech company"
+Enhanced: "Premium technology brand logo, ultra-modern geometric lettermark, clean vector design with subtle 3D depth, sophisticated gradient from deep navy to electric blue, centered on pure white background with ample breathing room, crisp razor-sharp edges, professional corporate identity design, scalable from favicon to billboard, contemporary 2024 design trends, award-winning branding, 8K render quality"
+
+User: "Marketing banner for sale"
+Enhanced: "High-impact retail promotional banner, bold contemporary typography with dynamic composition, vibrant yet sophisticated color blocking, professional marketing design with clear visual hierarchy, modern gradient overlays, clean geometric accents, premium advertising quality, eye-catching but elegant, commercial photography integration ready, 4K resolution, print and digital optimized, award-winning advertising design"
 """
 
-# Fallback template when brand context is not available
-FALLBACK_TEMPLATE = """Enhanced prompt for: {original_prompt}
-
-Add professional quality by including:
-- Appropriate lighting and composition
-- Clear artistic direction
-- High resolution and detail
-
-Keep the core subject and intent while elevating the visual quality."""
+# Fallback quality anchors when model call fails
+FALLBACK_QUALITY_ANCHORS = [
+    "4K ultra-detailed",
+    "professional photography",
+    "sharp focus",
+    "premium quality",
+    "modern contemporary aesthetic",
+    "sophisticated composition",
+    "studio lighting",
+    "masterpiece quality"
+]
 
 
 class PromptEnrichmentService:
@@ -182,16 +278,22 @@ class PromptEnrichmentService:
 
     def _build_user_message(self, prompt: str, brand_context_str: str) -> str:
         """Build the user message for the enrichment model."""
+        base_instructions = """Transform this into a premium, award-winning visual concept.
+Remember: 4K/8K quality, professional photography standards, contemporary 2024-2025 aesthetics.
+NEVER generic or stock-like. ALWAYS sophisticated and brand-worthy."""
+
         if brand_context_str:
-            return f"""Enhance this image generation prompt. Apply the brand context where appropriate.
+            return f"""{base_instructions}
 
 Original prompt: {prompt}
 
-Brand context: {brand_context_str}
+Brand context to incorporate: {brand_context_str}
+
+The image will be used alongside reference visual assets from the brand library, so ensure visual coherence with professional brand materials.
 
 Output ONLY the enhanced prompt:"""
         else:
-            return f"""Enhance this image generation prompt with professional quality and technical details.
+            return f"""{base_instructions}
 
 Original prompt: {prompt}
 
@@ -199,18 +301,14 @@ Output ONLY the enhanced prompt:"""
 
     def _apply_fallback_template(self, prompt: str, brand_context_str: str) -> str:
         """Apply fallback template when model call fails."""
-        # Simple fallback that adds basic quality descriptors
-        enhancements = [
-            "high quality",
-            "professional",
-            "detailed",
-            "well-composed"
-        ]
-
-        enhanced = f"{prompt}, {', '.join(enhancements)}"
+        # Use professional quality anchors
+        enhanced = f"{prompt}, {', '.join(FALLBACK_QUALITY_ANCHORS)}"
 
         if brand_context_str:
-            enhanced = f"{enhanced}. {brand_context_str}"
+            enhanced = f"{enhanced}. Brand context: {brand_context_str}"
+
+        # Always end with quality anchors
+        enhanced = f"{enhanced}, trending on Behance, award-winning design"
 
         return enhanced
 

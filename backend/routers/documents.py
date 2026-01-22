@@ -7,7 +7,8 @@ from database import get_db
 from models import Document, User, DocumentAttachment
 from schemas import (
     DocumentCreate, DocumentUpdate, Document as DocumentSchema,
-    DocumentAttachmentCreate, DocumentAttachment as DocumentAttachmentSchema
+    DocumentAttachmentCreate, DocumentAttachment as DocumentAttachmentSchema,
+    VersionEntry, VersionHistoryResponse
 )
 from supabase_auth import get_current_user
 from rag_service import process_document
@@ -100,6 +101,7 @@ async def upload_document(
 @router.get("/projects/{project_id}/documents", response_model=List[DocumentSchema])
 def list_project_documents(
     project_id: str,
+    campaign_id: Optional[str] = None,  # Feature 028: Filter by campaign
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -107,12 +109,18 @@ def list_project_documents(
     verify_project_access(db, project_id, str(current_user.id))
 
     # Get documents with eager loading of attachments and their images
-    documents = db.query(Document).options(
+    query = db.query(Document).options(
         joinedload(Document.attachments).joinedload(DocumentAttachment.image)
     ).filter(
         Document.project_id == project_id,
         Document.deleted_at == None
-    ).all()
+    )
+
+    # Feature 028: Filter by campaign if specified
+    if campaign_id:
+        query = query.filter(Document.campaign_id == campaign_id)
+
+    documents = query.all()
     return documents
 
 
@@ -727,3 +735,111 @@ async def delete_image_permanent(
         message=message,
         deleted_files=deleted_files
     )
+
+
+# ============================================================================
+# Feature 028 T057-T058: Version History Endpoints
+# ============================================================================
+
+@router.get("/{document_id}/versions", response_model=VersionHistoryResponse)
+async def get_document_versions(
+    document_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    T057: Get version history for a document.
+    Returns the current version and up to 10 historical versions.
+    """
+    document = db.query(Document).filter(Document.id == document_id).first()
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    # Feature 025: Verify user has access to this document's project
+    verify_document_access(db, document_id, str(current_user.id))
+
+    # Parse version history from JSONB
+    version_history = document.version_history or []
+    versions = [
+        VersionEntry(
+            version=v.get("version", 0),
+            title=v.get("title", ""),
+            content=v.get("content", ""),
+            created_at=datetime.fromisoformat(v.get("created_at", datetime.now().isoformat())),
+            created_by=v.get("created_by")
+        )
+        for v in version_history
+    ]
+
+    return VersionHistoryResponse(
+        document_id=document_id,
+        current_version=document.current_version or 1,
+        versions=versions
+    )
+
+
+@router.post("/{document_id}/versions/{version}/restore")
+async def restore_document_version(
+    document_id: str,
+    version: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    T058: Restore a document to a previous version.
+    Creates a new version snapshot of current state, then restores the old content.
+    """
+    document = db.query(Document).filter(Document.id == document_id).first()
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    # Feature 025: Verify user has access to this document's project
+    verify_document_access(db, document_id, str(current_user.id))
+
+    # Find the version to restore
+    version_history = document.version_history or []
+    version_to_restore = None
+    for v in version_history:
+        if v.get("version") == version:
+            version_to_restore = v
+            break
+
+    if not version_to_restore:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Version {version} not found in history"
+        )
+
+    # Create snapshot of current state before restoring
+    current_snapshot = {
+        "version": document.current_version or 1,
+        "title": document.title,
+        "content": document.content,
+        "created_at": datetime.now().isoformat(),
+        "created_by": str(current_user.id)
+    }
+
+    # Add current state to history
+    new_history = list(version_history)
+    new_history.append(current_snapshot)
+
+    # FIFO: Keep only last 10 versions
+    if len(new_history) > 10:
+        new_history = new_history[-10:]
+
+    # Restore the old content
+    document.title = version_to_restore.get("title", document.title)
+    document.content = version_to_restore.get("content", "")
+    document.version_history = new_history
+    document.current_version = (document.current_version or 1) + 1
+    document.updated_at = datetime.now()
+
+    db.commit()
+    db.refresh(document)
+
+    return {
+        "success": True,
+        "message": f"Document restored to version {version}",
+        "current_version": document.current_version,
+        "restored_from": version
+    }

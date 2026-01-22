@@ -97,6 +97,7 @@ export interface ColorExtractionResult {
 }
 
 // Project Settings API
+// NOTE: Types kept for backwards compatibility, but use lib/supabase/projects.ts for new code
 export interface ProjectSettings {
     client_name: string;
     description?: string | null;
@@ -115,6 +116,9 @@ export interface ProjectContext {
     missing_fields: string[];
 }
 
+/**
+ * @deprecated Use projectService from lib/supabase/projects.ts instead
+ */
 export async function getProjectSettings(projectId: string): Promise<ProjectSettings | null> {
     try {
         const response = await api.get(`/projects/${projectId}/settings`);
@@ -131,6 +135,9 @@ export async function getProjectSettings(projectId: string): Promise<ProjectSett
     }
 }
 
+/**
+ * @deprecated Use projectService from lib/supabase/projects.ts instead
+ */
 export async function updateProjectSettings(projectId: string, settings: ProjectSettings): Promise<ProjectSettings> {
     const response = await api.put(`/projects/${projectId}/settings`, settings);
     return response.data;
@@ -276,11 +283,17 @@ export async function getVisualAssetsSummary(projectId: string): Promise<VisualA
 }
 
 // Visual Settings API
+/**
+ * @deprecated Use visualAssetService from lib/supabase/visual-assets.ts instead
+ */
 export async function getVisualSettings(projectId: string): Promise<AssistantVisualSettings> {
     const response = await api.get(`/projects/${projectId}/assistant/visual-settings`);
     return response.data;
 }
 
+/**
+ * @deprecated Use visualAssetService from lib/supabase/visual-assets.ts instead
+ */
 export async function updateVisualSettings(
     projectId: string,
     update: AssistantVisualSettingsUpdate
@@ -290,11 +303,17 @@ export async function updateVisualSettings(
 }
 
 // Asset Selections API
+/**
+ * @deprecated Use visualAssetService from lib/supabase/visual-assets.ts instead
+ */
 export async function getAssetSelections(projectId: string): Promise<AssetSelectionList> {
     const response = await api.get(`/projects/${projectId}/assistant/visual-settings/selections`);
     return response.data;
 }
 
+/**
+ * @deprecated Use visualAssetService from lib/supabase/visual-assets.ts instead
+ */
 export async function updateAssetSelections(projectId: string, assetIds: string[]): Promise<AssetSelectionList> {
     const response = await api.put(`/projects/${projectId}/assistant/visual-settings/selections`, {
         asset_ids: assetIds
@@ -303,11 +322,17 @@ export async function updateAssetSelections(projectId: string, assetIds: string[
 }
 
 // Visual Context API
+/**
+ * @deprecated Use visualAssetService from lib/supabase/visual-assets.ts instead
+ */
 export async function getVisualContext(projectId: string, limit: number = 5): Promise<VisualContextResponse> {
     const response = await api.get(`/projects/${projectId}/assistant/visual-context?limit=${limit}`);
     return response.data;
 }
 
+/**
+ * @deprecated Use visualAssetService from lib/supabase/visual-assets.ts instead
+ */
 export async function recordAssetUsage(
     projectId: string,
     assetIds: string[],
@@ -334,6 +359,42 @@ export interface DeleteImagePermanentResponse {
     success: boolean;
     message: string;
     deleted_files: string[];
+}
+
+export interface AttachImageRequest {
+    image_id: string;
+    is_primary?: boolean;
+    attachment_order?: number;
+}
+
+export interface DocumentAttachment {
+    id: string;
+    document_id: string;
+    image_id: string;
+    is_primary: boolean;
+    attachment_order: number;
+    created_at: string;
+    image?: {
+        id: string;
+        title: string;
+        file_url?: string;
+        thumbnail_url?: string;
+    };
+}
+
+/**
+ * Attach an image to a document
+ */
+export async function attachImageToDocument(
+    documentId: string,
+    imageId: string,
+    isPrimary: boolean = false
+): Promise<DocumentAttachment> {
+    const response = await api.post(`/documents/${documentId}/attachments`, {
+        image_id: imageId,
+        is_primary: isPrimary
+    });
+    return response.data;
 }
 
 /**
@@ -399,6 +460,7 @@ export interface ActiveSystemMessagesResponse {
 
 /**
  * Get active system messages for display to users (public endpoint)
+ * @deprecated Use useSystemMessages hook from hooks/use-system-messages.ts instead
  */
 export async function getActiveSystemMessages(): Promise<ActiveSystemMessagesResponse> {
     const response = await api.get('/system/messages');
@@ -529,6 +591,7 @@ export interface SearchMemoriesRequest {
 
 /**
  * Get all memories for a project (paginated)
+ * @deprecated Use memoryService from lib/supabase/memories.ts instead
  */
 export async function getMemories(
     projectId: string,
@@ -540,6 +603,7 @@ export async function getMemories(
 
 /**
  * Get a single memory by ID
+ * @deprecated Use memoryService from lib/supabase/memories.ts instead
  */
 export async function getMemory(projectId: string, memoryId: string): Promise<UserMemory> {
     const response = await api.get(`/projects/${projectId}/memories/${memoryId}`);
@@ -548,6 +612,7 @@ export async function getMemory(projectId: string, memoryId: string): Promise<Us
 
 /**
  * Create a new memory (manual)
+ * @deprecated Use memoryService from lib/supabase/memories.ts instead
  */
 export async function createMemory(projectId: string, data: CreateMemoryRequest): Promise<UserMemory> {
     const response = await api.post(`/projects/${projectId}/memories`, data);
@@ -556,6 +621,7 @@ export async function createMemory(projectId: string, data: CreateMemoryRequest)
 
 /**
  * Update an existing memory
+ * @deprecated Use memoryService from lib/supabase/memories.ts instead
  */
 export async function updateMemory(
     projectId: string,
@@ -568,6 +634,7 @@ export async function updateMemory(
 
 /**
  * Delete a single memory
+ * @deprecated Use memoryService from lib/supabase/memories.ts instead
  */
 export async function deleteMemory(projectId: string, memoryId: string): Promise<void> {
     await api.delete(`/projects/${projectId}/memories/${memoryId}`);
@@ -575,6 +642,7 @@ export async function deleteMemory(projectId: string, memoryId: string): Promise
 
 /**
  * Delete all memories for a project
+ * @deprecated Use memoryService from lib/supabase/memories.ts instead
  */
 export async function deleteAllMemories(projectId: string): Promise<{ deleted_count: number }> {
     const response = await api.delete(`/projects/${projectId}/memories`);
@@ -583,6 +651,7 @@ export async function deleteAllMemories(projectId: string): Promise<{ deleted_co
 
 /**
  * Search memories using semantic similarity
+ * NOTE: This function is kept in the API as it requires pgvector operations on the backend
  */
 export async function searchMemories(
     projectId: string,
@@ -590,6 +659,342 @@ export async function searchMemories(
 ): Promise<MemorySearchResponse> {
     const response = await api.post(`/projects/${projectId}/memories/search`, data);
     return response.data;
+}
+
+// ============================================================================
+// Project Bootstrap API (Feature 027 - Visual Generation Studio)
+// ============================================================================
+
+// Types imported inline to avoid circular dependencies
+interface BootstrapData {
+    project: {
+        id: string;
+        name: string;
+        description: string | null;
+        settings: Record<string, unknown> | null;
+        created_at: string;
+    };
+    settings: Record<string, unknown> | null;
+    models: {
+        text: Array<{
+            id: string;
+            name: string;
+            description?: string | null;
+            context_length?: number | null;
+        }>;
+        image: Array<{
+            id: string;
+            name: string;
+            description?: string | null;
+        }>;
+    };
+    visual_context: Array<{
+        id: string;
+        project_id: string;
+        name: string;
+        file_url: string | null;
+        thumbnail_url: string | null;
+        category: string | null;
+        tags: string[] | null;
+        ai_description: string | null;
+        is_classified: boolean;
+        created_at: string;
+        updated_at: string | null;
+    }>;
+    memories: Array<{
+        id: string;
+        content: string;
+        category: string;
+        created_at: string;
+    }>;
+    recent_documents: Array<{
+        id: string;
+        title: string;
+        media_type: string;
+        created_at: string;
+    }>;
+    style_presets: Array<{
+        id: string;
+        name: string;
+        name_pt: string;
+        slug: string;
+        prompt_modifier: string;
+        thumbnail_url: string | null;
+        category: string;
+        preset_type: string;
+        sort_order: number;
+        is_active: boolean;
+    }>;
+}
+
+interface StylePresetList {
+    visual_styles: Array<{
+        id: string;
+        name: string;
+        name_pt: string;
+        slug: string;
+        prompt_modifier: string;
+        thumbnail_url: string | null;
+        category: string;
+        preset_type: string;
+        sort_order: number;
+        is_active: boolean;
+    }>;
+    layouts: Array<{
+        id: string;
+        name: string;
+        name_pt: string;
+        slug: string;
+        prompt_modifier: string;
+        thumbnail_url: string | null;
+        category: string;
+        preset_type: string;
+        sort_order: number;
+        is_active: boolean;
+    }>;
+    total: number;
+}
+
+/**
+ * Get all bootstrap data for a project in a single request.
+ * Replaces 8+ individual API calls with 1 optimized endpoint.
+ *
+ * Returns: project, settings, models, visual_context, memories, recent_documents, style_presets
+ */
+export async function getProjectBootstrap(projectId: string): Promise<BootstrapData> {
+    const response = await api.get(`/projects/${projectId}/bootstrap`);
+    return response.data;
+}
+
+/**
+ * Get all active style presets for image generation, grouped by type.
+ *
+ * Returns:
+ * - visual_styles: Aesthetic/visual style presets (photographic, watercolor, etc.)
+ * - layouts: Structure/layout presets for marketing (banner, carousel, etc.)
+ */
+export async function getStylePresets(): Promise<StylePresetList> {
+    const response = await api.get('/image-generation/style-presets');
+    return response.data;
+}
+
+// ============================================================================
+// Image Batch Generation API (Feature 027 - Visual Generation Studio)
+// ============================================================================
+
+export interface ImageBatchRequest {
+    prompt: string;
+    project_id: string;
+    count?: number;
+    model?: string;
+    visual_style?: string | null;
+    layout?: string | null;
+    style_preset?: string | null; // Legacy field
+    size?: string;
+    aspect_ratio?: string;
+    creativity?: number;
+    reference_image_url?: string | null;
+    // Feature 028: Visual context and campaign support
+    reference_assets?: string[];  // Array of asset UUIDs
+    reference_asset_modes?: Array<{ id: string; mode: 'style' | 'compose' | 'base' }>;  // Per-asset modes
+    asset_mode?: 'style' | 'compose' | 'base';  // Deprecated: global mode for all assets
+    apply_brand_context?: boolean;
+    campaign_id?: string;
+    tags?: string[];
+    channel?: string;
+}
+
+export interface ImageBatchResponse {
+    batch_id: string;
+    status: string;
+    message: string;
+}
+
+/**
+ * Start batch image generation.
+ * Returns a batch_id for tracking progress via SSE.
+ */
+export async function generateImageBatch(request: ImageBatchRequest): Promise<ImageBatchResponse> {
+    const response = await api.post('/image-generation/generate-batch', request);
+    return response.data;
+}
+
+/**
+ * Get the SSE stream URL for batch progress.
+ * Token is passed via query param since EventSource doesn't support headers.
+ */
+export function getBatchStreamUrl(batchId: string, token: string): string {
+    const baseUrl = api.defaults.baseURL || '';
+    return `${baseUrl}/image-generation/batch/${batchId}/stream?token=${encodeURIComponent(token)}`;
+}
+
+// ============================================================================
+// Copy Library API (Feature 028 - Agency Studio Flow)
+// ============================================================================
+
+export interface CopyLibraryItem {
+    id: string;
+    workspace_id: string;
+    title: string;
+    content: string;
+    tags: string[];
+    created_by: string | null;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface CopyLibraryListResponse {
+    items: CopyLibraryItem[];
+    total: number;
+}
+
+export interface CreateCopyRequest {
+    title: string;
+    content: string;
+    tags?: string[];
+}
+
+export interface UpdateCopyRequest {
+    title?: string;
+    content?: string;
+    tags?: string[];
+}
+
+export interface ListCopiesParams {
+    search?: string;
+    tags?: string[];
+    limit?: number;
+    offset?: number;
+}
+
+/**
+ * List copy library items for a workspace
+ */
+export async function listCopies(
+    workspaceId: string,
+    params?: ListCopiesParams
+): Promise<CopyLibraryListResponse> {
+    const response = await api.get(`/workspaces/${workspaceId}/copies`, { params });
+    return response.data;
+}
+
+/**
+ * Get a single copy library item
+ */
+export async function getCopy(workspaceId: string, copyId: string): Promise<CopyLibraryItem> {
+    const response = await api.get(`/workspaces/${workspaceId}/copies/${copyId}`);
+    return response.data;
+}
+
+/**
+ * Create a new copy library item
+ */
+export async function createCopy(
+    workspaceId: string,
+    data: CreateCopyRequest
+): Promise<CopyLibraryItem> {
+    const response = await api.post(`/workspaces/${workspaceId}/copies`, data);
+    return response.data;
+}
+
+/**
+ * Update an existing copy library item
+ */
+export async function updateCopy(
+    workspaceId: string,
+    copyId: string,
+    data: UpdateCopyRequest
+): Promise<CopyLibraryItem> {
+    const response = await api.put(`/workspaces/${workspaceId}/copies/${copyId}`, data);
+    return response.data;
+}
+
+/**
+ * Delete a copy library item
+ */
+export async function deleteCopy(workspaceId: string, copyId: string): Promise<void> {
+    await api.delete(`/workspaces/${workspaceId}/copies/${copyId}`);
+}
+
+// ============================================================================
+// Campaigns API (Feature 028 - Agency Studio Flow)
+// ============================================================================
+
+export interface Campaign {
+    id: string;
+    project_id: string;
+    name: string;
+    channel: string | null;
+    metadata: Record<string, unknown>;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface CampaignListResponse {
+    items: Campaign[];
+    total: number;
+}
+
+export interface CreateCampaignRequest {
+    name: string;
+    channel?: string;
+    metadata?: Record<string, unknown>;
+}
+
+export interface UpdateCampaignRequest {
+    name?: string;
+    channel?: string;
+    metadata?: Record<string, unknown>;
+}
+
+/**
+ * List campaign packages for a project
+ */
+export async function listCampaigns(
+    projectId: string,
+    channel?: string
+): Promise<CampaignListResponse> {
+    const params = channel ? { channel } : undefined;
+    const response = await api.get(`/projects/${projectId}/campaigns`, { params });
+    return response.data;
+}
+
+/**
+ * Get a single campaign package
+ */
+export async function getCampaign(projectId: string, campaignId: string): Promise<Campaign> {
+    const response = await api.get(`/projects/${projectId}/campaigns/${campaignId}`);
+    return response.data;
+}
+
+/**
+ * Create a new campaign package
+ */
+export async function createCampaign(
+    projectId: string,
+    data: CreateCampaignRequest
+): Promise<Campaign> {
+    const response = await api.post(`/projects/${projectId}/campaigns`, data);
+    return response.data;
+}
+
+/**
+ * Update an existing campaign package
+ */
+export async function updateCampaign(
+    projectId: string,
+    campaignId: string,
+    data: UpdateCampaignRequest
+): Promise<Campaign> {
+    const response = await api.put(`/projects/${projectId}/campaigns/${campaignId}`, data);
+    return response.data;
+}
+
+/**
+ * Delete a campaign package
+ */
+export async function deleteCampaign(projectId: string, campaignId: string): Promise<void> {
+    await api.delete(`/projects/${projectId}/campaigns/${campaignId}`);
 }
 
 export default api;

@@ -29,6 +29,9 @@ export const documentKeys = {
   list: (projectId: string) => [...documentKeys.lists(), projectId] as const,
   folder: (projectId: string, folderId: string | null) =>
     [...documentKeys.lists(), projectId, 'folder', folderId] as const,
+  // Feature 028: Campaign filter
+  campaign: (projectId: string, campaignId: string | null) =>
+    [...documentKeys.lists(), projectId, 'campaign', campaignId] as const,
   archived: (projectId: string) => [...documentKeys.lists(), projectId, 'archived'] as const,
   details: () => [...documentKeys.all, 'detail'] as const,
   detail: (id: string) => [...documentKeys.details(), id] as const,
@@ -128,6 +131,22 @@ export function useDocumentsByFolder(projectId: string, folderId: string | null)
     queryKey: documentKeys.folder(projectId, folderId),
     queryFn: async () => {
       const { data, error } = await documentService.listByFolder(projectId, folderId)
+      if (error) throw error
+      return data
+    },
+    enabled: !!projectId,
+    staleTime: 15000,
+  })
+}
+
+/**
+ * Feature 028: Hook to fetch documents filtered by campaign
+ */
+export function useDocumentsByCampaign(projectId: string, campaignId: string | null) {
+  return useQuery({
+    queryKey: documentKeys.campaign(projectId, campaignId),
+    queryFn: async () => {
+      const { data, error } = await documentService.listByProject(projectId, campaignId)
       if (error) throw error
       return data
     },

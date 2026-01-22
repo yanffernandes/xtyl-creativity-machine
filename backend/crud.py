@@ -1,8 +1,9 @@
 from sqlalchemy.orm import Session
-from models import User, Workspace, Project, WorkspaceUser, Document, Folder, ActivityLog, UserPreferences, WorkflowTemplate, WorkflowExecution
+from models import User, Workspace, Project, WorkspaceUser, Document, Folder, ActivityLog, UserPreferences, WorkflowTemplate, WorkflowExecution, DocumentAttachment
 from schemas import WorkspaceCreate, ProjectCreate, DocumentCreate, DocumentUpdate, UserUpdate, WorkspaceUpdate, UserPreferencesUpdate
 from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any
+from storage_service import delete_file
 
 
 def get_user_by_email(db: Session, email: str):
@@ -339,6 +340,34 @@ def update_document(db: Session, document_id: str, document: DocumentUpdate):
     if not db_document:
         return None
 
+    # Feature 028 T056: Version history FIFO logic
+    # Only create version snapshot when content actually changes
+    content_changed = document.content is not None and document.content != db_document.content
+    title_changed = document.title is not None and document.title != db_document.title
+
+    if content_changed or title_changed:
+        # Create version snapshot of current state before updating
+        version_entry = {
+            "version": db_document.current_version or 1,
+            "title": db_document.title,
+            "content": db_document.content,
+            "created_at": datetime.now().isoformat(),
+        }
+
+        # Get existing history or initialize empty list
+        version_history = list(db_document.version_history or [])
+
+        # Add new version entry
+        version_history.append(version_entry)
+
+        # FIFO: Keep only last 10 versions
+        if len(version_history) > 10:
+            version_history = version_history[-10:]
+
+        # Update version history and increment version number
+        db_document.version_history = version_history
+        db_document.current_version = (db_document.current_version or 1) + 1
+
     if document.title is not None:
         db_document.title = document.title
     if document.content is not None:
@@ -361,6 +390,14 @@ def update_document(db: Session, document_id: str, document: DocumentUpdate):
                     attached_image.status = document.status
                     attached_image.updated_at = datetime.now()
 
+    # Feature 028 (T051): Tags and metadata fields
+    if document.tags is not None:
+        db_document.tags = document.tags
+    if document.campaign_id is not None:
+        db_document.campaign_id = document.campaign_id
+    if document.channel is not None:
+        db_document.channel = document.channel
+
     # Manually update the updated_at timestamp (SQLAlchemy onupdate doesn't trigger on Python attr changes)
     db_document.updated_at = datetime.now()
 
@@ -377,8 +414,16 @@ def delete_document(db: Session, document_id: str):
         return True
     return False
 
-def soft_delete_document(db: Session, document_id: str, user_id: Optional[str] = None):
-    """Soft delete (archive) a document"""
+def soft_delete_document(db: Session, document_id: str, user_id: Optional[str] = None, delete_attachments: bool = True):
+    """
+    Soft delete (archive) a document.
+
+    Args:
+        db: Database session
+        document_id: ID of the document to delete
+        user_id: Optional user ID for activity logging
+        delete_attachments: If True, also soft-delete attached images and clean up R2 storage
+    """
     db_document = db.query(Document).filter(Document.id == document_id).first()
     if not db_document:
         return None
@@ -401,6 +446,51 @@ def soft_delete_document(db: Session, document_id: str, user_id: Optional[str] =
             "after": None
         }
     )
+
+    # Delete attached images if requested (default behavior)
+    if delete_attachments:
+        # Get all attachments where this document is the parent
+        attachments = db.query(DocumentAttachment).filter(
+            DocumentAttachment.document_id == document_id
+        ).all()
+
+        for attachment in attachments:
+            # Get the image document
+            image_doc = db.query(Document).filter(Document.id == attachment.image_id).first()
+            if image_doc and image_doc.deleted_at is None:
+                # Try to delete from R2 storage
+                if image_doc.file_url:
+                    try:
+                        # Extract object name from URL (e.g., "images/project_id/filename.webp")
+                        # URL format: https://bucket.r2.dev/images/project_id/filename.webp
+                        url_parts = image_doc.file_url.split('/')
+                        if len(url_parts) >= 3:
+                            # Get the path after the domain
+                            object_name = '/'.join(url_parts[-3:])  # images/project_id/filename.webp
+                            delete_file(object_name)
+                            print(f"🗑️ Deleted R2 file: {object_name}")
+                    except Exception as e:
+                        print(f"⚠️ Failed to delete R2 file for image {attachment.image_id}: {e}")
+
+                # Also delete thumbnail if exists
+                if image_doc.thumbnail_url:
+                    try:
+                        url_parts = image_doc.thumbnail_url.split('/')
+                        if len(url_parts) >= 3:
+                            object_name = '/'.join(url_parts[-3:])
+                            delete_file(object_name)
+                            print(f"🗑️ Deleted R2 thumbnail: {object_name}")
+                    except Exception as e:
+                        print(f"⚠️ Failed to delete R2 thumbnail for image {attachment.image_id}: {e}")
+
+                # Soft delete the image document
+                image_doc.deleted_at = datetime.now()
+                print(f"🗑️ Soft deleted attached image: {image_doc.title or image_doc.id}")
+
+        # Remove attachment records (hard delete since parent is being deleted)
+        db.query(DocumentAttachment).filter(
+            DocumentAttachment.document_id == document_id
+        ).delete()
 
     db_document.deleted_at = datetime.now()
     db.commit()

@@ -7,7 +7,9 @@ import api, { getProjectSettings, ProjectSettings } from "@/lib/api"
 import { useWorkspace } from "@/hooks/use-workspaces"
 import { useProjects } from "@/hooks/use-projects"
 import { useDocuments } from "@/hooks/use-documents"
+import { documentService } from "@/lib/supabase/documents"
 import { useContextFiles, useToggleContext } from "@/hooks/use-context-files"
+import { useCreateCopy } from "@/hooks/useCopyLibrary"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -15,7 +17,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Card } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { useToast } from "@/components/ui/use-toast"
-import { Loader2, Plus, Upload, FileText, MoreHorizontal, Trash, X, Star, FolderOpen, Home, Sparkles, Download, FileType, Share2, Workflow, ArrowRight, Settings } from "lucide-react"
+import { Loader2, Plus, Upload, FileText, MoreHorizontal, Trash, X, Star, FolderOpen, Home, Sparkles, Download, FileType, Share2, Workflow, ArrowRight, Settings, History } from "lucide-react"
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -51,7 +53,12 @@ import ShareDialog from "@/components/ShareDialog"
 import VisualAssetsLibrary from "@/components/VisualAssetsLibrary"
 import DocumentAttachments from "@/components/document/DocumentAttachments"
 import AttachImageModal from "@/components/document/AttachImageModal"
+import { DocumentFilters, useDocumentFilters } from "@/components/document/DocumentFilters"
+import { VersionHistoryPanel } from "@/components/document/VersionHistoryPanel"
+import { MultiSelectProvider, MultiSelectActionBar, useMultiSelect } from "@/components/kanban"
 import { useConfirm } from "@/components/confirm-dialog"
+import { ImageIcon } from "lucide-react"
+import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable"
 
 interface DocumentAttachment {
     id: string
@@ -59,6 +66,56 @@ interface DocumentAttachment {
     image_id: string
     is_primary?: boolean
     attachment_order?: number
+}
+
+/**
+ * Feature 028 T015-T016: Wrapper component that connects KanbanBoard to multi-select context
+ */
+function KanbanBoardWithMultiSelect({
+    documents,
+    onSelectDocument,
+    onToggleContext,
+    onDelete,
+    onStatusChange,
+    onAddToLibrary,
+    workspaceId,
+    projectId
+}: {
+    documents: Document[]
+    onSelectDocument: (doc: Document) => void
+    onToggleContext?: (e: React.MouseEvent, doc: Document) => void
+    onDelete?: (e: React.MouseEvent, doc: Document) => void
+    onStatusChange?: (docId: string, newStatus: string) => void
+    onAddToLibrary?: (doc: Document) => void
+    workspaceId: string
+    projectId: string
+}) {
+    const { selectedIds, toggleSelection } = useMultiSelect()
+
+    const handleMultiSelect = (doc: Document, e: React.MouseEvent) => {
+        const allIds = documents.map(d => d.id)
+        toggleSelection(doc.id, e.shiftKey, allIds)
+    }
+
+    return (
+        <>
+            <KanbanBoard
+                documents={documents}
+                onSelectDocument={onSelectDocument}
+                onToggleContext={onToggleContext}
+                onDelete={onDelete}
+                onStatusChange={onStatusChange}
+                onAddToLibrary={onAddToLibrary}
+                selectedIds={selectedIds}
+                onMultiSelect={handleMultiSelect}
+            />
+            <MultiSelectActionBar
+                documents={documents}
+                workspaceId={workspaceId}
+                projectId={projectId}
+            />
+        </>
+    )
 }
 
 interface Document {
@@ -87,7 +144,7 @@ export default function ProjectPage() {
     const [isUploading, setIsUploading] = useState(false)
     const [viewMode, setViewMode] = useState<"list" | "kanban">("kanban")
     const [suggestedContent, setSuggestedContent] = useState<string | null>(null)
-    const [tab, setTab] = useState<"creations" | "context" | "assets" | "workflows">("creations")
+    const [tab, setTab] = useState<"creations" | "context" | "assets">("creations")
     const [editingTitle, setEditingTitle] = useState<string | null>(null)
     const [tempTitle, setTempTitle] = useState("")
     const [isLoading, setIsLoading] = useState(true)
@@ -125,6 +182,8 @@ export default function ProjectPage() {
     const { data: documents = [], isLoading: docsLoading, isRefreshing: docsRefreshing, isInitialLoad: docsInitialLoad, refetch: refetchDocuments } = useDocuments(projectId)
     const { data: contextFiles = [], isLoading: contextLoading, refetch: refetchContextFiles } = useContextFiles(projectId)
     const toggleContextMutation = useToggleContext()
+    // Feature 028 T031: Copy Library mutation
+    const createCopyMutation = useCreateCopy(workspaceId)
 
     const hasUnsavedChanges = selectedDoc && savedContent !== currentContent
 
@@ -142,7 +201,7 @@ export default function ProjectPage() {
     }, [creations])
 
     // Filter creations for Kanban: exclude images that are attached to documents
-    const kanbanDocuments = useMemo(() => {
+    const kanbanDocumentsBase = useMemo(() => {
         return creations.filter(doc => {
             // If it's an image and it's attached to some document, hide it
             if (doc.media_type === 'image' && attachedImageIds.has(doc.id)) {
@@ -151,6 +210,16 @@ export default function ProjectPage() {
             return true
         })
     }, [creations, attachedImageIds])
+
+    // Feature 028 (T054, T055): Document filtering by tags and channel
+    const {
+        filteredDocuments: kanbanDocuments,
+        selectedTags,
+        selectedChannel,
+        setSelectedTags,
+        setSelectedChannel,
+        hasActiveFilters
+    } = useDocumentFilters(kanbanDocumentsBase)
 
     // Handle document updates from AI
     const handleDocumentUpdate = async (documentId: string) => {
@@ -228,9 +297,10 @@ export default function ProjectPage() {
         let cancelled = false
 
         const fetchDocumentContent = async () => {
-            console.log(`📄 Fetching document content for: ${docId}`)
+            console.log(`📄 Fetching document content for: ${docId} (Supabase direct)`)
             try {
-                const response = await api.get(`/documents/${docId}`)
+                // Use Supabase direct for faster loading
+                const { data: docData, error } = await documentService.get(docId)
 
                 // Check if this request was cancelled (user selected another doc)
                 if (cancelled) {
@@ -238,24 +308,28 @@ export default function ProjectPage() {
                     return
                 }
 
-                if (response.data) {
-                    console.log(`📄 Document fetched successfully: ${docId}`, response.data.title)
+                if (error) {
+                    throw error
+                }
+
+                if (docData) {
+                    console.log(`📄 Document fetched successfully: ${docId}`, docData.title)
 
                     // Check if it's an image
-                    if (response.data.media_type === 'image') {
-                        setViewingImage(response.data)
+                    if (docData.media_type === 'image') {
+                        setViewingImage(docData as any)
                         setSelectedDoc(null)
                         return
                     }
 
-                    const content = response.data.content || ""
+                    const content = docData.content || ""
                     // Always update if the response matches the current request
                     setSelectedDoc(prev => {
                         if (prev?.id !== docId) {
                             console.log(`📄 Skipping update - selected doc changed from ${docId} to ${prev?.id}`)
                             return prev
                         }
-                        return { ...prev, ...response.data }
+                        return { ...prev, ...docData }
                     })
                     setSavedContent(content)
                     setCurrentContent(content)
@@ -634,6 +708,37 @@ export default function ProjectPage() {
         }
     }
 
+    // Feature 028 T031: Add document to copy library
+    const handleAddToLibrary = async (doc: Document) => {
+        if (!doc.content && doc.media_type !== 'text') {
+            toast({
+                title: "Conteúdo vazio",
+                description: "Este documento não possui conteúdo de texto para adicionar à biblioteca",
+                variant: "destructive"
+            })
+            return
+        }
+
+        try {
+            await createCopyMutation.mutateAsync({
+                title: doc.title,
+                content: doc.content || '',
+                tags: []
+            })
+            toast({
+                title: "Adicionado à Biblioteca",
+                description: `"${doc.title}" foi salvo na biblioteca de copies`
+            })
+        } catch (error) {
+            console.error("Failed to add to library", error)
+            toast({
+                title: "Erro",
+                description: "Falha ao adicionar à biblioteca",
+                variant: "destructive"
+            })
+        }
+    }
+
     const handleDelete = async (e: React.MouseEvent, doc: Document) => {
         e.stopPropagation()
         const confirmed = await confirm({
@@ -761,7 +866,7 @@ export default function ProjectPage() {
                             <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => setShowImageGenerator(true)}
+                                onClick={() => router.push(`/workspace/${workspaceId}/project/${projectId}/studio`)}
                                 className="gap-2"
                             >
                                 <Sparkles className="h-4 w-4" />
@@ -799,6 +904,7 @@ export default function ProjectPage() {
                     </div>
                 </div>
 
+                <MultiSelectProvider>
                 {!selectedDoc && (
                     <div className="border-b border-white/10 px-6">
                         <div className="flex gap-4">
@@ -921,6 +1027,19 @@ export default function ProjectPage() {
                                                 Compartilhar Publicamente
                                             </DropdownMenuItem>
                                             <DropdownMenuSeparator />
+                                            {/* Feature 028 T061: Version history */}
+                                            <VersionHistoryPanel
+                                                documentId={selectedDoc.id}
+                                                currentTitle={selectedDoc.title}
+                                                onRestoreComplete={() => fetchDocuments()}
+                                                trigger={
+                                                    <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                                                        <History className="mr-2 h-4 w-4" />
+                                                        Ver Histórico
+                                                    </DropdownMenuItem>
+                                                }
+                                            />
+                                            <DropdownMenuSeparator />
                                             <DropdownMenuItem
                                                 onClick={(e) => handleDelete(e, selectedDoc)}
                                                 className="text-destructive focus:text-destructive"
@@ -932,40 +1051,64 @@ export default function ProjectPage() {
                                     </DropdownMenu>
                                 </div>
                             </div>
-                            <div className="flex-1 border rounded-lg overflow-auto flex flex-col">
-                                <div className="flex-1 min-h-0">
-                                    <SmartEditor
-                                        key={selectedDoc.id}
-                                        initialContent={selectedDoc.content || ""}
-                                        onSave={createSaveHandler(selectedDoc.id)}
-                                        suggestedContent={suggestedContent}
-                                        onAcceptSuggestion={() => {
-                                            if (suggestedContent && selectedDoc) {
-                                                handleSaveDocument(suggestedContent)
-                                                setSuggestedContent(null)
-                                            }
-                                        }}
-                                        onRejectSuggestion={() => setSuggestedContent(null)}
-                                        onChange={setCurrentContent}
-                                        isSaving={isSavingDocument}
-                                    />
-                                </div>
-
-                                {/* Document Attachments - Only show for text documents */}
-                                {selectedDoc.media_type !== 'image' && (
-                                    <div className="flex-shrink-0 p-6 border-t bg-gray-50 dark:bg-gray-900/50">
-                                        <DocumentAttachments
-                                            key={attachmentsRefreshKey}
-                                            documentId={selectedDoc.id}
-                                            onAttachImage={() => setShowAttachImageModal(true)}
-                                            onViewImage={(imageId) => {
-                                                // Find the image document and open in ImageViewer
-                                                const allImages = [...creations, ...(contextFiles || [])].filter(doc => doc.media_type === 'image')
-                                                const imageDoc = allImages.find(img => img.id === imageId)
-                                                if (imageDoc) {
-                                                    setViewingImage(imageDoc as Document)
+                            <div className="flex-1 border rounded-lg overflow-hidden">
+                                {selectedDoc.media_type !== 'image' ? (
+                                    <ResizablePanelGroup direction="vertical" className="h-full">
+                                        <ResizablePanel defaultSize={70} minSize={10}>
+                                            <div className="h-full">
+                                                <SmartEditor
+                                                    key={selectedDoc.id}
+                                                    initialContent={selectedDoc.content || ""}
+                                                    onSave={createSaveHandler(selectedDoc.id)}
+                                                    suggestedContent={suggestedContent}
+                                                    onAcceptSuggestion={() => {
+                                                        if (suggestedContent && selectedDoc) {
+                                                            handleSaveDocument(suggestedContent)
+                                                            setSuggestedContent(null)
+                                                        }
+                                                    }}
+                                                    onRejectSuggestion={() => setSuggestedContent(null)}
+                                                    onChange={setCurrentContent}
+                                                    isSaving={isSavingDocument}
+                                                />
+                                            </div>
+                                        </ResizablePanel>
+                                        <ResizableHandle withHandle />
+                                        <ResizablePanel defaultSize={30} minSize={5}>
+                                            <div className="h-full overflow-auto p-4 bg-gray-50/50 dark:bg-gray-900/30">
+                                                <DocumentAttachments
+                                                    key={attachmentsRefreshKey}
+                                                    documentId={selectedDoc.id}
+                                                    onAttachImage={() => setShowAttachImageModal(true)}
+                                                    onViewImage={(imageId) => {
+                                                        // Find the image document and open in ImageViewer
+                                                        const allImages = [...creations, ...(contextFiles || [])].filter(doc => doc.media_type === 'image')
+                                                        const imageDoc = allImages.find(img => img.id === imageId)
+                                                        if (imageDoc) {
+                                                            setViewingImage(imageDoc as Document)
+                                                        }
+                                                    }}
+                                                    compact
+                                                />
+                                            </div>
+                                        </ResizablePanel>
+                                    </ResizablePanelGroup>
+                                ) : (
+                                    <div className="h-full">
+                                        <SmartEditor
+                                            key={selectedDoc.id}
+                                            initialContent={selectedDoc.content || ""}
+                                            onSave={createSaveHandler(selectedDoc.id)}
+                                            suggestedContent={suggestedContent}
+                                            onAcceptSuggestion={() => {
+                                                if (suggestedContent && selectedDoc) {
+                                                    handleSaveDocument(suggestedContent)
+                                                    setSuggestedContent(null)
                                                 }
                                             }}
+                                            onRejectSuggestion={() => setSuggestedContent(null)}
+                                            onChange={setCurrentContent}
+                                            isSaving={isSavingDocument}
                                         />
                                     </div>
                                 )}
@@ -998,6 +1141,17 @@ export default function ProjectPage() {
                                         </Button>
                                     </div>
 
+                                    {/* Feature 028 (T054, T055): Document filters */}
+                                    {creations.length > 0 && (
+                                        <DocumentFilters
+                                            documents={kanbanDocumentsBase}
+                                            selectedTags={selectedTags}
+                                            selectedChannel={selectedChannel}
+                                            onTagsChange={setSelectedTags}
+                                            onChannelChange={setSelectedChannel}
+                                        />
+                                    )}
+
                                     <div className="flex-1 overflow-x-auto">
                                         {docsInitialLoad ? (
                                             <LoadingSkeleton type="kanban" />
@@ -1012,7 +1166,7 @@ export default function ProjectPage() {
                                                 }}
                                             />
                                         ) : viewMode === "kanban" ? (
-                                            <KanbanBoard
+                                            <KanbanBoardWithMultiSelect
                                                 documents={kanbanDocuments}
                                                 onSelectDocument={handleSelectDocument}
                                                 onToggleContext={handleToggleContext}
@@ -1022,6 +1176,9 @@ export default function ProjectPage() {
                                                         d.id === docId ? { ...d, status: newStatus } : d
                                                     ))
                                                 }}
+                                                onAddToLibrary={handleAddToLibrary}
+                                                workspaceId={workspaceId}
+                                                projectId={projectId}
                                             />
                                         ) : (
                                             <div className="grid grid-cols-1 gap-4">
@@ -1151,6 +1308,7 @@ export default function ProjectPage() {
                         </div>
                     )}
                 </div>
+                </MultiSelectProvider>
             </div>
 
             {/* Floating chat sidebar container */}

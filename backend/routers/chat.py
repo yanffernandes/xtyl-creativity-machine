@@ -121,6 +121,85 @@ async def extract_memories_async(
         db.close()
 
 
+# ============================================================================
+# IMAGE VARIATION SSE HELPERS (Feature 026 - Smart Image Generation)
+# ============================================================================
+
+def create_variation_started_event(
+    variation_set_id: str,
+    total_variations: int,
+    project_id: str
+) -> str:
+    """Create SSE event for variation generation started."""
+    return json.dumps({
+        "type": "variation_started",
+        "data": {
+            "variation_set_id": variation_set_id,
+            "total_variations": total_variations,
+            "project_id": project_id
+        }
+    })
+
+
+def create_variation_complete_event(
+    variation_set_id: str,
+    variation_index: int,
+    total_variations: int,
+    document_id: str,
+    image_url: str,
+    thumbnail_url: str,
+    modifier_used: str,
+    title: str = None
+) -> str:
+    """Create SSE event for individual variation completion."""
+    return json.dumps({
+        "type": "variation_complete",
+        "data": {
+            "variation_set_id": variation_set_id,
+            "variation_index": variation_index,
+            "total_variations": total_variations,
+            "document_id": document_id,
+            "image_url": image_url,
+            "thumbnail_url": thumbnail_url,
+            "modifier_used": modifier_used,
+            "title": title
+        }
+    })
+
+
+def create_variation_failed_event(
+    variation_set_id: str,
+    variation_index: int,
+    error: str
+) -> str:
+    """Create SSE event for variation failure."""
+    return json.dumps({
+        "type": "variation_failed",
+        "data": {
+            "variation_set_id": variation_set_id,
+            "variation_index": variation_index,
+            "error": error
+        }
+    })
+
+
+def create_all_variations_complete_event(
+    variation_set_id: str,
+    completed_documents: list,
+    failed_count: int = 0
+) -> str:
+    """Create SSE event for all variations complete."""
+    return json.dumps({
+        "type": "all_variations_complete",
+        "data": {
+            "variation_set_id": variation_set_id,
+            "total_completed": len(completed_documents),
+            "total_failed": failed_count,
+            "documents": completed_documents
+        }
+    })
+
+
 def _get_tool_description(tool_name: str, args: dict) -> str:
     """Generate a human-readable description for a tool call."""
     descriptions = {
@@ -220,6 +299,7 @@ class ChatRequest(BaseModel):
     project_id: Optional[str] = None
     use_rag: bool = False
     current_document: Optional[CurrentDocument] = None
+    current_document_id: Optional[str] = None  # Feature 028: For auto-attach even without RAG
     document_ids: Optional[List[str]] = None  # IDs of selected context documents
     folder_ids: Optional[List[str]] = None  # IDs of selected folders (all docs inside)
     autonomous_mode: bool = False  # Execute all tools without approval when True
@@ -507,6 +587,21 @@ IMAGE GENERATION RULES (CRITICAL):
 - Example: generate_image(project_id="...", prompt="...", attach_to_document_id="document-id-here")
 - If you need to attach an existing image, use attach_image_to_document tool
 
+IMAGE GENERATION QUALITY (Feature 028):
+The system AUTOMATICALLY enhances all image prompts for professional, 4K quality output:
+- Brand visual assets (logos, colors, references) are automatically included as context
+- Prompts are enriched to produce sophisticated, contemporary, award-winning visuals
+- Images are generated with professional photography standards and modern 2024-2025 aesthetics
+- NEVER produces generic, stock-like, or amateur-looking images
+
+IMAGE GENERATION OVERRIDES (Feature 026):
+By default, image generation creates style variations. Users can override this behavior:
+- "exatamente isso" / "literalmente" / "sem modificações" → use skip_prompt_enrichment=true (no AI enhancement)
+- "apenas 1" / "somente uma imagem" / "sem variações" → use num_variations=1
+- "sem referências" / "do zero" / "ignorar visual assets" → use skip_visual_context=true
+- "3 variações" / "mais opções" → use num_variations=3
+When users want exact control over the output, combine the appropriate override flags.
+
 Only provide explanatory text when tools cannot accomplish the task or when the user specifically asks for suggestions."""]
 
     # Add project context - CRITICAL: This tells the AI which project to use for tools
@@ -773,6 +868,15 @@ Retrieved Context:
             if "project_id" in tool_args:
                 tool_args["project_id"] = request.project_id
 
+            # Feature 028: Auto-inject attach_to_document_id for generate_image
+            # This ensures images are always attached to the current document
+            if tool_name == "generate_image":
+                # Use current_document_id if provided, or get from current_document
+                attach_doc_id = request.current_document_id or (request.current_document.id if request.current_document else None)
+                if attach_doc_id and "attach_to_document_id" not in tool_args:
+                    tool_args["attach_to_document_id"] = attach_doc_id
+                    print(f"📎 Auto-injected attach_to_document_id: {attach_doc_id}")
+
             # Track tool names
             if tool_name not in tool_names_used:
                 tool_names_used.append(tool_name)
@@ -932,6 +1036,21 @@ IMAGE GENERATION RULES (CRITICAL):
 - The generate_image tool will automatically attach the image to the document's attached images section
 - Example: generate_image(project_id="...", prompt="...", attach_to_document_id="document-id-here")
 - If you need to attach an existing image, use attach_image_to_document tool
+
+IMAGE GENERATION QUALITY (Feature 028):
+The system AUTOMATICALLY enhances all image prompts for professional, 4K quality output:
+- Brand visual assets (logos, colors, references) are automatically included as context
+- Prompts are enriched to produce sophisticated, contemporary, award-winning visuals
+- Images are generated with professional photography standards and modern 2024-2025 aesthetics
+- NEVER produces generic, stock-like, or amateur-looking images
+
+IMAGE GENERATION OVERRIDES (Feature 026):
+By default, image generation creates style variations. Users can override this behavior:
+- "exatamente isso" / "literalmente" / "sem modificações" → use skip_prompt_enrichment=true (no AI enhancement)
+- "apenas 1" / "somente uma imagem" / "sem variações" → use num_variations=1
+- "sem referências" / "do zero" / "ignorar visual assets" → use skip_visual_context=true
+- "3 variações" / "mais opções" → use num_variations=3
+When users want exact control over the output, combine the appropriate override flags.
 
 Only provide explanatory text when tools cannot accomplish the task or when the user specifically asks for suggestions."""]
 
@@ -1311,6 +1430,15 @@ Retrieved Context:
                     if "project_id" in tool_args:
                         tool_args["project_id"] = request.project_id
 
+                    # Feature 028: Auto-inject attach_to_document_id for generate_image
+                    # This ensures images are always attached to the current document
+                    if tool_name == "generate_image":
+                        # Use current_document_id if provided, or get from current_document
+                        attach_doc_id = request.current_document_id or (request.current_document.id if request.current_document else None)
+                        if attach_doc_id and "attach_to_document_id" not in tool_args:
+                            tool_args["attach_to_document_id"] = attach_doc_id
+                            print(f"📎 Auto-injected attach_to_document_id: {attach_doc_id}")
+
                     # Track tool names
                     if tool_name not in tool_names_used:
                         tool_names_used.append(tool_name)
@@ -1451,7 +1579,17 @@ Retrieved Context:
                     
                     # Use tool_call_id from OpenRouter or generate one if missing
                     tool_call_id = tool_call.get("id", f"tool-{iteration}-{i}")
-                    
+
+                    # Feature 026: Create event queue for progressive SSE events during tool execution
+                    pending_sse_events = []
+
+                    async def variation_event_callback(event_type: str, event_data: dict):
+                        """Callback to collect SSE events during tool execution."""
+                        pending_sse_events.append({
+                            "type": event_type,
+                            "data": event_data
+                        })
+
                     while retry_count <= max_retries:
                         # Create a fresh database session for each tool execution
                         # This is necessary because the dependency-injected 'db' may be closed
@@ -1459,7 +1597,10 @@ Retrieved Context:
                         tool_db = SessionLocal()
                         try:
                             # Create task for cancellation support
-                            tool_task = asyncio.create_task(execute_tool(tool_name, tool_args, tool_db))
+                            # Pass event callback for tools that support progressive SSE (Feature 026)
+                            tool_task = asyncio.create_task(
+                                execute_tool(tool_name, tool_args, tool_db, event_callback=variation_event_callback)
+                            )
                             running_tool_tasks[tool_call_id] = tool_task
 
                             try:
@@ -1507,6 +1648,12 @@ Retrieved Context:
                     # If we have a result (success)
                     if tool_result is not None:
                         tool_duration = int((time.time() - tool_start) * 1000)
+
+                        # Feature 026: Yield any pending SSE events collected during tool execution
+                        # This enables progressive delivery of image variations
+                        for sse_event in pending_sse_events:
+                            yield f"data: {json.dumps(sse_event)}\n\n"
+                        pending_sse_events.clear()
 
                         # Send tool complete event
                         event_data = json.dumps({

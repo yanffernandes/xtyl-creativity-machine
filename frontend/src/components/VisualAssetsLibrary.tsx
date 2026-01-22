@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import { useTranslations } from "next-intl"
 import { useDropzone } from "react-dropzone"
 import api, {
@@ -55,7 +55,11 @@ import {
     FileImage,
     Sparkles,
     RefreshCw,
+    CheckSquare,
+    Square,
+    FolderInput,
 } from "lucide-react"
+import { Checkbox } from "@/components/ui/checkbox"
 import CategoryBadge from "./visual-assets/CategoryBadge"
 import AssetUploadModal from "./visual-assets/AssetUploadModal"
 
@@ -131,6 +135,15 @@ export default function VisualAssetsLibrary({ projectId }: VisualAssetsLibraryPr
     const [uploadModalOpen, setUploadModalOpen] = useState(false)
     const [categorySummary, setCategorySummary] = useState<VisualAssetsSummary | null>(null)
     const [classifyingAssetId, setClassifyingAssetId] = useState<string | null>(null)
+
+    // Bulk selection state
+    const [selectionMode, setSelectionMode] = useState(false)
+    const [selectedAssetIds, setSelectedAssetIds] = useState<Set<string>>(new Set())
+    const [bulkActionDialogOpen, setBulkActionDialogOpen] = useState(false)
+    const [bulkActionType, setBulkActionType] = useState<"delete" | "changeCategory" | null>(null)
+    const [bulkNewCategory, setBulkNewCategory] = useState<AssetCategory | "">("")
+    const [isBulkProcessing, setIsBulkProcessing] = useState(false)
+
     const { toast } = useToast()
     const t = useTranslations("visualAssets")
     const tCommon = useTranslations("common")
@@ -399,6 +412,124 @@ export default function VisualAssetsLibrary({ projectId }: VisualAssetsLibraryPr
         window.open(asset.file_url, "_blank")
     }
 
+    // ============================================================================
+    // BULK SELECTION & ACTIONS
+    // ============================================================================
+
+    // Toggle selection mode
+    const toggleSelectionMode = () => {
+        setSelectionMode(!selectionMode)
+        setSelectedAssetIds(new Set())
+    }
+
+    // Toggle asset selection
+    const toggleAssetSelection = (assetId: string) => {
+        const newSelected = new Set(selectedAssetIds)
+        if (newSelected.has(assetId)) {
+            newSelected.delete(assetId)
+        } else {
+            newSelected.add(assetId)
+        }
+        setSelectedAssetIds(newSelected)
+    }
+
+    // Select all visible assets
+    const selectAllAssets = () => {
+        const allIds = new Set(filteredAssets.map(a => a.id))
+        setSelectedAssetIds(allIds)
+    }
+
+    // Deselect all
+    const deselectAllAssets = () => {
+        setSelectedAssetIds(new Set())
+    }
+
+    // Open bulk action dialog
+    const openBulkAction = (action: "delete" | "changeCategory") => {
+        setBulkActionType(action)
+        setBulkActionDialogOpen(true)
+    }
+
+    // Execute bulk delete
+    const executeBulkDelete = async () => {
+        if (selectedAssetIds.size === 0) return
+
+        setIsBulkProcessing(true)
+        let successCount = 0
+        let failCount = 0
+
+        for (const assetId of selectedAssetIds) {
+            try {
+                await api.delete(`/projects/${projectId}/assets/${assetId}`)
+                successCount++
+            } catch (error) {
+                console.error(`Failed to delete asset ${assetId}:`, error)
+                failCount++
+            }
+        }
+
+        // Update local state
+        setAssets(prev => prev.filter(a => !selectedAssetIds.has(a.id)))
+        setSelectedAssetIds(new Set())
+        setSelectionMode(false)
+        setBulkActionDialogOpen(false)
+        setIsBulkProcessing(false)
+
+        toast({
+            title: "Exclusão em massa concluída",
+            description: `${successCount} asset(s) arquivado(s)${failCount > 0 ? `, ${failCount} falha(s)` : ""}`,
+            variant: failCount > 0 ? "destructive" : "default",
+        })
+
+        fetchCategorySummary()
+    }
+
+    // Execute bulk category change
+    const executeBulkCategoryChange = async () => {
+        if (selectedAssetIds.size === 0 || !bulkNewCategory) return
+
+        setIsBulkProcessing(true)
+        let successCount = 0
+        let failCount = 0
+
+        for (const assetId of selectedAssetIds) {
+            try {
+                await updateAssetMetadata(assetId, {
+                    category: bulkNewCategory as AssetCategory,
+                })
+                successCount++
+            } catch (error) {
+                console.error(`Failed to update asset ${assetId}:`, error)
+                failCount++
+            }
+        }
+
+        // Update local state
+        setAssets(prev => prev.map(asset =>
+            selectedAssetIds.has(asset.id)
+                ? { ...asset, asset_category: bulkNewCategory as AssetCategory }
+                : asset
+        ))
+
+        setSelectedAssetIds(new Set())
+        setSelectionMode(false)
+        setBulkActionDialogOpen(false)
+        setBulkNewCategory("")
+        setIsBulkProcessing(false)
+
+        toast({
+            title: "Categorias atualizadas",
+            description: `${successCount} asset(s) movido(s) para "${bulkNewCategory}"${failCount > 0 ? `, ${failCount} falha(s)` : ""}`,
+            variant: failCount > 0 ? "destructive" : "default",
+        })
+
+        fetchCategorySummary()
+    }
+
+    // Selected count for UI
+    const selectedCount = selectedAssetIds.size
+    const allSelected = filteredAssets.length > 0 && selectedAssetIds.size === filteredAssets.length
+
     // Asset type filter component
     const AssetTypeFilter = () => (
         <Select value={selectedAssetType} onValueChange={setSelectedAssetType}>
@@ -467,12 +598,18 @@ export default function VisualAssetsLibrary({ projectId }: VisualAssetsLibraryPr
         const typeInfo = ASSET_TYPES.find((t) => t.value === asset.asset_type)
         const isClassifying = classifyingAssetId === asset.id
         const isClassified = !!asset.asset_category
+        const isSelected = selectedAssetIds.has(asset.id)
 
         // Use smart tags (asset_tags) if available, fallback to legacy metadata tags
         const displayTags = asset.asset_tags?.length ? asset.asset_tags : asset.asset_metadata?.tags
 
         return (
-            <Card className="overflow-hidden group hover:shadow-md transition-shadow">
+            <Card
+                className={`overflow-hidden group hover:shadow-md transition-all cursor-pointer ${
+                    isSelected ? "ring-2 ring-primary ring-offset-2" : ""
+                }`}
+                onClick={selectionMode ? () => toggleAssetSelection(asset.id) : undefined}
+            >
                 {/* Image with checkerboard background */}
                 <div
                     className="aspect-square relative overflow-hidden"
@@ -493,6 +630,22 @@ export default function VisualAssetsLibrary({ projectId }: VisualAssetsLibraryPr
                         alt={asset.title}
                         className="w-full h-full object-contain p-2"
                     />
+
+                    {/* Selection checkbox */}
+                    {selectionMode && (
+                        <div className="absolute top-2 left-2 z-10">
+                            <div
+                                className={`w-6 h-6 rounded-md border-2 flex items-center justify-center transition-colors ${
+                                    isSelected
+                                        ? "bg-primary border-primary text-primary-foreground"
+                                        : "bg-white/80 border-gray-300 hover:border-primary"
+                                }`}
+                            >
+                                {isSelected && <CheckSquare className="h-4 w-4" />}
+                            </div>
+                        </div>
+                    )}
+
                     {/* Classifying overlay */}
                     {isClassifying && (
                         <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center">
@@ -500,14 +653,14 @@ export default function VisualAssetsLibrary({ projectId }: VisualAssetsLibraryPr
                             <span className="text-white text-sm">Classificando...</span>
                         </div>
                     )}
-                    {/* Overlay on hover */}
-                    {!isClassifying && (
+                    {/* Overlay on hover (only when not in selection mode) */}
+                    {!isClassifying && !selectionMode && (
                         <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center p-4">
                             <div className="flex flex-wrap items-center justify-center gap-2">
                                 <Button
                                     size="sm"
                                     variant="secondary"
-                                    onClick={() => handleDownload(asset)}
+                                    onClick={(e) => { e.stopPropagation(); handleDownload(asset) }}
                                     title="Download"
                                 >
                                     <Download className="h-4 w-4" />
@@ -515,7 +668,7 @@ export default function VisualAssetsLibrary({ projectId }: VisualAssetsLibraryPr
                                 <Button
                                     size="sm"
                                     variant="secondary"
-                                    onClick={() => handleClassifyAsset(asset.id)}
+                                    onClick={(e) => { e.stopPropagation(); handleClassifyAsset(asset.id) }}
                                     title={isClassified ? "Reclassificar com IA" : "Classificar com IA"}
                                 >
                                     <Sparkles className="h-4 w-4" />
@@ -523,7 +676,8 @@ export default function VisualAssetsLibrary({ projectId }: VisualAssetsLibraryPr
                                 <Button
                                     size="sm"
                                     variant="secondary"
-                                    onClick={() => {
+                                    onClick={(e) => {
+                                        e.stopPropagation()
                                         setEditingAsset(asset)
                                         setEditTitle(asset.title)
                                         setEditTags(asset.asset_tags?.join(", ") || displayTags?.join(", ") || "")
@@ -537,7 +691,8 @@ export default function VisualAssetsLibrary({ projectId }: VisualAssetsLibraryPr
                                 <Button
                                     size="sm"
                                     variant="destructive"
-                                    onClick={() => {
+                                    onClick={(e) => {
+                                        e.stopPropagation()
                                         setAssetToDelete(asset)
                                         setDeleteDialogOpen(true)
                                     }}
@@ -617,48 +772,69 @@ export default function VisualAssetsLibrary({ projectId }: VisualAssetsLibraryPr
                     )}
                 </div>
                 <div className="flex gap-2">
-                    {/* Legacy upload button (hidden input) */}
-                    <input
-                        id="asset-upload-input"
-                        type="file"
-                        accept="image/png,image/jpeg,image/webp"
-                        multiple
-                        className="hidden"
-                        onChange={(e) => {
-                            if (e.target.files && e.target.files.length > 0) {
-                                handleUpload(Array.from(e.target.files), "other")
-                            }
-                        }}
-                    />
+                    {/* Selection mode toggle */}
+                    <Button
+                        variant={selectionMode ? "secondary" : "outline"}
+                        onClick={toggleSelectionMode}
+                        className="gap-2"
+                    >
+                        <CheckSquare className="h-4 w-4" />
+                        {selectionMode ? "Cancelar seleção" : "Selecionar"}
+                    </Button>
+
                     {/* Smart Upload button with AI classification (Feature 011) */}
                     <Button
                         onClick={() => setUploadModalOpen(true)}
                         className="gap-2"
+                        disabled={selectionMode}
                     >
                         <Sparkles className="h-4 w-4" />
                         Upload com IA
                     </Button>
-                    {/* Legacy upload button */}
-                    <Button
-                        variant="outline"
-                        onClick={() => document.getElementById("asset-upload-input")?.click()}
-                        disabled={isUploading}
-                        className="gap-2"
-                    >
-                        {isUploading ? (
-                            <>
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                                Enviando...
-                            </>
-                        ) : (
-                            <>
-                                <Upload className="h-4 w-4" />
-                                Upload Simples
-                            </>
-                        )}
-                    </Button>
                 </div>
             </div>
+
+            {/* Bulk action bar (appears when in selection mode with items selected) */}
+            {selectionMode && (
+                <div className="flex-shrink-0 flex items-center justify-between bg-muted/50 rounded-lg p-3 mb-4 border">
+                    <div className="flex items-center gap-4">
+                        <span className="text-sm font-medium">
+                            {selectedCount} {selectedCount === 1 ? "asset selecionado" : "assets selecionados"}
+                        </span>
+                        <div className="flex gap-2">
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={allSelected ? deselectAllAssets : selectAllAssets}
+                            >
+                                {allSelected ? "Desmarcar todos" : "Selecionar todos"}
+                            </Button>
+                        </div>
+                    </div>
+                    <div className="flex gap-2">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => openBulkAction("changeCategory")}
+                            disabled={selectedCount === 0}
+                            className="gap-2"
+                        >
+                            <FolderInput className="h-4 w-4" />
+                            Mover categoria
+                        </Button>
+                        <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => openBulkAction("delete")}
+                            disabled={selectedCount === 0}
+                            className="gap-2"
+                        >
+                            <Trash2 className="h-4 w-4" />
+                            Arquivar ({selectedCount})
+                        </Button>
+                    </div>
+                </div>
+            )}
 
             {/* Filters */}
             <div className="flex-shrink-0 flex gap-3 mb-4">
@@ -836,6 +1012,65 @@ export default function VisualAssetsLibrary({ projectId }: VisualAssetsLibraryPr
                     fetchCategorySummary()
                 }}
             />
+
+            {/* Bulk Action Dialog */}
+            <AlertDialog open={bulkActionDialogOpen} onOpenChange={setBulkActionDialogOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>
+                            {bulkActionType === "delete"
+                                ? `Arquivar ${selectedCount} assets?`
+                                : `Mover ${selectedCount} assets para outra categoria`
+                            }
+                        </AlertDialogTitle>
+                        <AlertDialogDescription>
+                            {bulkActionType === "delete"
+                                ? "Os assets selecionados serão arquivados. Esta ação pode ser desfeita pela administração."
+                                : "Selecione a nova categoria para os assets selecionados."
+                            }
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+
+                    {/* Category selector for move action */}
+                    {bulkActionType === "changeCategory" && (
+                        <div className="py-4">
+                            <Label htmlFor="bulk-category">Nova Categoria</Label>
+                            <Select value={bulkNewCategory} onValueChange={(v) => setBulkNewCategory(v as AssetCategory)}>
+                                <SelectTrigger id="bulk-category" className="mt-2">
+                                    <SelectValue placeholder="Selecione uma categoria" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {SMART_CATEGORIES.filter(c => c.value !== 'all' && c.value !== 'unclassified').map((cat) => (
+                                        <SelectItem key={cat.value} value={cat.value}>
+                                            {cat.label}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    )}
+
+                    <AlertDialogFooter>
+                        <AlertDialogCancel disabled={isBulkProcessing}>
+                            Cancelar
+                        </AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={bulkActionType === "delete" ? executeBulkDelete : executeBulkCategoryChange}
+                            disabled={isBulkProcessing || (bulkActionType === "changeCategory" && !bulkNewCategory)}
+                            className={bulkActionType === "delete" ? "bg-destructive" : ""}
+                        >
+                            {isBulkProcessing ? (
+                                <>
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    Processando...
+                                </>
+                            ) : (
+                                bulkActionType === "delete" ? "Arquivar" : "Mover"
+                            )}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     )
 }

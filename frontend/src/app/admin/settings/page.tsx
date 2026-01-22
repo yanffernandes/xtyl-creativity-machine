@@ -15,6 +15,7 @@ import {
   Check,
   RefreshCw,
   Construction,
+  Image,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,6 +23,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
+import { ImageGenerationSettings } from '@/components/admin/ImageGenerationSettings';
 
 export default function AdminSettingsPage() {
   const {
@@ -161,6 +163,13 @@ export default function AdminSettingsPage() {
                 <ToggleLeft className="mr-2 h-4 w-4" />
                 Feature Flags
               </TabsTrigger>
+              <TabsTrigger
+                value="image-generation"
+                className="data-[state=active]:bg-white/10 data-[state=active]:text-white"
+              >
+                <Image className="mr-2 h-4 w-4" />
+                Image Generation
+              </TabsTrigger>
             </TabsList>
 
             {/* Limits Tab */}
@@ -287,6 +296,11 @@ export default function AdminSettingsPage() {
                   )}
                 </div>
               </div>
+            </TabsContent>
+
+            {/* Image Generation Tab */}
+            <TabsContent value="image-generation">
+              <ImageGenerationSettings />
             </TabsContent>
           </Tabs>
         )}

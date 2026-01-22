@@ -112,6 +112,11 @@ docker-compose up -d
 ```
 ├── frontend/          Next.js 14 + Shadcn/UI
 ├── backend/           FastAPI + SQLAlchemy
+├── supabase/          Database resources
+│   ├── migrations/    SQL migration files
+│   ├── functions/     Edge functions
+│   ├── seeds/         Seed data
+│   └── schema.sql     Full database schema
 ├── docker-compose.yml Production deployment
 ├── dev.sh             Development script
 └── .env.example       Environment template

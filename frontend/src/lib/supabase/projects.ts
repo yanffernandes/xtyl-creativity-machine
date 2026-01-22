@@ -13,6 +13,7 @@ import type {
   Project,
   ProjectInsert,
   ProjectUpdate,
+  ProjectSettings,
 } from '@/types/supabase'
 import type { ServiceResult } from '@/types/supabase-services'
 
@@ -107,7 +108,90 @@ export const projectService = {
     } catch (error) {
       return { data: null, error: error as Error }
     }
-  }
+  },
+
+  // ============================================================================
+  // PROJECT SETTINGS (Feature: Supabase Direct Migration)
+  // ============================================================================
+
+  /**
+   * Get project settings (JSONB column)
+   */
+  async getSettings(id: string): Promise<ServiceResult<ProjectSettings | null>> {
+    try {
+      const { data, error } = await supabase
+        .from('projects')
+        .select('settings')
+        .eq('id', id)
+        .single()
+
+      if (error) throw error
+      return { data: data?.settings || null, error: null }
+    } catch (error) {
+      return { data: null, error: error as Error }
+    }
+  },
+
+  /**
+   * Update project settings (JSONB column)
+   * Merges with existing settings
+   */
+  async updateSettings(
+    id: string,
+    settings: Partial<ProjectSettings>
+  ): Promise<ServiceResult<ProjectSettings>> {
+    try {
+      // First get current settings
+      const { data: current, error: getError } = await supabase
+        .from('projects')
+        .select('settings')
+        .eq('id', id)
+        .single()
+
+      if (getError) throw getError
+
+      // Merge settings
+      const merged = {
+        ...(current?.settings || {}),
+        ...settings,
+      }
+
+      // Update
+      const { data, error } = await supabase
+        .from('projects')
+        .update({ settings: merged })
+        .eq('id', id)
+        .select('settings')
+        .single()
+
+      if (error) throw error
+      return { data: data?.settings, error: null }
+    } catch (error) {
+      return { data: null, error: error as Error }
+    }
+  },
+
+  /**
+   * Replace project settings entirely (JSONB column)
+   */
+  async replaceSettings(
+    id: string,
+    settings: ProjectSettings
+  ): Promise<ServiceResult<ProjectSettings>> {
+    try {
+      const { data, error } = await supabase
+        .from('projects')
+        .update({ settings })
+        .eq('id', id)
+        .select('settings')
+        .single()
+
+      if (error) throw error
+      return { data: data?.settings, error: null }
+    } catch (error) {
+      return { data: null, error: error as Error }
+    }
+  },
 }
 
 export default projectService

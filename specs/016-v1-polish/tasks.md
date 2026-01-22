@@ -39,7 +39,7 @@
 - [x] T004 Update Document model in backend/models.py to add original_image_id and refinement_history fields
 - [x] T005 [P] Update backend/schemas.py to add RefineImageResponse with original_image_id and refinement_count
 - [x] T006 [P] Update backend/services/model_config_service.py to support prompt_enrichment model type
-- [ ] T007 Add api client functions for new endpoints in frontend/src/lib/api.ts
+- [x] T007 Add api client functions for new endpoints in frontend/src/lib/api.ts
 
 **Checkpoint**: Foundation ready - user story implementation can now begin
 
@@ -53,14 +53,14 @@
 
 ### Implementation for User Story 1
 
-- [ ] T008 [P] [US1] Create ImageLightbox component with zoom support in frontend/src/components/ui/ImageLightbox.tsx
-- [ ] T009 [US1] Add delete permanent endpoint in backend/routers/documents.py (DELETE /documents/{id}/attachments/{attachment_id}/permanent)
-- [ ] T010 [US1] Implement R2 storage deletion logic in delete permanent endpoint in backend/routers/documents.py
-- [ ] T011 [US1] Add validation to prevent deletion if image is original_image_id of another document in backend/routers/documents.py
-- [ ] T012 [US1] Update DocumentAttachments.tsx to add three distinct action buttons (view/detach/delete) in frontend/src/components/document/DocumentAttachments.tsx
-- [ ] T013 [US1] Integrate ImageLightbox for fullscreen view with zoom in frontend/src/components/document/DocumentAttachments.tsx
-- [ ] T014 [US1] Add confirmation dialog before permanent deletion using AlertDialog in frontend/src/components/document/DocumentAttachments.tsx
-- [ ] T015 [US1] Add immediate list refresh after any action in frontend/src/components/document/DocumentAttachments.tsx
+- [x] T008 [P] [US1] Create ImageLightbox component with zoom support in frontend/src/components/ui/ImageLightbox.tsx
+- [x] T009 [US1] Add delete permanent endpoint in backend/routers/documents.py (DELETE /documents/{id}/attachments/{attachment_id}/permanent)
+- [x] T010 [US1] Implement R2 storage deletion logic in delete permanent endpoint in backend/routers/documents.py
+- [x] T011 [US1] Add validation to prevent deletion if image is original_image_id of another document in backend/routers/documents.py
+- [x] T012 [US1] Update DocumentAttachments.tsx to add three distinct action buttons (view/detach/delete) in frontend/src/components/document/DocumentAttachments.tsx
+- [x] T013 [US1] Integrate ImageLightbox for fullscreen view with zoom in frontend/src/components/document/DocumentAttachments.tsx
+- [x] T014 [US1] Add confirmation dialog before permanent deletion using AlertDialog in frontend/src/components/document/DocumentAttachments.tsx
+- [x] T015 [US1] Add immediate list refresh after any action in frontend/src/components/document/DocumentAttachments.tsx
 
 **Checkpoint**: User Story 1 complete - all three image actions work independently
 
@@ -74,12 +74,12 @@
 
 ### Implementation for User Story 2
 
-- [ ] T016 [P] [US2] Add isCreating loading state to project page in frontend/src/app/workspace/[id]/project/[projectId]/page.tsx
-- [ ] T017 [US2] Implement optimistic navigation (router.push immediately) in frontend/src/app/workspace/[id]/project/[projectId]/page.tsx
-- [ ] T018 [US2] Create background document creation with URL replacement in frontend/src/app/workspace/[id]/project/[projectId]/page.tsx
-- [ ] T019 [US2] Add debounce/disable button to prevent multiple clicks in frontend/src/app/workspace/[id]/project/[projectId]/page.tsx
-- [ ] T020 [US2] Add skeleton loading state for new document page in frontend/src/app/workspace/[id]/project/[projectId]/document/[documentId]/page.tsx
-- [ ] T021 [US2] Add error handling with user-friendly toast notification in frontend/src/app/workspace/[id]/project/[projectId]/page.tsx
+- [x] T016 [P] [US2] Add isCreating loading state to project page in frontend/src/app/workspace/[id]/project/[projectId]/page.tsx
+- [x] T017 [US2] Implement optimistic navigation (router.push immediately) in frontend/src/app/workspace/[id]/project/[projectId]/page.tsx
+- [x] T018 [US2] Create background document creation with URL replacement in frontend/src/app/workspace/[id]/project/[projectId]/page.tsx
+- [x] T019 [US2] Add debounce/disable button to prevent multiple clicks in frontend/src/app/workspace/[id]/project/[projectId]/page.tsx
+- [x] T020 [US2] Add skeleton loading state for new document page in frontend/src/app/workspace/[id]/project/[projectId]/document/[documentId]/page.tsx
+- [x] T021 [US2] Add error handling with user-friendly toast notification in frontend/src/app/workspace/[id]/project/[projectId]/page.tsx
 
 **Checkpoint**: User Story 2 complete - "Nova Criação" provides instant feedback
 
@@ -93,12 +93,12 @@
 
 ### Implementation for User Story 3
 
-- [ ] T022 [US3] Update refine endpoint to find and use original_image_id instead of current image in backend/routers/image_generation.py
-- [ ] T023 [US3] Add logic to set original_image_id when creating refined image in backend/routers/image_generation.py
-- [ ] T024 [US3] Implement refinement_history accumulation in backend/routers/image_generation.py
-- [ ] T025 [US3] Build combined prompt from original + accumulated refinement instructions in backend/routers/image_generation.py
-- [ ] T026 [US3] Add refinement_count to response in backend/routers/image_generation.py
-- [ ] T027 [US3] Update ImageGenerationPanel to display refinement count in frontend/src/components/ImageGenerationPanel.tsx
+- [x] T022 [US3] Update refine endpoint to find and use original_image_id instead of current image in backend/routers/image_generation.py
+- [x] T023 [US3] Add logic to set original_image_id when creating refined image in backend/routers/image_generation.py
+- [x] T024 [US3] Implement refinement_history accumulation in backend/routers/image_generation.py
+- [x] T025 [US3] Build combined prompt from original + accumulated refinement instructions in backend/routers/image_generation.py
+- [x] T026 [US3] Add refinement_count to response in backend/routers/image_generation.py
+- [x] T027 [US3] Update ImageGenerationPanel to display refinement count in frontend/src/components/ImageGenerationPanel.tsx
 
 **Checkpoint**: User Story 3 complete - refinements preserve quality via original image
 
@@ -112,15 +112,15 @@
 
 ### Implementation for User Story 4
 
-- [ ] T028 [P] [US4] Create PromptEnrichmentService class in backend/services/prompt_enrichment_service.py
-- [ ] T029 [US4] Implement enrich_prompt method with brand context integration in backend/services/prompt_enrichment_service.py
-- [ ] T030 [US4] Add system prompt for prompt engineering best practices in backend/services/prompt_enrichment_service.py
-- [ ] T031 [US4] Add fallback template for projects without brand context in backend/services/prompt_enrichment_service.py
-- [ ] T032 [P] [US4] Create /prompts/enrich endpoint in backend/routers/prompts.py (new router)
-- [ ] T033 [US4] Register prompts router in backend/main.py
-- [ ] T034 [US4] Integrate prompt enrichment into generate_image_tool in backend/tools.py
-- [ ] T035 [US4] Add prompt_enrichment to admin model config UI in frontend/src/app/admin/models/page.tsx
-- [ ] T036 [US4] Update ModelConfigForm to include prompt_enrichment field in frontend/src/components/admin/ModelConfigForm.tsx
+- [x] T028 [P] [US4] Create PromptEnrichmentService class in backend/services/prompt_enrichment_service.py
+- [x] T029 [US4] Implement enrich_prompt method with brand context integration in backend/services/prompt_enrichment_service.py
+- [x] T030 [US4] Add system prompt for prompt engineering best practices in backend/services/prompt_enrichment_service.py
+- [x] T031 [US4] Add fallback template for projects without brand context in backend/services/prompt_enrichment_service.py
+- [x] T032 [P] [US4] Create /prompts/enrich endpoint in backend/routers/prompts.py (new router)
+- [x] T033 [US4] Register prompts router in backend/main.py
+- [x] T034 [US4] Integrate prompt enrichment into generate_image_tool in backend/tools.py
+- [x] T035 [US4] Add prompt_enrichment to admin model config UI in frontend/src/app/admin/models/page.tsx
+- [x] T036 [US4] Update ModelConfigForm to include prompt_enrichment field in frontend/src/components/admin/ModelConfigForm.tsx
 
 **Checkpoint**: User Story 4 complete - prompts are automatically enriched with brand context
 
@@ -130,10 +130,10 @@
 
 **Purpose**: Improvements that affect multiple user stories
 
-- [ ] T037 [P] Add error placeholder for missing images in storage in frontend/src/components/document/DocumentAttachments.tsx
-- [ ] T038 [P] Add retry with backoff for rate limits in prompt enrichment in backend/services/prompt_enrichment_service.py
-- [ ] T039 Run quickstart.md validation scenarios for all 4 user stories
-- [ ] T040 Update CLAUDE.md with new endpoints and service locations
+- [x] T037 [P] Add error placeholder for missing images in storage in frontend/src/components/document/DocumentAttachments.tsx
+- [x] T038 [P] Add retry with backoff for rate limits in prompt enrichment in backend/services/prompt_enrichment_service.py
+- [x] T039 Run quickstart.md validation scenarios for all 4 user stories
+- [x] T040 Update CLAUDE.md with new endpoints and service locations
 
 ---
 

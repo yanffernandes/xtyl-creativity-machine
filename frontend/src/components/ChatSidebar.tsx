@@ -37,14 +37,15 @@ import TaskListCard, { TaskItem } from "@/components/TaskListCard"
 import { useUserPreferences } from "@/hooks/useUserPreferences"
 import ConversationsList from "@/components/ConversationsList"
 import { conversationService } from "@/lib/supabase/conversations"
-import { getVisualContext, type VisualContextResponse } from "@/lib/api"
 import VisualContextSelector from "@/components/visual-assets/VisualContextSelector"
-import AdvancedVisualSettingsModal from "@/components/visual-assets/AdvancedVisualSettingsModal"
 import { TemplateSelector, TemplateForm } from "@/components/templates"
 import { startChatFromTemplate, transcribeAudio } from "@/lib/api"
 import { useVoiceRecording } from "@/hooks/useVoiceRecording"
 import { AnimatePresence } from "framer-motion"
 import { MemoryDrawer } from "@/components/memory/MemoryDrawer"
+import { useImageVariations } from "@/hooks/useImageVariations"
+import { ImageVariationGrid } from "@/components/chat/ImageVariationGrid"
+import type { ImageVariation } from "@/types/image-variations"
 
 // Generate a title from the first user message (truncate at ~50 chars on word boundary)
 function generateTitleFromMessage(content: string): string {
@@ -180,17 +181,18 @@ export default function ChatSidebar({
     const [currentConversationId, setCurrentConversationId] = useState<string | null>(null)
     const [createdDocuments, setCreatedDocuments] = useState<CreatedDocument[]>([])
 
-    // Visual context state (T045)
-    const [visualContext, setVisualContext] = useState<VisualContextResponse | null>(null)
-    const [showAdvancedVisualSettings, setShowAdvancedVisualSettings] = useState(false)
-
     // Memory drawer state (Feature 024)
     const [memoryDrawerOpen, setMemoryDrawerOpen] = useState(false)
+
+    // Image variations state (Feature 026)
+    const imageVariations = useImageVariations()
+    const [selectedVariationId, setSelectedVariationId] = useState<string | null>(null)
 
     const messagesEndRef = useRef<HTMLDivElement>(null)
     const fileInputRef = useRef<HTMLInputElement>(null)
     const contextRef = useRef<HTMLDivElement>(null)
     const userSelectedModelRef = useRef(false) // Track if user manually selected a model
+    const abortControllerRef = useRef<AbortController | null>(null) // For cancelling streaming requests
     const { token, isLoading: authLoading } = useAuthStore()
     const { toast } = useToast()
     const t = useTranslations("chat")
@@ -248,26 +250,6 @@ export default function ChatSidebar({
             fetchModels()
         }
     }, [hasMounted, token, authLoading])
-
-    // T045: Fetch visual context when projectId changes
-    const loadVisualContext = async () => {
-        if (!projectId || !token) {
-            setVisualContext(null)
-            return
-        }
-        try {
-            const context = await getVisualContext(projectId)
-            setVisualContext(context)
-        } catch (error) {
-            console.error("Failed to load visual context:", error)
-            setVisualContext(null)
-        }
-    }
-
-    useEffect(() => {
-        loadVisualContext()
-    }, [projectId, token])
-
 
     // Scroll to bottom when messages change
     useEffect(() => {
@@ -655,6 +637,21 @@ export default function ChatSidebar({
         return `${mins}:${secs.toString().padStart(2, '0')}`
     }
 
+    // Cancel ongoing streaming request
+    const handleCancelStream = () => {
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort()
+            abortControllerRef.current = null
+            setIsLoading(false)
+            setStreamingStatus(null)
+            setCurrentStreamingContent("")
+            toast({
+                title: t("operationCancelled"),
+                description: t("operationCancelledDescription"),
+            })
+        }
+    }
+
     const handleSend = async (e: React.FormEvent) => {
         e.preventDefault()
         // Allow sending if there's text OR attachments
@@ -671,6 +668,8 @@ export default function ChatSidebar({
         setToolExecutions([])  // Clear previous tool executions
         setTaskList([])  // Clear previous task list
         setIterationInfo(null)  // Clear iteration info
+        imageVariations.reset()  // Clear previous image variations (Feature 026)
+        setSelectedVariationId(null)  // Clear selected variation
 
         try {
             // Prepare messages with attachments
@@ -699,17 +698,26 @@ export default function ChatSidebar({
             // Clear attachments after adding to message
             setAttachments([])
 
-            // If we have a current document, include it in the context
-            if (currentDocument && useRag) {
-                contextData.current_document = {
-                    id: currentDocument.id,
-                    title: currentDocument.title,
-                    content: currentDocument.content || ""
+            // Feature 028: Always pass current_document_id for auto-attach of generated images
+            // Even without RAG, we want to know which document is being edited
+            if (currentDocument) {
+                // For RAG context, include full document info
+                if (useRag) {
+                    contextData.current_document = {
+                        id: currentDocument.id,
+                        title: currentDocument.title,
+                        content: currentDocument.content || ""
+                    }
                 }
+                // Always include current_document_id for auto-attach functionality
+                contextData.current_document_id = currentDocument.id
             }
 
             // Use streaming endpoint
             const apiUrl = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/chat/completion-stream`
+
+            // Create AbortController for cancellation support
+            abortControllerRef.current = new AbortController()
 
             const response = await fetch(apiUrl, {
                 method: 'POST',
@@ -717,7 +725,8 @@ export default function ChatSidebar({
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify(contextData)
+                body: JSON.stringify(contextData),
+                signal: abortControllerRef.current.signal
             })
 
             if (!response.ok) {
@@ -943,6 +952,23 @@ export default function ChatSidebar({
                                             title: event.result.title || "Nova imagem",
                                             type: "image"
                                         }])
+
+                                        // Feature 028: Show toast for auto-attach
+                                        if (event.result?.attached_to_document_id) {
+                                            // Check if a new document was created
+                                            if (event.result?.created_document_id) {
+                                                toast({
+                                                    title: "Documento Criado",
+                                                    description: `Documento "${event.result.created_document_title || 'Novo Criativo'}" criado com imagem anexada.`,
+                                                })
+                                            } else {
+                                                toast({
+                                                    title: "Imagem Anexada",
+                                                    description: `Imagem anexada automaticamente ao documento.`,
+                                                })
+                                            }
+                                        }
+
                                         // T046: Show visual context feedback
                                         if (event.result?.visual_context?.asset_count) {
                                             toast({
@@ -1061,6 +1087,55 @@ export default function ChatSidebar({
                                     // No action needed here - memories will be refreshed when user opens the panel
                                     break
 
+                                // Feature 026: Image variation events
+                                case 'variation_started':
+                                    imageVariations.handleVariationEvent(event)
+                                    setStreamingStatus({ status: `Gerando ${event.data.total_variations} variações de imagem...` })
+                                    break
+
+                                case 'variation_complete':
+                                    imageVariations.handleVariationEvent(event)
+                                    setStreamingStatus({
+                                        status: `Variação ${event.data.variation_index + 1}/${event.data.total_variations} concluída`
+                                    })
+                                    // Track completed variation document
+                                    if (event.data.document_id) {
+                                        setCreatedDocuments(prev => [...prev, {
+                                            id: event.data.document_id,
+                                            title: event.data.title || `Variação ${event.data.variation_index + 1}`,
+                                            type: "image"
+                                        }])
+                                    }
+                                    break
+
+                                case 'variation_failed':
+                                    imageVariations.handleVariationEvent(event)
+                                    toast({
+                                        title: "Variação falhou",
+                                        description: `Erro na variação ${event.data.variation_index + 1}: ${event.data.error}`,
+                                        variant: "destructive"
+                                    })
+                                    break
+
+                                case 'all_variations_complete':
+                                    imageVariations.handleVariationEvent(event)
+                                    {
+                                        const data = event.data
+                                        if (data.total_failed > 0) {
+                                            toast({
+                                                title: "Geração de variações concluída",
+                                                description: `${data.total_completed} variações geradas, ${data.total_failed} falharam`,
+                                                variant: "default"
+                                            })
+                                        } else {
+                                            toast({
+                                                title: "Variações geradas!",
+                                                description: `${data.total_completed} variações de imagem criadas com sucesso`,
+                                            })
+                                        }
+                                    }
+                                    break
+
                                 case 'error':
                                     throw new Error(event.message)
                             }
@@ -1071,6 +1146,12 @@ export default function ChatSidebar({
                 }
             }
         } catch (error: any) {
+            // Don't show error if request was cancelled by user
+            if (error.name === 'AbortError') {
+                console.log("Request cancelled by user")
+                return
+            }
+
             console.error("Chat failed", error)
             const errorMsg = error?.response?.status === 401
                 ? "Authentication error. Please log in again."
@@ -1082,6 +1163,7 @@ export default function ChatSidebar({
                 content: errorMsg
             }])
         } finally {
+            abortControllerRef.current = null
             setIsLoading(false)
             setStreamingStatus(null)
         }
@@ -1276,9 +1358,7 @@ export default function ChatSidebar({
                                     ? `Editando + ${selectedContextIds.length} docs + ${selectedFolderIds.length} pastas`
                                     : `${selectedContextIds.length} docs + ${selectedFolderIds.length} pastas`
                             ) : "Desligado"}
-                            {visualContext?.is_enabled && visualContext.assets && visualContext.assets.length > 0 && (
-                                ` + ${visualContext.assets.length} assets`
-                            )}
+                            {/* Visual assets are now always auto-injected (Feature 028) */}
                         </div>
                         {isContextExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
                     </div>
@@ -1374,15 +1454,11 @@ export default function ChatSidebar({
                                         )}
                                     </div>
 
-                                    {/* Visual Context Section */}
+                                    {/* Visual Context Section - Feature 028: Now automatic */}
                                     {projectId && (
                                         <>
                                             <div className="border-t border-border/50 my-3" />
-                                            <VisualContextSelector
-                                                projectId={projectId}
-                                                onSettingsChange={loadVisualContext}
-                                                onOpenAdvancedSettings={() => setShowAdvancedVisualSettings(true)}
-                                            />
+                                            <VisualContextSelector projectId={projectId} />
                                         </>
                                     )}
                                 </>
@@ -1390,16 +1466,6 @@ export default function ChatSidebar({
                         </div>
                     )}
                 </div>
-
-                {/* Advanced Visual Settings Modal */}
-                {projectId && (
-                    <AdvancedVisualSettingsModal
-                        projectId={projectId}
-                        open={showAdvancedVisualSettings}
-                        onOpenChange={setShowAdvancedVisualSettings}
-                        onSettingsSaved={loadVisualContext}
-                    />
-                )}
             </div >
 
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
@@ -1524,6 +1590,34 @@ export default function ChatSidebar({
                                             total={execution.total}
                                         />
                                     ))}
+                                </div>
+                            )}
+
+                            {/* Image Variation Grid (Feature 026) */}
+                            {imageVariations.totalVariations > 0 && (
+                                <div className="ml-6">
+                                    <div className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-2">
+                                        <Image className="h-3 w-3" />
+                                        Variações de Imagem
+                                        {imageVariations.isGenerating && (
+                                            <span className="text-blue-500">
+                                                ({imageVariations.completionProgress}%)
+                                            </span>
+                                        )}
+                                    </div>
+                                    <ImageVariationGrid
+                                        totalVariations={imageVariations.totalVariations}
+                                        completedVariations={imageVariations.completedVariations}
+                                        failedVariations={imageVariations.failedVariations}
+                                        isGenerating={imageVariations.isGenerating}
+                                        onSelect={(variation) => {
+                                            setSelectedVariationId(variation.id)
+                                            if (onNavigateToDocument) {
+                                                onNavigateToDocument(variation.documentId)
+                                            }
+                                        }}
+                                        selectedId={selectedVariationId || undefined}
+                                    />
                                 </div>
                             )}
 
@@ -1839,16 +1933,29 @@ export default function ChatSidebar({
 
                             <div className="flex-1" />
 
-                            {/* Botão enviar à direita */}
-                            <Button
-                                type="submit"
-                                size="sm"
-                                disabled={isLoading || (!input.trim() && attachments.length === 0)}
-                                className="h-8 px-3 gap-1.5 bg-primary/90 hover:bg-primary"
-                            >
-                                <Send className="h-3.5 w-3.5" />
-                                <span className="text-xs">{t("send")}</span>
-                            </Button>
+                            {/* Botão enviar/cancelar à direita */}
+                            {isLoading ? (
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="destructive"
+                                    onClick={handleCancelStream}
+                                    className="h-8 px-3 gap-1.5"
+                                >
+                                    <Square className="h-3.5 w-3.5" />
+                                    <span className="text-xs">{t("cancel")}</span>
+                                </Button>
+                            ) : (
+                                <Button
+                                    type="submit"
+                                    size="sm"
+                                    disabled={!input.trim() && attachments.length === 0}
+                                    className="h-8 px-3 gap-1.5 bg-primary/90 hover:bg-primary"
+                                >
+                                    <Send className="h-3.5 w-3.5" />
+                                    <span className="text-xs">{t("send")}</span>
+                                </Button>
+                            )}
                         </div>
                     </div>
                 </form>

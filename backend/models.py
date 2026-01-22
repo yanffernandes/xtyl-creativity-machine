@@ -145,6 +145,16 @@ class Document(Base):
     original_image_id = Column(String, ForeignKey("documents.id"), nullable=True)  # Reference to original image for refinements
     refinement_history = Column(JSONB, nullable=True, default=list)  # Array of {prompt, applied_at}
 
+    # Agency Studio Flow fields (Feature 028)
+    campaign_id = Column(UUID(as_uuid=True), ForeignKey("campaign_packages.id", ondelete="SET NULL"), nullable=True)
+    tags = Column(ARRAY(Text), default=list)  # Searchable tags
+    channel = Column(String(100), nullable=True)  # Target channel (instagram, facebook, etc)
+    variation_set_id = Column(UUID(as_uuid=True), nullable=True, index=True)  # Groups images from same batch generation
+    variation_index = Column(Integer, nullable=True)  # Index within variation set (0, 1, 2)
+    variation_modifier = Column(Text, nullable=True)  # Style modifier applied to this variation
+    version_history = Column(JSONB, default=list)  # Array of past versions (max 10, FIFO)
+    current_version = Column(Integer, default=1)  # Current version number
+
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     deleted_at = Column(DateTime(timezone=True), nullable=True)
@@ -153,6 +163,7 @@ class Document(Base):
     folder = relationship("Folder", back_populates="documents")
     attachments = relationship("DocumentAttachment", foreign_keys="[DocumentAttachment.document_id]", back_populates="document")
     original_image = relationship("Document", remote_side="Document.id", foreign_keys=[original_image_id])  # Self-reference for refinements
+    campaign = relationship("CampaignPackage", backref="documents")  # Feature 028
 
 class ActivityLog(Base):
     __tablename__ = "activity_log"
@@ -553,6 +564,27 @@ class AdminAuditLog(Base):
 
 
 # ============================================================================
+# STYLE PRESETS (Feature 027 - Visual Generation Studio)
+# ============================================================================
+
+class StylePreset(Base):
+    """Predefined style presets for image generation studio"""
+    __tablename__ = "style_presets"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name = Column(String(100), nullable=False)
+    name_pt = Column(String(100), nullable=False)
+    slug = Column(String(50), unique=True, nullable=False)
+    prompt_modifier = Column(Text, nullable=False)
+    thumbnail_url = Column(Text, nullable=True)
+    category = Column(String(50), default="general")
+    preset_type = Column(String(20), default="style")  # 'style' or 'marketing'
+    sort_order = Column(Integer, default=0)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+# ============================================================================
 # USER MEMORY SYSTEM (Feature 024)
 # ============================================================================
 
@@ -600,3 +632,59 @@ class UserMemory(Base):
 
     def __repr__(self):
         return f"<UserMemory(id={self.id}, user_id={self.user_id}, content={self.content[:50]}...)>"
+
+
+# ============================================================================
+# AGENCY STUDIO FLOW (Feature 028)
+# ============================================================================
+
+class CopyLibraryItem(Base):
+    """Reusable copy text stored at workspace level"""
+    __tablename__ = "copy_library_items"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    workspace_id = Column(String, ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False, index=True)
+    title = Column(String(255), nullable=False)
+    content = Column(Text, nullable=False)
+    tags = Column(ARRAY(Text), default=list)
+    created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    # Relationships
+    workspace = relationship("Workspace", backref="copy_library_items")
+    creator = relationship("User", backref="created_copies")
+
+
+class CampaignPackage(Base):
+    """Campaign grouping for copies and images within a project"""
+    __tablename__ = "campaign_packages"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    project_id = Column(String, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True)
+    name = Column(String(255), nullable=False)
+    channel = Column(String(100), nullable=True)
+    campaign_metadata = Column(JSONB, default=dict)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    # Relationships
+    project = relationship("Project", backref="campaigns")
+
+
+class ImageMask(Base):
+    """Stores mask data for inpainting refinements"""
+    __tablename__ = "image_masks"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    document_id = Column(String, ForeignKey("documents.id", ondelete="CASCADE"), nullable=False, index=True)
+    mask_url = Column(String(512), nullable=False)
+    prompt = Column(Text, nullable=True)
+    result_document_id = Column(String, ForeignKey("documents.id", ondelete="SET NULL"), nullable=True)
+    created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    # Relationships
+    source_document = relationship("Document", foreign_keys=[document_id], backref="masks")
+    result_document = relationship("Document", foreign_keys=[result_document_id])
+    creator = relationship("User", backref="created_masks")

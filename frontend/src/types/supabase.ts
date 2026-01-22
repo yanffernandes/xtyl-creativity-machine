@@ -17,6 +17,38 @@ export interface TemplateVariable {
   options?: string[]  // For select type
 }
 
+// Brand identity for project settings
+export interface BrandIdentity {
+  colors?: {
+    primary?: string
+    secondary?: string
+    accent?: string
+    background?: string
+    text?: string
+    additional?: string[]
+  }
+  fonts?: {
+    heading?: string
+    body?: string
+    accent?: string
+  }
+  logo_url?: string
+  logo_thumbnail?: string
+}
+
+// Project settings JSONB structure
+export interface ProjectSettings {
+  client_name?: string
+  description?: string | null
+  target_audience?: string | null
+  brand_voice?: string | null
+  brand_voice_custom?: string | null
+  key_messages?: string[] | null
+  competitors?: string[] | null
+  custom_notes?: string | null
+  brand_identity?: BrandIdentity | null
+}
+
 export interface Database {
   public: {
     Tables: {
@@ -75,6 +107,7 @@ export interface Database {
           name: string
           description: string | null
           workspace_id: string
+          settings: ProjectSettings | null  // JSONB project settings
           created_at: string
           deleted_at: string | null  // Soft delete timestamp (Feature 020)
         }
@@ -83,6 +116,7 @@ export interface Database {
           name: string
           description?: string | null
           workspace_id: string
+          settings?: ProjectSettings | null
           created_at?: string
           deleted_at?: string | null
         }
@@ -91,6 +125,7 @@ export interface Database {
           name?: string
           description?: string | null
           workspace_id?: string
+          settings?: ProjectSettings | null
           created_at?: string
           deleted_at?: string | null
         }
@@ -410,3 +445,149 @@ export type ChatConversationInsert = Tables['chat_conversations']['Insert']
 export type ChatConversationUpdate = Tables['chat_conversations']['Update']
 
 export type User = Tables['users']['Row']
+
+// ============================================================================
+// USER MEMORIES (Feature 024 - Migração Supabase Direto)
+// ============================================================================
+
+export type MemoryCategory = 'personal' | 'professional' | 'preference' | 'plan' | 'health' | 'other'
+
+export interface UserMemory {
+  id: string
+  user_id: string
+  project_id: string
+  content: string
+  content_hash: string
+  embedding?: number[] | null
+  category: MemoryCategory
+  source_conversation_id: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface UserMemoryInsert {
+  id?: string
+  user_id: string
+  project_id: string
+  content: string
+  content_hash?: string
+  category?: MemoryCategory
+  source_conversation_id?: string | null
+}
+
+export interface UserMemoryUpdate {
+  content?: string
+  category?: MemoryCategory
+}
+
+// ============================================================================
+// SYSTEM CONFIG (Feature 016 - System Messages)
+// ============================================================================
+
+export interface SystemConfig {
+  id: string
+  key: string
+  value: Record<string, unknown>
+  description: string | null
+  updated_at: string
+  updated_by: string | null
+}
+
+export interface SystemMessage {
+  id: string
+  type: 'maintenance' | 'announcement' | 'warning' | 'info'
+  title: string
+  content: string
+  priority: number
+  starts_at: string | null
+  ends_at: string | null
+  dismissible: boolean
+}
+
+// ============================================================================
+// ASSISTANT VISUAL SETTINGS (Feature 011)
+// ============================================================================
+
+export interface AssistantVisualSettings {
+  id: string
+  project_id: string
+  is_enabled: boolean
+  mode: 'manual' | 'auto'
+  assets_per_category: number
+  created_at: string
+  updated_at: string | null
+}
+
+export interface AssistantVisualSettingsInsert {
+  id?: string
+  project_id: string
+  is_enabled?: boolean
+  mode?: 'manual' | 'auto'
+  assets_per_category?: number
+}
+
+export interface AssistantVisualSettingsUpdate {
+  is_enabled?: boolean
+  mode?: 'manual' | 'auto'
+  assets_per_category?: number
+}
+
+export interface AssistantAssetSelection {
+  id: string
+  settings_id: string
+  asset_id: string
+  is_enabled: boolean
+  created_at: string
+}
+
+// ============================================================================
+// STYLE PRESETS (Feature 027)
+// ============================================================================
+
+export interface StylePreset {
+  id: string
+  name: string
+  name_pt: string
+  slug: string
+  prompt_modifier: string
+  thumbnail_url: string | null
+  category: string
+  preset_type: 'visual_style' | 'marketing' | 'style'
+  sort_order: number
+  is_active: boolean
+  created_at: string
+}
+
+// ============================================================================
+// DOCUMENT ATTACHMENTS
+// ============================================================================
+
+export interface DocumentAttachment {
+  id: string
+  document_id: string
+  image_id: string
+  is_primary: boolean
+  attachment_order: number
+  created_by_workflow_id: string | null
+  created_at: string
+}
+
+export interface DocumentAttachmentInsert {
+  id?: string
+  document_id: string
+  image_id: string
+  is_primary?: boolean
+  attachment_order?: number
+  created_by_workflow_id?: string | null
+}
+
+// ============================================================================
+// ASSET USAGE HISTORY
+// ============================================================================
+
+export interface AssetUsageHistory {
+  id: string
+  asset_id: string
+  generation_id: string | null
+  used_at: string
+}

@@ -29,6 +29,12 @@ Auto-generated from all feature plans. Last updated: 2025-11-28
 - PostgreSQL (Supabase) with pgvector extension for embeddings (024-user-memory)
 - Python 3.11 (Backend), TypeScript 5.x (Frontend) + FastAPI, SQLAlchemy, Next.js 14, React 18, Shadcn/UI, pgvector (024-user-memory)
 - Supabase PostgreSQL with pgvector extension, Cloudflare R2 (024-user-memory)
+- Python 3.11 (Backend), TypeScript 5.x (Frontend) + FastAPI, SQLAlchemy, OpenRouter API (Backend); Next.js 14, React 18, Shadcn/UI (Frontend) (026-smart-image-generation)
+- Supabase PostgreSQL (system_config table for global settings), Cloudflare R2 (images) (026-smart-image-generation)
+- Python 3.11 (Backend), TypeScript 5.x (Frontend) + FastAPI, SQLAlchemy, Next.js 14, React 18, Shadcn/UI, React Query (028-image-architecture-refactor)
+- PostgreSQL (Supabase) + Cloudflare R2 (arquivos de imagem) (028-image-architecture-refactor)
+- Python 3.11 (Backend), TypeScript 5.x (Frontend) + FastAPI, SQLAlchemy, Next.js 14, React 18, Shadcn/UI, React Query, Canvas API (brush) (028-image-architecture-refactor)
+- PostgreSQL (Supabase) with pgvector, Cloudflare R2 (images, masks) (028-image-architecture-refactor)
 
 ### Core Stack
 - **Backend**: Python 3.11, FastAPI, SQLAlchemy
@@ -77,11 +83,23 @@ Auto-generated from all feature plans. Last updated: 2025-11-28
 ## Project Structure
 
 ```text
-src/
-  lib/design-tokens.ts          # Centralized design tokens
-  styles/glass.css               # Glassmorphism utilities
-  components/ui/                 # Shadcn/UI components (customized)
-tests/
+frontend/
+  src/
+    lib/design-tokens.ts         # Centralized design tokens
+    styles/glass.css             # Glassmorphism utilities
+    components/ui/               # Shadcn/UI components (customized)
+
+backend/
+  routers/                       # FastAPI route handlers
+  services/                      # Business logic services
+  models.py                      # SQLAlchemy models
+  schemas.py                     # Pydantic schemas
+
+supabase/
+  migrations/                    # SQL migration files (001-031+)
+  functions/                     # Supabase Edge Functions
+  seeds/                         # Seed data for templates
+  schema.sql                     # Full database schema
 ```
 
 ## Commands
@@ -100,9 +118,9 @@ TypeScript 5.x (Frontend), Node.js 20+ (Build tools): Follow standard convention
 - Follow mobile-first responsive design
 
 ## Recent Changes
-- 024-user-memory: Added Python 3.11 (Backend), TypeScript 5.x (Frontend) + FastAPI, SQLAlchemy, Next.js 14, React 18, Shadcn/UI, pgvector
-- 024-user-memory: Added Python 3.11 (Backend), TypeScript 5.x (Frontend) + FastAPI, SQLAlchemy, pgvector, Next.js 14, React 18, Shadcn/UI, Framer Motion
-- 022-i18n: Added [if applicable, e.g., PostgreSQL, CoreData, files or N/A]
+- 028-image-architecture-refactor: Added Python 3.11 (Backend), TypeScript 5.x (Frontend) + FastAPI, SQLAlchemy, Next.js 14, React 18, Shadcn/UI, React Query, Canvas API (brush)
+- 028-image-architecture-refactor: Added Python 3.11 (Backend), TypeScript 5.x (Frontend) + FastAPI, SQLAlchemy, Next.js 14, React 18, Shadcn/UI, React Query
+- 026-smart-image-generation: Added Python 3.11 (Backend), TypeScript 5.x (Frontend) + FastAPI, SQLAlchemy, OpenRouter API (Backend); Next.js 14, React 18, Shadcn/UI (Frontend)
 
 
 <!-- MANUAL ADDITIONS START -->
@@ -186,6 +204,13 @@ TypeScript 5.x (Frontend), Node.js 20+ (Build tools): Follow standard convention
 - Cloudflare R2 for file storage (images, assets)
 - Supabase PostgreSQL with pgvector for embeddings
 - Redis for caching
+
+### Database Resources
+All database-related files are in the `supabase/` directory:
+- **Migrations**: `supabase/migrations/` - Sequential SQL files (001-031+)
+- **Schema**: `supabase/schema.sql` - Complete database schema
+- **Seeds**: `supabase/seeds/` - Template and initial data
+- **Functions**: `supabase/functions/` - Edge functions (when needed)
 
 ## Development Commands
 

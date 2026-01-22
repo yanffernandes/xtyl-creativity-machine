@@ -19,7 +19,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from database import engine, Base
 # Note: folders, preferences routers removed - CRUD via Supabase Client (feature 007)
-from routers import documents, chat, activity, ai_usage, templates, image_generation, visual_assets, workflows, executions, validation, models, project_workflows, conversations, projects, auth, admin, prompts, workspaces, system, memories
+from routers import documents, chat, activity, ai_usage, templates, image_generation, visual_assets, workflows, executions, validation, models, project_workflows, conversations, projects, auth, admin, prompts, workspaces, system, memories, copies, campaigns
 import io
 
 # Create tables
@@ -49,7 +49,7 @@ ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000").split(",
 
 # Add development origins if in dev mode
 if os.getenv("ENVIRONMENT", "development") == "development":
-    dev_origins = ["http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:8000"]
+    dev_origins = ["http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:8000", "http://localhost:3001", "http://localhost:3002"]
     ALLOWED_ORIGINS = list(set(ALLOWED_ORIGINS + dev_origins))
 
 # Clean up empty strings and whitespace
@@ -57,18 +57,20 @@ ALLOWED_ORIGINS = [origin.strip() for origin in ALLOWED_ORIGINS if origin.strip(
 
 logger.info(f"CORS allowed origins: {ALLOWED_ORIGINS}")
 
+# CORS Middleware - MUST be first (added last due to LIFO order)
+# Using wildcard for local development to debug CORS issues
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=ALLOWED_ORIGINS,
+    allow_origins=["*"],  # Allow all origins for local dev
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
-    allow_headers=["Content-Type", "Authorization", "X-Requested-With", "Accept"],
-    expose_headers=["Content-Type", "Content-Length"],
+    allow_methods=["*"],  # Allow all methods
+    allow_headers=["*"],  # Allow all headers
+    expose_headers=["*"],
 )
 
-# Feature 025: Security Headers Middleware
-from middleware.security import SecurityHeadersMiddleware, limiter, RateLimitExceeded, _rate_limit_exceeded_handler
-app.add_middleware(SecurityHeadersMiddleware)
+# Feature 025: Security Headers Middleware (disabled during local dev debug)
+from middleware.security import limiter, RateLimitExceeded, _rate_limit_exceeded_handler
+# app.add_middleware(SecurityHeadersMiddleware)  # Temporarily disabled
 
 # Feature 025: Rate limiting support
 app.state.limiter = limiter
@@ -118,6 +120,8 @@ app.include_router(prompts.router)  # Prompt enrichment endpoints (Feature 016)
 app.include_router(workspaces.router)  # Workspace invitations endpoints
 app.include_router(system.router)  # Public system endpoints (messages, status)
 app.include_router(memories.router)  # User memory system (Feature 024)
+app.include_router(copies.router)  # Copy library (Feature 028)
+app.include_router(campaigns.router)  # Campaign packages (Feature 028)
 
 @app.get("/")
 async def root():

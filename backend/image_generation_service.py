@@ -198,10 +198,12 @@ async def generate_image_openrouter(
                 "image_url": {"url": ref_data_url}
             })
 
-    # Add text prompt
+    # Add text prompt with explicit image generation instruction
+    # This helps models like Gemini understand they should generate an image, not text
+    image_prompt = f"Generate an image: {prompt}"
     message_content.append({
         "type": "text",
-        "text": prompt
+        "text": image_prompt
     })
 
     # If no images, use simple text format
@@ -283,7 +285,19 @@ async def generate_image_openrouter(
                                     break
 
             if not image_url and not image_data:
-                raise ValueError(f"No image found in OpenRouter response. Response: {json.dumps(data)}")
+                # Check if model returned text instead of image
+                text_content = None
+                if "choices" in data and len(data["choices"]) > 0:
+                    text_content = data["choices"][0].get("message", {}).get("content", "")
+                    if isinstance(text_content, str) and len(text_content) > 50:
+                        # Model returned text instead of generating an image
+                        raise ValueError(
+                            f"O modelo retornou texto em vez de gerar uma imagem. "
+                            f"Isso pode acontecer quando o prompt é muito descritivo ou parece uma pergunta. "
+                            f"Tente reformular o prompt para ser mais visual, por exemplo: "
+                            f"'Crie uma imagem de...' ou 'Uma ilustração mostrando...'"
+                        )
+                raise ValueError(f"Nenhuma imagem encontrada na resposta. O modelo pode não suportar geração de imagens.")
 
             return {
                 "image_url": image_url,
@@ -550,3 +564,64 @@ async def get_available_models() -> List[Dict[str, Any]]:
     except Exception as e:
         print(f"Error fetching models: {e}")
         return get_fallback_models()
+
+
+# ============================================================================
+# IMAGE VARIATION CONFIG (Feature 026 - Smart Image Generation)
+# ============================================================================
+
+# Default style modifiers for variations
+DEFAULT_VARIATION_MODIFIERS = [
+    "versão minimalista e clean, com espaço em branco, tipografia elegante",
+    "versão vibrante e impactante, cores saturadas, elementos dinâmicos",
+    "versão sofisticada e premium, tons neutros, composição equilibrada"
+]
+
+
+def get_variation_config(db) -> Dict[str, Any]:
+    """
+    Get image generation variation configuration from system_config.
+
+    Args:
+        db: SQLAlchemy database session
+
+    Returns:
+        Dict with count, modifiers, and enabled flag
+    """
+    from models import SystemConfig
+
+    default_config = {
+        "count": 2,
+        "modifiers": DEFAULT_VARIATION_MODIFIERS,
+        "enabled": True
+    }
+
+    try:
+        config = db.query(SystemConfig).filter(
+            SystemConfig.key == "image_generation_default_variations"
+        ).first()
+
+        if not config:
+            return default_config
+
+        # Parse JSON value
+        value = config.value
+        if isinstance(value, str):
+            import json
+            value = json.loads(value)
+
+        return {
+            "count": value.get("count", 2),
+            "modifiers": value.get("modifiers", DEFAULT_VARIATION_MODIFIERS),
+            "enabled": value.get("enabled", True)
+        }
+    except Exception as e:
+        print(f"Error loading variation config: {e}")
+        return default_config
+
+
+async def get_variation_config_async(db) -> Dict[str, Any]:
+    """
+    Async wrapper for get_variation_config.
+    """
+    return get_variation_config(db)
