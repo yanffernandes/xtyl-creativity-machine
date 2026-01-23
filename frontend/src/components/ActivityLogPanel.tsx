@@ -19,6 +19,9 @@ import { useToast } from "@/components/ui/use-toast"
 
 interface ActivityLogPanelProps {
   projectId: string
+  controlled?: boolean
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
 }
 
 const actionIcons: Record<string, any> = {
@@ -37,12 +40,15 @@ const actionLabels: Record<string, string> = {
   move: "Moveu"
 }
 
-export default function ActivityLogPanel({ projectId }: ActivityLogPanelProps) {
-  const [open, setOpen] = useState(false)
+export default function ActivityLogPanel({ projectId, controlled = false, open: controlledOpen, onOpenChange: controlledOnOpenChange }: ActivityLogPanelProps) {
+  const [internalOpen, setInternalOpen] = useState(false)
   const [activities, setActivities] = useState<Activity[]>([])
   const [stats, setStats] = useState<any>(null)
   const [loading, setLoading] = useState(false)
   const { toast } = useToast()
+
+  const open = controlled ? (controlledOpen ?? false) : internalOpen
+  const setOpen = controlled ? (controlledOnOpenChange ?? setInternalOpen) : setInternalOpen
 
   useEffect(() => {
     if (open) {
@@ -104,12 +110,14 @@ export default function ActivityLogPanel({ projectId }: ActivityLogPanelProps) {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className="gap-2">
-          <History className="h-4 w-4" />
-          Atividades
-        </Button>
-      </DialogTrigger>
+      {!controlled && (
+        <DialogTrigger asChild>
+          <Button variant="outline" size="sm" className="gap-2">
+            <History className="h-4 w-4" />
+            Atividades
+          </Button>
+        </DialogTrigger>
+      )}
       <DialogContent className="max-w-3xl max-h-[80vh]">
         <DialogHeader>
           <DialogTitle>Histórico de Atividades</DialogTitle>

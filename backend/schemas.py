@@ -1605,6 +1605,10 @@ class BootstrapData(BaseModel):
     models: ModelsConfig = ModelsConfig()
     visual_context: List[VisualAsset] = []
     memories: List[MemoryResponse] = []
+    # Separated by media type
+    recent_copies: List['Document'] = []  # media_type='text' only
+    recent_media: List['Document'] = []   # media_type='image'/'video' only
+    # Deprecated - kept for backwards compatibility
     recent_documents: List['Document'] = []
     style_presets: List[StylePreset] = []
 

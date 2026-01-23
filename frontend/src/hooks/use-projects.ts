@@ -81,6 +81,7 @@ export function useCreateProject() {
         name: newProject.name,
         description: newProject.description || null,
         workspace_id: newProject.workspace_id,
+        settings: null,
         created_at: new Date().toISOString(),
         deleted_at: null,
       }

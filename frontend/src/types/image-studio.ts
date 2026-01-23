@@ -129,6 +129,10 @@ export interface BootstrapData {
   };
   visual_context: VisualAsset[];
   memories: Memory[];
+  // Separated by media type
+  recent_copies: Document[];   // media_type='text' only (copies/text content)
+  recent_media: Document[];    // media_type='image'/'video' (generated images, videos)
+  /** @deprecated Use recent_copies or recent_media instead */
   recent_documents: Document[];
   style_presets: StylePreset[];
 }

@@ -476,11 +476,12 @@ async def get_project_bootstrap(
     models = await get_available_models(db)
 
     # Get visual context assets (reference images for this project)
+    # Return ALL assets so frontend can filter/select as needed
     visual_assets = db.query(Document).filter(
         Document.project_id == project_id,
         Document.is_reference_asset == True,
         Document.deleted_at == None
-    ).order_by(desc(Document.created_at)).limit(5).all()
+    ).order_by(desc(Document.created_at)).all()
 
     visual_context = [
         VisualAsset(
@@ -519,17 +520,34 @@ async def get_project_bootstrap(
         for m in memories
     ]
 
-    # Get recent documents (excluding reference assets)
-    recent_docs = db.query(Document).filter(
+    # Get recent copies (text documents only)
+    recent_copies_query = db.query(Document).filter(
         Document.project_id == project_id,
         Document.is_reference_asset == False,
-        Document.deleted_at == None
+        Document.deleted_at == None,
+        Document.media_type == 'text'
     ).order_by(desc(Document.created_at)).limit(10).all()
 
-    recent_documents = [
+    recent_copies = [
         DocumentSchema.model_validate(d)
-        for d in recent_docs
+        for d in recent_copies_query
     ]
+
+    # Get recent media (images, videos)
+    recent_media_query = db.query(Document).filter(
+        Document.project_id == project_id,
+        Document.is_reference_asset == False,
+        Document.deleted_at == None,
+        Document.media_type.in_(['image', 'video'])
+    ).order_by(desc(Document.created_at)).limit(10).all()
+
+    recent_media = [
+        DocumentSchema.model_validate(d)
+        for d in recent_media_query
+    ]
+
+    # Deprecated: combined list for backwards compatibility
+    recent_documents = recent_copies + recent_media
 
     # Get active style presets
     style_presets = db.query(StylePreset).filter(
@@ -560,6 +578,8 @@ async def get_project_bootstrap(
         ),
         visual_context=visual_context,
         memories=memories_response,
-        recent_documents=recent_documents,
+        recent_copies=recent_copies,
+        recent_media=recent_media,
+        recent_documents=recent_documents,  # deprecated
         style_presets=style_presets_response
     )

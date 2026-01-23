@@ -2,18 +2,17 @@
 
 /**
  * Visual Generation Studio Page
- * Feature 027: Visual Generation Studio
+ * Redesigned for simplified UX - inspired by Freepik
  *
- * Full-screen dedicated page for AI image generation with:
- * - Style presets selection
- * - Prompt input with suggestions
- * - Format/aspect ratio selection
- * - Model selection
- * - Creativity slider
- * - Real-time batch generation with SSE
+ * Flow:
+ * 1. Select document source -> Generate prompt
+ * 2. Edit prompt if needed
+ * 3. Auto-select visual references (or manual)
+ * 4. Optional: choose style
+ * 5. Generate image
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
@@ -24,28 +23,43 @@ import {
   Trash2,
   Loader2,
   Wand2,
-  LayoutGrid,
+  FileText,
+  ChevronDown,
+  ChevronUp,
+  Zap,
 } from 'lucide-react';
 import { useAuthStore } from '@/lib/store';
 import { useProjectBootstrap } from '@/hooks/useProjectBootstrap';
+import type { BootstrapData } from '@/types/image-studio';
 import { useImageStudio } from '@/hooks/useImageStudio';
 import { useCreativePromptGenerator } from '@/hooks/useCreativePromptGenerator';
+import { useProjectMedia } from '@/hooks/useProjectMedia';
 import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 
 // Image Studio Components
-import { PromptInput } from '@/components/image-studio/PromptInput';
 import { StylePresetGrid } from '@/components/image-studio/StylePresetGrid';
-import { FormatSelector } from '@/components/image-studio/FormatSelector';
-import { ModelSelector } from '@/components/image-studio/ModelSelector';
-import { CreativitySlider } from '@/components/image-studio/CreativitySlider';
 import { VariationGrid } from '@/components/image-studio/VariationGrid';
 import { ImageExpandModal } from '@/components/image-studio/ImageExpandModal';
-import { DocumentPromptSource } from '@/components/image-studio/DocumentPromptSource';
 import { VisualContextPreview } from '@/components/image-studio/VisualContextPreview';
-import { GenerationSummary } from '@/components/image-studio/GenerationSummary';
-import type { GeneratedImage } from '@/types/image-studio';
+import type { GeneratedImage, AspectRatioId } from '@/types/image-studio';
+
+// Format options
+const FORMAT_OPTIONS: { value: AspectRatioId; label: string }[] = [
+  { value: '1:1', label: '1:1' },
+  { value: '16:9', label: '16:9' },
+  { value: '9:16', label: '9:16' },
+  { value: '4:3', label: '4:3' },
+];
 
 export default function StudioPage() {
   const params = useParams();
@@ -56,38 +70,65 @@ export default function StudioPage() {
   const { session, isLoading: authLoading } = useAuthStore();
   const [expandedImage, setExpandedImage] = useState<GeneratedImage | null>(null);
 
+  // Infinite scroll ref
+  const loadMoreRef = useRef<HTMLDivElement>(null);
+
   // Document prompt source state
   const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(null);
-  const [useAgent, setUseAgent] = useState(false);
 
-  // Generation summary expanded state
-  const [showGenerationSummary, setShowGenerationSummary] = useState(true);
+  // Prompt style selection
+  const [selectedPromptStyle, setSelectedPromptStyle] = useState<string>('direct-response');
+
+  // Style section collapsed state
+  const [isStyleExpanded, setIsStyleExpanded] = useState(false);
 
   // Fetch bootstrap data (models, presets, etc.)
-  const { data: bootstrapData, isLoading: bootstrapLoading } = useProjectBootstrap(projectId);
+  const { data, isLoading: bootstrapLoading } = useProjectBootstrap(projectId);
+  const bootstrapData = data as BootstrapData | undefined;
 
   // Filter presets by type
   const allPresets = bootstrapData?.style_presets || [];
-  const visualStylePresets = allPresets.filter(p => p.preset_type === 'visual_style');
-  const layoutPresets = allPresets.filter(p => p.preset_type === 'layout');
+  const visualStylePresets = allPresets.filter((p) => p.preset_type === 'visual_style');
 
-  // Image studio state management
-  // Use default_image_model from system config, fallback to first available
+  // Infinite scroll media history
+  const {
+    media: historyMedia,
+    hasNextPage,
+    fetchNextPage,
+    isFetchingNextPage,
+    isLoading: isLoadingHistory,
+  } = useProjectMedia({
+    projectId,
+    limit: 20,
+    enabled: !bootstrapLoading,
+  });
+
+  // Image studio state management (no initialHistory - we use infinite scroll now)
   const defaultImageModel = bootstrapData?.models?.default_image_model || bootstrapData?.models?.image?.[0]?.id;
   const studio = useImageStudio({
     projectId,
     defaultModel: defaultImageModel,
     imageModels: bootstrapData?.models?.image || [],
     visualStylePresets,
-    layoutPresets,
+    layoutPresets: [],
   });
+
+  // Combine current session variations with history from infinite scroll
+  // Session variations appear first (top), then history below
+  const allVariations = useMemo(() => {
+    // Get IDs of session variations to avoid duplicates
+    const sessionIds = new Set(studio.variations.map((v) => v.document_id));
+    // Filter history to exclude any that are already in session
+    const filteredHistory = historyMedia.filter((h) => !sessionIds.has(h.document_id));
+    return [...studio.variations, ...filteredHistory];
+  }, [studio.variations, historyMedia]);
 
   // Creative prompt generator
   const promptGenerator = useCreativePromptGenerator({
     projectId,
     onPromptGenerated: (prompt) => {
       studio.setPrompt(prompt);
-      toast.success('Prompt criativo gerado');
+      toast.success('Prompt criativo gerado!');
     },
   });
 
@@ -97,6 +138,23 @@ export default function StudioPage() {
       router.push('/login');
     }
   }, [authLoading, session, router]);
+
+  // Infinite scroll - auto-load more when scrolling to bottom
+  useEffect(() => {
+    if (!loadMoreRef.current || !hasNextPage) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && !isFetchingNextPage) {
+          fetchNextPage();
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    observer.observe(loadMoreRef.current);
+    return () => observer.disconnect();
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   const handleBack = () => {
     router.push(`/workspace/${workspaceId}/project/${projectId}`);
@@ -110,28 +168,24 @@ export default function StudioPage() {
     setExpandedImage(null);
   };
 
-  // Handler for document content
-  const handleUseDocumentContent = useCallback(
-    (content: string) => {
-      studio.setPrompt(content);
-    },
-    [studio]
-  );
-
-  // Handler for creative prompt generation
-  const handleGenerateCreativePrompt = useCallback(async () => {
-    const doc = bootstrapData?.recent_documents?.find(
-      (d) => d.id === selectedDocumentId
-    );
-    const content = doc?.content || studio.prompt;
-
-    if (!content.trim()) {
-      toast.error('Selecione um documento ou insira um texto para gerar o prompt');
+  // Handler for creative prompt generation from selected document
+  const handleGeneratePrompt = useCallback(async () => {
+    if (!selectedDocumentId) {
+      toast.error('Selecione uma copy primeiro');
       return;
     }
 
-    await promptGenerator.generateCreativePrompt(content);
-  }, [bootstrapData?.recent_documents, selectedDocumentId, studio.prompt, promptGenerator]);
+    const doc = bootstrapData?.recent_copies?.find(
+      (d: { id: string }) => d.id === selectedDocumentId
+    );
+
+    if (!doc?.content) {
+      toast.error('A copy selecionada não tem conteúdo');
+      return;
+    }
+
+    await promptGenerator.generateCreativePrompt(doc.content, selectedPromptStyle);
+  }, [bootstrapData?.recent_copies, selectedDocumentId, promptGenerator, selectedPromptStyle]);
 
   // Handler for attaching image to selected document
   const handleAttachImage = useCallback(
@@ -144,6 +198,11 @@ export default function StudioPage() {
     },
     [selectedDocumentId, studio]
   );
+
+  // Get selected copy (text document)
+  const selectedDocument = selectedDocumentId
+    ? bootstrapData?.recent_copies?.find((d: { id: string }) => d.id === selectedDocumentId)
+    : null;
 
   // Loading state
   if (authLoading || bootstrapLoading) {
@@ -222,30 +281,107 @@ export default function StudioPage() {
         <main className="flex-1 overflow-hidden">
           <div className="h-full max-w-[1800px] mx-auto flex">
             {/* Left panel - Controls */}
-            <div className="w-[400px] flex-shrink-0 border-r border-gray-200/50 dark:border-gray-800/50 overflow-y-auto">
-              <div className="p-6 space-y-6">
-                {/* Prompt input */}
-                <PromptInput
-                  value={studio.prompt}
-                  onChange={studio.setPrompt}
-                  onGenerate={studio.generate}
-                  isGenerating={studio.isGenerating}
-                />
+            <div className="w-[420px] flex-shrink-0 border-r border-gray-200/50 dark:border-gray-800/50 overflow-y-auto">
+              <div className="p-6 space-y-5">
 
-                {/* Document prompt source */}
-                <DocumentPromptSource
-                  documents={bootstrapData?.recent_documents || []}
-                  selectedDocumentId={selectedDocumentId}
-                  onSelectDocument={setSelectedDocumentId}
-                  onUseDocumentContent={handleUseDocumentContent}
-                  useAgent={useAgent}
-                  onToggleAgent={setUseAgent}
-                  onGenerateCreativePrompt={handleGenerateCreativePrompt}
-                  isGeneratingPrompt={promptGenerator.isGenerating}
-                  disabled={studio.isGenerating}
-                />
+                {/* 1. FONTE DO PROMPT */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                    <FileText className="w-4 h-4" />
+                    <span>Fonte do Prompt</span>
+                  </div>
 
-                {/* Visual context preview with per-asset mode selection */}
+                  <Select
+                    value={selectedDocumentId || ''}
+                    onValueChange={(value) => setSelectedDocumentId(value || null)}
+                  >
+                    <SelectTrigger className="w-full bg-white dark:bg-gray-800">
+                      <SelectValue placeholder="Selecione uma copy..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(bootstrapData?.recent_copies || []).map((doc) => (
+                        <SelectItem key={doc.id} value={doc.id}>
+                          <span className="truncate">{doc.title || 'Sem título'}</span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  {selectedDocument && (
+                    <div className="p-3 rounded-lg bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
+                      <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2">
+                        {selectedDocument.content || 'Sem conteúdo'}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Seletor de estilo de prompt - Dropdown compacto */}
+                  <div className="flex gap-2">
+                    <div className="flex-1">
+                      <Select
+                        value={selectedPromptStyle}
+                        onValueChange={setSelectedPromptStyle}
+                        disabled={promptGenerator.isGenerating}
+                      >
+                        <SelectTrigger className="w-full bg-white dark:bg-gray-800">
+                          <SelectValue placeholder="Estilo do criativo..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {promptGenerator.promptStyles.map((style) => (
+                            <SelectItem key={style.id} value={style.id}>
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium">{style.name}</span>
+                                <span className="text-xs text-gray-400">• {style.expert}</span>
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <Button
+                      onClick={handleGeneratePrompt}
+                      disabled={!selectedDocumentId || promptGenerator.isGenerating || studio.isGenerating}
+                      className="shrink-0 gap-2 bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600"
+                    >
+                      {promptGenerator.isGenerating ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Wand2 className="h-4 w-4" />
+                      )}
+                      Gerar
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Divider */}
+                <div className="border-t border-gray-200 dark:border-gray-700" />
+
+                {/* 2. PROMPT EDITÁVEL */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Prompt
+                    </span>
+                    {studio.prompt && (
+                      <span className="text-xs text-gray-400">
+                        {studio.prompt.length} caracteres
+                      </span>
+                    )}
+                  </div>
+
+                  <Textarea
+                    value={studio.prompt}
+                    onChange={(e) => studio.setPrompt(e.target.value)}
+                    placeholder="Descreva a imagem que você quer criar..."
+                    className="min-h-[120px] resize-none bg-white dark:bg-gray-800"
+                    disabled={studio.isGenerating}
+                  />
+                </div>
+
+                {/* Divider */}
+                <div className="border-t border-gray-200 dark:border-gray-700" />
+
+                {/* 3. REFERÊNCIAS VISUAIS */}
                 <VisualContextPreview
                   visualAssets={bootstrapData?.visual_context || []}
                   selectedAssets={studio.selectedAssetsWithModes}
@@ -253,94 +389,183 @@ export default function StudioPage() {
                   onSetReferenceImage={studio.setReferenceImage}
                   referenceImageUrl={studio.referenceImageUrl}
                   disabled={studio.isGenerating}
+                  autoSelect={true}
+                  prompt={studio.prompt}
                 />
 
-                {/* Visual style presets */}
-                <StylePresetGrid
-                  presets={visualStylePresets}
-                  selectedPresetSlug={studio.visualStyle}
-                  onSelectPreset={studio.setVisualStyle}
-                  isLoading={bootstrapLoading}
-                  title="Estilo Visual"
-                  icon={<Sparkles className="w-4 h-4" />}
-                />
+                {/* Divider */}
+                <div className="border-t border-gray-200 dark:border-gray-700" />
 
-                {/* Layout presets */}
-                <StylePresetGrid
-                  presets={layoutPresets}
-                  selectedPresetSlug={studio.layout}
-                  onSelectPreset={studio.setLayout}
-                  isLoading={bootstrapLoading}
-                  title="Diagramação"
-                  icon={<LayoutGrid className="w-4 h-4" />}
-                />
+                {/* 4. ESTILO (colapsável) */}
+                <div className="space-y-3">
+                  <button
+                    onClick={() => setIsStyleExpanded(!isStyleExpanded)}
+                    className="w-full flex items-center justify-between text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="w-4 h-4" />
+                      <span>Estilo Visual</span>
+                      {studio.visualStyle && (
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
+                          {visualStylePresets.find((p: { slug: string }) => p.slug === studio.visualStyle)?.name || studio.visualStyle}
+                        </span>
+                      )}
+                    </div>
+                    {isStyleExpanded ? (
+                      <ChevronUp className="w-4 h-4" />
+                    ) : (
+                      <ChevronDown className="w-4 h-4" />
+                    )}
+                  </button>
 
-                {/* Model selector */}
-                <ModelSelector
-                  models={bootstrapData?.models?.image || []}
-                  value={studio.model}
-                  onChange={studio.setModel}
-                  disabled={studio.isGenerating}
-                  isLoading={bootstrapLoading}
-                />
-
-                {/* Format selector */}
-                <FormatSelector
-                  value={studio.aspectRatio}
-                  onChange={studio.setAspectRatio}
-                  disabled={studio.isGenerating}
-                />
-
-                {/* Creativity slider */}
-                <CreativitySlider
-                  value={studio.creativity}
-                  onChange={studio.setCreativity}
-                  disabled={studio.isGenerating}
-                />
-
-                {/* Reference image indicator */}
-                {studio.referenceImageUrl && (
-                  <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
-                        Imagem de referência ativa
-                      </span>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => studio.setReferenceImage(null)}
-                        className="text-blue-600 hover:text-blue-800 dark:text-blue-400"
+                  <AnimatePresence>
+                    {isStyleExpanded && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="overflow-hidden"
                       >
-                        Remover
-                      </Button>
+                        <StylePresetGrid
+                          presets={visualStylePresets}
+                          selectedPresetSlug={studio.visualStyle}
+                          onSelectPreset={studio.setVisualStyle}
+                          isLoading={bootstrapLoading}
+                          title=""
+                        />
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+
+                {/* Divider */}
+                <div className="border-t border-gray-200 dark:border-gray-700" />
+
+                {/* 5. CONFIGURAÇÕES INLINE */}
+                <div className="space-y-3">
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Configurações
+                  </span>
+
+                  <div className="flex gap-3">
+                    {/* Format selector inline */}
+                    <div className="flex-1">
+                      <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">
+                        Formato
+                      </label>
+                      <div className="flex gap-1">
+                        {FORMAT_OPTIONS.map((format) => (
+                          <button
+                            key={format.value}
+                            onClick={() => studio.setAspectRatio(format.value)}
+                            disabled={studio.isGenerating}
+                            className={cn(
+                              'flex-1 px-2 py-1.5 text-xs font-medium rounded-md transition-colors',
+                              studio.aspectRatio === format.value
+                                ? 'bg-blue-500 text-white'
+                                : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
+                            )}
+                          >
+                            {format.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Model selector inline */}
+                    <div className="w-[140px]">
+                      <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">
+                        Modelo
+                      </label>
+                      <Select
+                        value={studio.model}
+                        onValueChange={studio.setModel}
+                        disabled={studio.isGenerating}
+                      >
+                        <SelectTrigger className="h-[34px] text-xs bg-white dark:bg-gray-800">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {(bootstrapData?.models?.image || []).map((model: { id: string; name: string }) => (
+                            <SelectItem key={model.id} value={model.id}>
+                              {model.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
-                )}
 
-                {/* Generation Summary - shows what will be sent to the API */}
-                <GenerationSummary
-                  prompt={studio.prompt}
-                  selectedVisualStyle={studio.selectedVisualStyle}
-                  selectedLayout={studio.selectedLayout}
-                  referenceAssets={studio.selectedAssetsWithModes}
-                  model={studio.model}
-                  modelName={bootstrapData?.models?.image?.find(m => m.id === studio.model)?.name}
-                  aspectRatio={studio.aspectRatio}
-                  creativity={studio.creativity}
-                  applyBrandContext={studio.applyBrandContext}
-                  projectContext={bootstrapData?.settings?.client_name ? 'Projeto configurado' : null}
-                  isExpanded={showGenerationSummary}
-                  onToggleExpanded={() => setShowGenerationSummary(!showGenerationSummary)}
-                />
+                  {/* Variation count selector */}
+                  <div>
+                    <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">
+                      Variações
+                    </label>
+                    <div className="flex gap-1">
+                      {[1, 2, 3, 4].map((count) => (
+                        <button
+                          key={count}
+                          onClick={() => studio.setVariationCount(count)}
+                          disabled={studio.isGenerating}
+                          className={cn(
+                            'flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-colors',
+                            studio.variationCount === count
+                              ? 'bg-blue-500 text-white'
+                              : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
+                          )}
+                        >
+                          {count}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Divider */}
+                <div className="border-t border-gray-200 dark:border-gray-700" />
+
+                {/* 6. BOTÃO GERAR */}
+                <Button
+                  onClick={studio.generate}
+                  disabled={!studio.prompt.trim() || studio.isGenerating}
+                  className="w-full h-12 gap-2 text-base font-semibold bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 shadow-lg shadow-blue-500/25"
+                >
+                  {studio.isGenerating ? (
+                    <>
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                      Gerando...
+                    </>
+                  ) : (
+                    <>
+                      <Zap className="h-5 w-5" />
+                      Gerar Imagem
+                    </>
+                  )}
+                </Button>
+
               </div>
             </div>
 
             {/* Right panel - Generated images */}
             <div className="flex-1 overflow-y-auto p-6">
               <AnimatePresence mode="wait">
-                {studio.variations.length === 0 && !studio.isGenerating ? (
+                {isLoadingHistory ? (
+                  // Loading history state
+                  <motion.div
+                    key="loading"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="h-full flex flex-col items-center justify-center"
+                  >
+                    <Loader2 className="h-8 w-8 animate-spin text-blue-500 mb-4" />
+                    <span className="text-gray-500 dark:text-gray-400">Carregando imagens...</span>
+                  </motion.div>
+                ) : allVariations.length === 0 && !studio.isGenerating ? (
                   // Empty state
                   <motion.div
+                    key="empty"
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
@@ -353,31 +578,19 @@ export default function StudioPage() {
                       Crie imagens incríveis
                     </h2>
                     <p className="text-gray-500 dark:text-gray-400 text-center max-w-md mb-8">
-                      Digite um prompt descrevendo a imagem que você quer criar,
-                      escolha um estilo e clique em &ldquo;Gerar&rdquo;.
+                      Selecione uma copy, gere um prompt e clique em &ldquo;Gerar Imagem&rdquo;.
                     </p>
-                    <div className="flex flex-wrap gap-2 justify-center max-w-lg">
-                      {['Fotográfico', 'Aquarela', 'Render 3D', 'Ilustração', 'Minimalista'].map(
-                        (style) => (
-                          <span
-                            key={style}
-                            className="px-3 py-1.5 rounded-full bg-gray-100 dark:bg-gray-800 text-sm text-gray-600 dark:text-gray-400"
-                          >
-                            {style}
-                          </span>
-                        )
-                      )}
-                    </div>
                   </motion.div>
                 ) : (
                   // Variations grid
                   <motion.div
+                    key="variations"
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -20 }}
                   >
                     <VariationGrid
-                      variations={studio.variations}
+                      variations={allVariations}
                       isGenerating={studio.isGenerating}
                       pendingCount={studio.pendingCount}
                       onExpand={handleExpand}
@@ -386,6 +599,28 @@ export default function StudioPage() {
                       onAttach={handleAttachImage}
                       canAttach={!!selectedDocumentId}
                     />
+
+                    {/* Infinite scroll trigger */}
+                    {hasNextPage && (
+                      <div
+                        ref={loadMoreRef}
+                        className="flex justify-center py-8"
+                      >
+                        {isFetchingNextPage ? (
+                          <div className="flex items-center gap-2 text-gray-500">
+                            <Loader2 className="h-5 w-5 animate-spin" />
+                            <span className="text-sm">Carregando mais...</span>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => fetchNextPage()}
+                            className="text-sm text-blue-500 hover:text-blue-600 font-medium"
+                          >
+                            Carregar mais imagens
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </motion.div>
                 )}
               </AnimatePresence>

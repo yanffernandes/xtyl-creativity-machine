@@ -4,16 +4,9 @@ import { useSortable } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { FileText, GripVertical, Trash2, Image as ImageIcon, MoreHorizontal, Library } from "lucide-react"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+import { Trash2, Image as ImageIcon, CheckCircle2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { TagDisplay } from "@/components/document/TagInput"
-import { CheckCircle2 } from "lucide-react"
 
 interface ImageAttachment {
   id: string
@@ -91,70 +84,25 @@ export default function KanbanCard({
     <Card
       ref={setNodeRef}
       style={style}
+      {...attributes}
+      {...listeners}
       className={cn(
-        "cursor-pointer hover:shadow-md transition-all bg-card group relative border-border",
+        "cursor-grab active:cursor-grabbing hover:shadow-md transition-all bg-card group relative border-border",
         "hover:scale-[1.02] hover:border-primary/50",
-        isDragging && "opacity-50 rotate-2 scale-105 shadow-2xl z-50",
+        isDragging && "opacity-50 rotate-2 scale-105 shadow-2xl z-50 cursor-grabbing",
         // Feature 028 T015: Selected state styling
         isSelected && "ring-2 ring-primary border-primary bg-primary/5"
       )}
       onClick={handleClick}
     >
       <CardContent className="p-4">
-        <div className="flex items-start justify-between mb-2">
-          {/* Feature 028 T015: Selection indicator */}
-          {isSelected ? (
-            <CheckCircle2 className="h-5 w-5 text-primary shrink-0" />
-          ) : (
-            <FileText className="h-5 w-5 text-muted-foreground shrink-0" />
+        {/* Feature 028 T015: Title with selection indicator */}
+        <div className="flex items-start gap-2 mb-3">
+          {isSelected && (
+            <CheckCircle2 className="h-5 w-5 text-primary shrink-0 mt-0.5" />
           )}
-          <div className="flex items-center gap-1">
-            <div
-              {...attributes}
-              {...listeners}
-              className="cursor-grab active:cursor-grabbing p-1 hover:bg-secondary rounded opacity-0 group-hover:opacity-100 transition-opacity"
-            >
-              <GripVertical className="h-4 w-4 text-muted-foreground" />
-            </div>
-            {onDelete && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive hover:bg-destructive/10"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onDelete(e, document)
-                }}
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            )}
-            {/* Feature 028 T031: More actions dropdown */}
-            {onAddToLibrary && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <MoreHorizontal className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-                  <DropdownMenuItem
-                    onClick={() => onAddToLibrary(document)}
-                  >
-                    <Library className="h-4 w-4 mr-2" />
-                    Adicionar à Biblioteca
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
-          </div>
+          <p className="font-semibold text-sm line-clamp-2 flex-1">{document.title}</p>
         </div>
-        <p className="font-semibold text-sm line-clamp-2 mb-3">{document.title}</p>
 
         {/* Image Attachments Preview */}
         {document.attachments && document.attachments.length > 0 && (
@@ -198,6 +146,19 @@ export default function KanbanCard({
 
         <div className="flex items-center justify-between text-xs text-muted-foreground">
           <span>{new Date(document.created_at).toLocaleDateString('pt-BR')}</span>
+          {onDelete && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive hover:bg-destructive/10"
+              onClick={(e) => {
+                e.stopPropagation()
+                onDelete(e, document)
+              }}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          )}
         </div>
       </CardContent>
     </Card>

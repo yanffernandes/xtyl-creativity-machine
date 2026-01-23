@@ -20,14 +20,20 @@ import { Badge } from "@/components/ui/badge"
 interface ArchiveViewProps {
   projectId: string
   onRestore?: () => void
+  controlled?: boolean
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
 }
 
-export default function ArchiveView({ projectId, onRestore }: ArchiveViewProps) {
-  const [open, setOpen] = useState(false)
+export default function ArchiveView({ projectId, onRestore, controlled = false, open: controlledOpen, onOpenChange: controlledOnOpenChange }: ArchiveViewProps) {
+  const [internalOpen, setInternalOpen] = useState(false)
   const [archivedDocuments, setArchivedDocuments] = useState<any[]>([])
   const [archivedFolders, setArchivedFolders] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const { toast } = useToast()
+
+  const open = controlled ? (controlledOpen ?? false) : internalOpen
+  const setOpen = controlled ? (controlledOnOpenChange ?? setInternalOpen) : setInternalOpen
 
   useEffect(() => {
     if (open) {
@@ -108,17 +114,19 @@ export default function ArchiveView({ projectId, onRestore }: ArchiveViewProps) 
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className="gap-2">
-          <Archive className="h-4 w-4" />
-          Arquivados
-          {totalItems > 0 && (
-            <Badge variant="secondary" className="ml-1">
-              {totalItems}
-            </Badge>
-          )}
-        </Button>
-      </DialogTrigger>
+      {!controlled && (
+        <DialogTrigger asChild>
+          <Button variant="outline" size="sm" className="gap-2">
+            <Archive className="h-4 w-4" />
+            Arquivados
+            {totalItems > 0 && (
+              <Badge variant="secondary" className="ml-1">
+                {totalItems}
+              </Badge>
+            )}
+          </Button>
+        </DialogTrigger>
+      )}
       <DialogContent className="max-w-2xl max-h-[80vh]">
         <DialogHeader>
           <DialogTitle>Itens Arquivados</DialogTitle>

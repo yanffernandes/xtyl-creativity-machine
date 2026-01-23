@@ -32,7 +32,7 @@ export function useCopyLibrary(
   queryOptions?: Omit<UseQueryOptions<CopyLibraryListResponse>, 'queryKey' | 'queryFn'>
 ) {
   return useQuery<CopyLibraryListResponse>({
-    queryKey: queryKeys.copyLibrary.list(workspaceId || '', options),
+    queryKey: queryKeys.copyLibrary.list(workspaceId || '', options as Record<string, unknown>),
     queryFn: () => listCopies(workspaceId!, options),
     enabled: !!workspaceId,
     staleTime: 30000, // 30 seconds

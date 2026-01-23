@@ -99,6 +99,7 @@ interface Model {
 interface Document {
     id: string
     title: string
+    media_type?: string
 }
 
 interface ToolExecution {
@@ -483,12 +484,14 @@ export default function ChatSidebar({
     }
 
     // Filter documents and folders by search query, removing duplicates
+    // Exclude images - only show text documents as context
     const filteredDocuments = useMemo(() => {
         const seen = new Set<string>()
         return documents.filter(d => {
             if (seen.has(d.id)) return false
             seen.add(d.id)
             return d.id !== currentDocument?.id &&
+                d.media_type !== 'image' &&
                 (!contextSearchQuery || d.title.toLowerCase().includes(contextSearchQuery.toLowerCase()))
         })
     }, [documents, currentDocument?.id, contextSearchQuery])

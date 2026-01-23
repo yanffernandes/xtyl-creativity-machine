@@ -17,7 +17,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Card } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { useToast } from "@/components/ui/use-toast"
-import { Loader2, Plus, Upload, FileText, MoreHorizontal, Trash, X, FolderOpen, Home, Sparkles, Download, FileType, Share2, ArrowRight, Settings, History } from "lucide-react"
+import { Loader2, Plus, Upload, FileText, MoreHorizontal, Trash, X, FolderOpen, Home, Sparkles, Download, FileType, Share2, ArrowRight, Settings, History, Archive } from "lucide-react"
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -35,6 +35,12 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog"
 import ChatSidebar from "@/components/ChatSidebar"
 import SmartEditor from "@/components/SmartEditor"
 import KanbanBoard from "@/components/KanbanBoard"
@@ -55,6 +61,7 @@ import DocumentAttachments from "@/components/document/DocumentAttachments"
 import AttachImageModal from "@/components/document/AttachImageModal"
 import { DocumentFilters, useDocumentFilters } from "@/components/document/DocumentFilters"
 import { VersionHistoryPanel } from "@/components/document/VersionHistoryPanel"
+import ProjectSettingsForm from "@/components/project/ProjectSettingsForm"
 import { MultiSelectProvider, MultiSelectActionBar, useMultiSelect } from "@/components/kanban"
 import { useConfirm } from "@/components/confirm-dialog"
 import { ImageIcon } from "lucide-react"
@@ -141,7 +148,10 @@ export default function ProjectPage() {
     const [isUploading, setIsUploading] = useState(false)
     const [viewMode, setViewMode] = useState<"list" | "kanban">("kanban")
     const [suggestedContent, setSuggestedContent] = useState<string | null>(null)
-    const [tab, setTab] = useState<"creations" | "context" | "assets">("creations")
+    const [showAssetsModal, setShowAssetsModal] = useState(false)
+    const [showArchiveModal, setShowArchiveModal] = useState(false)
+    const [showActivityModal, setShowActivityModal] = useState(false)
+    const [showSettingsModal, setShowSettingsModal] = useState(false)
     const [editingTitle, setEditingTitle] = useState<string | null>(null)
     const [tempTitle, setTempTitle] = useState("")
     const [isLoading, setIsLoading] = useState(true)
@@ -183,29 +193,14 @@ export default function ProjectPage() {
 
     const hasUnsavedChanges = selectedDoc && savedContent !== currentContent
 
-    // Compute IDs of images that are attached to other documents (to hide from Kanban)
-    const attachedImageIds = useMemo(() => {
-        const ids = new Set<string>()
-        creations.forEach(doc => {
-            if (doc.attachments) {
-                doc.attachments.forEach(att => {
-                    ids.add(att.image_id)
-                })
-            }
-        })
-        return ids
-    }, [creations])
-
-    // Filter creations for Kanban: exclude images that are attached to documents
+    // Filter creations for Kanban: show only text documents (exclude all images)
     const kanbanDocumentsBase = useMemo(() => {
         return creations.filter(doc => {
-            // If it's an image and it's attached to some document, hide it
-            if (doc.media_type === 'image' && attachedImageIds.has(doc.id)) {
-                return false
-            }
-            return true
+            // Only show text documents in Kanban
+            // Images are accessible via "Assets Visuais" modal or as attachments
+            return doc.media_type !== 'image'
         })
-    }, [creations, attachedImageIds])
+    }, [creations])
 
     // Feature 028 (T054, T055): Document filtering by tags and channel
     const {
@@ -325,7 +320,11 @@ export default function ProjectPage() {
                             console.log(`📄 Skipping update - selected doc changed from ${docId} to ${prev?.id}`)
                             return prev
                         }
-                        return { ...prev, ...docData }
+                        // Cast to Document to handle null/undefined type mismatches from API
+                        return {
+                            ...prev,
+                            ...docData,
+                        } as Document
                     })
                     setSavedContent(content)
                     setCurrentContent(content)
@@ -498,6 +497,7 @@ export default function ProjectPage() {
         { label: "Home", href: `/workspace/${workspaceId}`, icon: <Home className="h-3.5 w-3.5" /> },
         { label: workspaceName || "Workspace", href: `/workspace/${workspaceId}`, icon: <FolderOpen className="h-3.5 w-3.5" /> },
         { label: projectName || "Projeto", onClick: handleProjectBreadcrumbClick, icon: <FolderOpen className="h-3.5 w-3.5" /> },
+        { label: "Criações", onClick: handleProjectBreadcrumbClick, icon: <FileText className="h-3.5 w-3.5" /> },
     ]
 
     const handleSaveDocument = async (content: string, documentId?: string) => {
@@ -721,25 +721,80 @@ export default function ProjectPage() {
 
     const handleDelete = async (e: React.MouseEvent, doc: Document) => {
         e.stopPropagation()
-        const confirmed = await confirm({
-            title: "Excluir documento",
-            description: "Tem certeza que deseja excluir este item?",
-            confirmLabel: "Excluir",
-            cancelLabel: "Cancelar",
-            variant: "destructive",
-        })
-        if (!confirmed) return
 
-        try {
-            await api.delete(`/documents/${doc.id}`)
-            setCreations(prev => prev.filter(d => d.id !== doc.id))
-            if (selectedDoc?.id === doc.id) setSelectedDoc(null)
-            // Refetch both lists to ensure consistency
-            fetchDocuments()
-            toast({ title: "Excluído", description: "Documento excluído com sucesso." })
-        } catch (error) {
-            console.error("Failed to delete document", error)
-            toast({ title: "Erro", description: "Falha ao excluir documento", variant: "destructive" })
+        // Check if document has attachments
+        const hasAttachments = doc.attachments && doc.attachments.length > 0
+
+        if (hasAttachments) {
+            const imageCount = doc.attachments!.length
+            const confirmed = await confirm({
+                title: "Excluir documento",
+                description: `Este documento possui ${imageCount} ${imageCount === 1 ? 'imagem anexada' : 'imagens anexadas'}. O que deseja fazer?`,
+                confirmLabel: "Apagar documento + imagens",
+                cancelLabel: "Apagar só documento",
+                variant: "destructive",
+            })
+
+            // User clicked "Cancel" (actually means delete only document)
+            if (confirmed === false) {
+                // Delete only document, keep images
+                try {
+                    await api.delete(`/documents/${doc.id}`)
+                    setCreations(prev => prev.filter(d => d.id !== doc.id))
+                    if (selectedDoc?.id === doc.id) setSelectedDoc(null)
+                    fetchDocuments()
+                    toast({ title: "Excluído", description: "Documento excluído. Imagens mantidas em Assets Visuais." })
+                } catch (error) {
+                    console.error("Failed to delete document", error)
+                    toast({ title: "Erro", description: "Falha ao excluir documento", variant: "destructive" })
+                }
+                return
+            }
+
+            // User clicked "Confirm" (delete document + images)
+            if (confirmed === true) {
+                try {
+                    // Delete document (will cascade delete attachments)
+                    await api.delete(`/documents/${doc.id}`)
+                    // Delete each attached image
+                    for (const attachment of doc.attachments!) {
+                        try {
+                            await api.delete(`/documents/${attachment.image_id}`)
+                        } catch (err) {
+                            console.warn(`Failed to delete image ${attachment.image_id}`, err)
+                        }
+                    }
+                    setCreations(prev => prev.filter(d => d.id !== doc.id))
+                    if (selectedDoc?.id === doc.id) setSelectedDoc(null)
+                    fetchDocuments()
+                    toast({ title: "Excluído", description: "Documento e imagens excluídos com sucesso." })
+                } catch (error) {
+                    console.error("Failed to delete document", error)
+                    toast({ title: "Erro", description: "Falha ao excluir documento", variant: "destructive" })
+                }
+                return
+            }
+        } else {
+            // No attachments, simple delete
+            const confirmed = await confirm({
+                title: "Excluir documento",
+                description: "Tem certeza que deseja excluir este documento?",
+                confirmLabel: "Excluir",
+                cancelLabel: "Cancelar",
+                variant: "destructive",
+            })
+            if (!confirmed) return
+
+            try {
+                await api.delete(`/documents/${doc.id}`)
+                setCreations(prev => prev.filter(d => d.id !== doc.id))
+                if (selectedDoc?.id === doc.id) setSelectedDoc(null)
+                fetchDocuments()
+                toast({ title: "Excluído", description: "Documento excluído com sucesso." })
+            } catch (error) {
+                console.error("Failed to delete document", error)
+                toast({ title: "Erro", description: "Falha ao excluir documento", variant: "destructive" })
+            }
         }
     }
 
@@ -855,19 +910,39 @@ export default function ProjectPage() {
                             <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => router.push(`/workspace/${workspaceId}/project/${projectId}/settings`)}
+                                onClick={() => setShowAssetsModal(true)}
+                                className="gap-2"
+                            >
+                                <ImageIcon className="h-4 w-4" />
+                                Assets Visuais
+                            </Button>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setShowSettingsModal(true)}
                                 className="gap-2"
                             >
                                 <Settings className="h-4 w-4" />
                                 Configurações
                             </Button>
-                            <ArchiveView
-                                projectId={projectId}
-                                onRestore={() => {
-                                    fetchDocuments()
-                                }}
-                            />
-                            <ActivityLogPanel projectId={projectId} />
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="outline" size="sm" className="gap-2">
+                                        <MoreHorizontal className="h-4 w-4" />
+                                        Mais
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                    <DropdownMenuItem onClick={() => setShowArchiveModal(true)}>
+                                        <Archive className="mr-2 h-4 w-4" />
+                                        Arquivados
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => setShowActivityModal(true)}>
+                                        <History className="mr-2 h-4 w-4" />
+                                        Atividades
+                                    </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
                             <Button
                                 variant="outline"
                                 size="sm"
@@ -885,31 +960,6 @@ export default function ProjectPage() {
                 </div>
 
                 <MultiSelectProvider>
-                {!selectedDoc && (
-                    <div className="border-b border-white/10 px-6">
-                        <div className="flex gap-4">
-                            <button
-                                onClick={() => setTab("creations")}
-                                className={`flex-1 py-3 text-sm font-medium border-b-2 transition-colors ${tab === "creations" ? "border-accent-primary text-accent-primary" : "border-transparent text-text-secondary hover:text-text-primary"}`}
-                            >
-                                Criações
-                            </button>
-                            <button
-                                onClick={() => setTab("context")}
-                                className={`flex-1 py-3 text-sm font-medium border-b-2 transition-colors ${tab === "context" ? "border-accent-primary text-accent-primary" : "border-transparent text-text-secondary hover:text-text-primary"}`}
-                            >
-                                Arquivos de Contexto
-                            </button>
-                            <button
-                                onClick={() => setTab("assets")}
-                                className={`flex-1 py-3 text-sm font-medium border-b-2 transition-colors ${tab === "assets" ? "border-accent-primary text-accent-primary" : "border-transparent text-text-secondary hover:text-text-primary"}`}
-                            >
-                                Assets Visuais
-                            </button>
-                        </div>
-                    </div>
-                )}
-
                 <div className="flex-1 overflow-y-auto p-6">
                     {selectedDoc ? (
                         // Show loading skeleton for temp documents being created
@@ -1078,30 +1128,7 @@ export default function ProjectPage() {
                         )
                     ) : (
                         <div className="h-full overflow-hidden">
-                            <>
-                            {tab === "creations" ? (
-                                <div className="h-full flex flex-col gap-6">
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-2">
-                                            <h3 className="font-bold text-lg">Criações</h3>
-                                            {docsRefreshing && (
-                                                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                                            )}
-                                        </div>
-                                        <Button
-                                            onClick={handleCreateCreation}
-                                            className="gap-2"
-                                            disabled={isCreatingDocument}
-                                        >
-                                            {isCreatingDocument ? (
-                                                <Loader2 className="h-4 w-4 animate-spin" />
-                                            ) : (
-                                                <Plus className="h-4 w-4" />
-                                            )}
-                                            {isCreatingDocument ? "Criando..." : "Nova Criação"}
-                                        </Button>
-                                    </div>
-
+                            <div className="h-full flex flex-col gap-6">
                                     {/* Feature 028 (T054, T055): Document filters */}
                                     {creations.length > 0 && (
                                         <DocumentFilters
@@ -1181,74 +1208,31 @@ export default function ProjectPage() {
                                         )}
                                     </div>
                                 </div>
-                            ) : tab === "assets" ? (
-                                <VisualAssetsLibrary projectId={projectId} />
-                            ) : (
-                                <div className="h-full flex flex-col gap-6">
-                                    {/* Hidden file input for Command Palette */}
-                                    <input
-                                        id="file-upload-trigger"
-                                        type="file"
-                                        className="hidden"
-                                        accept=".pdf,.txt,.md,.png,.jpg,.jpeg"
-                                        onChange={(e) => {
-                                            const file = e.target.files?.[0]
-                                            if (file) handleFileUpload(file, true)
-                                        }}
-                                    />
-
-                                    <ImageUpload
-                                        onUpload={(file) => handleFileUpload(file, true)}
-                                        accept=".pdf,.txt,.md,.png,.jpg,.jpeg"
-                                    />
-
-                                    {contextLoading ? (
-                                        <LoadingSkeleton type="card" count={6} />
-                                    ) : (contextFiles || []).length === 0 ? (
-                                        <EmptyState
-                                            icon={Upload}
-                                            title="Nenhum arquivo de contexto"
-                                            description="Faça upload de PDFs, imagens ou documentos de texto para adicionar contexto ao assistente de IA"
-                                        />
-                                    ) : (
-                                        <div className="flex-1 overflow-y-auto">
-                                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                                                {(contextFiles || []).map((file: any) => (
-                                                    <Card
-                                                        key={file.id}
-                                                        glass
-                                                        className="p-4 cursor-pointer hover:border-accent-primary/50 transition-colors"
-                                                        onClick={() => {
-                                                            const doc: Document = {
-                                                                ...file,
-                                                                type: "context" as const
-                                                            }
-                                                            handleSelectDocument(doc)
-                                                        }}
-                                                    >
-                                                        <div className="flex items-start gap-3">
-                                                            <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-accent-primary/10 flex items-center justify-center">
-                                                                <FileText className="h-5 w-5 text-accent-primary" />
-                                                            </div>
-                                                            <div className="flex-1 min-w-0">
-                                                                <h4 className="font-medium truncate">{file.title}</h4>
-                                                                <p className="text-xs text-text-secondary mt-1">
-                                                                    {file.status === 'processing' ? 'Processando...' : 'Pronto para uso'}
-                                                                </p>
-                                                            </div>
-                                                        </div>
-                                                    </Card>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-                        </>
-                        </div>
+                            </div>
                     )}
                 </div>
                 </MultiSelectProvider>
+
+                {/* FAB - Floating Action Button (only visible in Kanban view) */}
+                {!selectedDoc && (
+                    <Button
+                        onClick={handleCreateCreation}
+                        disabled={isCreatingDocument}
+                        className="fixed bottom-8 right-[420px] z-40 gap-2 shadow-2xl hover:shadow-xl transition-all hover:scale-105"
+                    >
+                        {isCreatingDocument ? (
+                            <>
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                                Criando...
+                            </>
+                        ) : (
+                            <>
+                                <Plus className="h-4 w-4" />
+                                Nova Criação
+                            </>
+                        )}
+                    </Button>
+                )}
             </div>
 
             {/* Floating chat sidebar container */}
@@ -1306,6 +1290,51 @@ export default function ProjectPage() {
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
+
+            {/* Assets Visuais Modal */}
+            <Dialog open={showAssetsModal} onOpenChange={setShowAssetsModal}>
+                <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle>Assets Visuais</DialogTitle>
+                    </DialogHeader>
+                    <VisualAssetsLibrary projectId={projectId} />
+                </DialogContent>
+            </Dialog>
+
+            {/* Configurações Modal */}
+            <Dialog open={showSettingsModal} onOpenChange={setShowSettingsModal}>
+                <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle>Configurações do Projeto</DialogTitle>
+                    </DialogHeader>
+                    <div className="mt-4">
+                        <ProjectSettingsForm
+                            projectId={projectId}
+                            workspaceId={workspaceId}
+                        />
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+            {/* Arquivados Modal (Controlled) */}
+            <ArchiveView
+                projectId={projectId}
+                onRestore={() => {
+                    fetchDocuments()
+                    setShowArchiveModal(false)
+                }}
+                controlled
+                open={showArchiveModal}
+                onOpenChange={setShowArchiveModal}
+            />
+
+            {/* Atividades Modal (Controlled) */}
+            <ActivityLogPanel
+                projectId={projectId}
+                controlled
+                open={showActivityModal}
+                onOpenChange={setShowActivityModal}
+            />
 
             {/* Image Generation Panel */}
             <ImageGenerationPanel

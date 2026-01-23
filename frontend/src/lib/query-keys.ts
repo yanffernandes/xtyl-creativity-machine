@@ -42,6 +42,8 @@ export const queryKeys = {
     shared: (shareToken: string) => [...queryKeys.documents.all, 'shared', shareToken] as const,
     // Feature 028 T059: Version history
     versions: (documentId: string) => [...queryKeys.documents.all, 'versions', documentId] as const,
+    // Visual Studio: Paginated media (images)
+    media: (projectId: string) => [...queryKeys.documents.all, 'media', projectId] as const,
   },
 
   // T036: Template keys

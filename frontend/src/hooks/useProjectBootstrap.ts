@@ -4,7 +4,7 @@
  * Fetches all data needed to load the project page in a single request,
  * replacing 8+ individual API calls with 1 optimized endpoint.
  *
- * Returns: project, settings, models, visual_context, memories, recent_documents, style_presets
+ * Returns: project, settings, models, visual_context, memories, recent_copies, recent_media, style_presets
  */
 
 import { useQuery, UseQueryOptions } from '@tanstack/react-query';
@@ -101,6 +101,25 @@ export function useBootstrapMemories(projectId: string | undefined) {
   };
 }
 
+export function useBootstrapCopies(projectId: string | undefined) {
+  const { data, ...rest } = useProjectBootstrap(projectId);
+
+  return {
+    recentCopies: data?.recent_copies || [],
+    ...rest,
+  };
+}
+
+export function useBootstrapMedia(projectId: string | undefined) {
+  const { data, ...rest } = useProjectBootstrap(projectId);
+
+  return {
+    recentMedia: data?.recent_media || [],
+    ...rest,
+  };
+}
+
+/** @deprecated Use useBootstrapCopies or useBootstrapMedia instead */
 export function useBootstrapDocuments(projectId: string | undefined) {
   const { data, ...rest } = useProjectBootstrap(projectId);
 

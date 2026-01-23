@@ -50,6 +50,8 @@ interface UseImageStudioOptions {
   layoutPresets?: StylePreset[];
   /** @deprecated Use visualStylePresets instead */
   stylePresets?: StylePreset[];
+  /** Initial history of generated images from the project */
+  initialHistory?: GeneratedImage[];
 }
 
 interface UseImageStudioReturn extends ImageStudioState {
@@ -62,6 +64,7 @@ interface UseImageStudioReturn extends ImageStudioState {
   setAspectRatio: (ratio: AspectRatioId) => void;
   setModel: (model: string) => void;
   setCreativity: (value: number) => void;
+  setVariationCount: (count: number) => void;
   setReferenceImage: (url: string | null) => void;
   // Feature 028: Reference assets with per-asset modes
   /** @deprecated Use selectedAssetsWithModes and updateSelectedAssets instead */
@@ -87,6 +90,7 @@ interface UseImageStudioReturn extends ImageStudioState {
   /** @deprecated Use selectedVisualStyle instead */
   selectedPreset: StylePreset | null;
   pendingCount: number;
+  variationCount: number;
   // Feature 028: Reference assets
   /** @deprecated Use selectedAssetsWithModes instead */
   referenceAssets: SelectedAsset[];
@@ -98,7 +102,7 @@ interface UseImageStudioReturn extends ImageStudioState {
 }
 
 const DEFAULT_MODEL = 'google/gemini-2.5-flash-image';
-const DEFAULT_VARIATIONS = 4;
+const DEFAULT_VARIATIONS = 2;
 
 export function useImageStudio({
   projectId,
@@ -107,6 +111,7 @@ export function useImageStudio({
   visualStylePresets = [],
   layoutPresets = [],
   stylePresets = [], // deprecated, for backwards compatibility
+  initialHistory = [],
 }: UseImageStudioOptions): UseImageStudioReturn {
   const queryClient = useQueryClient();
   const { getAccessToken } = useAuthStore();
@@ -124,6 +129,7 @@ export function useImageStudio({
   const [aspectRatio, setAspectRatio] = useState<AspectRatioId>('1:1');
   const [model, setModel] = useState(defaultModel || DEFAULT_MODEL);
   const [creativity, setCreativity] = useState(50);
+  const [variationCount, setVariationCount] = useState(DEFAULT_VARIATIONS);
   const [referenceImageUrl, setReferenceImage] = useState<string | null>(null);
   // Feature 028: Reference assets state (deprecated - kept for backwards compatibility)
   const [referenceAssets, setReferenceAssets] = useState<SelectedAsset[]>([]);
@@ -157,6 +163,15 @@ export function useImageStudio({
       }
     };
   }, []);
+
+  // Load initial history from project (only once when initialHistory becomes available)
+  const initialHistoryLoadedRef = useRef(false);
+  useEffect(() => {
+    if (initialHistory.length > 0 && !initialHistoryLoadedRef.current) {
+      initialHistoryLoadedRef.current = true;
+      setVariations(initialHistory);
+    }
+  }, [initialHistory]);
 
   // Get selected presets
   const selectedVisualStyle = visualStyleSlug
@@ -306,7 +321,7 @@ export function useImageStudio({
 
     setError(null);
     setIsGenerating(true);
-    setPendingCount(DEFAULT_VARIATIONS);
+    setPendingCount(variationCount);
     setCurrentBatchVariations([]); // Clear current batch, keep history in variations
 
     try {
@@ -325,7 +340,7 @@ export function useImageStudio({
         aspect_ratio: aspectRatio,
         model: model,
         creativity: creativity / 100, // Convert 0-100 to 0-1 for backend
-        count: DEFAULT_VARIATIONS,
+        count: variationCount,
         reference_image_url: referenceImageUrl,
         // Feature 028: Pass reference assets with individual modes
         reference_assets: assetsForApi ? assetsForApi.map(a => a.id) : undefined,
@@ -369,6 +384,7 @@ export function useImageStudio({
     aspectRatio,
     model,
     creativity,
+    variationCount,
     referenceImageUrl,
     referenceAssets,
     assetMode,
@@ -433,6 +449,7 @@ export function useImageStudio({
     setAspectRatio('1:1');
     setModel(defaultModel || DEFAULT_MODEL);
     setCreativity(50);
+    setVariationCount(DEFAULT_VARIATIONS);
     setReferenceImage(null);
     setReferenceAssets([]);
     setAssetMode('style');
@@ -487,6 +504,7 @@ export function useImageStudio({
     setAspectRatio,
     setModel,
     setCreativity,
+    setVariationCount,
     setReferenceImage,
     setReferenceAssets,
     setAssetMode,
@@ -506,6 +524,7 @@ export function useImageStudio({
     selectedLayout,
     selectedPreset, // deprecated
     pendingCount,
+    variationCount,
     // Feature 028
     referenceAssets,
     assetMode,

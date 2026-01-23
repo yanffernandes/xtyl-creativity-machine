@@ -19,7 +19,7 @@ import {
 import { arrayMove, SortableContext, sortableKeyboardCoordinates } from "@dnd-kit/sortable"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { FileText, GripVertical, Trash2, MousePointer2 } from "lucide-react"
+import { Trash2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import KanbanCard from "./KanbanCard"
 import KanbanColumn from "./KanbanColumn"
@@ -233,15 +233,6 @@ export default function KanbanBoard({
       onDragEnd={handleDragEnd}
       onDragCancel={handleDragCancel}
     >
-      {/* Multi-select hint */}
-      {!hasSelection && (
-        <div className="flex items-center gap-2 mb-3 px-1 text-xs text-muted-foreground opacity-60 hover:opacity-100 transition-opacity">
-          <MousePointer2 className="h-3 w-3" />
-          <span>
-            Dica: Use <kbd className="px-1.5 py-0.5 rounded bg-muted text-[10px] font-mono">Ctrl</kbd>+clique ou <kbd className="px-1.5 py-0.5 rounded bg-muted text-[10px] font-mono">Shift</kbd>+clique para selecionar múltiplas copies e gerar imagens em lote
-          </span>
-        </div>
-      )}
       <div className="flex gap-4 h-full overflow-x-auto pb-4 scrollbar-thin">
         {COLUMNS.map((column) => {
           const columnDocs = getDocsByStatus(column.id)
@@ -265,12 +256,8 @@ export default function KanbanBoard({
         {activeDocument ? (
           <Card className="w-[280px] rotate-3 shadow-2xl cursor-grabbing opacity-90 border-primary border-2">
             <CardContent className="p-4">
-              <div className="flex items-start justify-between mb-2">
-                <FileText className="h-5 w-5 text-primary" />
-                <GripVertical className="h-5 w-5 text-muted-foreground" />
-              </div>
-              <p className="font-medium text-sm line-clamp-2">{activeDocument.title}</p>
-              <p className="text-xs text-muted-foreground mt-2">
+              <p className="font-medium text-sm line-clamp-2 mb-2">{activeDocument.title}</p>
+              <p className="text-xs text-muted-foreground">
                 {new Date(activeDocument.created_at).toLocaleDateString()}
               </p>
             </CardContent>

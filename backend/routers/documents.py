@@ -843,3 +843,55 @@ async def restore_document_version(
         "current_version": document.current_version,
         "restored_from": version
     }
+
+
+# =============================================================================
+# Project Media (Images) - Paginated Endpoint for Studio
+# =============================================================================
+
+@router.get("/projects/{project_id}/media")
+def list_project_media(
+    project_id: str,
+    page: int = 1,
+    limit: int = 20,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    List generated images for a project with pagination.
+    Used by the Visual Studio for infinite scroll history.
+
+    Returns media_type='image' documents ordered by created_at desc.
+    """
+    from sqlalchemy import desc
+
+    # Verify access
+    verify_project_access(db, project_id, str(current_user.id))
+
+    # Calculate offset
+    offset = (page - 1) * limit
+
+    # Base query for images (not reference assets)
+    base_query = db.query(Document).filter(
+        Document.project_id == project_id,
+        Document.media_type == 'image',
+        Document.is_reference_asset == False,
+        Document.deleted_at == None
+    )
+
+    # Get total count
+    total = base_query.count()
+
+    # Get paginated items
+    items = base_query.order_by(desc(Document.created_at)).offset(offset).limit(limit).all()
+
+    # Check if there are more items
+    has_more = offset + len(items) < total
+
+    return {
+        "items": [DocumentSchema.model_validate(doc) for doc in items],
+        "total": total,
+        "page": page,
+        "limit": limit,
+        "has_more": has_more
+    }
