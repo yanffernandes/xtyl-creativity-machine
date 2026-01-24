@@ -3,10 +3,12 @@
 /**
  * AssetPickerModal Component
  * Feature 028: Visual Context Enhancement
+ * Feature 029: fal.ai Migration - Added single-select mode
  *
  * Modal for selecting visual assets with category filters.
- * Allows users to browse all project assets and select multiple
- * with different modes (style, compose, base).
+ * Supports two modes:
+ * - multi: Select multiple assets with modes (style, compose, base)
+ * - single: Select one asset for editing/adjusting
  */
 
 import { useState, useMemo, useCallback } from 'react';
@@ -30,7 +32,9 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from '@/components/ui/dialog';
+import { useProjectMedia } from '@/hooks/useProjectMedia';
 import type { VisualAsset } from '@/types/image-studio';
 
 export type AssetMode = 'style' | 'compose' | 'base';
@@ -92,36 +96,86 @@ const CATEGORY_CONFIG: Record<string, { label: string; defaultMode: AssetMode }>
   other: { label: 'Outro', defaultMode: 'style' },
 };
 
-interface AssetPickerModalProps {
-  isOpen: boolean;
-  onClose: () => void;
+// Multi-select props (Feature 028)
+interface MultiSelectProps {
+  mode?: 'multi';
   visualAssets: VisualAsset[];
   selectedAssets: SelectedAssetWithMode[];
   onUpdateAssets: (assets: SelectedAssetWithMode[]) => void;
+  projectId?: never;
+  onSelect?: never;
+  title?: never;
+  description?: never;
 }
 
-export function AssetPickerModal({
-  isOpen,
-  onClose,
-  visualAssets,
-  selectedAssets,
-  onUpdateAssets,
-}: AssetPickerModalProps) {
+// Single-select props (Feature 029)
+interface SingleSelectProps {
+  mode: 'single';
+  projectId: string;
+  onSelect: (asset: any) => void;
+  title?: string;
+  description?: string;
+  visualAssets?: never;
+  selectedAssets?: never;
+  onUpdateAssets?: never;
+}
+
+type AssetPickerModalProps = {
+  isOpen: boolean;
+  onClose: () => void;
+} & (MultiSelectProps | SingleSelectProps);
+
+export function AssetPickerModal(props: AssetPickerModalProps) {
+  const { isOpen, onClose, mode = 'multi' } = props;
+
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [localSelection, setLocalSelection] = useState<SelectedAssetWithMode[]>(selectedAssets);
 
-  // Sync local selection when modal opens
+  // Fetch images from API for single-select mode
+  const { media: fetchedMedia } = useProjectMedia({
+    projectId: mode === 'single' ? props.projectId : '',
+    limit: 100,
+    enabled: isOpen && mode === 'single',
+  });
+
+  // Convert fetched media to VisualAsset format for single-select
+  const visualAssetsFromAPI = useMemo(() => {
+    if (mode !== 'single') return [];
+    return fetchedMedia.map((m) => ({
+      id: m.document_id,
+      project_id: mode === 'single' ? props.projectId : '',
+      name: m.title || 'Untitled',
+      file_url: m.file_url,
+      thumbnail_url: m.thumbnail_url,
+      category: null,
+      tags: null,
+      ai_description: null,
+      is_classified: false,
+      created_at: m.created_at || new Date().toISOString(),
+      updated_at: null,
+    }));
+  }, [mode, fetchedMedia, props]);
+
+  // Get visualAssets based on mode
+  const visualAssets =
+    mode === 'multi' ? props.visualAssets : visualAssetsFromAPI;
+
+  // Multi-select state
+  const [localSelection, setLocalSelection] = useState<SelectedAssetWithMode[]>(
+    mode === 'multi' ? props.selectedAssets : []
+  );
+
+  // Sync local selection when modal opens (multi-select only)
   useMemo(() => {
-    if (isOpen) {
-      setLocalSelection(selectedAssets);
+    if (isOpen && mode === 'multi') {
+      setLocalSelection(props.selectedAssets);
     }
-  }, [isOpen, selectedAssets]);
+  }, [isOpen, mode, props]);
 
   // Get unique categories from assets
   const categories = useMemo(() => {
     const cats = new Set<string>();
-    visualAssets.forEach((asset) => {
+    visualAssets?.forEach((asset) => {
       if (asset.category) {
         cats.add(asset.category);
       }
@@ -131,6 +185,7 @@ export function AssetPickerModal({
 
   // Filter assets based on search and category
   const filteredAssets = useMemo(() => {
+    if (!visualAssets) return [];
     return visualAssets.filter((asset) => {
       const matchesSearch =
         !searchQuery ||
@@ -183,14 +238,22 @@ export function AssetPickerModal({
     [localSelection]
   );
 
-  // Quick select with default mode based on category
+  // Quick select with default mode based on category (multi-select)
+  // Or single-select click handler
   const handleQuickSelect = useCallback(
     (asset: VisualAsset) => {
-      const categoryConfig = CATEGORY_CONFIG[asset.category || 'other'];
-      const defaultMode = categoryConfig?.defaultMode || 'style';
-      handleToggleAsset(asset, defaultMode);
+      if (mode === 'single') {
+        // Single-select: immediate selection and close
+        props.onSelect(asset);
+        onClose();
+      } else {
+        // Multi-select: toggle with default mode
+        const categoryConfig = CATEGORY_CONFIG[asset.category || 'other'];
+        const defaultMode = categoryConfig?.defaultMode || 'style';
+        handleToggleAsset(asset, defaultMode);
+      }
     },
-    [handleToggleAsset]
+    [mode, props, onClose, handleToggleAsset]
   );
 
   // Remove asset from selection
@@ -201,17 +264,21 @@ export function AssetPickerModal({
     [localSelection]
   );
 
-  // Confirm selection
+  // Confirm selection (multi-select only)
   const handleConfirm = useCallback(() => {
-    onUpdateAssets(localSelection);
+    if (mode === 'multi') {
+      props.onUpdateAssets(localSelection);
+    }
     onClose();
-  }, [localSelection, onUpdateAssets, onClose]);
+  }, [mode, props, localSelection, onClose]);
 
   // Cancel and reset
   const handleCancel = useCallback(() => {
-    setLocalSelection(selectedAssets);
+    if (mode === 'multi') {
+      setLocalSelection(props.selectedAssets);
+    }
     onClose();
-  }, [selectedAssets, onClose]);
+  }, [mode, props, onClose]);
 
   return (
     <Dialog open={isOpen} onOpenChange={handleCancel}>
@@ -219,8 +286,13 @@ export function AssetPickerModal({
         <DialogHeader className="px-6 py-4 border-b border-gray-200 dark:border-gray-800">
           <DialogTitle className="flex items-center gap-2">
             <ImageIcon className="w-5 h-5 text-blue-500" />
-            Selecionar Contexto Visual
+            {mode === 'single' && props.title ? props.title : 'Selecionar Contexto Visual'}
           </DialogTitle>
+          {mode === 'single' && props.description && (
+            <DialogDescription className="text-sm text-gray-500 dark:text-gray-400">
+              {props.description}
+            </DialogDescription>
+          )}
         </DialogHeader>
 
         {/* Search and Filters */}
@@ -335,32 +407,34 @@ export function AssetPickerModal({
                         </>
                       )}
 
-                      {/* Hover overlay with mode options */}
-                      <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1">
-                        {Object.entries(ASSET_MODES).map(([mode, config]) => {
-                          const Icon = config.icon;
-                          const isCurrentMode = assetMode === mode;
-                          return (
-                            <button
-                              key={mode}
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleToggleAsset(asset, mode as AssetMode);
-                              }}
-                              className={cn(
-                                'w-8 h-8 rounded-full flex items-center justify-center transition-all',
-                                isCurrentMode
-                                  ? cn(config.bgClass, 'text-white')
-                                  : 'bg-white/20 text-white hover:bg-white/40'
-                              )}
-                              title={config.label}
-                            >
-                              <Icon className="w-4 h-4" />
-                            </button>
-                          );
-                        })}
-                      </div>
+                      {/* Hover overlay with mode options (multi-select only) */}
+                      {mode === 'multi' && (
+                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1">
+                          {Object.entries(ASSET_MODES).map(([modeKey, config]) => {
+                            const Icon = config.icon;
+                            const isCurrentMode = assetMode === modeKey;
+                            return (
+                              <button
+                                key={modeKey}
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleToggleAsset(asset, modeKey as AssetMode);
+                                }}
+                                className={cn(
+                                  'w-8 h-8 rounded-full flex items-center justify-center transition-all',
+                                  isCurrentMode
+                                    ? cn(config.bgClass, 'text-white')
+                                    : 'bg-white/20 text-white hover:bg-white/40'
+                                )}
+                                title={config.label}
+                              >
+                                <Icon className="w-4 h-4" />
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
 
                     {/* Asset name */}
@@ -381,69 +455,71 @@ export function AssetPickerModal({
           )}
         </div>
 
-        {/* Selected assets preview and actions */}
-        <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/50">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              {/* Selected count */}
-              <span className="text-sm text-gray-600 dark:text-gray-400">
-                {localSelection.length} selecionado{localSelection.length !== 1 && 's'}
-              </span>
+        {/* Selected assets preview and actions (multi-select only) */}
+        {mode === 'multi' && (
+          <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/50">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                {/* Selected count */}
+                <span className="text-sm text-gray-600 dark:text-gray-400">
+                  {localSelection.length} selecionado{localSelection.length !== 1 && 's'}
+                </span>
 
-              {/* Selected thumbnails */}
-              {localSelection.length > 0 && (
-                <div className="flex -space-x-2">
-                  {localSelection.slice(0, 5).map((selected) => {
-                    const asset = visualAssets.find((a) => a.id === selected.id);
-                    const modeConfig = ASSET_MODES[selected.mode];
-                    if (!asset) return null;
-                    return (
-                      <div
-                        key={asset.id}
-                        className={cn(
-                          'relative w-8 h-8 rounded-lg overflow-hidden ring-2 ring-white dark:ring-gray-900',
-                          modeConfig.ringClass
-                        )}
-                      >
-                        <Image
-                          src={asset.thumbnail_url || asset.file_url || ''}
-                          alt={asset.name}
-                          fill
-                          className="object-cover"
-                          sizes="32px"
-                        />
-                        <button
-                          onClick={() => handleRemove(asset.id)}
-                          className="absolute inset-0 bg-black/50 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center"
+                {/* Selected thumbnails */}
+                {localSelection.length > 0 && (
+                  <div className="flex -space-x-2">
+                    {localSelection.slice(0, 5).map((selected) => {
+                      const asset = visualAssets?.find((a) => a.id === selected.id);
+                      const modeConfig = ASSET_MODES[selected.mode];
+                      if (!asset) return null;
+                      return (
+                        <div
+                          key={asset.id}
+                          className={cn(
+                            'relative w-8 h-8 rounded-lg overflow-hidden ring-2 ring-white dark:ring-gray-900',
+                            modeConfig.ringClass
+                          )}
                         >
-                          <X className="w-4 h-4 text-white" />
-                        </button>
+                          <Image
+                            src={asset.thumbnail_url || asset.file_url || ''}
+                            alt={asset.name}
+                            fill
+                            className="object-cover"
+                            sizes="32px"
+                          />
+                          <button
+                            onClick={() => handleRemove(asset.id)}
+                            className="absolute inset-0 bg-black/50 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center"
+                          >
+                            <X className="w-4 h-4 text-white" />
+                          </button>
+                        </div>
+                      );
+                    })}
+                    {localSelection.length > 5 && (
+                      <div className="w-8 h-8 rounded-lg bg-gray-200 dark:bg-gray-700 ring-2 ring-white dark:ring-gray-900 flex items-center justify-center">
+                        <span className="text-xs text-gray-600 dark:text-gray-400">
+                          +{localSelection.length - 5}
+                        </span>
                       </div>
-                    );
-                  })}
-                  {localSelection.length > 5 && (
-                    <div className="w-8 h-8 rounded-lg bg-gray-200 dark:bg-gray-700 ring-2 ring-white dark:ring-gray-900 flex items-center justify-center">
-                      <span className="text-xs text-gray-600 dark:text-gray-400">
-                        +{localSelection.length - 5}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
+                    )}
+                  </div>
+                )}
+              </div>
 
-            {/* Actions */}
-            <div className="flex items-center gap-2">
-              <Button variant="outline" onClick={handleCancel}>
-                Cancelar
-              </Button>
-              <Button onClick={handleConfirm} className="gap-2">
-                <Check className="w-4 h-4" />
-                Confirmar
-              </Button>
+              {/* Actions */}
+              <div className="flex items-center gap-2">
+                <Button variant="outline" onClick={handleCancel}>
+                  Cancelar
+                </Button>
+                <Button onClick={handleConfirm} className="gap-2">
+                  <Check className="w-4 h-4" />
+                  Confirmar
+                </Button>
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </DialogContent>
     </Dialog>
   );

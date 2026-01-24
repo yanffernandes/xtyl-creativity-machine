@@ -319,6 +319,7 @@ export function ImageStudio({
 
         {/* Asset picker modal for selecting images to edit/adjust */}
         <AssetPickerModal
+          mode="single"
           projectId={projectId}
           isOpen={showAssetPicker}
           onClose={() => setShowAssetPicker(false)}
