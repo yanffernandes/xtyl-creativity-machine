@@ -83,6 +83,7 @@ interface UseImageStudioReturn extends ImageStudioState {
   attach: (image: GeneratedImage, documentId: string) => Promise<void>;
   reset: () => void;
   clearVariations: () => void;
+  addVariation: (variation: GeneratedImage) => void;
 
   // Helpers
   selectedVisualStyle: StylePreset | null;
@@ -477,6 +478,11 @@ export function useImageStudio({
     setError(null);
   }, []);
 
+  // Add a variation manually (for Edit/Adjust mode results)
+  const addVariation = useCallback((variation: GeneratedImage) => {
+    setVariations((prev) => [variation, ...prev]);
+  }, []);
+
   // Combine current batch (being generated) + history for display
   // Current batch appears at the top, history below
   const allVariations = [...currentBatchVariations, ...variations];
@@ -518,6 +524,7 @@ export function useImageStudio({
     attach,
     reset,
     clearVariations,
+    addVariation,
 
     // Helpers
     selectedVisualStyle,

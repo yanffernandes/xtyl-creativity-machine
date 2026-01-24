@@ -150,149 +150,116 @@ export function ImageStudio({
           )}
         </div>
 
-        {/* Main controls card */}
-        <motion.div
-          layout
-          className={cn(
-            'rounded-2xl overflow-hidden',
-            'bg-white/70 dark:bg-gray-900/70',
-            'backdrop-blur-2xl',
-            'border border-gray-200/50 dark:border-gray-700/50',
-            'shadow-xl shadow-black/5'
-          )}
-        >
-          <div className="p-6 space-y-6">
-            {/* Prompt input */}
-            <PromptInput
-              value={studio.prompt}
-              onChange={studio.setPrompt}
-              onGenerate={studio.generate}
-              isGenerating={studio.isGenerating}
-            />
+        {/* Tab navigation */}
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabValue)} className="w-full">
+          <TabsList className="grid w-full grid-cols-4 h-12">
+            <TabsTrigger value="create" className="gap-2">
+              <Wand2 className="h-4 w-4" />
+              <span className="hidden sm:inline">Criar</span>
+            </TabsTrigger>
+            <TabsTrigger value="edit" className="gap-2">
+              <Edit3 className="h-4 w-4" />
+              <span className="hidden sm:inline">Editar</span>
+            </TabsTrigger>
+            <TabsTrigger value="adjust" className="gap-2">
+              <Sliders className="h-4 w-4" />
+              <span className="hidden sm:inline">Ajustar</span>
+            </TabsTrigger>
+            <TabsTrigger value="video" disabled className="gap-2">
+              <Video className="h-4 w-4" />
+              <span className="hidden sm:inline">Vídeo</span>
+            </TabsTrigger>
+          </TabsList>
 
-            {/* Visual style presets */}
-            <StylePresetGrid
-              presets={effectiveVisualStyles}
-              selectedPresetSlug={studio.visualStyle}
-              onSelectPreset={studio.setVisualStyle}
+          {/* Create tab content */}
+          <TabsContent value="create" className="mt-6">
+            <CreateMode
+              projectId={projectId}
+              studio={studio}
+              imageModels={imageModels}
+              visualStylePresets={effectiveVisualStyles}
+              layoutPresets={effectiveLayouts}
               isLoading={isLoading}
-              title="Estilo Visual"
-              icon={<Sparkles className="w-4 h-4" />}
             />
+          </TabsContent>
 
-            {/* Layout presets */}
-            {effectiveLayouts.length > 0 && (
-              <StylePresetGrid
-                presets={effectiveLayouts}
-                selectedPresetSlug={studio.layout}
-                onSelectPreset={studio.setLayout}
+          {/* Edit tab content */}
+          <TabsContent value="edit" className="mt-6">
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className={cn(
+                'rounded-2xl overflow-hidden',
+                'bg-white/70 dark:bg-gray-900/70',
+                'backdrop-blur-2xl',
+                'border border-gray-200/50 dark:border-gray-700/50',
+                'shadow-xl shadow-black/5',
+                'p-6'
+              )}
+            >
+              <EditMode
+                projectId={projectId}
+                selectedImage={selectedImageForEdit}
+                onSelectImage={handleSelectImageForEdit}
+                onEditComplete={handleEditComplete}
                 isLoading={isLoading}
-                title="Diagramação"
-                icon={<LayoutGrid className="w-4 h-4" />}
               />
-            )}
+            </motion.div>
+          </TabsContent>
 
-            {/* Basic controls row */}
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-              <FormatSelector
-                value={studio.aspectRatio}
-                onChange={studio.setAspectRatio}
-                disabled={studio.isGenerating}
+          {/* Adjust tab content */}
+          <TabsContent value="adjust" className="mt-6">
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className={cn(
+                'rounded-2xl overflow-hidden',
+                'bg-white/70 dark:bg-gray-900/70',
+                'backdrop-blur-2xl',
+                'border border-gray-200/50 dark:border-gray-700/50',
+                'shadow-xl shadow-black/5',
+                'p-6'
+              )}
+            >
+              <AdjustMode
+                projectId={projectId}
+                selectedImage={selectedImageForEdit}
+                onSelectImage={handleSelectImageForEdit}
+                onOperationComplete={handleAdjustComplete}
               />
+            </motion.div>
+          </TabsContent>
 
-              <CreativitySlider
-                value={studio.creativity}
-                onChange={studio.setCreativity}
-                disabled={studio.isGenerating}
-                className="col-span-2 md:col-span-1"
-              />
-            </div>
-
-            {/* Advanced settings (collapsible) */}
-            <Collapsible open={showAdvanced} onOpenChange={setShowAdvanced}>
-              <CollapsibleTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="w-full justify-center gap-2 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
-                >
-                  <Settings2 className="h-4 w-4" />
-                  Configurações avançadas
-                  {showAdvanced ? (
-                    <ChevronUp className="h-4 w-4" />
-                  ) : (
-                    <ChevronDown className="h-4 w-4" />
-                  )}
-                </Button>
-              </CollapsibleTrigger>
-
-              <CollapsibleContent>
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0 }}
-                  className="pt-4 space-y-4"
-                >
-                  <ModelSelector
-                    models={imageModels}
-                    value={studio.model}
-                    onChange={studio.setModel}
-                    disabled={studio.isGenerating}
-                    isLoading={isLoading}
-                  />
-
-                  {/* Feature 028: Reference asset selector */}
-                  <ReferenceAssetSelector
-                    projectId={projectId}
-                    selectedAssets={studio.referenceAssets}
-                    assetMode={studio.assetMode}
-                    onAssetsChange={studio.setReferenceAssets}
-                    onAssetModeChange={studio.setAssetMode}
-                    disabled={studio.isGenerating}
-                  />
-
-                  {/* Feature 028 (T039): Brand context toggle */}
-                  <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                    <div className="flex items-center gap-2">
-                      <Palette className="h-4 w-4 text-muted-foreground" />
-                      <Label htmlFor="brand-context" className="text-sm font-medium cursor-pointer">
-                        Aplicar Brand Context
-                      </Label>
-                    </div>
-                    <Switch
-                      id="brand-context"
-                      checked={studio.applyBrandContext}
-                      onCheckedChange={studio.setApplyBrandContext}
-                      disabled={studio.isGenerating}
-                    />
-                  </div>
-                  <p className="text-xs text-muted-foreground -mt-2 px-1">
-                    Enriquece o prompt com cores e tipografia da marca definidas nas configurações do projeto.
+          {/* Video tab content (placeholder) */}
+          <TabsContent value="video" className="mt-6">
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className={cn(
+                'rounded-2xl overflow-hidden',
+                'bg-white/70 dark:bg-gray-900/70',
+                'backdrop-blur-2xl',
+                'border border-gray-200/50 dark:border-gray-700/50',
+                'shadow-xl shadow-black/5',
+                'p-12'
+              )}
+            >
+              <div className="flex flex-col items-center justify-center text-center space-y-4">
+                <div className="w-16 h-16 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
+                  <Video className="w-8 h-8 text-gray-400" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
+                    Geração de Vídeo
+                  </h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 max-w-md">
+                    Em breve você poderá criar vídeos com IA usando modelos como Veo 3.1, Kling 2.6, e LTX-2.
                   </p>
-
-                  {/* Reference image section */}
-                  {studio.referenceImageUrl && (
-                    <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
-                          Imagem de referência ativa
-                        </span>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => studio.setReferenceImage(null)}
-                          className="text-blue-600 hover:text-blue-800 dark:text-blue-400"
-                        >
-                          Remover
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-                </motion.div>
-              </CollapsibleContent>
-            </Collapsible>
-          </div>
-        </motion.div>
+                </div>
+              </div>
+            </motion.div>
+          </TabsContent>
+        </Tabs>
 
         {/* Generated variations */}
         <AnimatePresence mode="wait">
@@ -348,6 +315,16 @@ export function ImageStudio({
           onClose={handleCloseExpand}
           onSave={studio.save}
           onRefine={studio.refine}
+        />
+
+        {/* Asset picker modal for selecting images to edit/adjust */}
+        <AssetPickerModal
+          projectId={projectId}
+          isOpen={showAssetPicker}
+          onClose={() => setShowAssetPicker(false)}
+          onSelect={handleAssetSelect}
+          title="Selecione uma imagem"
+          description="Escolha uma imagem da galeria para editar ou ajustar"
         />
       </div>
     </TooltipProvider>

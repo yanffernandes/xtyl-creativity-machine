@@ -71,6 +71,9 @@ SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 # OpenRouter configuration
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 
+# fal.ai configuration (Feature 029 - Image Studio Evolution)
+FAL_API_KEY = os.getenv("FAL_API_KEY")
+
 # Redis configuration
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 
