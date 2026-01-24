@@ -24,7 +24,7 @@ class ReferenceAsset(BaseModel):
     usage_mode: str  # 'style', 'compose', 'base'
 from database import get_db
 import models
-from models import StylePreset, ImageOperation, FalModelConfig
+from models import StylePreset
 from image_generation_service import (
     generate_and_store_image,
     DEFAULT_MODEL
@@ -45,8 +45,7 @@ from schemas import (
     StylePreset as StylePresetSchema, StylePresetList,
     ImageBatchRequest, ImageBatchResponse, ImageBatchProgress,
     InpaintRequest, EditRequest, RemoveBackgroundRequest,
-    UpscaleRequest, EnhanceRequest, ImageOperationResponse,
-    FalModelResponse, FalModelListResponse
+    UpscaleRequest, EnhanceRequest, ImageOperationResponse
 )
 import time
 import json
@@ -1100,11 +1099,14 @@ async def download_and_store_fal_image(
     prompt: Optional[str] = None,
     operation_type: str = "edit",
     model_id: str = "fal.ai",
+    generation_metadata: Optional[Dict[str, Any]] = None,
     db: Session = None
 ) -> Dict[str, Any]:
     """
     Download image from fal.ai result URL and store in R2.
-    Creates a document record for the image.
+    Creates a document record with full operation metadata.
+
+    Feature 029: Uses existing `documents` table instead of separate image_operations table.
     """
     import httpx
     from storage_service import upload_image_to_r2, generate_thumbnail
@@ -1127,6 +1129,16 @@ async def download_and_store_fal_image(
     # Generate thumbnail
     thumbnail_url = await generate_thumbnail(image_data, project_id)
 
+    # Build complete generation_metadata
+    metadata = generation_metadata or {}
+    metadata.update({
+        "provider": "fal.ai",
+        "model": model_id,
+        "operation_type": operation_type
+    })
+    if prompt and "prompt" not in metadata:
+        metadata["prompt"] = prompt
+
     # Create document record
     document = models.Document(
         title=title,
@@ -1136,11 +1148,7 @@ async def download_and_store_fal_image(
         project_id=project_id,
         file_url=file_url,
         thumbnail_url=thumbnail_url,
-        generation_metadata={
-            "provider": "fal.ai",
-            "model": model_id,
-            "operation_type": operation_type
-        }
+        generation_metadata=metadata
     )
 
     db.add(document)
@@ -1164,7 +1172,8 @@ async def inpaint_image(
     Edit an image using a mask (inpainting).
     White areas in mask will be edited, black areas preserved.
 
-    Feature 029 - fal.ai Migration
+    Feature 029: Uses fal.ai FLUX.1 Fill Pro for precise inpainting.
+    Operation metadata stored in documents.generation_metadata (no separate table needed).
     """
     start_time = time.time()
 
@@ -1175,25 +1184,6 @@ async def inpaint_image(
     ).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
-
-    # Create operation record
-    operation = ImageOperation(
-        project_id=request.project_id,
-        user_id=current_user.id,
-        operation_type="inpaint",
-        input_image_url=request.image_url,
-        mask_url=request.mask_url,
-        prompt=request.prompt,
-        model_id=request.model,
-        model_params={
-            "guidance_scale": request.guidance_scale,
-            "num_inference_steps": request.num_inference_steps
-        },
-        status="processing"
-    )
-    db.add(operation)
-    db.commit()
-    db.refresh(operation)
 
     try:
         # Call fal.ai inpaint API
@@ -1211,7 +1201,10 @@ async def inpaint_image(
         if not image_url:
             raise FalAIError("No image returned from fal.ai")
 
-        # Download and store image
+        # Calculate processing time
+        processing_time = int((time.time() - start_time) * 1000)
+
+        # Download and store image with full metadata
         stored = await download_and_store_fal_image(
             image_url=image_url,
             project_id=request.project_id,
@@ -1219,21 +1212,22 @@ async def inpaint_image(
             prompt=request.prompt,
             operation_type="inpaint",
             model_id=request.model,
+            generation_metadata={
+                "prompt": request.prompt,
+                "params": {
+                    "mask_url": request.mask_url,
+                    "guidance_scale": request.guidance_scale,
+                    "num_inference_steps": request.num_inference_steps
+                },
+                "processing_time_ms": processing_time,
+                "cost_cents": 0  # TODO: Calculate actual cost from fal.ai response
+            },
             db=db
         )
-
-        # Update operation record
-        processing_time = int((time.time() - start_time) * 1000)
-        operation.output_document_id = stored["document_id"]
-        operation.output_image_url = stored["file_url"]
-        operation.status = "completed"
-        operation.completed_at = db.execute("SELECT NOW()").scalar()
-        db.commit()
 
         logger.info(f"Inpaint completed: {stored['document_id']} in {processing_time}ms")
 
         return ImageOperationResponse(
-            operation_id=str(operation.id),
             document_id=stored["document_id"],
             file_url=stored["file_url"],
             thumbnail_url=stored["thumbnail_url"],
@@ -1244,24 +1238,15 @@ async def inpaint_image(
         )
 
     except FalAIAuthError as e:
-        operation.status = "failed"
-        operation.error_message = str(e)
-        db.commit()
+        logger.error(f"Inpaint auth error: {e}")
         raise HTTPException(status_code=401, detail=e.message)
     except FalAICreditsError as e:
-        operation.status = "failed"
-        operation.error_message = str(e)
-        db.commit()
+        logger.error(f"Inpaint credits error: {e}")
         raise HTTPException(status_code=402, detail=e.message)
     except FalAIError as e:
-        operation.status = "failed"
-        operation.error_message = str(e)
-        db.commit()
+        logger.error(f"Inpaint fal.ai error: {e}")
         raise HTTPException(status_code=e.status_code, detail=e.message)
     except Exception as e:
-        operation.status = "failed"
-        operation.error_message = str(e)
-        db.commit()
         logger.error(f"Inpaint failed: {e}")
         raise HTTPException(status_code=500, detail=f"Inpainting failed: {str(e)}")
 

@@ -1832,35 +1832,16 @@ class EnhanceRequest(BaseModel):
 
 
 class ImageOperationResponse(BaseModel):
-    """Response for image operations"""
-    operation_id: str
+    """
+    Response for fal.ai image/video operations (Feature 029).
+
+    Returns the created document with all operation metadata stored
+    in the `generation_metadata` JSONB field.
+    """
     document_id: str
     file_url: str
     thumbnail_url: str
-    operation_type: str
+    operation_type: str  # inpaint, edit, remove_bg, upscale, enhance, generate, video_generation
     model_used: str
     cost_cents: int = 0
     processing_time_ms: Optional[int] = None
-
-
-class FalModelResponse(BaseModel):
-    """fal.ai model configuration response"""
-    id: str
-    model_id: str
-    display_name: str
-    description: Optional[str] = None
-    category: str
-    supports_mask: bool = False
-    supports_reference: bool = False
-    price_per_mp: Optional[float] = None
-    price_per_image: Optional[float] = None
-    is_default: bool = False
-
-    class Config:
-        from_attributes = True
-
-
-class FalModelListResponse(BaseModel):
-    """List of fal.ai models grouped by category"""
-    models: List[FalModelResponse]
-    categories: List[str]
