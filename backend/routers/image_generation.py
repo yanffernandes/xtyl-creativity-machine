@@ -1258,9 +1258,9 @@ async def edit_image(
     db: Session = Depends(get_db)
 ):
     """
-    Edit an image using natural language instructions.
+    Edit an image using natural language instructions (no mask needed).
 
-    Feature 029 - fal.ai Migration
+    Feature 029: Uses fal.ai FLUX Kontext for instruction-based editing.
     """
     start_time = time.time()
 
@@ -1271,24 +1271,6 @@ async def edit_image(
     ).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
-
-    # Create operation record
-    operation = ImageOperation(
-        project_id=request.project_id,
-        user_id=current_user.id,
-        operation_type="edit",
-        input_image_url=request.image_url,
-        prompt=request.prompt,
-        model_id=request.model,
-        model_params={
-            "preserve_elements": request.preserve_elements,
-            "guidance_scale": request.guidance_scale
-        },
-        status="processing"
-    )
-    db.add(operation)
-    db.commit()
-    db.refresh(operation)
 
     try:
         # Call fal.ai edit API
@@ -1305,7 +1287,10 @@ async def edit_image(
         if not image_url:
             raise FalAIError("No image returned from fal.ai")
 
-        # Download and store image
+        # Calculate processing time
+        processing_time = int((time.time() - start_time) * 1000)
+
+        # Download and store image with full metadata
         stored = await download_and_store_fal_image(
             image_url=image_url,
             project_id=request.project_id,
@@ -1313,21 +1298,21 @@ async def edit_image(
             prompt=request.prompt,
             operation_type="edit",
             model_id=request.model,
+            generation_metadata={
+                "prompt": request.prompt,
+                "params": {
+                    "preserve_elements": request.preserve_elements,
+                    "guidance_scale": request.guidance_scale
+                },
+                "processing_time_ms": processing_time,
+                "cost_cents": 0
+            },
             db=db
         )
-
-        # Update operation record
-        processing_time = int((time.time() - start_time) * 1000)
-        operation.output_document_id = stored["document_id"]
-        operation.output_image_url = stored["file_url"]
-        operation.status = "completed"
-        operation.completed_at = db.execute("SELECT NOW()").scalar()
-        db.commit()
 
         logger.info(f"Edit completed: {stored['document_id']} in {processing_time}ms")
 
         return ImageOperationResponse(
-            operation_id=str(operation.id),
             document_id=stored["document_id"],
             file_url=stored["file_url"],
             thumbnail_url=stored["thumbnail_url"],
@@ -1338,24 +1323,15 @@ async def edit_image(
         )
 
     except FalAIAuthError as e:
-        operation.status = "failed"
-        operation.error_message = str(e)
-        db.commit()
+        logger.error(f"Edit auth error: {e}")
         raise HTTPException(status_code=401, detail=e.message)
     except FalAICreditsError as e:
-        operation.status = "failed"
-        operation.error_message = str(e)
-        db.commit()
+        logger.error(f"Edit credits error: {e}")
         raise HTTPException(status_code=402, detail=e.message)
     except FalAIError as e:
-        operation.status = "failed"
-        operation.error_message = str(e)
-        db.commit()
+        logger.error(f"Edit fal.ai error: {e}")
         raise HTTPException(status_code=e.status_code, detail=e.message)
     except Exception as e:
-        operation.status = "failed"
-        operation.error_message = str(e)
-        db.commit()
         logger.error(f"Edit failed: {e}")
         raise HTTPException(status_code=500, detail=f"Image editing failed: {str(e)}")
 
@@ -1367,10 +1343,9 @@ async def remove_background(
     db: Session = Depends(get_db)
 ):
     """
-    Remove the background from an image.
-    Returns PNG with transparency.
+    Remove the background from an image. Returns PNG with alpha channel transparency.
 
-    Feature 029 - fal.ai Migration
+    Feature 029: Uses fal.ai Bria RMBG 2.0 for professional background removal.
     """
     start_time = time.time()
 
@@ -1381,20 +1356,6 @@ async def remove_background(
     ).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
-
-    # Create operation record
-    operation = ImageOperation(
-        project_id=request.project_id,
-        user_id=current_user.id,
-        operation_type="remove_bg",
-        input_image_url=request.image_url,
-        model_id="fal-ai/bria/background/remove",
-        model_params={"output_format": request.output_format},
-        status="processing"
-    )
-    db.add(operation)
-    db.commit()
-    db.refresh(operation)
 
     try:
         # Call fal.ai remove background API
@@ -1408,28 +1369,27 @@ async def remove_background(
         if not image_url:
             raise FalAIError("No image returned from fal.ai")
 
-        # Download and store image
+        # Calculate processing time
+        processing_time = int((time.time() - start_time) * 1000)
+
+        # Download and store image with full metadata
         stored = await download_and_store_fal_image(
             image_url=image_url,
             project_id=request.project_id,
             title="Background Removed",
             operation_type="remove_bg",
             model_id="fal-ai/bria/background/remove",
+            generation_metadata={
+                "params": {"output_format": request.output_format},
+                "processing_time_ms": processing_time,
+                "cost_cents": 0
+            },
             db=db
         )
-
-        # Update operation record
-        processing_time = int((time.time() - start_time) * 1000)
-        operation.output_document_id = stored["document_id"]
-        operation.output_image_url = stored["file_url"]
-        operation.status = "completed"
-        operation.completed_at = db.execute("SELECT NOW()").scalar()
-        db.commit()
 
         logger.info(f"Remove background completed: {stored['document_id']} in {processing_time}ms")
 
         return ImageOperationResponse(
-            operation_id=str(operation.id),
             document_id=stored["document_id"],
             file_url=stored["file_url"],
             thumbnail_url=stored["thumbnail_url"],
@@ -1440,14 +1400,9 @@ async def remove_background(
         )
 
     except FalAIError as e:
-        operation.status = "failed"
-        operation.error_message = str(e)
-        db.commit()
+        logger.error(f"Remove background fal.ai error: {e}")
         raise HTTPException(status_code=e.status_code, detail=e.message)
     except Exception as e:
-        operation.status = "failed"
-        operation.error_message = str(e)
-        db.commit()
         logger.error(f"Remove background failed: {e}")
         raise HTTPException(status_code=500, detail=f"Background removal failed: {str(e)}")
 
@@ -1461,7 +1416,7 @@ async def upscale_image(
     """
     Upscale an image to higher resolution (2x or 4x).
 
-    Feature 029 - fal.ai Migration
+    Feature 029: Uses fal.ai Clarity Upscaler for AI-powered upscaling.
     """
     start_time = time.time()
 
@@ -1472,20 +1427,6 @@ async def upscale_image(
     ).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
-
-    # Create operation record
-    operation = ImageOperation(
-        project_id=request.project_id,
-        user_id=current_user.id,
-        operation_type="upscale",
-        input_image_url=request.image_url,
-        model_id=request.model,
-        model_params={"scale_factor": request.scale_factor},
-        status="processing"
-    )
-    db.add(operation)
-    db.commit()
-    db.refresh(operation)
 
     try:
         # Call fal.ai upscale API
@@ -1500,28 +1441,27 @@ async def upscale_image(
         if not image_url:
             raise FalAIError("No image returned from fal.ai")
 
-        # Download and store image
+        # Calculate processing time
+        processing_time = int((time.time() - start_time) * 1000)
+
+        # Download and store image with full metadata
         stored = await download_and_store_fal_image(
             image_url=image_url,
             project_id=request.project_id,
             title=f"Upscaled {request.scale_factor}x",
             operation_type="upscale",
             model_id=request.model,
+            generation_metadata={
+                "params": {"scale_factor": request.scale_factor},
+                "processing_time_ms": processing_time,
+                "cost_cents": 0
+            },
             db=db
         )
-
-        # Update operation record
-        processing_time = int((time.time() - start_time) * 1000)
-        operation.output_document_id = stored["document_id"]
-        operation.output_image_url = stored["file_url"]
-        operation.status = "completed"
-        operation.completed_at = db.execute("SELECT NOW()").scalar()
-        db.commit()
 
         logger.info(f"Upscale completed: {stored['document_id']} in {processing_time}ms")
 
         return ImageOperationResponse(
-            operation_id=str(operation.id),
             document_id=stored["document_id"],
             file_url=stored["file_url"],
             thumbnail_url=stored["thumbnail_url"],
@@ -1532,14 +1472,9 @@ async def upscale_image(
         )
 
     except FalAIError as e:
-        operation.status = "failed"
-        operation.error_message = str(e)
-        db.commit()
+        logger.error(f"Upscale fal.ai error: {e}")
         raise HTTPException(status_code=e.status_code, detail=e.message)
     except Exception as e:
-        operation.status = "failed"
-        operation.error_message = str(e)
-        db.commit()
         logger.error(f"Upscale failed: {e}")
         raise HTTPException(status_code=500, detail=f"Upscaling failed: {str(e)}")
 
@@ -1553,7 +1488,7 @@ async def enhance_image(
     """
     Enhance image quality (sharpness, colors, details).
 
-    Feature 029 - fal.ai Migration
+    Feature 029: Uses fal.ai Clarity Upscaler with enhancement presets.
     """
     start_time = time.time()
 
@@ -1564,20 +1499,6 @@ async def enhance_image(
     ).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
-
-    # Create operation record
-    operation = ImageOperation(
-        project_id=request.project_id,
-        user_id=current_user.id,
-        operation_type="enhance",
-        input_image_url=request.image_url,
-        model_id="fal-ai/clarity-upscaler",
-        model_params={"enhancement_type": request.enhancement_type},
-        status="processing"
-    )
-    db.add(operation)
-    db.commit()
-    db.refresh(operation)
 
     try:
         # Call fal.ai enhance API
@@ -1591,28 +1512,27 @@ async def enhance_image(
         if not image_url:
             raise FalAIError("No image returned from fal.ai")
 
-        # Download and store image
+        # Calculate processing time
+        processing_time = int((time.time() - start_time) * 1000)
+
+        # Download and store image with full metadata
         stored = await download_and_store_fal_image(
             image_url=image_url,
             project_id=request.project_id,
             title=f"Enhanced ({request.enhancement_type})",
             operation_type="enhance",
             model_id="fal-ai/clarity-upscaler",
+            generation_metadata={
+                "params": {"enhancement_type": request.enhancement_type},
+                "processing_time_ms": processing_time,
+                "cost_cents": 0
+            },
             db=db
         )
-
-        # Update operation record
-        processing_time = int((time.time() - start_time) * 1000)
-        operation.output_document_id = stored["document_id"]
-        operation.output_image_url = stored["file_url"]
-        operation.status = "completed"
-        operation.completed_at = db.execute("SELECT NOW()").scalar()
-        db.commit()
 
         logger.info(f"Enhance completed: {stored['document_id']} in {processing_time}ms")
 
         return ImageOperationResponse(
-            operation_id=str(operation.id),
             document_id=stored["document_id"],
             file_url=stored["file_url"],
             thumbnail_url=stored["thumbnail_url"],
@@ -1623,40 +1543,13 @@ async def enhance_image(
         )
 
     except FalAIError as e:
-        operation.status = "failed"
-        operation.error_message = str(e)
-        db.commit()
+        logger.error(f"Enhance fal.ai error: {e}")
         raise HTTPException(status_code=e.status_code, detail=e.message)
     except Exception as e:
-        operation.status = "failed"
-        operation.error_message = str(e)
-        db.commit()
         logger.error(f"Enhance failed: {e}")
         raise HTTPException(status_code=500, detail=f"Enhancement failed: {str(e)}")
 
 
-@router.get("/fal-models", response_model=FalModelListResponse)
-async def list_fal_models(
-    category: Optional[str] = None,
-    db: Session = Depends(get_db)
-):
-    """
-    List available fal.ai models grouped by category.
-
-    Feature 029 - fal.ai Migration
-    """
-    query = db.query(FalModelConfig).filter(FalModelConfig.is_visible == True)
-
-    if category:
-        query = query.filter(FalModelConfig.category == category)
-
-    query = query.order_by(FalModelConfig.sort_order)
-    models_list = query.all()
-
-    # Get unique categories
-    categories = list(set(m.category for m in models_list))
-
-    return FalModelListResponse(
-        models=[FalModelResponse.model_validate(m) for m in models_list],
-        categories=sorted(categories)
-    )
+# Note: /fal-models endpoint removed - follows CLAUDE.md "No Hardcoded Data" principle.
+# If needed in future, implement dynamic model fetching directly from fal.ai API.
+# Frontend should use hardcoded model IDs for now (e.g., "fal-ai/flux-pro/v1/fill").
