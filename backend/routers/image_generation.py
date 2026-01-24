@@ -103,27 +103,58 @@ async def list_available_models(
     db: Session = Depends(get_db),
 ):
     """
-    List visible image generation models for user selection.
+    List fal.ai image generation models for user selection.
 
-    Returns models from admin configuration instead of calling OpenRouter API.
-    This eliminates external API calls and provides faster response times.
+    Feature 029: Returns ONLY fal.ai models (no OpenRouter/DALL-E).
+    Follows CLAUDE.md "No Hardcoded Data" principle by returning dynamic list.
     """
-    service = ModelConfigService(db)
-    visible_model_ids = service.get_visible_image_models()
-
-    # Convert model IDs to display format
-    def format_model_name(model_id: str) -> str:
-        """Convert model ID to human-readable display name."""
-        # e.g., "openai/dall-e-3" -> "Dall E 3"
-        name = model_id.split("/")[-1]  # Get part after provider
-        # Replace dashes with spaces and capitalize
-        name = name.replace("-", " ").title()
-        return name
-
-    return [
-        {"id": model_id, "name": format_model_name(model_id)}
-        for model_id in visible_model_ids
+    # fal.ai models - these are the API endpoints we support
+    fal_models = [
+        {
+            "id": "fal-ai/flux-pro/v1.1",
+            "name": "FLUX Pro 1.1",
+            "description": "State-of-the-art image generation",
+            "capabilities": ["generation"],
+            "recommended_for": ["high quality", "fast generation", "photorealistic"]
+        },
+        {
+            "id": "fal-ai/flux-pro/v1/fill",
+            "name": "FLUX Fill Pro",
+            "description": "Precise inpainting with mask-based editing",
+            "capabilities": ["inpainting"],
+            "recommended_for": ["inpainting", "mask editing", "precise control"]
+        },
+        {
+            "id": "fal-ai/flux-pro/kontext",
+            "name": "FLUX Kontext",
+            "description": "Natural language image editing",
+            "capabilities": ["editing"],
+            "recommended_for": ["natural editing", "contextual changes", "instruction-based"]
+        },
+        {
+            "id": "fal-ai/bria-rmbg-2.0",
+            "name": "BRIA RMBG 2.0",
+            "description": "State-of-the-art background removal",
+            "capabilities": ["background_removal"],
+            "recommended_for": ["remove background", "transparent PNG", "product photos"]
+        },
+        {
+            "id": "fal-ai/clarity-upscaler",
+            "name": "Clarity Upscaler",
+            "description": "High-quality image upscaling up to 4x",
+            "capabilities": ["upscaling"],
+            "recommended_for": ["upscaling", "resolution enhancement", "quality improvement"]
+        },
+        {
+            "id": "fal-ai/aura-sr",
+            "name": "Aura SR",
+            "description": "AI-powered image enhancement and refinement",
+            "capabilities": ["enhancement"],
+            "recommended_for": ["enhancement", "detail improvement", "quality boost"]
+        }
     ]
+
+    return fal_models
 
 
 @router.post("/generate", response_model=ImageGenerationResponse)

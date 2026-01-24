@@ -16,7 +16,6 @@ class ModelProvider(str, Enum):
     OPENAI = "openai"
     ANTHROPIC = "anthropic"
     STABILITYAI = "stabilityai"
-    FALAI = "fal.ai"
 
 class TaskType(str, Enum):
     TEXT_GENERATION = "text_generation"
@@ -185,97 +184,6 @@ class ModelConfig:
             context_window=0,
             description="Open source high-resolution image generation",
             recommended_for=["high resolution", "artistic styles", "open source"]
-        ),
-        # fal.ai Models (Feature 029)
-        ModelCapability(
-            model_id="fal-ai/flux-pro/v1.1",
-            model_name="FLUX Pro 1.1",
-            provider=ModelProvider.FALAI,
-            task_types=[TaskType.IMAGE_GENERATION],
-            max_tokens=0,
-            supports_streaming=False,
-            supports_json_mode=False,
-            supports_vision=False,
-            cost_per_1k_input_tokens=0.0,
-            cost_per_1k_output_tokens=0.0,
-            context_window=0,
-            description="State-of-the-art image generation with FLUX Pro 1.1",
-            recommended_for=["high quality", "fast generation", "photorealistic"]
-        ),
-        ModelCapability(
-            model_id="fal-ai/flux-pro/v1/fill",
-            model_name="FLUX Fill Pro",
-            provider=ModelProvider.FALAI,
-            task_types=[TaskType.IMAGE_GENERATION],
-            max_tokens=0,
-            supports_streaming=False,
-            supports_json_mode=False,
-            supports_vision=False,
-            cost_per_1k_input_tokens=0.0,
-            cost_per_1k_output_tokens=0.0,
-            context_window=0,
-            description="Precise inpainting with mask-based editing",
-            recommended_for=["inpainting", "mask editing", "precise control"]
-        ),
-        ModelCapability(
-            model_id="fal-ai/flux-pro/kontext",
-            model_name="FLUX Kontext",
-            provider=ModelProvider.FALAI,
-            task_types=[TaskType.IMAGE_GENERATION],
-            max_tokens=0,
-            supports_streaming=False,
-            supports_json_mode=False,
-            supports_vision=False,
-            cost_per_1k_input_tokens=0.0,
-            cost_per_1k_output_tokens=0.0,
-            context_window=0,
-            description="Natural language image editing with context understanding",
-            recommended_for=["natural editing", "contextual changes", "instruction-based"]
-        ),
-        ModelCapability(
-            model_id="fal-ai/bria-rmbg-2.0",
-            model_name="BRIA RMBG 2.0",
-            provider=ModelProvider.FALAI,
-            task_types=[TaskType.IMAGE_GENERATION],
-            max_tokens=0,
-            supports_streaming=False,
-            supports_json_mode=False,
-            supports_vision=False,
-            cost_per_1k_input_tokens=0.0,
-            cost_per_1k_output_tokens=0.0,
-            context_window=0,
-            description="State-of-the-art background removal",
-            recommended_for=["remove background", "transparent PNG", "product photos"]
-        ),
-        ModelCapability(
-            model_id="fal-ai/clarity-upscaler",
-            model_name="Clarity Upscaler",
-            provider=ModelProvider.FALAI,
-            task_types=[TaskType.IMAGE_GENERATION],
-            max_tokens=0,
-            supports_streaming=False,
-            supports_json_mode=False,
-            supports_vision=False,
-            cost_per_1k_input_tokens=0.0,
-            cost_per_1k_output_tokens=0.0,
-            context_window=0,
-            description="High-quality image upscaling up to 4x",
-            recommended_for=["upscaling", "resolution enhancement", "quality improvement"]
-        ),
-        ModelCapability(
-            model_id="fal-ai/aura-sr",
-            model_name="Aura SR",
-            provider=ModelProvider.FALAI,
-            task_types=[TaskType.IMAGE_GENERATION],
-            max_tokens=0,
-            supports_streaming=False,
-            supports_json_mode=False,
-            supports_vision=False,
-            cost_per_1k_input_tokens=0.0,
-            cost_per_1k_output_tokens=0.0,
-            context_window=0,
-            description="AI-powered image enhancement and refinement",
-            recommended_for=["enhancement", "detail improvement", "quality boost"]
         ),
     ]
 

@@ -227,6 +227,13 @@ export default function StudioPage() {
     toast.success('Ajuste concluído!');
   };
 
+  // Handler for "Refinar" button - goes to Edit tab with image pre-selected
+  const handleRefine = useCallback((image: GeneratedImage) => {
+    setSelectedImageForEdit(image);
+    setActiveTab('editar');
+    toast.info('Imagem selecionada para edição');
+  }, []);
+
   // Loading state
   if (authLoading || bootstrapLoading) {
     return (
@@ -723,7 +730,7 @@ export default function StudioPage() {
                       pendingCount={studio.pendingCount}
                       onExpand={handleExpand}
                       onSave={studio.save}
-                      onRefine={studio.refine}
+                      onRefine={handleRefine}
                       onAttach={handleAttachImage}
                       canAttach={!!selectedDocumentId}
                     />
