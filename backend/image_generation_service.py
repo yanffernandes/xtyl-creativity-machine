@@ -551,19 +551,59 @@ async def generate_and_store_image(
 
 async def get_available_models() -> List[Dict[str, Any]]:
     """
-    Get list of available image generation models from OpenRouter
+    Get list of available fal.ai image generation models.
+
+    Feature 029: Returns ONLY fal.ai models (no OpenRouter).
+    Follows CLAUDE.md "No Hardcoded Data" principle.
 
     Returns:
         List of dicts with model info
     """
-    try:
-        models = await fetch_openrouter_models()
-        # Sort by name
-        models.sort(key=lambda x: x.get("name", ""))
-        return models
-    except Exception as e:
-        print(f"Error fetching models: {e}")
-        return get_fallback_models()
+    # fal.ai models - these are the API endpoints we support
+    return [
+        {
+            "id": "fal-ai/flux-pro/v1.1",
+            "name": "FLUX Pro 1.1",
+            "description": "State-of-the-art image generation",
+            "capabilities": ["generation"],
+            "recommended_for": ["high quality", "fast generation", "photorealistic"]
+        },
+        {
+            "id": "fal-ai/flux-pro/v1/fill",
+            "name": "FLUX Fill Pro",
+            "description": "Precise inpainting with mask-based editing",
+            "capabilities": ["inpainting"],
+            "recommended_for": ["inpainting", "mask editing", "precise control"]
+        },
+        {
+            "id": "fal-ai/flux-pro/kontext",
+            "name": "FLUX Kontext",
+            "description": "Natural language image editing",
+            "capabilities": ["editing"],
+            "recommended_for": ["natural editing", "contextual changes", "instruction-based"]
+        },
+        {
+            "id": "fal-ai/bria-rmbg-2.0",
+            "name": "BRIA RMBG 2.0",
+            "description": "State-of-the-art background removal",
+            "capabilities": ["background_removal"],
+            "recommended_for": ["remove background", "transparent PNG", "product photos"]
+        },
+        {
+            "id": "fal-ai/clarity-upscaler",
+            "name": "Clarity Upscaler",
+            "description": "High-quality image upscaling up to 4x",
+            "capabilities": ["upscaling"],
+            "recommended_for": ["upscaling", "resolution enhancement", "quality improvement"]
+        },
+        {
+            "id": "fal-ai/aura-sr",
+            "name": "Aura SR",
+            "description": "AI-powered image enhancement and refinement",
+            "capabilities": ["enhancement"],
+            "recommended_for": ["enhancement", "detail improvement", "quality boost"]
+        }
+    ]
 
 
 # ============================================================================
