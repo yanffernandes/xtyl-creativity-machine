@@ -110,13 +110,43 @@ async def list_available_models(
     """
     # fal.ai models - these are the API endpoints we support
     fal_models = [
+        # Generation models
         {
             "id": "fal-ai/flux-pro/v1.1",
             "name": "FLUX Pro 1.1",
-            "description": "State-of-the-art image generation",
+            "description": "State-of-the-art image generation with best quality",
             "capabilities": ["generation"],
-            "recommended_for": ["high quality", "fast generation", "photorealistic"]
+            "recommended_for": ["high quality", "commercial use", "photorealistic"]
         },
+        {
+            "id": "fal-ai/flux-pro/v1.1-ultra",
+            "name": "FLUX Pro 1.1 Ultra",
+            "description": "Ultra-high quality image generation",
+            "capabilities": ["generation"],
+            "recommended_for": ["maximum quality", "professional", "print-ready"]
+        },
+        {
+            "id": "fal-ai/flux/dev",
+            "name": "FLUX Dev",
+            "description": "Fast and efficient open-source image generation",
+            "capabilities": ["generation"],
+            "recommended_for": ["fast generation", "open source", "experimentation"]
+        },
+        {
+            "id": "fal-ai/flux/schnell",
+            "name": "FLUX Schnell",
+            "description": "Ultra-fast image generation (4 steps)",
+            "capabilities": ["generation"],
+            "recommended_for": ["speed", "rapid prototyping", "iterations"]
+        },
+        {
+            "id": "fal-ai/flux-realism",
+            "name": "FLUX Realism",
+            "description": "Photorealistic image generation",
+            "capabilities": ["generation"],
+            "recommended_for": ["photorealism", "portraits", "realistic scenes"]
+        },
+        # Editing models
         {
             "id": "fal-ai/flux-pro/v1/fill",
             "name": "FLUX Fill Pro",
@@ -131,6 +161,7 @@ async def list_available_models(
             "capabilities": ["editing"],
             "recommended_for": ["natural editing", "contextual changes", "instruction-based"]
         },
+        # Utility models
         {
             "id": "fal-ai/bria-rmbg-2.0",
             "name": "BRIA RMBG 2.0",

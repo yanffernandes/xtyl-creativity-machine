@@ -10,7 +10,8 @@
  * Mask overlay color: Red (50% opacity) - industry standard
  */
 
-import { useRef, useEffect, useCallback, forwardRef, useImperativeHandle } from 'react';
+import { useRef, useEffect, useCallback, forwardRef, useImperativeHandle, useState } from 'react';
+import Image from 'next/image';
 import { cn } from '@/lib/utils';
 import type { BrushMode, MaskData } from '@/hooks/useBrushCanvas';
 
@@ -78,11 +79,11 @@ export const BrushCanvas = forwardRef<BrushCanvasRef, BrushCanvasProps>(
   ) {
     const containerRef = useRef<HTMLDivElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
-    const imageRef = useRef<HTMLImageElement>(null);
     const ctxRef = useRef<CanvasRenderingContext2D | null>(null);
     const lastPosRef = useRef<{ x: number; y: number } | null>(null);
     const animationFrameRef = useRef<number | null>(null);
     const pendingDrawsRef = useRef<{ x: number; y: number }[]>([]);
+    const [imageLoaded, setImageLoaded] = useState(false);
 
     // Initialize canvas context
     useEffect(() => {
@@ -363,14 +364,18 @@ export const BrushCanvas = forwardRef<BrushCanvasRef, BrushCanvasProps>(
         className={cn('relative overflow-hidden rounded-lg', className)}
         style={{ width, height }}
       >
-        {/* Background image */}
-        <img
-          ref={imageRef}
-          src={imageUrl}
-          alt="Image to edit"
-          className="absolute inset-0 w-full h-full object-contain pointer-events-none"
-          crossOrigin="anonymous"
-        />
+        {/* Background image - Using Next.js Image to avoid CORS issues */}
+        <div className="absolute inset-0 w-full h-full pointer-events-none">
+          <Image
+            src={imageUrl}
+            alt="Image to edit"
+            fill
+            className="object-contain"
+            onLoad={() => setImageLoaded(true)}
+            priority
+            unoptimized // Don't optimize to preserve exact pixels for mask
+          />
+        </div>
 
         {/* Drawing canvas overlay */}
         <canvas
