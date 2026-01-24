@@ -143,22 +143,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             isLoading: false,
         });
 
-        // Fetch full user profile (including is_super_admin) from backend
-        if (session) {
-            await get().fetchUser();
-        }
-
         // Set up auth state change listener
-        supabase.auth.onAuthStateChange(async (_event, session) => {
+        // Note: Backend handles admin access control via /admin/verify endpoint
+        supabase.auth.onAuthStateChange((_event, session) => {
             set({
                 session,
                 token: session?.access_token || null,
                 user: mapSupabaseUser(session?.user || null),
             });
-            // Fetch full user profile when session changes
-            if (session) {
-                await get().fetchUser();
-            }
         });
     },
 }));

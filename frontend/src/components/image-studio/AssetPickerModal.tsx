@@ -283,11 +283,18 @@ export function AssetPickerModal({
 
                 return (
                   <div key={asset.id} className="relative group">
-                    <button
-                      type="button"
+                    <div
+                      role="button"
+                      tabIndex={0}
                       onClick={() => handleQuickSelect(asset)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          handleQuickSelect(asset);
+                        }
+                      }}
                       className={cn(
-                        'relative w-full aspect-square rounded-lg overflow-hidden',
+                        'relative w-full aspect-square rounded-lg overflow-hidden cursor-pointer',
                         'ring-2 transition-all duration-200',
                         isSelected && modeConfig
                           ? modeConfig.ringClass
@@ -354,7 +361,7 @@ export function AssetPickerModal({
                           );
                         })}
                       </div>
-                    </button>
+                    </div>
 
                     {/* Asset name */}
                     <p className="mt-1 text-xs text-gray-500 dark:text-gray-400 truncate text-center">

@@ -94,23 +94,20 @@ export function ImageExpandModal({
     };
   }, [isOpen]);
 
-  const handleDownload = async () => {
+  const handleDownload = () => {
     if (!image?.file_url) return;
 
-    try {
-      const response = await fetch(image.file_url);
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = image.title || `image-${currentIndex + 1}.png`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error('Failed to download image:', error);
-    }
+    // Open in new tab for download (avoids CORS issues with R2)
+    // The browser will handle the download based on Content-Disposition header
+    const link = document.createElement('a');
+    link.href = image.file_url;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    // Try to trigger download, but browser may open in new tab if CORS blocks download attribute
+    link.download = image.title || `image-${currentIndex + 1}.png`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   return (

@@ -1782,3 +1782,85 @@ class ImageBatchRequestExtended(BaseModel):
     campaign_id: Optional[str] = None
     tags: Optional[List[str]] = None
     channel: Optional[str] = None
+
+
+# ============================================================================
+# FAL.AI IMAGE OPERATIONS SCHEMAS (Feature 029)
+# ============================================================================
+
+class InpaintRequest(BaseModel):
+    """Request for mask-based inpainting"""
+    image_url: str = Field(..., description="URL of the original image to edit")
+    mask_url: str = Field(..., description="URL of the mask image (white=edit, black=preserve)")
+    prompt: str = Field(..., description="Instruction for what to add/change in the masked area")
+    project_id: str
+    model: str = Field("fal-ai/flux-pro/v1/fill", description="Model to use for inpainting")
+    guidance_scale: float = Field(30.0, ge=1.0, le=50.0, description="How closely to follow the prompt")
+    num_inference_steps: int = Field(50, ge=10, le=100, description="Number of denoising steps")
+
+
+class EditRequest(BaseModel):
+    """Request for natural language image editing"""
+    image_url: str = Field(..., description="URL of the image to edit")
+    prompt: str = Field(..., description="Natural language instruction for editing")
+    project_id: str
+    model: str = Field("fal-ai/flux-pro/kontext", description="Model to use for editing")
+    preserve_elements: Optional[List[str]] = Field(None, description="Elements to preserve during editing (e.g., ['face', 'clothing'])")
+    guidance_scale: float = Field(3.5, ge=1.0, le=20.0)
+
+
+class RemoveBackgroundRequest(BaseModel):
+    """Request for background removal"""
+    image_url: str = Field(..., description="URL of the image")
+    project_id: str
+    output_format: str = Field("png", description="Output format (png recommended for transparency)")
+
+
+class UpscaleRequest(BaseModel):
+    """Request for image upscaling"""
+    image_url: str = Field(..., description="URL of the image")
+    project_id: str
+    scale_factor: float = Field(2.0, ge=1.0, le=4.0, description="Upscale factor (2 or 4)")
+    model: str = Field("fal-ai/clarity-upscaler", description="Model to use for upscaling")
+
+
+class EnhanceRequest(BaseModel):
+    """Request for image enhancement"""
+    image_url: str = Field(..., description="URL of the image")
+    project_id: str
+    enhancement_type: str = Field("auto", description="Type of enhancement: auto, faces, details, colors")
+
+
+class ImageOperationResponse(BaseModel):
+    """Response for image operations"""
+    operation_id: str
+    document_id: str
+    file_url: str
+    thumbnail_url: str
+    operation_type: str
+    model_used: str
+    cost_cents: int = 0
+    processing_time_ms: Optional[int] = None
+
+
+class FalModelResponse(BaseModel):
+    """fal.ai model configuration response"""
+    id: str
+    model_id: str
+    display_name: str
+    description: Optional[str] = None
+    category: str
+    supports_mask: bool = False
+    supports_reference: bool = False
+    price_per_mp: Optional[float] = None
+    price_per_image: Optional[float] = None
+    is_default: bool = False
+
+    class Config:
+        from_attributes = True
+
+
+class FalModelListResponse(BaseModel):
+    """List of fal.ai models grouped by category"""
+    models: List[FalModelResponse]
+    categories: List[str]

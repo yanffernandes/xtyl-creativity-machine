@@ -35,6 +35,8 @@ Auto-generated from all feature plans. Last updated: 2025-11-28
 - PostgreSQL (Supabase) + Cloudflare R2 (arquivos de imagem) (028-image-architecture-refactor)
 - Python 3.11 (Backend), TypeScript 5.x (Frontend) + FastAPI, SQLAlchemy, Next.js 14, React 18, Shadcn/UI, React Query, Canvas API (brush) (028-image-architecture-refactor)
 - PostgreSQL (Supabase) with pgvector, Cloudflare R2 (images, masks) (028-image-architecture-refactor)
+- Python 3.11 (Backend), TypeScript 5.x (Frontend) + FastAPI, SQLAlchemy, httpx, tenacity (Backend); Next.js 14, React 18, Shadcn/UI, HTML5 Canvas API (Frontend) (029-fal-ai-migration)
+- Supabase PostgreSQL + Cloudflare R2 (images/masks) (029-fal-ai-migration)
 
 ### Core Stack
 - **Backend**: Python 3.11, FastAPI, SQLAlchemy
@@ -118,9 +120,9 @@ TypeScript 5.x (Frontend), Node.js 20+ (Build tools): Follow standard convention
 - Follow mobile-first responsive design
 
 ## Recent Changes
+- 029-fal-ai-migration: Added Python 3.11 (Backend), TypeScript 5.x (Frontend) + FastAPI, SQLAlchemy, httpx, tenacity (Backend); Next.js 14, React 18, Shadcn/UI, HTML5 Canvas API (Frontend)
 - 028-image-architecture-refactor: Added Python 3.11 (Backend), TypeScript 5.x (Frontend) + FastAPI, SQLAlchemy, Next.js 14, React 18, Shadcn/UI, React Query, Canvas API (brush)
 - 028-image-architecture-refactor: Added Python 3.11 (Backend), TypeScript 5.x (Frontend) + FastAPI, SQLAlchemy, Next.js 14, React 18, Shadcn/UI, React Query
-- 026-smart-image-generation: Added Python 3.11 (Backend), TypeScript 5.x (Frontend) + FastAPI, SQLAlchemy, OpenRouter API (Backend); Next.js 14, React 18, Shadcn/UI (Frontend)
 
 
 <!-- MANUAL ADDITIONS START -->

@@ -910,4 +910,165 @@ export async function deleteCampaign(projectId: string, campaignId: string): Pro
     await api.delete(`/projects/${projectId}/campaigns/${campaignId}`);
 }
 
+// ============================================================================
+// fal.ai Image Operations API (Feature 029 - fal.ai Migration)
+// ============================================================================
+
+export type ImageOperationType = 'inpaint' | 'edit' | 'remove_bg' | 'upscale' | 'enhance' | 'generate';
+export type OperationStatus = 'pending' | 'processing' | 'completed' | 'failed';
+export type ModelCategory = 'generation' | 'editing' | 'utility' | 'video';
+
+export interface ImageOperationResponse {
+    operation_id: string;
+    document_id: string;
+    file_url: string;
+    thumbnail_url: string;
+    operation_type: ImageOperationType;
+    model_used: string;
+    cost_cents: number;
+    processing_time_ms?: number;
+}
+
+export interface FalModel {
+    id: string;
+    model_id: string;
+    display_name: string;
+    description: string | null;
+    category: ModelCategory;
+    supports_mask: boolean;
+    supports_reference: boolean;
+    supports_prompt: boolean;
+    max_resolution: number;
+    supported_aspect_ratios: string[];
+    price_per_mp: number | null;
+    price_per_image: number | null;
+    is_visible: boolean;
+    is_default: boolean;
+}
+
+export interface FalModelListResponse {
+    models: FalModel[];
+    categories: string[];
+}
+
+// Inpaint Request/Response
+export interface InpaintRequest {
+    image_url: string;
+    mask_url: string;
+    prompt: string;
+    project_id: string;
+    model?: string;
+    guidance_scale?: number;
+    num_inference_steps?: number;
+}
+
+/**
+ * Inpaint image with mask using fal.ai
+ * White areas in mask will be edited, black areas preserved
+ */
+export async function inpaintImage(request: InpaintRequest): Promise<ImageOperationResponse> {
+    const response = await api.post('/image-generation/inpaint', request);
+    return response.data;
+}
+
+// Edit Request/Response
+export interface EditRequest {
+    image_url: string;
+    prompt: string;
+    project_id: string;
+    model?: string;
+    preserve_elements?: string[];
+    guidance_scale?: number;
+}
+
+/**
+ * Edit image with natural language instructions using fal.ai
+ */
+export async function editImage(request: EditRequest): Promise<ImageOperationResponse> {
+    const response = await api.post('/image-generation/edit', request);
+    return response.data;
+}
+
+// Remove Background Request/Response
+export interface RemoveBackgroundRequest {
+    image_url: string;
+    project_id: string;
+    output_format?: 'png' | 'webp';
+}
+
+/**
+ * Remove background from image using fal.ai
+ * Returns PNG with alpha channel transparency
+ */
+export async function removeBackground(request: RemoveBackgroundRequest): Promise<ImageOperationResponse> {
+    const response = await api.post('/image-generation/remove-background', request);
+    return response.data;
+}
+
+// Upscale Request/Response
+export interface UpscaleRequest {
+    image_url: string;
+    project_id: string;
+    scale_factor?: number; // 2 or 4
+    model?: string;
+}
+
+/**
+ * Upscale image resolution using fal.ai
+ */
+export async function upscaleImage(request: UpscaleRequest): Promise<ImageOperationResponse> {
+    const response = await api.post('/image-generation/upscale', request);
+    return response.data;
+}
+
+// Enhance Request/Response
+export interface EnhanceRequest {
+    image_url: string;
+    project_id: string;
+    enhancement_type?: 'auto' | 'faces' | 'details' | 'colors';
+}
+
+/**
+ * Enhance image quality using fal.ai
+ */
+export async function enhanceImage(request: EnhanceRequest): Promise<ImageOperationResponse> {
+    const response = await api.post('/image-generation/enhance', request);
+    return response.data;
+}
+
+/**
+ * Get list of available fal.ai models
+ * @param category Optional filter by category (generation, editing, utility, video)
+ */
+export async function getFalModels(category?: ModelCategory): Promise<FalModelListResponse> {
+    const params = category ? { category } : undefined;
+    const response = await api.get('/image-generation/fal-models', { params });
+    return response.data;
+}
+
+/**
+ * Upload mask data URL to storage and return the URL
+ * Helper function to convert base64 mask to uploaded file
+ */
+export async function uploadMaskFromDataUrl(
+    dataUrl: string,
+    projectId: string
+): Promise<{ url: string }> {
+    // Convert data URL to blob
+    const response = await fetch(dataUrl);
+    const blob = await response.blob();
+
+    // Create form data
+    const formData = new FormData();
+    formData.append('file', blob, 'mask.png');
+    formData.append('project_id', projectId);
+
+    // Upload to storage
+    const uploadResponse = await api.post('/storage/upload-mask', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+    });
+
+    return uploadResponse.data;
+}
+
 export default api;

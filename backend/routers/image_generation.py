@@ -1,7 +1,8 @@
 """
 Image Generation Router
-Endpoints for AI-powered image generation using OpenRouter.
+Endpoints for AI-powered image generation using OpenRouter and fal.ai.
 Includes Visual Generation Studio endpoints (Feature 027).
+Feature 029: fal.ai migration for advanced editing (inpaint, edit, utilities).
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
@@ -12,6 +13,9 @@ from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
 import asyncio
 import uuid
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class ReferenceAsset(BaseModel):
@@ -20,13 +24,14 @@ class ReferenceAsset(BaseModel):
     usage_mode: str  # 'style', 'compose', 'base'
 from database import get_db
 import models
-from models import StylePreset
+from models import StylePreset, ImageOperation, FalModelConfig
 from image_generation_service import (
     generate_and_store_image,
     DEFAULT_MODEL
 )
 from image_naming_service import generate_image_title
 from services.model_config_service import ModelConfigService
+from services.fal_ai_service import fal_service, FalAIError, FalAIAuthError, FalAICreditsError
 from ai_usage_service import log_ai_usage
 from pricing_service import calculate_image_cost, fetch_generation_cost
 from supabase_auth import get_current_user, get_current_user_from_token
@@ -38,7 +43,10 @@ from services.prompt_enrichment_service import (
 )
 from schemas import (
     StylePreset as StylePresetSchema, StylePresetList,
-    ImageBatchRequest, ImageBatchResponse, ImageBatchProgress
+    ImageBatchRequest, ImageBatchResponse, ImageBatchProgress,
+    InpaintRequest, EditRequest, RemoveBackgroundRequest,
+    UpscaleRequest, EnhanceRequest, ImageOperationResponse,
+    FalModelResponse, FalModelListResponse
 )
 import time
 import json
@@ -1079,3 +1087,591 @@ async def get_batch_status(
         raise HTTPException(status_code=404, detail="Batch not found or already completed")
 
     return progress
+
+
+# ============================================================================
+# FAL.AI IMAGE OPERATIONS ENDPOINTS (Feature 029)
+# ============================================================================
+
+async def download_and_store_fal_image(
+    image_url: str,
+    project_id: str,
+    title: str,
+    prompt: Optional[str] = None,
+    operation_type: str = "edit",
+    model_id: str = "fal.ai",
+    db: Session = None
+) -> Dict[str, Any]:
+    """
+    Download image from fal.ai result URL and store in R2.
+    Creates a document record for the image.
+    """
+    import httpx
+    from storage_service import upload_image_to_r2, generate_thumbnail
+
+    async with httpx.AsyncClient() as client:
+        response = await client.get(image_url)
+        response.raise_for_status()
+        image_data = response.content
+
+    # Determine content type
+    content_type = response.headers.get("content-type", "image/png")
+
+    # Upload to R2
+    file_url = await upload_image_to_r2(
+        image_data,
+        project_id=project_id,
+        content_type=content_type
+    )
+
+    # Generate thumbnail
+    thumbnail_url = await generate_thumbnail(image_data, project_id)
+
+    # Create document record
+    document = models.Document(
+        title=title,
+        content=prompt or "",
+        media_type="image",
+        status="art_ok",
+        project_id=project_id,
+        file_url=file_url,
+        thumbnail_url=thumbnail_url,
+        generation_metadata={
+            "provider": "fal.ai",
+            "model": model_id,
+            "operation_type": operation_type
+        }
+    )
+
+    db.add(document)
+    db.commit()
+    db.refresh(document)
+
+    return {
+        "document_id": document.id,
+        "file_url": file_url,
+        "thumbnail_url": thumbnail_url
+    }
+
+
+@router.post("/inpaint", response_model=ImageOperationResponse)
+async def inpaint_image(
+    request: InpaintRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Edit an image using a mask (inpainting).
+    White areas in mask will be edited, black areas preserved.
+
+    Feature 029 - fal.ai Migration
+    """
+    start_time = time.time()
+
+    # Verify project exists
+    project = db.query(Project).filter(
+        Project.id == request.project_id,
+        Project.deleted_at == None
+    ).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    # Create operation record
+    operation = ImageOperation(
+        project_id=request.project_id,
+        user_id=current_user.id,
+        operation_type="inpaint",
+        input_image_url=request.image_url,
+        mask_url=request.mask_url,
+        prompt=request.prompt,
+        model_id=request.model,
+        model_params={
+            "guidance_scale": request.guidance_scale,
+            "num_inference_steps": request.num_inference_steps
+        },
+        status="processing"
+    )
+    db.add(operation)
+    db.commit()
+    db.refresh(operation)
+
+    try:
+        # Call fal.ai inpaint API
+        result = await fal_service.inpaint(
+            image_url=request.image_url,
+            mask_url=request.mask_url,
+            prompt=request.prompt,
+            model=request.model,
+            guidance_scale=request.guidance_scale,
+            num_inference_steps=request.num_inference_steps
+        )
+
+        # Get result image URL
+        image_url = result.get("images", [{}])[0].get("url") or result.get("image", {}).get("url")
+        if not image_url:
+            raise FalAIError("No image returned from fal.ai")
+
+        # Download and store image
+        stored = await download_and_store_fal_image(
+            image_url=image_url,
+            project_id=request.project_id,
+            title=f"Inpaint: {request.prompt[:50]}...",
+            prompt=request.prompt,
+            operation_type="inpaint",
+            model_id=request.model,
+            db=db
+        )
+
+        # Update operation record
+        processing_time = int((time.time() - start_time) * 1000)
+        operation.output_document_id = stored["document_id"]
+        operation.output_image_url = stored["file_url"]
+        operation.status = "completed"
+        operation.completed_at = db.execute("SELECT NOW()").scalar()
+        db.commit()
+
+        logger.info(f"Inpaint completed: {stored['document_id']} in {processing_time}ms")
+
+        return ImageOperationResponse(
+            operation_id=str(operation.id),
+            document_id=stored["document_id"],
+            file_url=stored["file_url"],
+            thumbnail_url=stored["thumbnail_url"],
+            operation_type="inpaint",
+            model_used=request.model,
+            cost_cents=0,
+            processing_time_ms=processing_time
+        )
+
+    except FalAIAuthError as e:
+        operation.status = "failed"
+        operation.error_message = str(e)
+        db.commit()
+        raise HTTPException(status_code=401, detail=e.message)
+    except FalAICreditsError as e:
+        operation.status = "failed"
+        operation.error_message = str(e)
+        db.commit()
+        raise HTTPException(status_code=402, detail=e.message)
+    except FalAIError as e:
+        operation.status = "failed"
+        operation.error_message = str(e)
+        db.commit()
+        raise HTTPException(status_code=e.status_code, detail=e.message)
+    except Exception as e:
+        operation.status = "failed"
+        operation.error_message = str(e)
+        db.commit()
+        logger.error(f"Inpaint failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Inpainting failed: {str(e)}")
+
+
+@router.post("/edit", response_model=ImageOperationResponse)
+async def edit_image(
+    request: EditRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Edit an image using natural language instructions.
+
+    Feature 029 - fal.ai Migration
+    """
+    start_time = time.time()
+
+    # Verify project exists
+    project = db.query(Project).filter(
+        Project.id == request.project_id,
+        Project.deleted_at == None
+    ).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    # Create operation record
+    operation = ImageOperation(
+        project_id=request.project_id,
+        user_id=current_user.id,
+        operation_type="edit",
+        input_image_url=request.image_url,
+        prompt=request.prompt,
+        model_id=request.model,
+        model_params={
+            "preserve_elements": request.preserve_elements,
+            "guidance_scale": request.guidance_scale
+        },
+        status="processing"
+    )
+    db.add(operation)
+    db.commit()
+    db.refresh(operation)
+
+    try:
+        # Call fal.ai edit API
+        result = await fal_service.edit(
+            image_url=request.image_url,
+            prompt=request.prompt,
+            model=request.model,
+            preserve_elements=request.preserve_elements,
+            guidance_scale=request.guidance_scale
+        )
+
+        # Get result image URL
+        image_url = result.get("images", [{}])[0].get("url") or result.get("image", {}).get("url")
+        if not image_url:
+            raise FalAIError("No image returned from fal.ai")
+
+        # Download and store image
+        stored = await download_and_store_fal_image(
+            image_url=image_url,
+            project_id=request.project_id,
+            title=f"Edit: {request.prompt[:50]}...",
+            prompt=request.prompt,
+            operation_type="edit",
+            model_id=request.model,
+            db=db
+        )
+
+        # Update operation record
+        processing_time = int((time.time() - start_time) * 1000)
+        operation.output_document_id = stored["document_id"]
+        operation.output_image_url = stored["file_url"]
+        operation.status = "completed"
+        operation.completed_at = db.execute("SELECT NOW()").scalar()
+        db.commit()
+
+        logger.info(f"Edit completed: {stored['document_id']} in {processing_time}ms")
+
+        return ImageOperationResponse(
+            operation_id=str(operation.id),
+            document_id=stored["document_id"],
+            file_url=stored["file_url"],
+            thumbnail_url=stored["thumbnail_url"],
+            operation_type="edit",
+            model_used=request.model,
+            cost_cents=0,
+            processing_time_ms=processing_time
+        )
+
+    except FalAIAuthError as e:
+        operation.status = "failed"
+        operation.error_message = str(e)
+        db.commit()
+        raise HTTPException(status_code=401, detail=e.message)
+    except FalAICreditsError as e:
+        operation.status = "failed"
+        operation.error_message = str(e)
+        db.commit()
+        raise HTTPException(status_code=402, detail=e.message)
+    except FalAIError as e:
+        operation.status = "failed"
+        operation.error_message = str(e)
+        db.commit()
+        raise HTTPException(status_code=e.status_code, detail=e.message)
+    except Exception as e:
+        operation.status = "failed"
+        operation.error_message = str(e)
+        db.commit()
+        logger.error(f"Edit failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Image editing failed: {str(e)}")
+
+
+@router.post("/remove-background", response_model=ImageOperationResponse)
+async def remove_background(
+    request: RemoveBackgroundRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Remove the background from an image.
+    Returns PNG with transparency.
+
+    Feature 029 - fal.ai Migration
+    """
+    start_time = time.time()
+
+    # Verify project exists
+    project = db.query(Project).filter(
+        Project.id == request.project_id,
+        Project.deleted_at == None
+    ).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    # Create operation record
+    operation = ImageOperation(
+        project_id=request.project_id,
+        user_id=current_user.id,
+        operation_type="remove_bg",
+        input_image_url=request.image_url,
+        model_id="fal-ai/bria/background/remove",
+        model_params={"output_format": request.output_format},
+        status="processing"
+    )
+    db.add(operation)
+    db.commit()
+    db.refresh(operation)
+
+    try:
+        # Call fal.ai remove background API
+        result = await fal_service.remove_background(
+            image_url=request.image_url,
+            output_format=request.output_format
+        )
+
+        # Get result image URL
+        image_url = result.get("image", {}).get("url")
+        if not image_url:
+            raise FalAIError("No image returned from fal.ai")
+
+        # Download and store image
+        stored = await download_and_store_fal_image(
+            image_url=image_url,
+            project_id=request.project_id,
+            title="Background Removed",
+            operation_type="remove_bg",
+            model_id="fal-ai/bria/background/remove",
+            db=db
+        )
+
+        # Update operation record
+        processing_time = int((time.time() - start_time) * 1000)
+        operation.output_document_id = stored["document_id"]
+        operation.output_image_url = stored["file_url"]
+        operation.status = "completed"
+        operation.completed_at = db.execute("SELECT NOW()").scalar()
+        db.commit()
+
+        logger.info(f"Remove background completed: {stored['document_id']} in {processing_time}ms")
+
+        return ImageOperationResponse(
+            operation_id=str(operation.id),
+            document_id=stored["document_id"],
+            file_url=stored["file_url"],
+            thumbnail_url=stored["thumbnail_url"],
+            operation_type="remove_bg",
+            model_used="fal-ai/bria/background/remove",
+            cost_cents=0,
+            processing_time_ms=processing_time
+        )
+
+    except FalAIError as e:
+        operation.status = "failed"
+        operation.error_message = str(e)
+        db.commit()
+        raise HTTPException(status_code=e.status_code, detail=e.message)
+    except Exception as e:
+        operation.status = "failed"
+        operation.error_message = str(e)
+        db.commit()
+        logger.error(f"Remove background failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Background removal failed: {str(e)}")
+
+
+@router.post("/upscale", response_model=ImageOperationResponse)
+async def upscale_image(
+    request: UpscaleRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Upscale an image to higher resolution (2x or 4x).
+
+    Feature 029 - fal.ai Migration
+    """
+    start_time = time.time()
+
+    # Verify project exists
+    project = db.query(Project).filter(
+        Project.id == request.project_id,
+        Project.deleted_at == None
+    ).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    # Create operation record
+    operation = ImageOperation(
+        project_id=request.project_id,
+        user_id=current_user.id,
+        operation_type="upscale",
+        input_image_url=request.image_url,
+        model_id=request.model,
+        model_params={"scale_factor": request.scale_factor},
+        status="processing"
+    )
+    db.add(operation)
+    db.commit()
+    db.refresh(operation)
+
+    try:
+        # Call fal.ai upscale API
+        result = await fal_service.upscale(
+            image_url=request.image_url,
+            scale_factor=request.scale_factor,
+            model=request.model
+        )
+
+        # Get result image URL
+        image_url = result.get("image", {}).get("url")
+        if not image_url:
+            raise FalAIError("No image returned from fal.ai")
+
+        # Download and store image
+        stored = await download_and_store_fal_image(
+            image_url=image_url,
+            project_id=request.project_id,
+            title=f"Upscaled {request.scale_factor}x",
+            operation_type="upscale",
+            model_id=request.model,
+            db=db
+        )
+
+        # Update operation record
+        processing_time = int((time.time() - start_time) * 1000)
+        operation.output_document_id = stored["document_id"]
+        operation.output_image_url = stored["file_url"]
+        operation.status = "completed"
+        operation.completed_at = db.execute("SELECT NOW()").scalar()
+        db.commit()
+
+        logger.info(f"Upscale completed: {stored['document_id']} in {processing_time}ms")
+
+        return ImageOperationResponse(
+            operation_id=str(operation.id),
+            document_id=stored["document_id"],
+            file_url=stored["file_url"],
+            thumbnail_url=stored["thumbnail_url"],
+            operation_type="upscale",
+            model_used=request.model,
+            cost_cents=0,
+            processing_time_ms=processing_time
+        )
+
+    except FalAIError as e:
+        operation.status = "failed"
+        operation.error_message = str(e)
+        db.commit()
+        raise HTTPException(status_code=e.status_code, detail=e.message)
+    except Exception as e:
+        operation.status = "failed"
+        operation.error_message = str(e)
+        db.commit()
+        logger.error(f"Upscale failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Upscaling failed: {str(e)}")
+
+
+@router.post("/enhance", response_model=ImageOperationResponse)
+async def enhance_image(
+    request: EnhanceRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Enhance image quality (sharpness, colors, details).
+
+    Feature 029 - fal.ai Migration
+    """
+    start_time = time.time()
+
+    # Verify project exists
+    project = db.query(Project).filter(
+        Project.id == request.project_id,
+        Project.deleted_at == None
+    ).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    # Create operation record
+    operation = ImageOperation(
+        project_id=request.project_id,
+        user_id=current_user.id,
+        operation_type="enhance",
+        input_image_url=request.image_url,
+        model_id="fal-ai/clarity-upscaler",
+        model_params={"enhancement_type": request.enhancement_type},
+        status="processing"
+    )
+    db.add(operation)
+    db.commit()
+    db.refresh(operation)
+
+    try:
+        # Call fal.ai enhance API
+        result = await fal_service.enhance(
+            image_url=request.image_url,
+            enhancement_type=request.enhancement_type
+        )
+
+        # Get result image URL
+        image_url = result.get("image", {}).get("url")
+        if not image_url:
+            raise FalAIError("No image returned from fal.ai")
+
+        # Download and store image
+        stored = await download_and_store_fal_image(
+            image_url=image_url,
+            project_id=request.project_id,
+            title=f"Enhanced ({request.enhancement_type})",
+            operation_type="enhance",
+            model_id="fal-ai/clarity-upscaler",
+            db=db
+        )
+
+        # Update operation record
+        processing_time = int((time.time() - start_time) * 1000)
+        operation.output_document_id = stored["document_id"]
+        operation.output_image_url = stored["file_url"]
+        operation.status = "completed"
+        operation.completed_at = db.execute("SELECT NOW()").scalar()
+        db.commit()
+
+        logger.info(f"Enhance completed: {stored['document_id']} in {processing_time}ms")
+
+        return ImageOperationResponse(
+            operation_id=str(operation.id),
+            document_id=stored["document_id"],
+            file_url=stored["file_url"],
+            thumbnail_url=stored["thumbnail_url"],
+            operation_type="enhance",
+            model_used="fal-ai/clarity-upscaler",
+            cost_cents=0,
+            processing_time_ms=processing_time
+        )
+
+    except FalAIError as e:
+        operation.status = "failed"
+        operation.error_message = str(e)
+        db.commit()
+        raise HTTPException(status_code=e.status_code, detail=e.message)
+    except Exception as e:
+        operation.status = "failed"
+        operation.error_message = str(e)
+        db.commit()
+        logger.error(f"Enhance failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Enhancement failed: {str(e)}")
+
+
+@router.get("/fal-models", response_model=FalModelListResponse)
+async def list_fal_models(
+    category: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    """
+    List available fal.ai models grouped by category.
+
+    Feature 029 - fal.ai Migration
+    """
+    query = db.query(FalModelConfig).filter(FalModelConfig.is_visible == True)
+
+    if category:
+        query = query.filter(FalModelConfig.category == category)
+
+    query = query.order_by(FalModelConfig.sort_order)
+    models_list = query.all()
+
+    # Get unique categories
+    categories = list(set(m.category for m in models_list))
+
+    return FalModelListResponse(
+        models=[FalModelResponse.model_validate(m) for m in models_list],
+        categories=sorted(categories)
+    )

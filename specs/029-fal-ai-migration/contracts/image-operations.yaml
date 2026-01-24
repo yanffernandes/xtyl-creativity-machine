@@ -1,0 +1,479 @@
+openapi: 3.1.0
+info:
+  title: Image Studio Operations API
+  description: API endpoints for image generation, editing, and utility operations using fal.ai
+  version: 1.0.0
+
+servers:
+  - url: /api
+    description: Backend API
+
+paths:
+  /image-generation/inpaint:
+    post:
+      summary: Inpaint image with mask
+      description: Edit specific areas of an image using a mask. White areas in mask will be edited, black areas preserved.
+      operationId: inpaintImage
+      tags:
+        - Image Editing
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InpaintRequest'
+      responses:
+        '200':
+          description: Inpainting completed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImageOperationResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '402':
+          $ref: '#/components/responses/InsufficientCredits'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /image-generation/edit:
+    post:
+      summary: Edit image with natural language
+      description: Edit an image using natural language instructions without requiring a mask.
+      operationId: editImage
+      tags:
+        - Image Editing
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EditRequest'
+      responses:
+        '200':
+          description: Edit completed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImageOperationResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '402':
+          $ref: '#/components/responses/InsufficientCredits'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /image-generation/remove-background:
+    post:
+      summary: Remove image background
+      description: Remove the background from an image, returning PNG with transparency.
+      operationId: removeBackground
+      tags:
+        - Image Utilities
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RemoveBackgroundRequest'
+      responses:
+        '200':
+          description: Background removed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImageOperationResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '402':
+          $ref: '#/components/responses/InsufficientCredits'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /image-generation/upscale:
+    post:
+      summary: Upscale image resolution
+      description: Increase image resolution by 2x or 4x using AI upscaling.
+      operationId: upscaleImage
+      tags:
+        - Image Utilities
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpscaleRequest'
+      responses:
+        '200':
+          description: Upscale completed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImageOperationResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '402':
+          $ref: '#/components/responses/InsufficientCredits'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /image-generation/enhance:
+    post:
+      summary: Enhance image quality
+      description: Improve image quality including sharpness, colors, and details.
+      operationId: enhanceImage
+      tags:
+        - Image Utilities
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EnhanceRequest'
+      responses:
+        '200':
+          description: Enhancement completed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImageOperationResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '402':
+          $ref: '#/components/responses/InsufficientCredits'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /image-generation/models:
+    get:
+      summary: List available image models
+      description: Get list of available fal.ai models grouped by category.
+      operationId: listImageModels
+      tags:
+        - Models
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: category
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [generation, editing, utility, video]
+          description: Filter models by category
+      responses:
+        '200':
+          description: Models retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ModelListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    InpaintRequest:
+      type: object
+      required:
+        - image_url
+        - mask_url
+        - prompt
+        - project_id
+      properties:
+        image_url:
+          type: string
+          format: uri
+          description: URL of the original image to edit
+          example: "https://storage.example.com/images/original.png"
+        mask_url:
+          type: string
+          format: uri
+          description: URL of the mask image (white=edit, black=preserve)
+          example: "https://storage.example.com/masks/mask.png"
+        prompt:
+          type: string
+          description: Instruction for what to add/change in the masked area
+          example: "Add a red rose"
+        project_id:
+          type: string
+          format: uuid
+          description: Project ID for storage and billing
+        model:
+          type: string
+          default: "fal-ai/flux-pro/v1/fill"
+          description: Model to use for inpainting
+          example: "fal-ai/flux-pro/v1/fill"
+        guidance_scale:
+          type: number
+          default: 30
+          minimum: 1
+          maximum: 50
+          description: How closely to follow the prompt
+        num_inference_steps:
+          type: integer
+          default: 50
+          minimum: 10
+          maximum: 100
+          description: Number of denoising steps
+
+    EditRequest:
+      type: object
+      required:
+        - image_url
+        - prompt
+        - project_id
+      properties:
+        image_url:
+          type: string
+          format: uri
+          description: URL of the image to edit
+        prompt:
+          type: string
+          description: Natural language instruction for editing
+          example: "Change the background to a sunset beach"
+        project_id:
+          type: string
+          format: uuid
+        model:
+          type: string
+          default: "fal-ai/flux-pro/kontext"
+          description: Model to use for editing
+        preserve_elements:
+          type: array
+          items:
+            type: string
+          description: Elements to preserve during editing
+          example: ["face", "clothing"]
+        guidance_scale:
+          type: number
+          default: 3.5
+          minimum: 1
+          maximum: 20
+
+    RemoveBackgroundRequest:
+      type: object
+      required:
+        - image_url
+        - project_id
+      properties:
+        image_url:
+          type: string
+          format: uri
+          description: URL of the image
+        project_id:
+          type: string
+          format: uuid
+        output_format:
+          type: string
+          enum: [png, webp]
+          default: png
+          description: Output format (PNG recommended for transparency)
+
+    UpscaleRequest:
+      type: object
+      required:
+        - image_url
+        - project_id
+      properties:
+        image_url:
+          type: string
+          format: uri
+        project_id:
+          type: string
+          format: uuid
+        scale_factor:
+          type: number
+          enum: [2, 4]
+          default: 2
+          description: Upscale factor (2x or 4x)
+        model:
+          type: string
+          default: "fal-ai/clarity-upscaler"
+          enum:
+            - "fal-ai/clarity-upscaler"
+            - "fal-ai/esrgan"
+            - "fal-ai/topaz/upscale/image"
+
+    EnhanceRequest:
+      type: object
+      required:
+        - image_url
+        - project_id
+      properties:
+        image_url:
+          type: string
+          format: uri
+        project_id:
+          type: string
+          format: uuid
+        enhancement_type:
+          type: string
+          enum: [auto, faces, details, colors]
+          default: auto
+          description: Type of enhancement to apply
+
+    ImageOperationResponse:
+      type: object
+      properties:
+        operation_id:
+          type: string
+          format: uuid
+          description: ID of the operation record
+        document_id:
+          type: string
+          format: uuid
+          description: ID of the created document
+        file_url:
+          type: string
+          format: uri
+          description: URL of the generated/edited image
+        thumbnail_url:
+          type: string
+          format: uri
+          description: URL of the thumbnail
+        operation_type:
+          type: string
+          enum: [inpaint, edit, remove_bg, upscale, enhance]
+        model_used:
+          type: string
+          description: Model ID that was used
+        cost_cents:
+          type: integer
+          description: Cost of the operation in cents
+        processing_time_ms:
+          type: integer
+          description: Time taken to process in milliseconds
+
+    ModelListResponse:
+      type: object
+      properties:
+        models:
+          type: array
+          items:
+            $ref: '#/components/schemas/FalModel'
+        categories:
+          type: array
+          items:
+            type: string
+          example: ["generation", "editing", "utility"]
+
+    FalModel:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        model_id:
+          type: string
+          example: "fal-ai/flux-pro/v1/fill"
+        display_name:
+          type: string
+          example: "FLUX Fill Pro"
+        description:
+          type: string
+        category:
+          type: string
+          enum: [generation, editing, utility, video]
+        supports_mask:
+          type: boolean
+        supports_reference:
+          type: boolean
+        price_per_mp:
+          type: number
+          nullable: true
+          description: Price per megapixel
+        price_per_image:
+          type: number
+          nullable: true
+          description: Fixed price per image
+        is_default:
+          type: boolean
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error type
+        message:
+          type: string
+          description: Human-readable error message
+        details:
+          type: object
+          description: Additional error details
+
+  responses:
+    BadRequest:
+      description: Invalid request parameters
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: "validation_error"
+            message: "Mask dimensions must match image dimensions"
+
+    Unauthorized:
+      description: Authentication required
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: "unauthorized"
+            message: "Authentication required"
+
+    InsufficientCredits:
+      description: Insufficient fal.ai credits
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: "insufficient_credits"
+            message: "Insufficient fal.ai credits. Please add credits to continue."
+
+    ServerError:
+      description: Server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: "server_error"
+            message: "An unexpected error occurred. Please try again."
+
+tags:
+  - name: Image Editing
+    description: Endpoints for editing existing images
+  - name: Image Utilities
+    description: Utility functions like background removal and upscaling
+  - name: Models
+    description: Model discovery and configuration

@@ -688,3 +688,89 @@ class ImageMask(Base):
     source_document = relationship("Document", foreign_keys=[document_id], backref="masks")
     result_document = relationship("Document", foreign_keys=[result_document_id])
     creator = relationship("User", backref="created_masks")
+
+
+# ============================================================================
+# FAL.AI IMAGE OPERATIONS (Feature 029)
+# ============================================================================
+
+class ImageOperation(Base):
+    """Tracks all fal.ai image edit/utility operations"""
+    __tablename__ = "image_operations"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    document_id = Column(UUID(as_uuid=True), ForeignKey("documents.id", ondelete="CASCADE"), nullable=True, index=True)
+    project_id = Column(UUID(as_uuid=True), ForeignKey("projects.id", ondelete="CASCADE"), nullable=True, index=True)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
+
+    # Operation details
+    operation_type = Column(String(50), nullable=False)  # inpaint, edit, remove_bg, upscale, enhance, generate
+
+    # Input
+    input_image_url = Column(Text, nullable=False)
+    mask_url = Column(Text, nullable=True)  # Only for inpaint operations
+    prompt = Column(Text, nullable=True)  # For inpaint and edit operations
+
+    # Output
+    output_document_id = Column(UUID(as_uuid=True), ForeignKey("documents.id", ondelete="SET NULL"), nullable=True)
+    output_image_url = Column(Text, nullable=True)
+
+    # Model info
+    provider = Column(String(50), nullable=False, default="fal.ai")
+    model_id = Column(String(255), nullable=False)
+    model_params = Column(JSONB, default=dict)
+
+    # Cost tracking
+    cost_cents = Column(Integer, default=0)
+
+    # Status
+    status = Column(String(50), nullable=False, default="pending")  # pending, processing, completed, failed
+    error_message = Column(Text, nullable=True)
+
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    started_at = Column(DateTime(timezone=True), nullable=True)
+    completed_at = Column(DateTime(timezone=True), nullable=True)
+
+    # Relationships
+    input_document = relationship("Document", foreign_keys=[document_id])
+    output_document = relationship("Document", foreign_keys=[output_document_id])
+    project = relationship("Project", backref="image_operations")
+    user = relationship("User", backref="image_operations")
+
+
+class FalModelConfig(Base):
+    """Configuration and pricing for fal.ai models"""
+    __tablename__ = "fal_model_configs"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+
+    # Model identification
+    model_id = Column(String(255), nullable=False, unique=True)
+    provider = Column(String(50), nullable=False, default="fal.ai")
+
+    # Display info
+    display_name = Column(String(255), nullable=False)
+    description = Column(Text, nullable=True)
+    category = Column(String(50), nullable=False)  # generation, editing, utility, video
+
+    # Capabilities
+    supports_mask = Column(Boolean, default=False)
+    supports_reference = Column(Boolean, default=False)
+    supports_prompt = Column(Boolean, default=True)
+    max_resolution = Column(Integer, default=2048)
+    supported_aspect_ratios = Column(ARRAY(String), default=["1:1", "16:9", "9:16", "4:3", "3:4"])
+
+    # Pricing
+    price_per_mp = Column(Numeric(10, 6), nullable=True)  # Price per megapixel
+    price_per_image = Column(Numeric(10, 6), nullable=True)  # Fixed price per image
+    price_per_second = Column(Numeric(10, 6), nullable=True)  # For video models
+
+    # Admin settings
+    is_visible = Column(Boolean, default=True)
+    is_default = Column(Boolean, default=False)
+    sort_order = Column(Integer, default=0)
+
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

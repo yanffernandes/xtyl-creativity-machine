@@ -30,6 +30,11 @@ const nextConfig: NextConfig = {
         protocol: 'https',
         hostname: '*.r2.dev',
       },
+      {
+        // Explicit R2 bucket hostname (Turbopack compatibility)
+        protocol: 'https',
+        hostname: 'pub-2108a47e44f54c079c0a647f9539cdfe.r2.dev',
+      },
     ],
   },
 

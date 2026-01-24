@@ -2,39 +2,36 @@
 
 /**
  * ImageStudio Component
- * Feature 027: Visual Generation Studio
+ * Feature 029: Image Studio Evolution - fal.ai Migration
  *
- * Main container for the visual generation interface.
- * Combines all controls and displays generated variations.
+ * Tab-based interface for image operations:
+ * - Criar: Generate images (existing functionality)
+ * - Editar: Brush inpainting and natural language editing
+ * - Ajustar: Quick functions (remove BG, upscale, enhance)
+ * - Vídeo: Placeholder for future video generation
  */
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ImageIcon,
-  Settings2,
   Trash2,
-  ChevronDown,
-  ChevronUp,
-  Sparkles,
-  LayoutGrid,
-  Palette,
+  Wand2,
+  Edit3,
+  Sliders,
+  Video,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TooltipProvider } from '@/components/ui/tooltip';
-import { Switch } from '@/components/ui/switch';
-import { Label } from '@/components/ui/label';
 import { useImageStudio } from '@/hooks/useImageStudio';
-import { PromptInput } from './PromptInput';
-import { StylePresetGrid } from './StylePresetGrid';
-import { FormatSelector } from './FormatSelector';
-import { ModelSelector } from './ModelSelector';
-import { CreativitySlider } from './CreativitySlider';
+import { CreateMode } from './CreateMode';
+import { EditMode } from './EditMode';
+import { AdjustMode } from './AdjustMode';
 import { VariationGrid } from './VariationGrid';
 import { ImageExpandModal } from './ImageExpandModal';
-import { ReferenceAssetSelector } from './ReferenceAssetSelector';
+import { AssetPickerModal } from './AssetPickerModal';
 import type { AvailableModel, StylePreset, GeneratedImage } from '@/types/image-studio';
 
 interface ImageStudioProps {
@@ -50,6 +47,8 @@ interface ImageStudioProps {
   className?: string;
 }
 
+type TabValue = 'create' | 'edit' | 'adjust' | 'video';
+
 export function ImageStudio({
   projectId,
   imageModels,
@@ -61,8 +60,10 @@ export function ImageStudio({
   sourceDocumentId = null,
   className,
 }: ImageStudioProps) {
-  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [activeTab, setActiveTab] = useState<TabValue>('create');
   const [expandedImage, setExpandedImage] = useState<GeneratedImage | null>(null);
+  const [showAssetPicker, setShowAssetPicker] = useState(false);
+  const [selectedImageForEdit, setSelectedImageForEdit] = useState<GeneratedImage | null>(null);
 
   // Use new presets if provided, fall back to deprecated stylePresets
   const effectiveVisualStyles = visualStylePresets.length > 0 ? visualStylePresets : stylePresets;
@@ -89,6 +90,34 @@ export function ImageStudio({
     await studio.attach(image, sourceDocumentId);
   };
 
+  const handleSelectImageForEdit = () => {
+    setShowAssetPicker(true);
+  };
+
+  const handleAssetSelect = (asset: any) => {
+    // Convert asset to GeneratedImage format
+    const generatedImage: GeneratedImage = {
+      success: true,
+      index: 0,
+      document_id: asset.id,
+      file_url: asset.file_url,
+      thumbnail_url: asset.thumbnail_url,
+      title: asset.title || 'Selected image',
+    };
+    setSelectedImageForEdit(generatedImage);
+    setShowAssetPicker(false);
+  };
+
+  const handleEditComplete = (result: GeneratedImage) => {
+    // Add result to variations
+    studio.addVariation(result);
+  };
+
+  const handleAdjustComplete = (result: GeneratedImage) => {
+    // Add result to variations
+    studio.addVariation(result);
+  };
+
   return (
     <TooltipProvider>
       <div className={cn('space-y-6', className)}>
@@ -103,7 +132,7 @@ export function ImageStudio({
                 Estúdio Visual
               </h2>
               <p className="text-sm text-gray-500 dark:text-gray-400">
-                Crie imagens incríveis com IA
+                Crie e edite imagens com IA
               </p>
             </div>
           </div>
