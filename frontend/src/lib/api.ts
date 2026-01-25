@@ -666,7 +666,7 @@ export async function searchMemories(
 // ============================================================================
 
 // Import types from centralized types file
-import type { BootstrapData, StylePresetList } from '@/types/image-studio';
+import type { BootstrapData, StylePresetList, AvailableModel } from '@/types/image-studio';
 
 /**
  * Get all bootstrap data for a project in a single request.
@@ -949,6 +949,50 @@ export interface FalModel {
 export interface FalModelListResponse {
     models: FalModel[];
     categories: string[];
+}
+
+/**
+ * Fetch available fal.ai image models
+ * Feature 029: Returns comprehensive model catalog (FLUX, Gemini, GPT-Image)
+ *
+ * @param capability - Optional filter by capability (e.g., "inpainting", "generation", "editing")
+ */
+export async function getImageModels(capability?: string): Promise<AvailableModel[]> {
+    const params = capability ? { capability } : {};
+    const response = await api.get('/image-generation/models', { params });
+    return response.data;
+}
+
+// Unified Generate Request/Response (Feature 029 - Simplified)
+export interface UnifiedGenerateRequest {
+    prompt: string;
+    project_id: string;
+    model?: string;
+    image_urls?: string[];
+    mask_url?: string;
+    params?: Record<string, unknown>;
+}
+
+export interface UnifiedGenerateResponse {
+    success: boolean;
+    document_id: string;
+    file_url: string;
+    thumbnail_url: string;
+    title: string;
+    model_used: string;
+    model_type: 'text-to-image' | 'image-to-image';
+    supports_mask: boolean;
+    processing_time_ms: number;
+    generation_metadata: Record<string, unknown>;
+}
+
+/**
+ * Unified image generation endpoint.
+ * Automatically selects text-to-image or image-to-image based on presence of image_urls.
+ */
+export async function generateImageUnified(request: UnifiedGenerateRequest): Promise<UnifiedGenerateResponse> {
+    const response = await api.post('/image-generation/generate-unified', request);
+    return response.data;
 }
 
 // Inpaint Request/Response

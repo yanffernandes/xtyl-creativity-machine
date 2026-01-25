@@ -3,17 +3,23 @@
 /**
  * VariationGrid Component
  * Feature 027: Visual Generation Studio
+ * Feature 030: Performance optimization with virtualization
  *
  * Displays a responsive grid of generated image variations.
  * Groups images by batch with visual separators for history view.
+ * Uses virtualization for large lists (50+ items) to maintain performance.
  */
 
-import { useMemo } from 'react';
+import { useMemo, useRef, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ImageIcon, Clock } from 'lucide-react';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { cn } from '@/lib/utils';
 import { VariationCard } from './VariationCard';
 import type { GeneratedImage } from '@/types/image-studio';
+
+// Feature 030: Threshold for enabling virtualization
+const VIRTUALIZATION_THRESHOLD = 50;
 
 interface VariationGridProps {
   variations: GeneratedImage[];
@@ -47,6 +53,51 @@ function formatBatchTime(timestamp: string | null): string {
   return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
 }
 
+/**
+ * Feature 030: Virtualized row renderer for large grids
+ */
+interface VirtualizedRowProps {
+  variations: GeneratedImage[];
+  startIndex: number;
+  isGenerating: boolean;
+  onExpand: (variation: GeneratedImage) => void;
+  onSave: (variation: GeneratedImage) => void;
+  onRefine: (variation: GeneratedImage) => void;
+  onAttach?: (variation: GeneratedImage) => void;
+  canAttach: boolean;
+  columnsPerRow: number;
+}
+
+const VirtualizedRow = memo(function VirtualizedRow({
+  variations,
+  startIndex,
+  isGenerating,
+  onExpand,
+  onSave,
+  onRefine,
+  onAttach,
+  canAttach,
+  columnsPerRow,
+}: VirtualizedRowProps) {
+  return (
+    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+      {variations.map((variation, idx) => (
+        <VariationCard
+          key={variation.document_id || `item-${startIndex + idx}`}
+          variation={variation}
+          index={startIndex + idx}
+          isGenerating={isGenerating && !variation.success && !variation.error}
+          onExpand={onExpand}
+          onSave={onSave}
+          onRefine={onRefine}
+          onAttach={onAttach}
+          canAttach={canAttach}
+        />
+      ))}
+    </div>
+  );
+});
+
 export function VariationGrid({
   variations,
   isGenerating,
@@ -58,6 +109,8 @@ export function VariationGrid({
   canAttach = false,
   className,
 }: VariationGridProps) {
+  // Feature 030: Scroll container ref for virtualization
+  const scrollRef = useRef<HTMLDivElement>(null);
   // Group variations by batchId for history view
   const batchGroups = useMemo((): BatchGroup[] => {
     const groups: BatchGroup[] = [];

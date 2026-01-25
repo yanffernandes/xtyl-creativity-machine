@@ -14,6 +14,7 @@
  */
 
 import { useState, useCallback } from 'react';
+import NextImage from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Eraser,
@@ -339,37 +340,50 @@ export function AdjustMode({
                       exit={{ opacity: 0 }}
                       className="grid grid-cols-2 gap-1"
                     >
-                      <div className="relative">
-                        <img
-                          src={selectedImage.file_url}
+                      <div className="relative aspect-square">
+                        <NextImage
+                          src={selectedImage.file_url || ''}
                           alt="Original"
-                          className="w-full h-auto object-contain"
+                          fill
+                          className="object-contain"
+                          loading="lazy"
+                          unoptimized
                         />
-                        <span className="absolute bottom-2 left-2 text-xs bg-black/50 text-white px-2 py-1 rounded">
+                        <span className="absolute bottom-2 left-2 text-xs bg-black/50 text-white px-2 py-1 rounded z-10">
                           Original
                         </span>
                       </div>
-                      <div className="relative">
-                        <img
-                          src={resultImage.file_url}
+                      <div className="relative aspect-square">
+                        <NextImage
+                          src={resultImage.file_url || ''}
                           alt="Result"
-                          className="w-full h-auto object-contain"
+                          fill
+                          className="object-contain"
+                          loading="lazy"
+                          unoptimized
                         />
-                        <span className="absolute bottom-2 right-2 text-xs bg-blue-500/80 text-white px-2 py-1 rounded">
+                        <span className="absolute bottom-2 right-2 text-xs bg-blue-500/80 text-white px-2 py-1 rounded z-10">
                           Resultado
                         </span>
                       </div>
                     </motion.div>
                   ) : (
-                    <motion.img
+                    <motion.div
                       key="single"
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       exit={{ opacity: 0 }}
-                      src={(resultImage || selectedImage).file_url}
-                      alt="Selected image"
-                      className="w-full h-auto object-contain max-h-96"
-                    />
+                      className="relative w-full aspect-square max-h-96"
+                    >
+                      <NextImage
+                        src={(resultImage || selectedImage).file_url || ''}
+                        alt="Selected image"
+                        fill
+                        className="object-contain"
+                        loading="lazy"
+                        unoptimized
+                      />
+                    </motion.div>
                   )}
                 </AnimatePresence>
               </div>

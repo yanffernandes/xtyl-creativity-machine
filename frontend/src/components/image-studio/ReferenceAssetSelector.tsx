@@ -9,6 +9,7 @@
  */
 
 import { useState, useEffect } from 'react';
+import NextImage from 'next/image';
 import { Check, Image, Loader2, X, Palette, Layers, ImagePlus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -150,10 +151,14 @@ export function ReferenceAssetSelector({
               className="relative group rounded-lg overflow-hidden border border-border"
             >
               {asset.thumbnail_url ? (
-                <img
+                <NextImage
                   src={asset.thumbnail_url}
                   alt={asset.title || 'Asset'}
-                  className="w-12 h-12 object-cover"
+                  width={48}
+                  height={48}
+                  className="object-cover"
+                  loading="lazy"
+                  unoptimized
                 />
               ) : (
                 <div className="w-12 h-12 bg-muted flex items-center justify-center">
@@ -237,10 +242,13 @@ export function ReferenceAssetSelector({
                         )}
                       >
                         {asset.thumbnail_url ? (
-                          <img
+                          <NextImage
                             src={asset.thumbnail_url}
                             alt={asset.title || 'Asset'}
-                            className="w-full h-full object-cover"
+                            fill
+                            className="object-cover"
+                            loading="lazy"
+                            unoptimized
                           />
                         ) : (
                           <div className="w-full h-full bg-muted flex items-center justify-center">

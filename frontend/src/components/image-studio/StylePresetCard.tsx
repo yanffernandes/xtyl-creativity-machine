@@ -8,6 +8,7 @@
  * name, and selection state. Uses glassmorphism design.
  */
 
+import { memo } from 'react';
 import { motion } from 'framer-motion';
 import { Check } from 'lucide-react';
 import Image from 'next/image';
@@ -27,7 +28,10 @@ const sizeClasses = {
   lg: 'w-24 h-24',
 };
 
-export function StylePresetCard({
+/**
+ * Feature 030: Memoized component to prevent unnecessary re-renders
+ */
+export const StylePresetCard = memo(function StylePresetCard({
   preset,
   isSelected,
   onSelect,
@@ -99,7 +103,7 @@ export function StylePresetCard({
       </span>
     </motion.button>
   );
-}
+});
 
 function getCategoryEmoji(category: StylePreset['category']): string {
   const emojis: Record<StylePreset['category'], string> = {

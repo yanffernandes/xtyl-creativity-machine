@@ -5,7 +5,7 @@ Includes Visual Generation Studio endpoints (Feature 027).
 Feature 029: fal.ai migration for advanced editing (inpaint, edit, utilities).
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks, UploadFile, File
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
@@ -14,6 +14,7 @@ from typing import Optional, List, Dict, Any
 import asyncio
 import uuid
 import logging
+from storage_service import upload_file
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +32,18 @@ from image_generation_service import (
 )
 from image_naming_service import generate_image_title
 from services.model_config_service import ModelConfigService
-from services.fal_ai_service import fal_service, FalAIError, FalAIAuthError, FalAICreditsError
+from services.fal_ai_service import (
+    fal_service,
+    FalAIError,
+    FalAIAuthError,
+    FalAICreditsError,
+    ALL_MODELS,
+    TEXT_TO_IMAGE_MODELS,
+    IMAGE_TO_IMAGE_MODELS,
+    get_model_by_id,
+    model_supports_mask,
+    select_appropriate_model,
+)
 from ai_usage_service import log_ai_usage
 from pricing_service import calculate_image_cost, fetch_generation_cost
 from supabase_auth import get_current_user, get_current_user_from_token
@@ -45,13 +57,74 @@ from schemas import (
     StylePreset as StylePresetSchema, StylePresetList,
     ImageBatchRequest, ImageBatchResponse, ImageBatchProgress,
     InpaintRequest, EditRequest, RemoveBackgroundRequest,
-    UpscaleRequest, EnhanceRequest, ImageOperationResponse
+    UpscaleRequest, EnhanceRequest, ImageOperationResponse,
+    UnifiedGenerateRequest, UnifiedGenerateResponse,
 )
 import time
 import json
 
-# In-memory storage for batch progress (in production, use Redis)
+# Feature 030: Redis service for persistent batch progress tracking
+from services.redis_service import create_batch, update_image_status, get_batch_status as redis_get_batch_status
+
+# In-memory storage for batch progress (fallback, Redis is primary)
 batch_progress_store: Dict[str, ImageBatchProgress] = {}
+
+# Feature 030: Semaphore to limit concurrent fal.ai API calls
+# Prevents rate limiting and ensures UI responsiveness during batch generation
+FAL_SEMAPHORE = asyncio.Semaphore(3)  # Max 3 concurrent fal.ai calls
+
+
+async def with_exponential_backoff(
+    func,
+    max_retries: int = 3,
+    base_delay: float = 1.0,
+    max_delay: float = 30.0,
+    *args,
+    **kwargs
+):
+    """
+    Feature 030: Execute async function with exponential backoff retry.
+
+    Retries on rate limit (429) and server errors (5xx) with exponential delay.
+
+    Args:
+        func: Async function to call
+        max_retries: Maximum number of retry attempts
+        base_delay: Initial delay in seconds
+        max_delay: Maximum delay in seconds
+        *args, **kwargs: Arguments to pass to func
+    """
+    last_exception = None
+
+    for attempt in range(max_retries + 1):
+        try:
+            return await func(*args, **kwargs)
+        except FalAIError as e:
+            last_exception = e
+            # Only retry on rate limit (429) or server errors (5xx)
+            if e.status_code not in (429, 500, 502, 503, 504):
+                raise
+
+            if attempt == max_retries:
+                logger.error(f"Max retries ({max_retries}) reached for fal.ai call")
+                raise
+
+            # Calculate delay with exponential backoff and jitter
+            delay = min(base_delay * (2 ** attempt), max_delay)
+            jitter = delay * 0.1 * (0.5 - asyncio.get_event_loop().time() % 1)
+            actual_delay = delay + jitter
+
+            logger.warning(
+                f"fal.ai call failed (attempt {attempt + 1}/{max_retries + 1}), "
+                f"retrying in {actual_delay:.1f}s: {e.message}"
+            )
+            await asyncio.sleep(actual_delay)
+        except Exception as e:
+            # Don't retry on other exceptions
+            raise
+
+    if last_exception:
+        raise last_exception
 
 router = APIRouter(prefix="/image-generation", tags=["image-generation"])
 
@@ -101,91 +174,166 @@ class ImageGenerationResponse(BaseModel):
 @router.get("/models")
 async def list_available_models(
     db: Session = Depends(get_db),
+    model_type: str = None  # Optional filter: "text-to-image", "image-to-image"
 ):
     """
-    List fal.ai image generation models for user selection.
+    List available fal.ai image models (8 hardcoded models).
 
-    Feature 029: Returns ONLY fal.ai models (no OpenRouter/DALL-E).
-    Follows CLAUDE.md "No Hardcoded Data" principle by returning dynamic list.
+    Feature 029: Returns the 8 supported models:
+    - 4 text-to-image models (no reference image required)
+    - 4 image-to-image/edit models (require reference image)
+
+    Args:
+        model_type: Optional filter ("text-to-image" or "image-to-image")
     """
-    # fal.ai models - these are the API endpoints we support
-    fal_models = [
-        # Generation models
+    # Select model list based on filter
+    if model_type == "text-to-image":
+        models = TEXT_TO_IMAGE_MODELS
+    elif model_type == "image-to-image":
+        models = IMAGE_TO_IMAGE_MODELS
+    else:
+        models = ALL_MODELS
+
+    # Transform to match AvailableModel format expected by frontend
+    return [
         {
-            "id": "fal-ai/flux-pro/v1.1",
-            "name": "FLUX Pro 1.1",
-            "description": "State-of-the-art image generation with best quality",
-            "capabilities": ["generation"],
-            "recommended_for": ["high quality", "commercial use", "photorealistic"]
-        },
-        {
-            "id": "fal-ai/flux-pro/v1.1-ultra",
-            "name": "FLUX Pro 1.1 Ultra",
-            "description": "Ultra-high quality image generation",
-            "capabilities": ["generation"],
-            "recommended_for": ["maximum quality", "professional", "print-ready"]
-        },
-        {
-            "id": "fal-ai/flux/dev",
-            "name": "FLUX Dev",
-            "description": "Fast and efficient open-source image generation",
-            "capabilities": ["generation"],
-            "recommended_for": ["fast generation", "open source", "experimentation"]
-        },
-        {
-            "id": "fal-ai/flux/schnell",
-            "name": "FLUX Schnell",
-            "description": "Ultra-fast image generation (4 steps)",
-            "capabilities": ["generation"],
-            "recommended_for": ["speed", "rapid prototyping", "iterations"]
-        },
-        {
-            "id": "fal-ai/flux-realism",
-            "name": "FLUX Realism",
-            "description": "Photorealistic image generation",
-            "capabilities": ["generation"],
-            "recommended_for": ["photorealism", "portraits", "realistic scenes"]
-        },
-        # Editing models
-        {
-            "id": "fal-ai/flux-pro/v1/fill",
-            "name": "FLUX Fill Pro",
-            "description": "Precise inpainting with mask-based editing",
-            "capabilities": ["inpainting"],
-            "recommended_for": ["inpainting", "mask editing", "precise control"]
-        },
-        {
-            "id": "fal-ai/flux-pro/kontext",
-            "name": "FLUX Kontext",
-            "description": "Natural language image editing",
-            "capabilities": ["editing"],
-            "recommended_for": ["natural editing", "contextual changes", "instruction-based"]
-        },
-        # Utility models
-        {
-            "id": "fal-ai/bria-rmbg-2.0",
-            "name": "BRIA RMBG 2.0",
-            "description": "State-of-the-art background removal",
-            "capabilities": ["background_removal"],
-            "recommended_for": ["remove background", "transparent PNG", "product photos"]
-        },
-        {
-            "id": "fal-ai/clarity-upscaler",
-            "name": "Clarity Upscaler",
-            "description": "High-quality image upscaling up to 4x",
-            "capabilities": ["upscaling"],
-            "recommended_for": ["upscaling", "resolution enhancement", "quality improvement"]
-        },
-        {
-            "id": "fal-ai/aura-sr",
-            "name": "Aura SR",
-            "description": "AI-powered image enhancement and refinement",
-            "capabilities": ["enhancement"],
-            "recommended_for": ["enhancement", "detail improvement", "quality boost"]
+            "id": model.id,
+            "name": model.name,
+            "description": model.description,
+            "top_provider": model.provider,
+            "model_type": model.model_type,
+            "supports_mask": model.supports_mask,
+            "max_images": model.max_images,
+            "default_params": model.default_params,
         }
+        for model in models
     ]
 
-    return fal_models
+
+@router.post("/generate-unified", response_model=UnifiedGenerateResponse)
+async def generate_unified(
+    request: UnifiedGenerateRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Unified image generation endpoint.
+
+    Feature 029: Simplified endpoint that handles both text-to-image and image-to-image.
+
+    Logic:
+    - If image_urls provided -> uses image-to-image/edit model
+    - If mask_url provided -> uses GPT-Image 1.5/edit (only model with mask support)
+    - Otherwise -> uses text-to-image model
+
+    The model is automatically selected based on the presence of reference images,
+    but can be overridden by the `model` parameter.
+    """
+    start_time = time.time()
+
+    try:
+        # Verify project exists
+        project = db.query(models.Project).filter(
+            models.Project.id == request.project_id,
+            models.Project.deleted_at == None
+        ).first()
+        if not project:
+            raise HTTPException(status_code=404, detail="Project not found")
+
+        # Determine if we need edit mode
+        has_reference = bool(request.image_urls)
+        has_mask = bool(request.mask_url)
+
+        # Select appropriate model
+        model_config = select_appropriate_model(
+            has_reference_image=has_reference,
+            preferred_model_id=request.model
+        )
+
+        # If mask provided but model doesn't support it, force GPT-Image 1.5/edit
+        if has_mask and not model_config.supports_mask:
+            logger.warning(f"Model {model_config.id} doesn't support mask, switching to GPT-Image 1.5/edit")
+            model_config = get_model_by_id("fal-ai/gpt-image-1.5/edit")
+
+        # Call fal.ai service
+        result = await fal_service.generate_image(
+            prompt=request.prompt,
+            model_id=model_config.id,
+            image_urls=request.image_urls,
+            mask_url=request.mask_url,
+            params=request.params or {}
+        )
+
+        # Extract image URL from result
+        image_url = None
+        if "images" in result and result["images"]:
+            image_url = result["images"][0].get("url")
+        elif "image" in result:
+            image_url = result["image"].get("url")
+        elif "output" in result and isinstance(result["output"], dict):
+            image_url = result["output"].get("url")
+
+        if not image_url:
+            logger.error(f"Failed to extract image URL from result: {result}")
+            raise FalAIError("No image returned from fal.ai")
+
+        # Calculate processing time
+        processing_time_ms = int((time.time() - start_time) * 1000)
+
+        # Download and store image
+        stored = await download_and_store_fal_image(
+            image_url=image_url,
+            project_id=request.project_id,
+            title=f"Generated: {request.prompt[:50]}...",
+            prompt=request.prompt,
+            operation_type="generate" if not has_reference else "edit",
+            model_id=model_config.id,
+            generation_metadata={
+                "prompt": request.prompt,
+                "model": model_config.id,
+                "model_type": model_config.model_type,
+                "supports_mask": model_config.supports_mask,
+                "params": request.params or {},
+                "has_reference": has_reference,
+                "has_mask": has_mask,
+                "processing_time_ms": processing_time_ms,
+            },
+            db=db
+        )
+
+        logger.info(f"Unified generation completed: {stored['document_id']} in {processing_time_ms}ms")
+
+        return UnifiedGenerateResponse(
+            success=True,
+            document_id=stored["document_id"],
+            file_url=stored["file_url"],
+            thumbnail_url=stored["thumbnail_url"],
+            title=f"Generated: {request.prompt[:50]}...",
+            model_used=model_config.id,
+            model_type=model_config.model_type,
+            supports_mask=model_config.supports_mask,
+            processing_time_ms=processing_time_ms,
+            generation_metadata={
+                "prompt": request.prompt,
+                "model": model_config.id,
+                "params": request.params or {},
+            }
+        )
+
+    except FalAIAuthError as e:
+        logger.error(f"Unified generate auth error: {e}")
+        raise HTTPException(status_code=401, detail=e.message)
+    except FalAICreditsError as e:
+        logger.error(f"Unified generate credits error: {e}")
+        raise HTTPException(status_code=402, detail=e.message)
+    except FalAIError as e:
+        logger.error(f"Unified generate fal.ai error: {e}")
+        raise HTTPException(status_code=e.status_code, detail=e.message)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Unified generate failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Image generation failed: {str(e)}")
 
 
 @router.post("/generate", response_model=ImageGenerationResponse)
@@ -735,17 +883,70 @@ async def generate_batch_variation(
         if visual_context_urls:
             all_reference_urls.extend(visual_context_urls)
 
-        # Generate the image
-        result = await generate_and_store_image(
-            prompt=enhanced_prompt,
-            project_id=project_id,
-            model=model,
-            aspect_ratio=aspect_ratio,
-            quality="standard",
-            style=None,
-            base_image_url=reference_image_url,
-            reference_image_urls=all_reference_urls if all_reference_urls else None
-        )
+        # Feature 029: Use fal.ai for fal-ai models
+        is_fal_model = model.startswith("fal-ai/")
+
+        if is_fal_model:
+            # Use fal.ai service with rate limiting (Feature 030)
+            print(f"🎨 Using fal.ai for model {model}")
+
+            # Build params for fal.ai
+            fal_params = {"aspect_ratio": aspect_ratio}
+
+            # Feature 030: Use semaphore to limit concurrent API calls
+            # and exponential backoff for retry on rate limits
+            async with FAL_SEMAPHORE:
+                fal_result = await with_exponential_backoff(
+                    fal_service.generate_image,
+                    max_retries=3,
+                    base_delay=1.0,
+                    prompt=enhanced_prompt,
+                    model_id=model,
+                    image_urls=all_reference_urls if all_reference_urls else None,
+                    params=fal_params
+                )
+
+            # Extract first image from result
+            if not fal_result.get("images"):
+                raise Exception("No images generated by fal.ai")
+
+            fal_image = fal_result["images"][0]
+            image_url = fal_image.get("url")
+
+            if not image_url:
+                raise Exception("No image URL in fal.ai response")
+
+            # Download and store the image
+            from storage_service import download_and_upload_image
+            stored_result = await download_and_upload_image(
+                image_url=image_url,
+                project_id=project_id,
+                filename_prefix=f"generated_{batch_id}_{variation_index}"
+            )
+
+            result = {
+                "file_url": stored_result["file_url"],
+                "thumbnail_url": stored_result.get("thumbnail_url", stored_result["file_url"]),
+                "generation_metadata": {
+                    "model": model,
+                    "provider": "fal.ai",
+                    "aspect_ratio": aspect_ratio,
+                    "fal_response": fal_result.get("timings", {}),
+                }
+            }
+        else:
+            # Use existing OpenRouter-based generation
+            print(f"🎨 Using OpenRouter for model {model}")
+            result = await generate_and_store_image(
+                prompt=enhanced_prompt,
+                project_id=project_id,
+                model=model,
+                aspect_ratio=aspect_ratio,
+                quality="standard",
+                style=None,
+                base_image_url=reference_image_url,
+                reference_image_urls=all_reference_urls if all_reference_urls else None
+            )
 
         # Generate title
         image_title = await generate_image_title(prompt)
@@ -830,6 +1031,20 @@ async def process_batch_generation(
     from routers.projects import format_project_context
 
     count = request.count
+
+    # Feature 030: Initialize batch in Redis for persistent progress tracking
+    try:
+        await create_batch(
+            batch_id=batch_id,
+            count=count,
+            project_id=request.project_id,
+            user_id=user_id
+        )
+        logger.info(f"Batch {batch_id} initialized in Redis")
+    except Exception as redis_err:
+        logger.warning(f"Failed to initialize batch in Redis, using in-memory fallback: {redis_err}")
+
+    # Keep in-memory store for backward compatibility
     batch_progress_store[batch_id] = ImageBatchProgress(
         batch_id=batch_id,
         total=count,
@@ -989,12 +1204,44 @@ async def process_batch_generation(
             # Handle exceptions from gather
             progress.failed += 1
             progress.errors.append(str(result))
+            # Feature 030: Update Redis with failure
+            try:
+                await update_image_status(
+                    batch_id=batch_id,
+                    index=i,
+                    status="failed",
+                    error=str(result)
+                )
+            except Exception as redis_err:
+                logger.warning(f"Failed to update Redis for failed image {i}: {redis_err}")
         elif result.get("success"):
             progress.completed += 1
             progress.images.append(result)
+            # Feature 030: Update Redis with completion
+            try:
+                await update_image_status(
+                    batch_id=batch_id,
+                    index=result.get("index", i),
+                    status="completed",
+                    document_id=result.get("document_id"),
+                    file_url=result.get("file_url"),
+                    thumbnail_url=result.get("thumbnail_url")
+                )
+            except Exception as redis_err:
+                logger.warning(f"Failed to update Redis for completed image {i}: {redis_err}")
         else:
             progress.failed += 1
             progress.errors.append(result.get("error", "Unknown error"))
+            # Feature 030: Update Redis with failure
+            try:
+                await update_image_status(
+                    batch_id=batch_id,
+                    index=result.get("index", i),
+                    status="failed",
+                    error=result.get("error", "Unknown error")
+                )
+            except Exception as redis_err:
+                logger.warning(f"Failed to update Redis for failed image {i}: {redis_err}")
 
     batch_progress_store[batch_id] = progress
     print(f"✅ Parallel generation complete: {progress.completed} succeeded, {progress.failed} failed")
@@ -1071,52 +1318,126 @@ async def stream_batch_progress(
     async def event_generator():
         last_completed = 0
         last_failed = 0
+        sent_images = set()  # Track which image indices we've already sent
 
         while True:
-            progress = batch_progress_store.get(batch_id)
+            # Feature 030: Try Redis first, fallback to in-memory
+            redis_progress = None
+            try:
+                redis_progress = await redis_get_batch_status(batch_id)
+            except Exception as redis_err:
+                logger.warning(f"Failed to get batch status from Redis: {redis_err}")
 
-            if not progress:
-                yield f"data: {json.dumps({'type': 'error', 'message': 'Batch not found'})}\n\n"
-                break
+            if redis_progress:
+                # Use Redis data
+                total = redis_progress["progress"]["total"]
+                completed = redis_progress["progress"]["completed"]
+                failed = redis_progress["progress"]["failed"]
+                status = redis_progress["progress"]["status"]
+                images = redis_progress.get("images", [])
 
-            # Send new completed images
-            if progress.completed > last_completed:
-                for i in range(last_completed, progress.completed):
-                    if i < len(progress.images):
+                # Send new completed images from Redis
+                for img in images:
+                    if img["status"] == "completed" and img["index"] not in sent_images:
                         event_data = {
                             "type": "variation_complete",
-                            "data": progress.images[i]
+                            "data": {
+                                "success": True,
+                                "index": img["index"],
+                                "document_id": img["document_id"],
+                                "file_url": img["file_url"],
+                                "thumbnail_url": img["thumbnail_url"]
+                            }
                         }
                         yield f"data: {json.dumps(event_data)}\n\n"
-                last_completed = progress.completed
+                        sent_images.add(img["index"])
 
-            # Send new errors
-            if progress.failed > last_failed:
-                for i in range(last_failed, progress.failed):
-                    if i < len(progress.errors):
+                # Send new errors from Redis
+                for img in images:
+                    if img["status"] == "failed" and img["index"] not in sent_images:
                         event_data = {
                             "type": "variation_failed",
-                            "data": {"error": progress.errors[i]}
+                            "data": {"error": img.get("error", "Unknown error"), "index": img["index"]}
                         }
                         yield f"data: {json.dumps(event_data)}\n\n"
-                last_failed = progress.failed
+                        sent_images.add(img["index"])
 
-            # Check if complete
-            if progress.completed + progress.failed >= progress.total:
-                event_data = {
-                    "type": "batch_complete",
-                    "data": {
-                        "batch_id": batch_id,
-                        "total": progress.total,
-                        "completed": progress.completed,
-                        "failed": progress.failed,
-                        "images": progress.images
+                last_completed = completed
+                last_failed = failed
+
+                # Check if complete
+                if status == "completed" or (completed + failed >= total):
+                    completed_images = [
+                        {
+                            "success": True,
+                            "index": img["index"],
+                            "document_id": img["document_id"],
+                            "file_url": img["file_url"],
+                            "thumbnail_url": img["thumbnail_url"]
+                        }
+                        for img in images if img["status"] == "completed"
+                    ]
+                    event_data = {
+                        "type": "batch_complete",
+                        "data": {
+                            "batch_id": batch_id,
+                            "total": total,
+                            "completed": completed,
+                            "failed": failed,
+                            "images": completed_images
+                        }
                     }
-                }
-                yield f"data: {json.dumps(event_data)}\n\n"
-                # Clean up
-                del batch_progress_store[batch_id]
-                break
+                    yield f"data: {json.dumps(event_data)}\n\n"
+                    # Clean up in-memory store if it exists
+                    if batch_id in batch_progress_store:
+                        del batch_progress_store[batch_id]
+                    break
+            else:
+                # Fallback to in-memory store
+                progress = batch_progress_store.get(batch_id)
+
+                if not progress:
+                    yield f"data: {json.dumps({'type': 'error', 'message': 'Batch not found'})}\n\n"
+                    break
+
+                # Send new completed images
+                if progress.completed > last_completed:
+                    for i in range(last_completed, progress.completed):
+                        if i < len(progress.images):
+                            event_data = {
+                                "type": "variation_complete",
+                                "data": progress.images[i]
+                            }
+                            yield f"data: {json.dumps(event_data)}\n\n"
+                    last_completed = progress.completed
+
+                # Send new errors
+                if progress.failed > last_failed:
+                    for i in range(last_failed, progress.failed):
+                        if i < len(progress.errors):
+                            event_data = {
+                                "type": "variation_failed",
+                                "data": {"error": progress.errors[i]}
+                            }
+                            yield f"data: {json.dumps(event_data)}\n\n"
+                    last_failed = progress.failed
+
+                # Check if complete
+                if progress.completed + progress.failed >= progress.total:
+                    event_data = {
+                        "type": "batch_complete",
+                        "data": {
+                            "batch_id": batch_id,
+                            "total": progress.total,
+                            "completed": progress.completed,
+                            "failed": progress.failed,
+                            "images": progress.images
+                        }
+                    }
+                    yield f"data: {json.dumps(event_data)}\n\n"
+                    # Clean up
+                    del batch_progress_store[batch_id]
+                    break
 
             await asyncio.sleep(0.5)
 
@@ -1154,6 +1475,57 @@ async def get_batch_status(
 # FAL.AI IMAGE OPERATIONS ENDPOINTS (Feature 029)
 # ============================================================================
 
+async def upload_image_to_r2(
+    image_data: bytes,
+    project_id: str,
+    content_type: str = "image/png"
+) -> str:
+    """Upload image bytes to R2 storage"""
+    import uuid
+    from storage_service import upload_file
+
+    # Generate unique filename
+    ext = content_type.split('/')[-1] if '/' in content_type else 'png'
+    filename = f"generated_{uuid.uuid4().hex}.{ext}"
+    folder = f"projects/{project_id}/images"
+
+    return upload_file(
+        file_data=image_data,
+        file_name=filename,
+        content_type=content_type,
+        folder=folder
+    )
+
+
+async def generate_thumbnail(image_data: bytes, project_id: str) -> str:
+    """Generate and upload thumbnail from image bytes"""
+    import io
+    import uuid
+    from PIL import Image
+    from storage_service import upload_file
+
+    # Open image and create thumbnail
+    image = Image.open(io.BytesIO(image_data))
+    thumb = image.copy()
+    thumb.thumbnail((400, 400), Image.Resampling.LANCZOS)
+
+    # Convert to WebP bytes
+    thumb_io = io.BytesIO()
+    thumb.save(thumb_io, format='WEBP', quality=85)
+    thumb_data = thumb_io.getvalue()
+
+    # Upload thumbnail
+    filename = f"thumb_{uuid.uuid4().hex}.webp"
+    folder = f"projects/{project_id}/thumbnails"
+
+    return upload_file(
+        file_data=thumb_data,
+        file_name=filename,
+        content_type="image/webp",
+        folder=folder
+    )
+
+
 async def download_and_store_fal_image(
     image_url: str,
     project_id: str,
@@ -1171,7 +1543,6 @@ async def download_and_store_fal_image(
     Feature 029: Uses existing `documents` table instead of separate image_operations table.
     """
     import httpx
-    from storage_service import upload_image_to_r2, generate_thumbnail
 
     async with httpx.AsyncClient() as client:
         response = await client.get(image_url)
@@ -1259,8 +1630,10 @@ async def inpaint_image(
         )
 
         # Get result image URL
+        logger.info(f"fal.ai inpaint result: {result}")
         image_url = result.get("images", [{}])[0].get("url") or result.get("image", {}).get("url")
         if not image_url:
+            logger.error(f"Failed to extract image URL from result: {result}")
             raise FalAIError("No image returned from fal.ai")
 
         # Calculate processing time

@@ -267,19 +267,18 @@ def soft_delete_project(
     ).update({"deleted_at": now}, synchronize_session=False)
     cascade_summary["workflow_templates"] = template_result
 
-    # Get template IDs for cascading to executions
-    template_ids = db.query(WorkflowTemplate.id).filter(
+    # Feature 030: Use subquery instead of ID list for better performance
+    # This avoids loading all template IDs into memory
+    template_ids_subquery = db.query(WorkflowTemplate.id).filter(
         WorkflowTemplate.project_id == project_id
-    ).all()
-    template_id_list = [t.id for t in template_ids]
+    ).subquery()
 
-    # Cascade soft delete to workflow executions (via template)
-    if template_id_list:
-        exec_result = db.query(WorkflowExecution).filter(
-            WorkflowExecution.template_id.in_(template_id_list),
-            WorkflowExecution.deleted_at == None
-        ).update({"deleted_at": now}, synchronize_session=False)
-        cascade_summary["workflow_executions"] = exec_result
+    # Cascade soft delete to workflow executions (via template) using subquery
+    exec_result = db.query(WorkflowExecution).filter(
+        WorkflowExecution.template_id.in_(template_ids_subquery),
+        WorkflowExecution.deleted_at == None
+    ).update({"deleted_at": now}, synchronize_session=False)
+    cascade_summary["workflow_executions"] = exec_result
 
     # Soft delete the project itself
     project.deleted_at = now
@@ -376,19 +375,21 @@ def update_document(db: Session, document_id: str, document: DocumentUpdate):
         old_status = db_document.status
         db_document.status = document.status
 
-        # Sync status to all attached images when document status changes
+        # Feature 030: Sync status to all attached images using bulk update (fixes N+1 query)
         if old_status != document.status:
-            attachments = db.query(DocumentAttachment).filter(
+            # Get image IDs via subquery instead of iterating
+            image_ids_subquery = db.query(DocumentAttachment.image_id).filter(
                 DocumentAttachment.document_id == document_id
-            ).all()
+            ).subquery()
 
-            for attachment in attachments:
-                attached_image = db.query(Document).filter(
-                    Document.id == attachment.image_id
-                ).first()
-                if attached_image:
-                    attached_image.status = document.status
-                    attached_image.updated_at = datetime.now()
+            # Bulk update all attached images in a single query
+            db.query(Document).filter(
+                Document.id.in_(image_ids_subquery),
+                Document.deleted_at == None
+            ).update(
+                {"status": document.status, "updated_at": datetime.now()},
+                synchronize_session=False
+            )
 
     # Feature 028 (T051): Tags and metadata fields
     if document.tags is not None:
@@ -449,43 +450,46 @@ def soft_delete_document(db: Session, document_id: str, user_id: Optional[str] =
 
     # Delete attached images if requested (default behavior)
     if delete_attachments:
-        # Get all attachments where this document is the parent
-        attachments = db.query(DocumentAttachment).filter(
-            DocumentAttachment.document_id == document_id
+        # Feature 030: Use JOIN query to fetch all image documents at once (fixes N+1 query)
+        # This fetches attachments with their related image documents in a single query
+        image_docs = db.query(Document).join(
+            DocumentAttachment,
+            DocumentAttachment.image_id == Document.id
+        ).filter(
+            DocumentAttachment.document_id == document_id,
+            Document.deleted_at == None
         ).all()
 
-        for attachment in attachments:
-            # Get the image document
-            image_doc = db.query(Document).filter(Document.id == attachment.image_id).first()
-            if image_doc and image_doc.deleted_at is None:
-                # Try to delete from R2 storage
-                if image_doc.file_url:
-                    try:
-                        # Extract object name from URL (e.g., "images/project_id/filename.webp")
-                        # URL format: https://bucket.r2.dev/images/project_id/filename.webp
-                        url_parts = image_doc.file_url.split('/')
-                        if len(url_parts) >= 3:
-                            # Get the path after the domain
-                            object_name = '/'.join(url_parts[-3:])  # images/project_id/filename.webp
-                            delete_file(object_name)
-                            print(f"🗑️ Deleted R2 file: {object_name}")
-                    except Exception as e:
-                        print(f"⚠️ Failed to delete R2 file for image {attachment.image_id}: {e}")
+        # Process each image (file deletion requires iteration but no additional DB queries)
+        for image_doc in image_docs:
+            # Try to delete from R2 storage
+            if image_doc.file_url:
+                try:
+                    # Extract object name from URL (e.g., "images/project_id/filename.webp")
+                    # URL format: https://bucket.r2.dev/images/project_id/filename.webp
+                    url_parts = image_doc.file_url.split('/')
+                    if len(url_parts) >= 3:
+                        # Get the path after the domain
+                        object_name = '/'.join(url_parts[-3:])  # images/project_id/filename.webp
+                        delete_file(object_name)
+                        print(f"🗑️ Deleted R2 file: {object_name}")
+                except Exception as e:
+                    print(f"⚠️ Failed to delete R2 file for image {image_doc.id}: {e}")
 
-                # Also delete thumbnail if exists
-                if image_doc.thumbnail_url:
-                    try:
-                        url_parts = image_doc.thumbnail_url.split('/')
-                        if len(url_parts) >= 3:
-                            object_name = '/'.join(url_parts[-3:])
-                            delete_file(object_name)
-                            print(f"🗑️ Deleted R2 thumbnail: {object_name}")
-                    except Exception as e:
-                        print(f"⚠️ Failed to delete R2 thumbnail for image {attachment.image_id}: {e}")
+            # Also delete thumbnail if exists
+            if image_doc.thumbnail_url:
+                try:
+                    url_parts = image_doc.thumbnail_url.split('/')
+                    if len(url_parts) >= 3:
+                        object_name = '/'.join(url_parts[-3:])
+                        delete_file(object_name)
+                        print(f"🗑️ Deleted R2 thumbnail: {object_name}")
+                except Exception as e:
+                    print(f"⚠️ Failed to delete R2 thumbnail for image {image_doc.id}: {e}")
 
-                # Soft delete the image document
-                image_doc.deleted_at = datetime.now()
-                print(f"🗑️ Soft deleted attached image: {image_doc.title or image_doc.id}")
+            # Soft delete the image document
+            image_doc.deleted_at = datetime.now()
+            print(f"🗑️ Soft deleted attached image: {image_doc.title or image_doc.id}")
 
         # Remove attachment records (hard delete since parent is being deleted)
         db.query(DocumentAttachment).filter(
@@ -591,12 +595,19 @@ def move_folder(db: Session, folder_id: str, new_parent_id: Optional[str], user_
         if new_parent_id == folder_id:
             return {"error": "Cannot make folder its own parent"}
 
-        # Check if new_parent is a descendant of folder
+        # Feature 030: Check if new_parent is a descendant of folder
+        # Uses depth limit to prevent excessive queries (max 20 levels typical for folder structures)
+        MAX_FOLDER_DEPTH = 20
         current = get_folder(db, new_parent_id)
-        while current and current.parent_folder_id:
+        depth = 0
+        while current and current.parent_folder_id and depth < MAX_FOLDER_DEPTH:
             if current.parent_folder_id == folder_id:
                 return {"error": "Cannot move folder into its own descendant"}
             current = get_folder(db, current.parent_folder_id)
+            depth += 1
+
+        if depth >= MAX_FOLDER_DEPTH:
+            return {"error": "Folder hierarchy too deep"}
 
     old_parent_id = db_folder.parent_folder_id
     db_folder.parent_folder_id = new_parent_id

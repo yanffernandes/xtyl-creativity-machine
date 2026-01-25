@@ -8,7 +8,7 @@
  * actions for expanding, downloading, and saving.
  */
 
-import { useState } from 'react';
+import { useState, memo } from 'react';
 import { motion } from 'framer-motion';
 import Image from 'next/image';
 import {
@@ -42,7 +42,11 @@ interface VariationCardProps {
   className?: string;
 }
 
-export function VariationCard({
+/**
+ * Feature 030: Memoized component to prevent unnecessary re-renders
+ * Only re-renders when props actually change
+ */
+export const VariationCard = memo(function VariationCard({
   variation,
   index,
   isGenerating = false,
@@ -339,6 +343,6 @@ export function VariationCard({
       </div>
     </motion.div>
   );
-}
+});
 
 export default VariationCard;

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef, useMemo } from "react"
 import { useParams, useRouter, useSearchParams } from "next/navigation"
+import dynamic from "next/dynamic"
 import { useAuthStore } from "@/lib/store"
 import api, { getProjectSettings, ProjectSettings } from "@/lib/api"
 import { useWorkspace } from "@/hooks/use-workspaces"
@@ -51,17 +52,31 @@ import ImageGallery from "@/components/ImageGallery"
 import ImageUpload from "@/components/ImageUpload"
 import LoadingSkeleton from "@/components/LoadingSkeleton"
 import EmptyState from "@/components/EmptyState"
-import ArchiveView from "@/components/ArchiveView"
-import ActivityLogPanel from "@/components/ActivityLogPanel"
-import ImageGenerationPanel from "@/components/ImageGenerationPanel"
-import ImageViewer from "@/components/ImageViewer"
-import ShareDialog from "@/components/ShareDialog"
-import VisualAssetsLibrary from "@/components/VisualAssetsLibrary"
 import DocumentAttachments from "@/components/document/DocumentAttachments"
-import AttachImageModal from "@/components/document/AttachImageModal"
+
+// Feature 030: Dynamic imports for modal components to reduce initial bundle size
+const ArchiveView = dynamic(() => import("@/components/ArchiveView"), {
+    loading: () => <div className="flex items-center justify-center p-8"><Loader2 className="h-6 w-6 animate-spin" /></div>
+})
+const ActivityLogPanel = dynamic(() => import("@/components/ActivityLogPanel"), {
+    loading: () => <div className="flex items-center justify-center p-8"><Loader2 className="h-6 w-6 animate-spin" /></div>
+})
+const ImageGenerationPanel = dynamic(() => import("@/components/ImageGenerationPanel"), {
+    loading: () => <div className="flex items-center justify-center p-8"><Loader2 className="h-6 w-6 animate-spin" /></div>
+})
+const ImageViewer = dynamic(() => import("@/components/ImageViewer"), {
+    loading: () => <div className="flex items-center justify-center p-8"><Loader2 className="h-6 w-6 animate-spin" /></div>
+})
+const ShareDialog = dynamic(() => import("@/components/ShareDialog"))
+const VisualAssetsLibrary = dynamic(() => import("@/components/VisualAssetsLibrary"), {
+    loading: () => <div className="flex items-center justify-center p-8"><Loader2 className="h-6 w-6 animate-spin" /></div>
+})
+const AttachImageModal = dynamic(() => import("@/components/document/AttachImageModal"))
+const ProjectSettingsForm = dynamic(() => import("@/components/project/ProjectSettingsForm"), {
+    loading: () => <div className="flex items-center justify-center p-8"><Loader2 className="h-6 w-6 animate-spin" /></div>
+})
 import { DocumentFilters, useDocumentFilters } from "@/components/document/DocumentFilters"
 import { VersionHistoryPanel } from "@/components/document/VersionHistoryPanel"
-import ProjectSettingsForm from "@/components/project/ProjectSettingsForm"
 import { MultiSelectProvider, MultiSelectActionBar, useMultiSelect } from "@/components/kanban"
 import { useConfirm } from "@/components/confirm-dialog"
 import { ImageIcon } from "lucide-react"
@@ -1091,14 +1106,6 @@ export default function ProjectPage() {
                                                     key={attachmentsRefreshKey}
                                                     documentId={selectedDoc.id}
                                                     onAttachImage={() => setShowAttachImageModal(true)}
-                                                    onViewImage={(imageId) => {
-                                                        // Find the image document and open in ImageViewer
-                                                        const allImages = [...creations, ...(contextFiles || [])].filter(doc => doc.media_type === 'image')
-                                                        const imageDoc = allImages.find(img => img.id === imageId)
-                                                        if (imageDoc) {
-                                                            setViewingImage(imageDoc as Document)
-                                                        }
-                                                    }}
                                                     compact
                                                 />
                                             </div>

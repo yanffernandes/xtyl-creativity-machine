@@ -13,6 +13,7 @@
  */
 
 import { useMemo } from 'react';
+import NextImage from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   FileText,
@@ -233,10 +234,14 @@ export function GenerationSummary({
                           className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-gray-100/60 dark:bg-gray-800/60 border border-gray-200/50 dark:border-gray-700/50"
                         >
                           {asset.thumbnail_url && (
-                            <img
+                            <NextImage
                               src={asset.thumbnail_url}
                               alt=""
-                              className="w-6 h-6 rounded object-cover"
+                              width={24}
+                              height={24}
+                              className="rounded object-cover"
+                              loading="lazy"
+                              unoptimized
                             />
                           )}
                           <Icon className={cn('h-3 w-3', config.color)} />

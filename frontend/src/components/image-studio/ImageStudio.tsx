@@ -36,7 +36,8 @@ import type { AvailableModel, StylePreset, GeneratedImage } from '@/types/image-
 
 interface ImageStudioProps {
   projectId: string;
-  imageModels: AvailableModel[];
+  /** @deprecated Models are now hardcoded - this prop is ignored */
+  imageModels?: AvailableModel[];
   visualStylePresets?: StylePreset[];
   layoutPresets?: StylePreset[];
   /** @deprecated Use visualStylePresets instead */
@@ -51,7 +52,6 @@ type TabValue = 'create' | 'edit' | 'adjust' | 'video';
 
 export function ImageStudio({
   projectId,
-  imageModels,
   visualStylePresets = [],
   layoutPresets = [],
   stylePresets = [], // deprecated
@@ -72,7 +72,6 @@ export function ImageStudio({
   const studio = useImageStudio({
     projectId,
     defaultModel,
-    imageModels,
     visualStylePresets: effectiveVisualStyles,
     layoutPresets: effectiveLayouts,
   });
@@ -176,7 +175,6 @@ export function ImageStudio({
             <CreateMode
               projectId={projectId}
               studio={studio}
-              imageModels={imageModels}
               visualStylePresets={effectiveVisualStyles}
               layoutPresets={effectiveLayouts}
               isLoading={isLoading}

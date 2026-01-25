@@ -471,8 +471,11 @@ class DocumentAttachmentBase(BaseModel):
     is_primary: Optional[bool] = False
     attachment_order: Optional[int] = 0
 
-class DocumentAttachmentCreate(DocumentAttachmentBase):
-    pass
+class DocumentAttachmentCreate(BaseModel):
+    """Schema for creating attachments - document_id comes from URL path"""
+    image_id: str
+    is_primary: Optional[bool] = False
+    attachment_order: Optional[int] = 0
 
 class DocumentAttachment(DocumentAttachmentBase):
     id: str
@@ -1795,8 +1798,8 @@ class InpaintRequest(BaseModel):
     prompt: str = Field(..., description="Instruction for what to add/change in the masked area")
     project_id: str
     model: str = Field("fal-ai/flux-pro/v1/fill", description="Model to use for inpainting")
-    guidance_scale: float = Field(30.0, ge=1.0, le=50.0, description="How closely to follow the prompt")
-    num_inference_steps: int = Field(50, ge=10, le=100, description="Number of denoising steps")
+    guidance_scale: float = Field(7.5, ge=1.0, le=20.0, description="How closely to follow the prompt (fal.ai max: 20)")
+    num_inference_steps: int = Field(28, ge=10, le=50, description="Number of denoising steps")
 
 
 class EditRequest(BaseModel):
@@ -1845,3 +1848,38 @@ class ImageOperationResponse(BaseModel):
     model_used: str
     cost_cents: int = 0
     processing_time_ms: Optional[int] = None
+
+
+# ============================================================================
+# UNIFIED IMAGE GENERATION REQUEST (Feature 029 - Simplified)
+# ============================================================================
+
+class UnifiedGenerateRequest(BaseModel):
+    """
+    Unified request for image generation/editing.
+
+    Automatically selects the appropriate endpoint based on:
+    - If image_urls is provided -> uses image-to-image/edit model
+    - If mask_url is provided -> uses GPT-Image 1.5/edit (only model with mask support)
+    - Otherwise -> uses text-to-image model
+    """
+    prompt: str = Field(..., description="Text prompt or editing instruction")
+    project_id: str = Field(..., description="Project ID for storage")
+    model: str = Field("fal-ai/gpt-image-1.5", description="Model ID to use")
+    image_urls: Optional[List[str]] = Field(None, description="Reference images (triggers edit mode)")
+    mask_url: Optional[str] = Field(None, description="Mask image URL (only for GPT-Image 1.5/edit)")
+    params: Optional[Dict[str, Any]] = Field(None, description="Model-specific parameters")
+
+
+class UnifiedGenerateResponse(BaseModel):
+    """Response from unified image generation"""
+    success: bool = True
+    document_id: str
+    file_url: str
+    thumbnail_url: str
+    title: str
+    model_used: str
+    model_type: str  # "text-to-image" or "image-to-image"
+    supports_mask: bool
+    processing_time_ms: int
+    generation_metadata: Dict[str, Any]

@@ -7,7 +7,7 @@
  * Filter controls for document list/gallery by tags and channel.
  */
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, memo } from 'react';
 import { Tag, Radio, X, Filter } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -55,7 +55,10 @@ const CHANNEL_OPTIONS = [
   { value: 'other', label: 'Outro' },
 ];
 
-export function DocumentFilters({
+/**
+ * Feature 030: Memoized component to prevent unnecessary re-renders
+ */
+export const DocumentFilters = memo(function DocumentFilters({
   documents,
   selectedTags,
   selectedChannel,
@@ -205,7 +208,7 @@ export function DocumentFilters({
       )}
     </div>
   );
-}
+});
 
 /**
  * Hook to filter documents by tags and channel

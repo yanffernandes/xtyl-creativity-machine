@@ -15,7 +15,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { generateImageBatch, getBatchStreamUrl, attachImageToDocument } from '@/lib/api';
-import { queryKeys } from '@/lib/query-keys';
+import { queryKeys, documentKeys } from '@/lib/query-keys';
 import { useAuthStore } from '@/lib/store';
 import type {
   ImageStudioState,
@@ -63,6 +63,9 @@ interface UseImageStudioReturn extends ImageStudioState {
   setStylePreset: (slug: string | null) => void;
   setAspectRatio: (ratio: AspectRatioId) => void;
   setModel: (model: string) => void;
+  // Feature 029: Model-specific parameters
+  modelParams: Record<string, unknown>;
+  setModelParams: (params: Record<string, unknown>) => void;
   setCreativity: (value: number) => void;
   setVariationCount: (count: number) => void;
   setReferenceImage: (url: string | null) => void;
@@ -129,6 +132,8 @@ export function useImageStudio({
   const [layoutSlug, setLayout] = useState<string | null>(null);
   const [aspectRatio, setAspectRatio] = useState<AspectRatioId>('1:1');
   const [model, setModel] = useState(defaultModel || DEFAULT_MODEL);
+  // Feature 029: Model-specific parameters
+  const [modelParams, setModelParams] = useState<Record<string, unknown>>({});
   const [creativity, setCreativity] = useState(50);
   const [variationCount, setVariationCount] = useState(DEFAULT_VARIATIONS);
   const [referenceImageUrl, setReferenceImage] = useState<string | null>(null);
@@ -272,7 +277,7 @@ export function useImageStudio({
 
               // Invalidate documents to refresh the gallery
               queryClient.invalidateQueries({
-                queryKey: queryKeys.documents.byProject(projectId),
+                queryKey: documentKeys.list(projectId),
               });
 
               const successCount = data.data.completed || 0;
@@ -412,7 +417,7 @@ export function useImageStudio({
         toast.success('Imagem já salva no projeto');
         // Refresh documents
         queryClient.invalidateQueries({
-          queryKey: queryKeys.documents.byProject(projectId),
+          queryKey: documentKeys.list(projectId),
         });
       }
     },
@@ -432,7 +437,7 @@ export function useImageStudio({
         toast.success('Imagem anexada ao documento');
         // Refresh documents
         queryClient.invalidateQueries({
-          queryKey: queryKeys.documents.byProject(projectId),
+          queryKey: documentKeys.list(projectId),
         });
       } catch (err) {
         console.error('Failed to attach image:', err);
@@ -509,6 +514,8 @@ export function useImageStudio({
     setStylePreset, // deprecated
     setAspectRatio,
     setModel,
+    modelParams,
+    setModelParams,
     setCreativity,
     setVariationCount,
     setReferenceImage,

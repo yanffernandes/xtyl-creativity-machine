@@ -13,7 +13,6 @@
 
 import { useState, useMemo, useCallback } from 'react';
 import Image from 'next/image';
-import { motion, AnimatePresence } from 'framer-motion';
 import {
   X,
   ImageIcon,
@@ -112,7 +111,7 @@ interface MultiSelectProps {
 interface SingleSelectProps {
   mode: 'single';
   projectId: string;
-  onSelect: (asset: any) => void;
+  onSelect: (asset: VisualAsset) => void;
   title?: string;
   description?: string;
   visualAssets?: never;
@@ -126,56 +125,64 @@ type AssetPickerModalProps = {
 } & (MultiSelectProps | SingleSelectProps);
 
 export function AssetPickerModal(props: AssetPickerModalProps) {
-  const { isOpen, onClose, mode = 'multi' } = props;
+  const { isOpen, onClose } = props;
+  const mode = props.mode ?? 'multi';
+  const isSingleMode = mode === 'single';
+  const isMultiMode = mode === 'multi';
+
+  // Extract props based on mode (type narrowing)
+  const singleProps = isSingleMode ? (props as SingleSelectProps) : null;
+  const multiProps = isMultiMode ? (props as MultiSelectProps) : null;
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
   // Fetch images from API for single-select mode
   const { media: fetchedMedia } = useProjectMedia({
-    projectId: mode === 'single' ? props.projectId : '',
+    projectId: singleProps?.projectId ?? '',
     limit: 100,
-    enabled: isOpen && mode === 'single',
+    enabled: isOpen && isSingleMode,
   });
 
   // Convert fetched media to VisualAsset format for single-select
-  const visualAssetsFromAPI = useMemo(() => {
-    if (mode !== 'single') return [];
+  const visualAssetsFromAPI = useMemo((): VisualAsset[] => {
+    if (!isSingleMode) return [];
     return fetchedMedia.map((m) => ({
-      id: m.document_id,
-      project_id: mode === 'single' ? props.projectId : '',
+      id: m.document_id ?? '',
+      project_id: singleProps?.projectId ?? '',
       name: m.title || 'Untitled',
-      file_url: m.file_url,
-      thumbnail_url: m.thumbnail_url,
+      file_url: m.file_url ?? null,
+      thumbnail_url: m.thumbnail_url ?? null,
       category: null,
       tags: null,
       ai_description: null,
       is_classified: false,
-      created_at: m.created_at || new Date().toISOString(),
+      created_at: new Date().toISOString(),
       updated_at: null,
     }));
-  }, [mode, fetchedMedia, props]);
+  }, [isSingleMode, fetchedMedia, singleProps?.projectId]);
 
   // Get visualAssets based on mode
-  const visualAssets =
-    mode === 'multi' ? props.visualAssets : visualAssetsFromAPI;
+  const visualAssets: VisualAsset[] = isMultiMode
+    ? (multiProps?.visualAssets ?? [])
+    : visualAssetsFromAPI;
 
   // Multi-select state
   const [localSelection, setLocalSelection] = useState<SelectedAssetWithMode[]>(
-    mode === 'multi' ? props.selectedAssets : []
+    multiProps?.selectedAssets ?? []
   );
 
   // Sync local selection when modal opens (multi-select only)
   useMemo(() => {
-    if (isOpen && mode === 'multi') {
-      setLocalSelection(props.selectedAssets);
+    if (isOpen && isMultiMode && multiProps?.selectedAssets) {
+      setLocalSelection(multiProps.selectedAssets);
     }
-  }, [isOpen, mode, props]);
+  }, [isOpen, isMultiMode, multiProps?.selectedAssets]);
 
   // Get unique categories from assets
   const categories = useMemo(() => {
     const cats = new Set<string>();
-    visualAssets?.forEach((asset) => {
+    visualAssets.forEach((asset) => {
       if (asset.category) {
         cats.add(asset.category);
       }
@@ -185,7 +192,6 @@ export function AssetPickerModal(props: AssetPickerModalProps) {
 
   // Filter assets based on search and category
   const filteredAssets = useMemo(() => {
-    if (!visualAssets) return [];
     return visualAssets.filter((asset) => {
       const matchesSearch =
         !searchQuery ||
@@ -209,17 +215,17 @@ export function AssetPickerModal(props: AssetPickerModalProps) {
 
   // Toggle asset selection with mode
   const handleToggleAsset = useCallback(
-    (asset: VisualAsset, mode: AssetMode) => {
+    (asset: VisualAsset, assetMode: AssetMode) => {
       const existing = localSelection.find((a) => a.id === asset.id);
 
       if (existing) {
-        if (existing.mode === mode) {
+        if (existing.mode === assetMode) {
           // Remove if same mode clicked
           setLocalSelection(localSelection.filter((a) => a.id !== asset.id));
         } else {
           // Update mode
           setLocalSelection(
-            localSelection.map((a) => (a.id === asset.id ? { ...a, mode } : a))
+            localSelection.map((a) => (a.id === asset.id ? { ...a, mode: assetMode } : a))
           );
         }
       } else {
@@ -228,7 +234,7 @@ export function AssetPickerModal(props: AssetPickerModalProps) {
           ...localSelection,
           {
             id: asset.id,
-            mode,
+            mode: assetMode,
             thumbnail_url: asset.thumbnail_url || asset.file_url || undefined,
             title: asset.name,
           },
@@ -242,9 +248,9 @@ export function AssetPickerModal(props: AssetPickerModalProps) {
   // Or single-select click handler
   const handleQuickSelect = useCallback(
     (asset: VisualAsset) => {
-      if (mode === 'single') {
+      if (isSingleMode && singleProps?.onSelect) {
         // Single-select: immediate selection and close
-        props.onSelect(asset);
+        singleProps.onSelect(asset);
         onClose();
       } else {
         // Multi-select: toggle with default mode
@@ -253,7 +259,7 @@ export function AssetPickerModal(props: AssetPickerModalProps) {
         handleToggleAsset(asset, defaultMode);
       }
     },
-    [mode, props, onClose, handleToggleAsset]
+    [isSingleMode, singleProps, onClose, handleToggleAsset]
   );
 
   // Remove asset from selection
@@ -266,19 +272,19 @@ export function AssetPickerModal(props: AssetPickerModalProps) {
 
   // Confirm selection (multi-select only)
   const handleConfirm = useCallback(() => {
-    if (mode === 'multi') {
-      props.onUpdateAssets(localSelection);
+    if (isMultiMode && multiProps?.onUpdateAssets) {
+      multiProps.onUpdateAssets(localSelection);
     }
     onClose();
-  }, [mode, props, localSelection, onClose]);
+  }, [isMultiMode, multiProps, localSelection, onClose]);
 
   // Cancel and reset
   const handleCancel = useCallback(() => {
-    if (mode === 'multi') {
-      setLocalSelection(props.selectedAssets);
+    if (isMultiMode && multiProps?.selectedAssets) {
+      setLocalSelection(multiProps.selectedAssets);
     }
     onClose();
-  }, [mode, props, onClose]);
+  }, [isMultiMode, multiProps, onClose]);
 
   return (
     <Dialog open={isOpen} onOpenChange={handleCancel}>
@@ -286,11 +292,13 @@ export function AssetPickerModal(props: AssetPickerModalProps) {
         <DialogHeader className="px-6 py-4 border-b border-gray-200 dark:border-gray-800">
           <DialogTitle className="flex items-center gap-2">
             <ImageIcon className="w-5 h-5 text-blue-500" />
-            {mode === 'single' && props.title ? props.title : 'Selecionar Contexto Visual'}
+            {isSingleMode && singleProps?.title
+              ? singleProps.title
+              : 'Selecionar Contexto Visual'}
           </DialogTitle>
-          {mode === 'single' && props.description && (
+          {isSingleMode && singleProps?.description && (
             <DialogDescription className="text-sm text-gray-500 dark:text-gray-400">
-              {props.description}
+              {singleProps.description}
             </DialogDescription>
           )}
         </DialogHeader>
@@ -408,7 +416,7 @@ export function AssetPickerModal(props: AssetPickerModalProps) {
                       )}
 
                       {/* Hover overlay with mode options (multi-select only) */}
-                      {mode === 'multi' && (
+                      {isMultiMode && (
                         <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1">
                           {Object.entries(ASSET_MODES).map(([modeKey, config]) => {
                             const Icon = config.icon;
@@ -456,7 +464,7 @@ export function AssetPickerModal(props: AssetPickerModalProps) {
         </div>
 
         {/* Selected assets preview and actions (multi-select only) */}
-        {mode === 'multi' && (
+        {isMultiMode && (
           <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/50">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -469,15 +477,15 @@ export function AssetPickerModal(props: AssetPickerModalProps) {
                 {localSelection.length > 0 && (
                   <div className="flex -space-x-2">
                     {localSelection.slice(0, 5).map((selected) => {
-                      const asset = visualAssets?.find((a) => a.id === selected.id);
-                      const modeConfig = ASSET_MODES[selected.mode];
+                      const asset = visualAssets.find((a) => a.id === selected.id);
+                      const selectedModeConfig = ASSET_MODES[selected.mode];
                       if (!asset) return null;
                       return (
                         <div
                           key={asset.id}
                           className={cn(
                             'relative w-8 h-8 rounded-lg overflow-hidden ring-2 ring-white dark:ring-gray-900',
-                            modeConfig.ringClass
+                            selectedModeConfig.ringClass
                           )}
                         >
                           <Image

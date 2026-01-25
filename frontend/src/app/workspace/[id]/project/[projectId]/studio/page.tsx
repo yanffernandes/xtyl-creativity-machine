@@ -52,14 +52,41 @@ import { ImageExpandModal } from '@/components/image-studio/ImageExpandModal';
 import { VisualContextPreview } from '@/components/image-studio/VisualContextPreview';
 import { EditMode } from '@/components/image-studio/EditMode';
 import { AdjustMode } from '@/components/image-studio/AdjustMode';
+import { AssetPickerModal } from '@/components/image-studio/AssetPickerModal';
 import type { GeneratedImage, AspectRatioId } from '@/types/image-studio';
+import {
+  TEXT_TO_IMAGE_MODELS,
+  IMAGE_TO_IMAGE_MODELS,
+  getModelById,
+  type ModelConfig,
+} from '@/lib/modelConfig';
 
-// Format options
-const FORMAT_OPTIONS: { value: AspectRatioId; label: string }[] = [
+// Format options for aspect_ratio models
+const ASPECT_RATIO_OPTIONS = [
   { value: '1:1', label: '1:1' },
   { value: '16:9', label: '16:9' },
   { value: '9:16', label: '9:16' },
   { value: '4:3', label: '4:3' },
+  { value: '3:4', label: '3:4' },
+];
+
+// Format options for image_size models (GPT-Image 1.5)
+const IMAGE_SIZE_OPTIONS = [
+  { value: '1024x1024', label: '1:1' },
+  { value: '1536x1024', label: '3:2' },
+  { value: '1024x1536', label: '2:3' },
+  { value: '1792x1024', label: '16:9' },
+  { value: '1024x1792', label: '9:16' },
+];
+
+// Format options for Seedream models (use named presets)
+const SEEDREAM_IMAGE_SIZE_OPTIONS = [
+  { value: 'square', label: '1:1' },
+  { value: 'square_hd', label: '1:1 HD' },
+  { value: 'landscape_4_3', label: '4:3' },
+  { value: 'portrait_4_3', label: '3:4' },
+  { value: 'landscape_16_9', label: '16:9' },
+  { value: 'portrait_16_9', label: '9:16' },
 ];
 
 type TabValue = 'criar' | 'editar' | 'ajustar' | 'video';
@@ -81,6 +108,7 @@ export default function StudioPage() {
   const [expandedImage, setExpandedImage] = useState<GeneratedImage | null>(null);
   const [activeTab, setActiveTab] = useState<TabValue>('criar');
   const [selectedImageForEdit, setSelectedImageForEdit] = useState<GeneratedImage | null>(null);
+  const [showAssetPicker, setShowAssetPicker] = useState(false);
 
   // Infinite scroll ref
   const loadMoreRef = useRef<HTMLDivElement>(null);
@@ -448,6 +476,73 @@ export default function StudioPage() {
                       {/* Divider */}
                       <div className="border-t border-gray-200 dark:border-gray-700" />
 
+                      {/* 2.5. MODELO - Movido para cima */}
+                      <div className="space-y-2">
+                        <label className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-2">
+                          <Sparkles className="w-3.5 h-3.5" />
+                          Modelo
+                        </label>
+                        <Select
+                          value={studio.model}
+                          onValueChange={studio.setModel}
+                          disabled={studio.isGenerating}
+                        >
+                          <SelectTrigger className="w-full bg-white dark:bg-gray-800">
+                            <SelectValue placeholder="Selecione um modelo">
+                              {(() => {
+                                const selectedModel = TEXT_TO_IMAGE_MODELS.find(m => m.id === studio.model);
+                                if (selectedModel) {
+                                  return (
+                                    <span className="flex items-center gap-2">
+                                      <span className="truncate">{selectedModel.name}</span>
+                                      <span className="text-xs text-gray-400">
+                                        ({selectedModel.provider})
+                                      </span>
+                                    </span>
+                                  );
+                                }
+                                return null;
+                              })()}
+                            </SelectValue>
+                          </SelectTrigger>
+                          <SelectContent>
+                            {/* Group by provider */}
+                            {(() => {
+                              const grouped: Record<string, typeof TEXT_TO_IMAGE_MODELS> = {};
+                              TEXT_TO_IMAGE_MODELS.forEach((model) => {
+                                const provider = model.provider || 'Other';
+                                if (!grouped[provider]) grouped[provider] = [];
+                                grouped[provider].push(model);
+                              });
+                              return Object.entries(grouped).map(([provider, models]) => (
+                                <div key={provider}>
+                                  <div className="px-2 py-1.5 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                                    {provider}
+                                  </div>
+                                  {models.map((model) => (
+                                    <SelectItem
+                                      key={model.id}
+                                      value={model.id}
+                                      className="cursor-pointer"
+                                    >
+                                      <div className="flex flex-col gap-0.5">
+                                        <span className="font-medium">{model.name}</span>
+                                        <span className="text-xs text-gray-500 dark:text-gray-400 line-clamp-1">
+                                          {model.description}
+                                        </span>
+                                      </div>
+                                    </SelectItem>
+                                  ))}
+                                </div>
+                              ));
+                            })()}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {/* Divider */}
+                      <div className="border-t border-gray-200 dark:border-gray-700" />
+
                       {/* 3. REFERÊNCIAS VISUAIS */}
                       <VisualContextPreview
                         visualAssets={bootstrapData?.visual_context || []}
@@ -515,76 +610,86 @@ export default function StudioPage() {
                           Configurações
                         </span>
 
-                        <div className="flex gap-3">
-                          {/* Format selector inline */}
-                          <div className="flex-1">
+                        {/* Format + Variations row */}
+                        <div className="grid grid-cols-2 gap-3">
+                          {/* Format selector - adapts to model */}
+                          <div>
                             <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">
                               Formato
                             </label>
-                            <div className="flex gap-1">
-                              {FORMAT_OPTIONS.map((format) => (
-                                <button
-                                  key={format.value}
-                                  onClick={() => studio.setAspectRatio(format.value)}
-                                  disabled={studio.isGenerating}
-                                  className={cn(
-                                    'flex-1 px-2 py-1.5 text-xs font-medium rounded-md transition-colors',
-                                    studio.aspectRatio === format.value
-                                      ? 'bg-blue-500 text-white'
-                                      : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
-                                  )}
-                                >
-                                  {format.label}
-                                </button>
-                              ))}
-                            </div>
+                            {(() => {
+                              const currentModel = getModelById(studio.model);
+                              const hasImageSize = currentModel?.parameters.some((p) => p.name === 'image_size');
+                              const isSeedream = studio.model.includes('seedream');
+
+                              // Use appropriate format options based on model
+                              const formatOptions = hasImageSize
+                                ? (isSeedream ? SEEDREAM_IMAGE_SIZE_OPTIONS : IMAGE_SIZE_OPTIONS)
+                                : ASPECT_RATIO_OPTIONS;
+
+                              // Get current format value with model-specific defaults
+                              const currentFormat = hasImageSize
+                                ? (studio.modelParams.image_size as string) || (isSeedream ? 'square' : '1024x1024')
+                                : studio.aspectRatio;
+
+                              const handleFormatChange = (value: string) => {
+                                if (hasImageSize) {
+                                  studio.setModelParams({ ...studio.modelParams, image_size: value });
+                                } else {
+                                  studio.setAspectRatio(value as AspectRatioId);
+                                }
+                              };
+
+                              return (
+                                <div className="flex flex-wrap gap-1">
+                                  {formatOptions.map((format) => (
+                                    <button
+                                      key={format.value}
+                                      onClick={() => handleFormatChange(format.value)}
+                                      disabled={studio.isGenerating}
+                                      className={cn(
+                                        'px-2 py-1.5 text-xs font-medium rounded-md transition-colors',
+                                        currentFormat === format.value
+                                          ? 'bg-blue-500 text-white'
+                                          : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
+                                      )}
+                                    >
+                                      {format.label}
+                                    </button>
+                                  ))}
+                                </div>
+                              );
+                            })()}
                           </div>
 
-                          {/* Model selector inline */}
-                          <div className="w-[140px]">
+                          {/* Variation count selector */}
+                          <div>
                             <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">
-                              Modelo
+                              Variações
                             </label>
-                            <Select
-                              value={studio.model}
-                              onValueChange={studio.setModel}
-                              disabled={studio.isGenerating}
-                            >
-                              <SelectTrigger className="h-[34px] text-xs bg-white dark:bg-gray-800">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {(bootstrapData?.models?.image || []).map((model: { id: string; name: string }) => (
-                                  <SelectItem key={model.id} value={model.id}>
-                                    {model.name}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </div>
-
-                        {/* Variation count selector */}
-                        <div>
-                          <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">
-                            Variações
-                          </label>
-                          <div className="flex gap-1">
-                            {[1, 2, 3, 4].map((count) => (
-                              <button
-                                key={count}
-                                onClick={() => studio.setVariationCount(count)}
-                                disabled={studio.isGenerating}
-                                className={cn(
-                                  'flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-colors',
-                                  studio.variationCount === count
-                                    ? 'bg-blue-500 text-white'
-                                    : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
-                                )}
-                              >
-                                {count}
-                              </button>
-                            ))}
+                            {(() => {
+                              const currentModel = getModelById(studio.model);
+                              const maxImages = currentModel?.maxImages ?? 4;
+                              return (
+                                <div className="flex gap-1">
+                                  {Array.from({ length: maxImages }, (_, i) => i + 1).map((count) => (
+                                    <button
+                                      key={count}
+                                      onClick={() => studio.setVariationCount(count)}
+                                      disabled={studio.isGenerating}
+                                      className={cn(
+                                        'flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-colors',
+                                        studio.variationCount === count
+                                          ? 'bg-blue-500 text-white'
+                                          : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
+                                      )}
+                                    >
+                                      {count}
+                                    </button>
+                                  ))}
+                                </div>
+                              );
+                            })()}
                           </div>
                         </div>
                       </div>
@@ -625,10 +730,7 @@ export default function StudioPage() {
                       <EditMode
                         projectId={projectId}
                         selectedImage={selectedImageForEdit}
-                        onSelectImage={() => {
-                          // Open asset picker modal
-                          toast.info('Asset picker será integrado');
-                        }}
+                        onSelectImage={() => setShowAssetPicker(true)}
                         onEditComplete={handleEditComplete}
                         isLoading={bootstrapLoading}
                       />
@@ -647,10 +749,7 @@ export default function StudioPage() {
                       <AdjustMode
                         projectId={projectId}
                         selectedImage={selectedImageForEdit}
-                        onSelectImage={() => {
-                          // Open asset picker modal
-                          toast.info('Asset picker será integrado');
-                        }}
+                        onSelectImage={() => setShowAssetPicker(true)}
                         onOperationComplete={handleAdjustComplete}
                       />
                     </motion.div>
@@ -787,6 +886,28 @@ export default function StudioPage() {
           onClose={handleCloseExpand}
           onSave={studio.save}
           onRefine={studio.refine}
+        />
+
+        {/* Asset picker modal for selecting images to edit/adjust */}
+        <AssetPickerModal
+          mode="single"
+          projectId={projectId}
+          isOpen={showAssetPicker}
+          onClose={() => setShowAssetPicker(false)}
+          onSelect={(asset) => {
+            const generatedImage: GeneratedImage = {
+              success: true,
+              index: 0,
+              document_id: asset.id,
+              file_url: asset.file_url || undefined,
+              thumbnail_url: asset.thumbnail_url || undefined,
+              title: asset.name || 'Imagem selecionada',
+            };
+            setSelectedImageForEdit(generatedImage);
+            setShowAssetPicker(false);
+          }}
+          title="Selecionar Imagem"
+          description="Escolha uma imagem da galeria para editar ou ajustar"
         />
       </div>
     </TooltipProvider>

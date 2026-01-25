@@ -22,21 +22,15 @@ import {
 } from '@/lib/documents-cache'
 import type { DocumentInsert, DocumentUpdate, Document } from '@/types/supabase'
 
-// Query keys
-export const documentKeys = {
-  all: ['documents'] as const,
-  lists: () => [...documentKeys.all, 'list'] as const,
-  list: (projectId: string) => [...documentKeys.lists(), projectId] as const,
-  folder: (projectId: string, folderId: string | null) =>
-    [...documentKeys.lists(), projectId, 'folder', folderId] as const,
-  // Feature 028: Campaign filter
-  campaign: (projectId: string, campaignId: string | null) =>
-    [...documentKeys.lists(), projectId, 'campaign', campaignId] as const,
-  archived: (projectId: string) => [...documentKeys.lists(), projectId, 'archived'] as const,
-  details: () => [...documentKeys.all, 'detail'] as const,
-  detail: (id: string) => [...documentKeys.details(), id] as const,
-  shared: (shareToken: string) => [...documentKeys.all, 'shared', shareToken] as const,
-}
+/**
+ * Query keys for documents
+ *
+ * @deprecated Import from '@/lib/query-keys' instead.
+ * Feature 030-performance-optimization: Consolidating query keys to single source.
+ * This export is kept for backward compatibility but will be removed in future.
+ */
+export { documentKeys } from '@/lib/query-keys'
+import { documentKeys } from '@/lib/query-keys'
 
 /**
  * Hook to fetch all documents in a project with localStorage cache
@@ -312,8 +306,11 @@ export function useUpdateDocument() {
       })
     },
     onSuccess: (data, variables) => {
+      // Feature 030: Specific invalidation - only invalidate document detail and its project list
       queryClient.invalidateQueries({ queryKey: documentKeys.detail(variables.id) })
-      queryClient.invalidateQueries({ queryKey: documentKeys.lists() })
+      if (data?.project_id) {
+        queryClient.invalidateQueries({ queryKey: documentKeys.list(data.project_id) })
+      }
       toast({
         title: 'Documento atualizado',
         description: 'As alterações foram salvas.',
@@ -330,13 +327,21 @@ export function useMoveDocument() {
   const { toast } = useToast()
 
   return useMutation({
-    mutationFn: async ({ id, folderId }: { id: string; folderId: string | null }) => {
+    mutationFn: async ({ id, folderId, projectId }: { id: string; folderId: string | null; projectId?: string }) => {
       const { data, error } = await documentService.move(id, folderId)
       if (error) throw error
-      return data
+      return { ...data, _projectId: projectId }
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: documentKeys.lists() })
+    onSuccess: (data) => {
+      // Feature 030: Invalidate specific project list instead of all lists
+      // Move affects multiple folder views, so invalidate project-level list
+      const projectId = data?._projectId || data?.project_id
+      if (projectId) {
+        queryClient.invalidateQueries({ queryKey: documentKeys.list(projectId) })
+      } else {
+        // Fallback to lists() if no projectId available
+        queryClient.invalidateQueries({ queryKey: documentKeys.lists() })
+      }
       toast({
         title: 'Documento movido',
         description: 'O documento foi movido com sucesso.',
@@ -365,8 +370,16 @@ export function useArchiveDocument() {
       if (error) throw error
       return data
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: documentKeys.lists() })
+    onSuccess: (data) => {
+      // Feature 030: Invalidate specific project list instead of all lists
+      const projectId = data?.project_id
+      if (projectId) {
+        queryClient.invalidateQueries({ queryKey: documentKeys.list(projectId) })
+        queryClient.invalidateQueries({ queryKey: documentKeys.archived(projectId) })
+      } else {
+        // Fallback to lists() if no projectId available
+        queryClient.invalidateQueries({ queryKey: documentKeys.lists() })
+      }
       toast({
         title: 'Documento arquivado',
         description: 'O documento foi movido para a lixeira.',
@@ -395,8 +408,15 @@ export function useRestoreDocument() {
       if (error) throw error
       return data
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: documentKeys.lists() })
+    onSuccess: (data) => {
+      // Feature 030: Invalidate specific project list and archived
+      const projectId = data?.project_id
+      if (projectId) {
+        queryClient.invalidateQueries({ queryKey: documentKeys.list(projectId) })
+        queryClient.invalidateQueries({ queryKey: documentKeys.archived(projectId) })
+      } else {
+        queryClient.invalidateQueries({ queryKey: documentKeys.lists() })
+      }
       toast({
         title: 'Documento restaurado',
         description: 'O documento foi restaurado com sucesso.',

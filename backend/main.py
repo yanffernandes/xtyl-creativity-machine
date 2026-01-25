@@ -19,7 +19,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from database import engine, Base
 # Note: folders, preferences routers removed - CRUD via Supabase Client (feature 007)
-from routers import documents, chat, activity, ai_usage, templates, image_generation, visual_assets, workflows, executions, validation, models, project_workflows, conversations, projects, auth, admin, prompts, workspaces, system, memories, copies, campaigns
+from routers import documents, chat, activity, ai_usage, templates, image_generation, visual_assets, workflows, executions, validation, models, project_workflows, conversations, projects, auth, admin, prompts, workspaces, system, memories, copies, campaigns, storage
 import io
 
 # Create tables
@@ -41,6 +41,34 @@ async def validate_environment():
     if missing:
         print(f"WARNING: Missing required environment variables: {', '.join(missing)}")
         print("Authentication and database features may not work correctly.")
+
+
+# Feature 030: Check Redis connection on startup
+@app.on_event("startup")
+async def check_redis_connection():
+    """Check Redis connectivity on startup for batch progress tracking."""
+    try:
+        from services.redis_service import check_redis_health
+        is_healthy = await check_redis_health()
+        if is_healthy:
+            logger.info("Redis connection established successfully")
+        else:
+            logger.warning("Redis connection failed - batch progress tracking may not work")
+    except Exception as e:
+        logger.warning(f"Redis health check failed: {e} - batch progress tracking may not work")
+
+
+# Feature 030: Close Redis connection on shutdown
+@app.on_event("shutdown")
+async def close_redis_connection():
+    """Close Redis connection pool on shutdown."""
+    try:
+        from services.redis_service import close_redis
+        await close_redis()
+        logger.info("Redis connection closed")
+    except Exception as e:
+        logger.warning(f"Error closing Redis connection: {e}")
+
 
 # CORS Configuration (Feature 025 - Security Hardening)
 # Use explicit origin whitelist instead of wildcard for security
@@ -110,6 +138,7 @@ app.include_router(activity.router)
 app.include_router(ai_usage.router)
 app.include_router(templates.router)  # Only init endpoint, CRUD via Supabase
 app.include_router(visual_assets.router)
+app.include_router(storage.router)  # File upload endpoints (Feature 029)
 app.include_router(validation.router)
 app.include_router(models.router)
 app.include_router(conversations.router)  # Only messages/add-document, CRUD via Supabase

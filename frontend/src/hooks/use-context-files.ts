@@ -11,7 +11,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { documentService } from '@/lib/supabase/documents'
 import { useToast } from './use-toast'
 import type { Document } from '@/types/supabase'
-import { documentKeys } from './use-documents'
+import { documentKeys } from '@/lib/query-keys'
 
 // Query keys for context files
 export const contextFileKeys = {

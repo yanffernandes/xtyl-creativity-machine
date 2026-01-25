@@ -169,4 +169,25 @@ export const queryKeys = {
 // Export memory keys separately for easier import
 export const memoryKeys = queryKeys.memories
 
+/**
+ * Document Keys (Legacy Pattern)
+ *
+ * Feature 030-performance-optimization: Consolidate query keys
+ * These keys maintain backward compatibility with existing hooks.
+ * Prefer using queryKeys.documents for new code.
+ */
+export const documentKeys = {
+  all: ['documents'] as const,
+  lists: () => [...documentKeys.all, 'list'] as const,
+  list: (projectId: string) => [...documentKeys.lists(), projectId] as const,
+  folder: (projectId: string, folderId: string | null) =>
+    [...documentKeys.lists(), projectId, 'folder', folderId] as const,
+  campaign: (projectId: string, campaignId: string | null) =>
+    [...documentKeys.lists(), projectId, 'campaign', campaignId] as const,
+  archived: (projectId: string) => [...documentKeys.lists(), projectId, 'archived'] as const,
+  details: () => [...documentKeys.all, 'detail'] as const,
+  detail: (id: string) => [...documentKeys.details(), id] as const,
+  shared: (shareToken: string) => [...documentKeys.all, 'shared', shareToken] as const,
+}
+
 export default queryKeys
