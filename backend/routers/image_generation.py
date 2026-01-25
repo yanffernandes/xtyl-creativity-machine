@@ -63,11 +63,29 @@ from schemas import (
 import time
 import json
 
-# Feature 030: Redis service for persistent batch progress tracking
-from services.redis_service import create_batch, update_image_status, get_batch_status as redis_get_batch_status
-
 # In-memory storage for batch progress (fallback, Redis is primary)
 batch_progress_store: Dict[str, ImageBatchProgress] = {}
+
+# Feature 030: Lazy Redis imports to allow graceful fallback
+_redis_available = None
+
+def _get_redis_functions():
+    """Lazy load Redis functions, returns None if Redis unavailable."""
+    global _redis_available
+    if _redis_available is False:
+        return None
+    try:
+        from services.redis_service import create_batch, update_image_status, get_batch_status
+        _redis_available = True
+        return {
+            'create_batch': create_batch,
+            'update_image_status': update_image_status,
+            'get_batch_status': get_batch_status
+        }
+    except Exception as e:
+        logger.warning(f"Redis not available, using in-memory fallback: {e}")
+        _redis_available = False
+        return None
 
 # Feature 030: Semaphore to limit concurrent fal.ai API calls
 # Prevents rate limiting and ensures UI responsiveness during batch generation
@@ -1033,16 +1051,18 @@ async def process_batch_generation(
     count = request.count
 
     # Feature 030: Initialize batch in Redis for persistent progress tracking
-    try:
-        await create_batch(
-            batch_id=batch_id,
-            count=count,
-            project_id=request.project_id,
-            user_id=user_id
-        )
-        logger.info(f"Batch {batch_id} initialized in Redis")
-    except Exception as redis_err:
-        logger.warning(f"Failed to initialize batch in Redis, using in-memory fallback: {redis_err}")
+    redis_funcs = _get_redis_functions()
+    if redis_funcs:
+        try:
+            await redis_funcs['create_batch'](
+                batch_id=batch_id,
+                count=count,
+                project_id=request.project_id,
+                user_id=user_id
+            )
+            logger.info(f"Batch {batch_id} initialized in Redis")
+        except Exception as redis_err:
+            logger.warning(f"Failed to initialize batch in Redis, using in-memory fallback: {redis_err}")
 
     # Keep in-memory store for backward compatibility
     batch_progress_store[batch_id] = ImageBatchProgress(
@@ -1205,43 +1225,49 @@ async def process_batch_generation(
             progress.failed += 1
             progress.errors.append(str(result))
             # Feature 030: Update Redis with failure
-            try:
-                await update_image_status(
-                    batch_id=batch_id,
-                    index=i,
-                    status="failed",
-                    error=str(result)
-                )
-            except Exception as redis_err:
-                logger.warning(f"Failed to update Redis for failed image {i}: {redis_err}")
+            redis_funcs = _get_redis_functions()
+            if redis_funcs:
+                try:
+                    await redis_funcs['update_image_status'](
+                        batch_id=batch_id,
+                        index=i,
+                        status="failed",
+                        error=str(result)
+                    )
+                except Exception as redis_err:
+                    logger.warning(f"Failed to update Redis for failed image {i}: {redis_err}")
         elif result.get("success"):
             progress.completed += 1
             progress.images.append(result)
             # Feature 030: Update Redis with completion
-            try:
-                await update_image_status(
-                    batch_id=batch_id,
-                    index=result.get("index", i),
-                    status="completed",
-                    document_id=result.get("document_id"),
-                    file_url=result.get("file_url"),
-                    thumbnail_url=result.get("thumbnail_url")
-                )
-            except Exception as redis_err:
-                logger.warning(f"Failed to update Redis for completed image {i}: {redis_err}")
+            redis_funcs = _get_redis_functions()
+            if redis_funcs:
+                try:
+                    await redis_funcs['update_image_status'](
+                        batch_id=batch_id,
+                        index=result.get("index", i),
+                        status="completed",
+                        document_id=result.get("document_id"),
+                        file_url=result.get("file_url"),
+                        thumbnail_url=result.get("thumbnail_url")
+                    )
+                except Exception as redis_err:
+                    logger.warning(f"Failed to update Redis for completed image {i}: {redis_err}")
         else:
             progress.failed += 1
             progress.errors.append(result.get("error", "Unknown error"))
             # Feature 030: Update Redis with failure
-            try:
-                await update_image_status(
-                    batch_id=batch_id,
-                    index=result.get("index", i),
-                    status="failed",
-                    error=result.get("error", "Unknown error")
-                )
-            except Exception as redis_err:
-                logger.warning(f"Failed to update Redis for failed image {i}: {redis_err}")
+            redis_funcs = _get_redis_functions()
+            if redis_funcs:
+                try:
+                    await redis_funcs['update_image_status'](
+                        batch_id=batch_id,
+                        index=result.get("index", i),
+                        status="failed",
+                        error=result.get("error", "Unknown error")
+                    )
+                except Exception as redis_err:
+                    logger.warning(f"Failed to update Redis for failed image {i}: {redis_err}")
 
     batch_progress_store[batch_id] = progress
     print(f"✅ Parallel generation complete: {progress.completed} succeeded, {progress.failed} failed")
@@ -1323,10 +1349,12 @@ async def stream_batch_progress(
         while True:
             # Feature 030: Try Redis first, fallback to in-memory
             redis_progress = None
-            try:
-                redis_progress = await redis_get_batch_status(batch_id)
-            except Exception as redis_err:
-                logger.warning(f"Failed to get batch status from Redis: {redis_err}")
+            redis_funcs = _get_redis_functions()
+            if redis_funcs:
+                try:
+                    redis_progress = await redis_funcs['get_batch_status'](batch_id)
+                except Exception as redis_err:
+                    logger.warning(f"Failed to get batch status from Redis: {redis_err}")
 
             if redis_progress:
                 # Use Redis data

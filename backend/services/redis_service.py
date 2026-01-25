@@ -12,12 +12,21 @@ import os
 import json
 from datetime import datetime
 from typing import Optional
-import redis.asyncio as redis
-from redis.asyncio.connection import ConnectionPool
+
+# Try to import redis, gracefully handle if not available
+try:
+    import redis.asyncio as redis_async
+    from redis.asyncio.connection import ConnectionPool
+    REDIS_AVAILABLE = True
+except ImportError:
+    redis_async = None
+    ConnectionPool = None
+    REDIS_AVAILABLE = False
+    print("Warning: redis package not available, batch progress tracking disabled")
 
 # Module-level connection pool
-_redis_pool: Optional[ConnectionPool] = None
-_redis_client: Optional[redis.Redis] = None
+_redis_pool: Optional["ConnectionPool"] = None
+_redis_client = None
 
 
 def get_redis_url() -> str:
@@ -25,14 +34,17 @@ def get_redis_url() -> str:
     return os.getenv("REDIS_URL", "redis://localhost:6379/0")
 
 
-async def get_redis() -> redis.Redis:
+async def get_redis():
     """
     Get async Redis client with connection pooling.
 
     Returns:
-        redis.Redis: Async Redis client instance
+        Async Redis client instance, or None if Redis not available
     """
     global _redis_pool, _redis_client
+
+    if not REDIS_AVAILABLE:
+        return None
 
     if _redis_client is None:
         _redis_pool = ConnectionPool.from_url(
@@ -40,7 +52,7 @@ async def get_redis() -> redis.Redis:
             max_connections=10,
             decode_responses=True
         )
-        _redis_client = redis.Redis(connection_pool=_redis_pool)
+        _redis_client = redis_async.Redis(connection_pool=_redis_pool)
 
     return _redis_client
 
@@ -48,6 +60,9 @@ async def get_redis() -> redis.Redis:
 async def close_redis() -> None:
     """Close Redis connection pool. Call on application shutdown."""
     global _redis_pool, _redis_client
+
+    if not REDIS_AVAILABLE:
+        return
 
     if _redis_client:
         await _redis_client.aclose()
@@ -65,8 +80,12 @@ async def check_redis_health() -> bool:
     Returns:
         bool: True if Redis is healthy, False otherwise
     """
+    if not REDIS_AVAILABLE:
+        return False
     try:
         client = await get_redis()
+        if client is None:
+            return False
         response = await client.ping()
         return response is True
     except Exception:
@@ -96,6 +115,8 @@ async def create_batch(
         user_id: User UUID
     """
     client = await get_redis()
+    if client is None:
+        raise RuntimeError("Redis not available")
     now = datetime.utcnow().isoformat()
 
     pipe = client.pipeline()
@@ -152,6 +173,8 @@ async def update_image_status(
         error: Error message (if failed)
     """
     client = await get_redis()
+    if client is None:
+        raise RuntimeError("Redis not available")
     now = datetime.utcnow().isoformat()
 
     # Build image status object
@@ -208,6 +231,8 @@ async def get_batch_status(batch_id: str) -> Optional[dict]:
         dict with progress and images, or None if batch not found
     """
     client = await get_redis()
+    if client is None:
+        return None
 
     progress = await client.hgetall(f"batch:{batch_id}:progress")
     if not progress:
@@ -238,4 +263,6 @@ async def delete_batch(batch_id: str) -> None:
         batch_id: Batch identifier
     """
     client = await get_redis()
+    if client is None:
+        return
     await client.delete(f"batch:{batch_id}:progress", f"batch:{batch_id}:images")
