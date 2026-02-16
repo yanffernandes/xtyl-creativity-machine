@@ -1,0 +1,309 @@
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: var(--space-16); /* 64px = 4rem */
+  padding: 0 var(--space-6);
+  background-color: var(--color-bg-primary);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.left {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+/* Mobile menu button (hamburger) - hidden by default */
+.mobileMenuButton {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: var(--touch-target-min);
+  height: var(--touch-target-min);
+  border: none;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-primary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.mobileMenuButton:hover {
+  background-color: var(--color-bg-secondary);
+}
+
+.mobileMenuButton:active {
+  background-color: var(--color-bg-tertiary);
+}
+
+.right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.iconButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--touch-target-min); /* 44px - touch friendly */
+  height: var(--touch-target-min);
+  border: none;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.iconButton:hover {
+  background-color: var(--color-bg-secondary);
+  color: var(--color-text-primary);
+}
+
+.userMenu {
+  position: relative;
+}
+
+.userButton {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  min-height: var(--touch-target-min); /* 44px - touch friendly */
+  border: none;
+  border-radius: var(--radius-md);
+  background: transparent;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.userButton:hover {
+  background-color: var(--color-bg-secondary);
+}
+
+.avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-8); /* 32px = 2rem */
+  height: var(--space-8);
+  border-radius: var(--radius-full);
+  background-color: var(--color-bg-tertiary);
+  color: var(--color-text-secondary);
+  overflow: hidden;
+}
+
+.avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.userName {
+  font: var(--font-body-sm);
+  color: var(--color-text-primary);
+}
+
+.chevron {
+  color: var(--color-text-muted);
+  transition: transform var(--transition-fast);
+}
+
+.userButton[aria-expanded="true"] .chevron {
+  transform: rotate(180deg);
+}
+
+.dropdownOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-index-header-dropdown);
+  border: none;
+  padding: 0;
+  background: transparent;
+}
+
+.dropdown {
+  position: absolute;
+  top: calc(100% + var(--space-2));
+  right: 0;
+  z-index: var(--z-index-header-menu);
+  min-width: var(--container-xs); /* 480px - better for mobile */
+  max-width: calc(100vw - var(--space-4));
+  padding: var(--space-1);
+  background-color: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+}
+
+.dropdownItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  min-height: var(--touch-target-min); /* 44px - touch friendly */
+  border: none;
+  border-radius: var(--radius-md);
+  background: transparent;
+  font: var(--font-body-sm);
+  color: var(--color-text-secondary);
+  text-align: left;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.dropdownItem:hover {
+  background-color: var(--color-bg-secondary);
+  color: var(--color-text-primary);
+}
+
+.dropdownDivider {
+  margin: var(--space-1) 0;
+  border-top: 1px solid var(--color-border);
+}
+
+.separator {
+  width: 1px;
+  height: var(--space-6); /* 24px = 1.5rem */
+  background-color: var(--color-border);
+}
+
+/* Credits Indicator */
+.creditsButton {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  min-height: var(--touch-target-min); /* 44px - touch friendly */
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  background: var(--color-bg-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  font: var(--font-body-sm);
+  font-weight: 500;
+}
+
+.creditsButton:hover {
+  background: var(--color-bg-tertiary);
+  border-color: var(--color-border-hover);
+}
+
+.creditsText {
+  white-space: nowrap;
+}
+
+/* Credits color states */
+.creditsOk {
+  color: var(--color-success);
+  border-color: var(--color-success-muted);
+  background: var(--color-success-alpha-10);
+}
+
+.creditsOk:hover {
+  background: var(--color-success-alpha-20);
+}
+
+.creditsWarning {
+  color: var(--color-warning);
+  border-color: var(--color-warning-muted);
+  background: var(--color-warning-alpha-10);
+}
+
+.creditsWarning:hover {
+  background: var(--color-warning-alpha-20);
+}
+
+.creditsDanger {
+  color: var(--color-error);
+  border-color: var(--color-error-muted);
+  background: var(--color-error-alpha-10);
+}
+
+.creditsDanger:hover {
+  background: var(--color-error-alpha-20);
+}
+
+.creditsInactive {
+  color: var(--color-text-muted);
+  border-color: var(--color-border);
+  background: var(--color-bg-secondary);
+}
+
+.creditsInactive:hover {
+  background: var(--color-bg-tertiary);
+}
+
+/* Tablet (768px) */
+@media (max-width: 768px) {
+  .header {
+    padding: 0 var(--space-4);
+  }
+
+  .mobileMenuButton {
+    display: flex;
+  }
+
+  .userName {
+    display: none;
+  }
+
+  .creditsButton {
+    padding: var(--space-2) var(--space-3);
+  }
+
+  .dropdown {
+    min-width: 14rem;
+  }
+}
+
+/* Mobile (640px) */
+@media (max-width: 640px) {
+  .header {
+    padding: 0 var(--space-3);
+  }
+
+  .left {
+    gap: var(--space-2);
+  }
+
+  .right {
+    gap: var(--space-2);
+  }
+
+  .separator {
+    display: none;
+  }
+}
+
+/* Mobile Small (480px) */
+@media (max-width: 480px) {
+  .header {
+    padding: 0 var(--space-2);
+  }
+
+  .creditsButton {
+    padding: var(--space-2);
+  }
+
+  .dropdown {
+    position: fixed;
+    top: auto;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    min-width: 100%;
+    max-width: 100%;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    padding: var(--space-2);
+    padding-bottom: env(safe-area-inset-bottom, var(--space-4));
+  }
+
+  .dropdownItem {
+    padding: var(--space-3) var(--space-4);
+    min-height: var(--touch-target-comfortable);
+  }
+}

@@ -1,0 +1,583 @@
+openapi: 3.0.3
+info:
+  title: Google AdSense Integration API
+  description: |
+    API endpoints for Google AdSense OAuth authentication and reporting.
+    Follows existing patterns from Ad Manager module.
+  version: 1.0.0
+  contact:
+    name: AlvoBot Team
+
+servers:
+  - url: http://localhost:3001
+    description: Development server
+  - url: https://api.alvobot.com
+    description: Production server
+
+tags:
+  - name: OAuth
+    description: AdSense OAuth authentication endpoints
+  - name: Accounts
+    description: AdSense account management
+  - name: Reports
+    description: AdSense reporting endpoints
+
+paths:
+  /adsense/config/status:
+    get:
+      tags:
+        - OAuth
+      summary: Check AdSense OAuth configuration status
+      description: Returns whether AdSense OAuth is properly configured
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Configuration status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  configured:
+                    type: boolean
+                    description: Whether OAuth is configured
+                  missingFields:
+                    type: array
+                    items:
+                      type: string
+                    description: List of missing configuration fields (if any)
+              example:
+                configured: true
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /adsense/oauth/initiate:
+    post:
+      tags:
+        - OAuth
+      summary: Initiate AdSense OAuth flow
+      description: |
+        Generates an OAuth authorization URL for Google AdSense.
+        The frontend should redirect the user to this URL.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InitiateOAuthRequest'
+            example:
+              connectionName: "Meu AdSense"
+              workspaceId: "123e4567-e89b-12d3-a456-426614174000"
+      responses:
+        '200':
+          description: Authorization URL generated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InitiateOAuthResponse'
+              example:
+                success: true
+                authorizationUrl: "https://accounts.google.com/o/oauth2/v2/auth?..."
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /adsense/oauth/callback:
+    get:
+      tags:
+        - OAuth
+      summary: OAuth callback endpoint
+      description: |
+        Handles the OAuth callback from Google. Exchanges the authorization
+        code for tokens and creates/updates the connection.
+        This endpoint redirects to the frontend callback page.
+      parameters:
+        - name: code
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Authorization code from Google
+        - name: state
+          in: query
+          required: false
+          schema:
+            type: string
+          description: State parameter for CSRF protection
+        - name: error
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Error code if authorization failed
+        - name: error_description
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Human-readable error description
+      responses:
+        '302':
+          description: Redirect to frontend callback page
+          headers:
+            Location:
+              schema:
+                type: string
+              description: Frontend callback URL with success/error params
+
+  /adsense/oauth/refresh/{connectionId}:
+    post:
+      tags:
+        - OAuth
+      summary: Refresh OAuth access token
+      description: Refreshes the access token using the stored refresh token
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ConnectionId'
+      responses:
+        '200':
+          description: Token refreshed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RefreshTokenResponse'
+              example:
+                success: true
+                message: "Token refreshed successfully"
+                expiresAt: "2026-01-16T12:00:00.000Z"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /adsense/accounts:
+    get:
+      tags:
+        - Accounts
+      summary: Get AdSense accounts
+      description: Returns list of AdSense accounts for a connection
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: connectionId
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Connection UUID
+      responses:
+        '200':
+          description: List of AdSense accounts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountsResponse'
+              example:
+                accounts:
+                  - id: "pub-1234567890123456"
+                    name: "accounts/pub-1234567890123456"
+                    displayName: "Meu Site Principal"
+                    timezone: "America/Sao_Paulo"
+                    currencyCode: "BRL"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /adsense/report:
+    post:
+      tags:
+        - Reports
+      summary: Generate AdSense report
+      description: |
+        Generates a report with AdSense metrics for the specified date range.
+        Supports grouping by date, domain, and URL channel.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReportRequest'
+            example:
+              connectionId: "123e4567-e89b-12d3-a456-426614174000"
+              accountId: "pub-1234567890123456"
+              startDate: "2026-01-01"
+              endDate: "2026-01-15"
+              dimensions:
+                - "DATE"
+                - "DOMAIN_NAME"
+      responses:
+        '200':
+          description: Report generated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportResponse'
+              example:
+                rows:
+                  - date: "2026-01-15"
+                    domain: "example.com"
+                    revenue: 150.50
+                    impressions: 10000
+                    clicks: 150
+                    ctr: 0.015
+                    cpc: 1.00
+                    rpm: 15.05
+                    currencyCode: "BRL"
+                totals:
+                  revenue: 1500.00
+                  impressions: 100000
+                  clicks: 1500
+                  ctr: 0.015
+                  cpc: 1.00
+                  rpm: 15.00
+                startDate: "2026-01-01"
+                endDate: "2026-01-15"
+                currencyCode: "BRL"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /adsense/report/refresh:
+    post:
+      tags:
+        - Reports
+      summary: Force refresh report cache
+      description: Invalidates cached report data for the specified account
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshCacheRequest'
+            example:
+              connectionId: "123e4567-e89b-12d3-a456-426614174000"
+              accountId: "pub-1234567890123456"
+      responses:
+        '200':
+          description: Cache invalidated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+              example:
+                success: true
+                message: "Cache invalidated for account pub-1234567890123456"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token from Supabase Auth
+
+  parameters:
+    ConnectionId:
+      name: connectionId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: Connection UUID
+
+  schemas:
+    InitiateOAuthRequest:
+      type: object
+      required:
+        - connectionName
+        - workspaceId
+      properties:
+        connectionName:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: User-defined name for the connection
+        workspaceId:
+          type: string
+          format: uuid
+          description: Workspace UUID
+        reconnectConnectionId:
+          type: string
+          format: uuid
+          description: Existing connection ID for reconnection flow
+
+    InitiateOAuthResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        authorizationUrl:
+          type: string
+          format: uri
+          description: Google OAuth authorization URL
+
+    RefreshTokenResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        expiresAt:
+          type: string
+          format: date-time
+          description: New token expiration time
+        requiresReconnect:
+          type: boolean
+          description: True if refresh failed and reconnection is needed
+
+    AdSenseAccount:
+      type: object
+      properties:
+        id:
+          type: string
+          pattern: '^pub-\d{16}$'
+          description: AdSense publisher ID
+        name:
+          type: string
+          description: Full resource name
+        displayName:
+          type: string
+          description: Human-readable account name
+        timezone:
+          type: string
+          description: Account timezone ID
+        currencyCode:
+          type: string
+          minLength: 3
+          maxLength: 3
+          description: ISO 4217 currency code
+
+    AccountsResponse:
+      type: object
+      properties:
+        accounts:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdSenseAccount'
+
+    ReportRequest:
+      type: object
+      required:
+        - connectionId
+        - accountId
+        - startDate
+        - endDate
+      properties:
+        connectionId:
+          type: string
+          format: uuid
+        accountId:
+          type: string
+          pattern: '^pub-\d{16}$'
+        startDate:
+          type: string
+          format: date
+          description: Start date (YYYY-MM-DD)
+        endDate:
+          type: string
+          format: date
+          description: End date (YYYY-MM-DD)
+        dimensions:
+          type: array
+          items:
+            type: string
+            enum:
+              - DATE
+              - DOMAIN_NAME
+              - URL_CHANNEL_NAME
+          default:
+            - DOMAIN_NAME
+        sortBy:
+          type: string
+          enum:
+            - revenue
+            - impressions
+            - clicks
+            - ctr
+            - cpc
+            - rpm
+          default: revenue
+        sortOrder:
+          type: string
+          enum:
+            - asc
+            - desc
+          default: desc
+
+    ReportRow:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+          description: Date (if DATE dimension used)
+        domain:
+          type: string
+          description: Domain name (if DOMAIN_NAME dimension used)
+        url:
+          type: string
+          description: URL channel (if URL_CHANNEL_NAME dimension used)
+        revenue:
+          type: number
+          format: double
+          description: Estimated earnings
+        impressions:
+          type: integer
+          description: Ad impressions count
+        clicks:
+          type: integer
+          description: Ad clicks count
+        ctr:
+          type: number
+          format: double
+          description: Click-through rate (decimal)
+        cpc:
+          type: number
+          format: double
+          description: Cost per click
+        rpm:
+          type: number
+          format: double
+          description: Revenue per mille
+        currencyCode:
+          type: string
+          description: Currency code for monetary values
+
+    ReportTotals:
+      type: object
+      properties:
+        revenue:
+          type: number
+          format: double
+        impressions:
+          type: integer
+        clicks:
+          type: integer
+        ctr:
+          type: number
+          format: double
+        cpc:
+          type: number
+          format: double
+        rpm:
+          type: number
+          format: double
+
+    ReportResponse:
+      type: object
+      properties:
+        rows:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReportRow'
+        totals:
+          $ref: '#/components/schemas/ReportTotals'
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        currencyCode:
+          type: string
+
+    RefreshCacheRequest:
+      type: object
+      required:
+        - connectionId
+        - accountId
+      properties:
+        connectionId:
+          type: string
+          format: uuid
+        accountId:
+          type: string
+          pattern: '^pub-\d{16}$'
+
+    Error:
+      type: object
+      properties:
+        statusCode:
+          type: integer
+        message:
+          type: string
+        error:
+          type: string
+
+  responses:
+    BadRequest:
+      description: Bad request - invalid parameters
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            statusCode: 400
+            message: "Invalid date range"
+            error: "Bad Request"
+
+    Unauthorized:
+      description: Unauthorized - missing or invalid JWT
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            statusCode: 401
+            message: "Unauthorized"
+            error: "Unauthorized"
+
+    Forbidden:
+      description: Forbidden - user doesn't have access to resource
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            statusCode: 403
+            message: "You do not have access to this connection"
+            error: "Forbidden"
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            statusCode: 404
+            message: "Connection not found"
+            error: "Not Found"

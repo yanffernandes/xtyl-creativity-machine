@@ -1,0 +1,239 @@
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.loading,
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  gap: var(--space-4);
+  color: var(--color-text-secondary);
+}
+
+.emptyState h3 {
+  font: var(--font-heading-md);
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+.emptyState p {
+  font: var(--font-body-sm);
+  margin: 0;
+  text-align: center;
+  max-width: 400px;
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: var(--space-6);
+}
+
+.title {
+  margin: 0;
+  font: var(--font-display-sm);
+  color: var(--color-text-primary);
+}
+
+.subtitle {
+  margin: var(--space-2) 0 0;
+  font: var(--font-body-md);
+  color: var(--color-text-secondary);
+}
+
+/* Filters */
+.filters {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+}
+
+.searchInput {
+  width: 100%;
+  max-width: 500px;
+}
+
+/* Timeline */
+.timeline {
+  background-color: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+}
+
+.logItem {
+  display: flex;
+  gap: var(--space-4);
+}
+
+.logTimeline {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 2.5rem;
+  flex-shrink: 0;
+}
+
+.logIcon {
+  width: 2.5rem;
+  height: 2.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-full);
+  background-color: var(--color-bg-secondary);
+  color: var(--color-text-secondary);
+}
+
+.logIcon.success {
+  background-color: var(--color-success-bg);
+  color: var(--color-success);
+}
+
+.logIcon.danger {
+  background-color: var(--color-error-bg);
+  color: var(--color-error);
+}
+
+.logIcon.warning {
+  background-color: var(--color-warning-bg);
+  color: var(--color-warning);
+}
+
+.logLine {
+  flex: 1;
+  width: 2px;
+  background-color: var(--color-border);
+  margin: var(--space-2) 0;
+  min-height: var(--space-6);
+}
+
+.logContent {
+  flex: 1;
+  padding-bottom: var(--space-6);
+}
+
+.logHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-2);
+}
+
+.logAction {
+  font: var(--font-label-md);
+  color: var(--color-text-primary);
+}
+
+.logAction.success {
+  color: var(--color-success);
+}
+
+.logAction.danger {
+  color: var(--color-error);
+}
+
+.logAction.warning {
+  color: var(--color-warning);
+}
+
+.logTime {
+  font: var(--font-body-xs);
+  color: var(--color-text-tertiary);
+}
+
+.logMeta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-2);
+}
+
+.logResourceType {
+  display: inline-block;
+  padding: var(--space-1) var(--space-2);
+  background-color: var(--color-bg-secondary);
+  border-radius: var(--radius-sm);
+  font: var(--font-body-xs);
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+}
+
+.logResourceId {
+  font: var(--font-mono-sm);
+  color: var(--color-text-tertiary);
+}
+
+.expandButton {
+  display: inline-block;
+  padding: 0;
+  border: none;
+  background: none;
+  font: var(--font-body-xs);
+  color: var(--color-primary);
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.expandButton:hover {
+  color: var(--color-primary-dark);
+}
+
+.logDetails {
+  margin-top: var(--space-2);
+  padding: var(--space-3);
+  background-color: var(--color-bg-secondary);
+  border-radius: var(--radius-md);
+  overflow-x: auto;
+}
+
+.logDetails pre {
+  margin: 0;
+  font: var(--font-mono-sm);
+  color: var(--color-text-secondary);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* Pagination */
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+  margin-top: var(--space-6);
+}
+
+.pageInfo {
+  font: var(--font-body-sm);
+  color: var(--color-text-secondary);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .header {
+    flex-direction: column;
+    gap: var(--space-4);
+  }
+
+  .logHeader {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-1);
+  }
+
+  .logTimeline {
+    width: 2rem;
+  }
+
+  .logIcon {
+    width: 2rem;
+    height: 2rem;
+  }
+}

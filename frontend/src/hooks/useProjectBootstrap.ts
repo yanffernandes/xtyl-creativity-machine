@@ -4,13 +4,13 @@
  * Fetches all data needed to load the project page in a single request,
  * replacing 8+ individual API calls with 1 optimized endpoint.
  *
- * Returns: project, settings, models, visual_context, memories, recent_copies, recent_media, style_presets
+ * Returns: project, settings, models, visual_context, memories, recent_copies, recent_media, creative_concepts
  */
 
 import { useQuery, UseQueryOptions } from '@tanstack/react-query';
-import { getProjectBootstrap, getStylePresets } from '@/lib/api';
+import { getProjectBootstrap, getCreativeConcepts } from '@/lib/api';
 import { queryKeys } from '@/lib/query-keys';
-import type { BootstrapData, StylePresetList } from '@/types/image-studio';
+import type { BootstrapData, CreativeConceptList } from '@/types/image-studio';
 
 /**
  * Hook to fetch all project data in a single request
@@ -39,21 +39,21 @@ export function useProjectBootstrap(
 }
 
 /**
- * Hook to fetch style presets (can be used independently of bootstrap)
+ * Hook to fetch creative concepts (can be used independently of bootstrap)
  *
  * Features:
- * - Fetches all active style presets
- * - 30-minute cache (presets rarely change)
+ * - Fetches all active creative concepts
+ * - 30-minute cache (concepts rarely change)
  *
  * @param queryOptions - Additional React Query options
  */
-export function useStylePresets(
-  queryOptions?: Omit<UseQueryOptions<StylePresetList>, 'queryKey' | 'queryFn'>
+export function useCreativeConcepts(
+  queryOptions?: Omit<UseQueryOptions<CreativeConceptList>, 'queryKey' | 'queryFn'>
 ) {
-  return useQuery<StylePresetList>({
-    queryKey: queryKeys.stylePresets.list(),
-    queryFn: getStylePresets,
-    staleTime: 1000 * 60 * 30, // 30 minutes - presets rarely change
+  return useQuery<CreativeConceptList>({
+    queryKey: queryKeys.creativeConcepts.list(),
+    queryFn: getCreativeConcepts,
+    staleTime: 1000 * 60 * 30, // 30 minutes - concepts rarely change
     gcTime: 1000 * 60 * 60, // 1 hour garbage collection
     ...queryOptions,
   });
@@ -129,11 +129,11 @@ export function useBootstrapDocuments(projectId: string | undefined) {
   };
 }
 
-export function useBootstrapStylePresets(projectId: string | undefined) {
+export function useBootstrapCreativeConcepts(projectId: string | undefined) {
   const { data, ...rest } = useProjectBootstrap(projectId);
 
   return {
-    stylePresets: data?.style_presets || [],
+    creativeConcepts: data?.creative_concepts || [],
     ...rest,
   };
 }

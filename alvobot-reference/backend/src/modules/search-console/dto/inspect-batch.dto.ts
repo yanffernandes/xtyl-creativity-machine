@@ -1,0 +1,27 @@
+import {
+  IsArray,
+  IsBoolean,
+  IsOptional,
+  IsString,
+  IsUrl,
+  IsUUID,
+} from "class-validator";
+
+export class InspectBatchDto {
+  @IsArray()
+  @IsString({ each: true })
+  @IsUrl({}, { each: true })
+  urls: string[];
+
+  @IsString()
+  @IsUUID()
+  connectionId: string;
+
+  @IsOptional()
+  @IsString()
+  propertyId?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  forceRefresh?: boolean;
+}

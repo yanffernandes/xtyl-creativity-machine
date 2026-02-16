@@ -1,0 +1,106 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  padding: var(--space-8);
+  text-align: center;
+}
+
+.icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 80px;
+  height: 80px;
+  background-color: var(--color-warning-bg);
+  border-radius: var(--radius-full);
+  margin-bottom: var(--space-6);
+}
+
+.icon svg {
+  color: var(--color-warning);
+}
+
+.title {
+  font: var(--font-heading-lg);
+  color: var(--color-text-primary);
+  margin-bottom: var(--space-3);
+}
+
+.description {
+  font: var(--font-body-md);
+  color: var(--color-text-secondary);
+  max-width: 400px;
+  margin-bottom: var(--space-6);
+}
+
+.actions {
+  display: flex;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.upgradeButton {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-5);
+  background-color: var(--color-primary);
+  color: var(--color-zinc-900);
+  font: var(--font-label-md);
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  text-decoration: none;
+  transition: all var(--transition-fast);
+}
+
+.upgradeButton:hover {
+  background-color: var(--color-primary-hover);
+  text-decoration: none;
+}
+
+.backButton {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-5);
+  background-color: transparent;
+  color: var(--color-text-secondary);
+  font: var(--font-label-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  text-decoration: none;
+  transition: all var(--transition-fast);
+}
+
+.backButton:hover {
+  background-color: var(--color-bg-secondary);
+  color: var(--color-text-primary);
+  text-decoration: none;
+}
+
+.featureInfo {
+  margin-top: var(--space-8);
+  padding: var(--space-4);
+  background-color: var(--color-bg-secondary);
+  border-radius: var(--radius-lg);
+  max-width: 400px;
+}
+
+.featureLabel {
+  font: var(--font-label-sm);
+  color: var(--color-text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: var(--space-2);
+}
+
+.featureName {
+  font: var(--font-body-md);
+  color: var(--color-text-primary);
+}

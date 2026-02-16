@@ -8,7 +8,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
-import type { AvailableModel } from '@/types/image-studio';
+import type { AvailableModel } from '@repo/shared';
 
 interface ModelSelectorProps {
   models: AvailableModel[];

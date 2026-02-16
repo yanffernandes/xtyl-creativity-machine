@@ -101,10 +101,10 @@ export const queryKeys = {
     byProject: (projectId: string) => [...queryKeys.bootstrap.all, 'project', projectId] as const,
   },
 
-  stylePresets: {
-    all: ['stylePresets'] as const,
-    list: () => [...queryKeys.stylePresets.all, 'list'] as const,
-    active: () => [...queryKeys.stylePresets.all, 'active'] as const,
+  creativeConcepts: {
+    all: ['creativeConcepts'] as const,
+    list: () => [...queryKeys.creativeConcepts.all, 'list'] as const,
+    active: () => [...queryKeys.creativeConcepts.all, 'active'] as const,
   },
 
   // Feature: Supabase Direct Migration - System Messages

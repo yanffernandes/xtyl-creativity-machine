@@ -1,0 +1,347 @@
+/**
+ * AdsAutomationsPage - Automations page styles
+ * Follows the same pattern as AdsPerformancePage
+ */
+
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+/* Loading State */
+.loadingContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-10);
+  gap: var(--space-3);
+  color: var(--color-text-secondary);
+}
+
+/* Error Banner (displayed above content when API errors occur) */
+.errorBanner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-error-light, rgba(239, 68, 68, 0.08));
+  border: 1px solid var(--color-error, #EF4444);
+  border-radius: var(--radius-lg);
+  color: var(--color-error, #EF4444);
+  font-size: var(--font-size-sm);
+}
+
+.errorBannerContent {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 1;
+  min-width: 0;
+}
+
+.errorBannerIcon {
+  flex-shrink: 0;
+}
+
+/* Legacy error container (kept for reference) */
+.errorContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-10);
+  text-align: center;
+  gap: var(--space-3);
+  color: var(--color-error);
+}
+
+.errorContainer h3 {
+  margin: 0;
+  color: var(--color-text-primary);
+}
+
+.errorContainer p {
+  margin: 0;
+  color: var(--color-text-secondary);
+}
+
+/* Coming Soon State */
+.comingSoonState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-10);
+  text-align: center;
+  gap: var(--space-3);
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-lg);
+}
+
+.comingSoonIcon {
+  color: var(--color-text-tertiary);
+}
+
+.comingSoonState h3 {
+  margin: 0;
+  color: var(--color-text-primary);
+}
+
+.comingSoonState p {
+  margin: 0;
+  color: var(--color-text-secondary);
+  max-width: 400px;
+}
+
+/* Table Container */
+.tableContainer {
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  overflow: visible;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table th {
+  padding: var(--space-4);
+  text-align: left;
+  color: var(--color-text-secondary);
+  font: var(--font-label-sm);
+  background: var(--color-bg-secondary);
+  border-bottom: 1px solid var(--color-border);
+  white-space: nowrap;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  user-select: none;
+}
+
+.table td {
+  padding: var(--space-4);
+  vertical-align: middle;
+  border-bottom: 1px solid var(--color-border);
+  font: var(--font-body-sm);
+}
+
+.table th:first-child {
+  border-top-left-radius: var(--radius-lg);
+}
+
+.table th:last-child {
+  border-top-right-radius: var(--radius-lg);
+}
+
+.th {
+  position: relative;
+}
+
+.thContent {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.sortButton {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  background: transparent;
+  border: none;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  padding: 0;
+  transition: color var(--transition-fast);
+}
+
+.sortButton:hover {
+  color: var(--color-text-primary);
+}
+
+.sortIcon {
+  color: var(--color-text-tertiary);
+  opacity: 0.5;
+}
+
+.sortIconActive {
+  color: var(--color-primary);
+  opacity: 1;
+}
+
+.draggableHeader {
+  cursor: grab;
+}
+
+.draggingHeader {
+  opacity: 0.6;
+}
+
+.dragOverHeader {
+  outline: 1px dashed var(--color-primary);
+  outline-offset: -2px;
+}
+
+.resizeHandle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 6px;
+  height: 100%;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.resizeHandle:hover {
+  background: color-mix(in srgb, var(--color-border) 60%, transparent);
+}
+
+.table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.table tbody tr:hover {
+  background: var(--color-bg-secondary);
+}
+
+.table tbody tr.inactive {
+  opacity: 0.7;
+}
+
+/* Automation Name Cell */
+.automationName {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.automationName .name {
+  font-weight: 500;
+  color: var(--color-text-primary);
+}
+
+.automationName .description {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Action Type */
+.actionType {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+}
+
+/* Status Badge */
+.statusBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+}
+
+.statusBadge.active {
+  background: var(--color-success-bg, rgba(16, 185, 129, 0.1));
+  color: var(--color-success);
+}
+
+.statusBadge.paused {
+  background: var(--color-warning-bg, rgba(245, 158, 11, 0.1));
+  color: var(--color-warning);
+}
+
+.statusBadge.draft {
+  background: var(--color-bg-tertiary, rgba(107, 114, 128, 0.1));
+  color: var(--color-text-secondary);
+}
+
+/* Clickable status badge (toggle) */
+.statusBadge:not(:disabled) {
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  border: none;
+  background-color: inherit;
+}
+
+.statusBadge:not(:disabled):hover {
+  filter: brightness(0.95);
+}
+
+.statusBadge:disabled {
+  cursor: default;
+  border: none;
+}
+
+/* Last Run */
+.lastRun {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+/* Actions */
+.actionsCell {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.actionsPlaceholder {
+  display: inline-block;
+  width: var(--touch-target-min);
+  height: var(--touch-target-min);
+}
+
+/* Platform Note */
+.platformNote {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-info-bg, rgba(59, 130, 246, 0.1));
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  color: var(--color-info);
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .table th[data-column-key="next_run"],
+  .table td[data-column-key="next_run"] {
+    display: none;
+  }
+}
+
+@media (max-width: 768px) {
+  .table th[data-column-key="level"],
+  .table td[data-column-key="level"],
+  .table th[data-column-key="last_run"],
+  .table td[data-column-key="last_run"] {
+    display: none;
+  }
+
+  .automationName .description {
+    max-width: 200px;
+  }
+}
+
+@media (max-width: 480px) {
+  .table th[data-column-key="platform"],
+  .table td[data-column-key="platform"] {
+    display: none;
+  }
+}

@@ -120,9 +120,7 @@ export interface ImageBatchRequestExtended {
   project_id: string;
   count?: number;
   model?: string;
-  visual_style?: string;
-  layout?: string;
-  style_preset?: string;
+  creative_concept?: string;
   size?: string;
   aspect_ratio?: string;
   // Feature 028 additions

@@ -1,0 +1,150 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.compact .wrapper {
+  min-height: auto;
+  padding: 0;
+  align-items: center;
+}
+
+.wrapper {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  min-height: var(--touch-target-min);
+  padding: var(--space-2) 0;
+}
+
+.disabled .wrapper {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* Switch Root (Track) */
+.root {
+  all: unset;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  background-color: var(--color-zinc-300);
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  transition: background-color var(--transition-fast);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.root:disabled {
+  cursor: not-allowed;
+}
+
+/* Sizes */
+.sm {
+  width: 32px;
+  height: 18px;
+}
+
+.md {
+  width: 40px;
+  height: 22px;
+}
+
+.lg {
+  width: 48px;
+  height: 26px;
+}
+
+/* Thumb */
+.thumb {
+  display: block;
+  background-color: var(--color-bg-primary);
+  border-radius: var(--radius-full);
+  box-shadow: var(--shadow-sm);
+  transition: transform var(--transition-fast);
+  will-change: transform;
+}
+
+.sm .thumb {
+  width: 14px;
+  height: 14px;
+  transform: translateX(2px);
+}
+
+.md .thumb {
+  width: 18px;
+  height: 18px;
+  transform: translateX(2px);
+}
+
+.lg .thumb {
+  width: 22px;
+  height: 22px;
+  transform: translateX(2px);
+}
+
+/* Checked state */
+.root[data-state='checked'] {
+  background-color: var(--color-primary);
+}
+
+.root[data-state='checked'] .thumb {
+  /* Move to the right: track width - thumb width - 2px padding */
+}
+
+.sm[data-state='checked'] .thumb {
+  transform: translateX(16px); /* 32 - 14 - 2 */
+}
+
+.md[data-state='checked'] .thumb {
+  transform: translateX(20px); /* 40 - 18 - 2 */
+}
+
+.lg[data-state='checked'] .thumb {
+  transform: translateX(24px); /* 48 - 22 - 2 */
+}
+
+/* Focus state */
+.root:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* Hover state */
+.root:not(:disabled):hover {
+  background-color: var(--color-zinc-400);
+}
+
+.root[data-state='checked']:not(:disabled):hover {
+  background-color: var(--color-primary-hover);
+}
+
+/* Content (Label and Description) */
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  cursor: pointer;
+}
+
+.disabled .content {
+  cursor: not-allowed;
+}
+
+.label {
+  font: var(--font-body-sm);
+  color: var(--color-text-primary);
+}
+
+.description {
+  font: var(--font-body-xs);
+  color: var(--color-text-secondary);
+}
+
+.error {
+  font: var(--font-body-xs);
+  color: var(--color-error);
+  margin-left: calc(40px + var(--space-3)); /* md track width + gap */
+}

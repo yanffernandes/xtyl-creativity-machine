@@ -17,7 +17,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import type { GeneratedImage } from '@/types/image-studio';
+import type { GeneratedImage } from '@repo/shared';
 
 interface VariationCardProps {
   variation: GeneratedImage;

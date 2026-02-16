@@ -1,0 +1,138 @@
+.accordion {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Variants */
+.default .item {
+  border-bottom: 1px solid var(--color-border);
+}
+
+.default .item:last-child {
+  border-bottom: none;
+}
+
+.bordered {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.bordered .item {
+  border-bottom: 1px solid var(--color-border);
+}
+
+.bordered .item:last-child {
+  border-bottom: none;
+}
+
+.separated {
+  gap: var(--space-2);
+}
+
+.separated .item {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+/* Item */
+.item {
+  background-color: var(--color-bg-primary);
+}
+
+.item.expanded {
+  background-color: var(--color-bg-primary);
+}
+
+.item.disabled {
+  opacity: 0.5;
+}
+
+.standalone {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+/* Trigger */
+.trigger {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: var(--space-4);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  transition: background-color var(--transition-fast);
+}
+
+.trigger:hover:not(:disabled) {
+  background-color: var(--color-bg-secondary);
+}
+
+.trigger:disabled {
+  cursor: not-allowed;
+}
+
+.icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: var(--space-3);
+  color: var(--color-text-secondary);
+}
+
+.title {
+  flex: 1;
+  font: var(--font-label-md);
+  color: var(--color-text-primary);
+}
+
+.chevron {
+  color: var(--color-text-tertiary);
+  transition: transform var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.chevronRotated {
+  transform: rotate(180deg);
+}
+
+/* Content */
+.contentWrapper {
+  overflow: hidden;
+  transition: max-height var(--transition-normal) ease-out;
+}
+
+.content {
+  padding: 0 var(--space-4) var(--space-4);
+  font: var(--font-body-md);
+  color: var(--color-text-secondary);
+  animation: contentFadeIn var(--transition-fast) ease-out;
+}
+
+@keyframes contentFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Accessibility */
+@media (prefers-reduced-motion: reduce) {
+  .contentWrapper {
+    transition: none;
+  }
+
+  .chevron {
+    transition: none;
+  }
+
+  .content {
+    animation: none;
+  }
+}

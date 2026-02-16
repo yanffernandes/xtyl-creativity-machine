@@ -1,0 +1,689 @@
+/* ============================================
+   FLOW EDITOR - Design System Integrated
+   ============================================ */
+
+/* Container */
+.container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background: var(--color-bg-secondary);
+  overflow: hidden;
+  /* Negative margin to counter the parent padding */
+  margin: calc(var(--space-6) * -1);
+}
+
+/* ============================================
+   HEADER
+   ============================================ */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--space-5);
+  height: var(--touch-target-spacious); /* 56px */
+  background: var(--color-bg-primary);
+  border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+.headerLeft {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.backBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--touch-target-min);
+  height: var(--touch-target-min);
+  border: none;
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  border-radius: var(--radius-md);
+  transition: all var(--transition-fast);
+}
+
+.backBtn:hover {
+  background: var(--color-bg-secondary);
+  color: var(--color-text-primary);
+}
+
+.headerInfo {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.headerTitle {
+  font: var(--font-heading-lg);
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+.headerTitleInput {
+  font: var(--font-heading-lg);
+  color: var(--color-text-primary);
+  margin: 0;
+  border: none;
+  background: transparent;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  outline: none;
+  transition: all var(--transition-fast);
+  min-width: 200px;
+}
+
+.headerTitleInput:hover {
+  background: var(--color-bg-secondary);
+}
+
+.headerTitleInput:focus {
+  background: var(--color-bg-primary);
+  box-shadow: 0 0 0 2px var(--color-primary);
+}
+
+.headerSubtitle {
+  font: var(--font-body-xs);
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+.headerRight {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* Toggle Button */
+.toggleBtn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  font: var(--font-body-sm);
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  transition: all var(--transition-normal);
+  min-height: var(--touch-target-min);
+}
+
+.toggleBtn:hover {
+  background: var(--color-bg-tertiary);
+}
+
+.toggleBtn.active {
+  background: var(--color-success-bg);
+  border-color: var(--color-success);
+  color: var(--color-success);
+}
+
+.toggleDot {
+  width: var(--space-2);
+  height: var(--space-2);
+  border-radius: var(--radius-full);
+  background: currentColor;
+}
+
+.headerDivider {
+  width: 1px;
+  height: var(--space-6);
+  background: var(--color-border);
+  margin: 0 var(--space-2);
+}
+
+/* Icon Buttons */
+.iconBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--touch-target-min);
+  height: var(--touch-target-min);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-primary);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  border-radius: var(--radius-md);
+  transition: all var(--transition-fast);
+}
+
+.iconBtn:hover {
+  background: var(--color-bg-secondary);
+  color: var(--color-text-primary);
+  border-color: var(--color-border-hover);
+}
+
+.iconBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ============================================
+   CANVAS AREA
+   ============================================ */
+.canvasArea {
+  flex: 1;
+  position: relative;
+  background: var(--color-bg-secondary);
+}
+
+.reactFlow {
+  width: 100%;
+  height: 100%;
+}
+
+/* ============================================
+   FLOATING DOCK
+   ============================================ */
+.dock {
+  position: absolute;
+  left: var(--space-4);
+  top: var(--space-4);
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  z-index: 100;
+  overflow: visible;
+  transition: all var(--transition-normal);
+}
+
+.dock.collapsed {
+  width: auto;
+}
+
+.dockCollapseBtn {
+  position: absolute;
+  right: -10px;
+  top: var(--space-3);
+  width: 20px;
+  height: 20px;
+  background: var(--color-primary);
+  border: 2px solid var(--color-bg-primary);
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--color-text-inverse);
+  z-index: 10;
+  transition: all var(--transition-fast);
+  box-shadow: var(--shadow-md);
+}
+
+.dockCollapseBtn:hover {
+  transform: scale(1.1);
+  background: var(--color-primary-hover);
+}
+
+.dockItems {
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-2);
+  gap: var(--space-1);
+}
+
+.dockItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  cursor: grab;
+  transition: all var(--transition-fast);
+  user-select: none;
+  white-space: nowrap;
+  min-height: var(--touch-target-min);
+  border: none;
+  background: transparent;
+  text-align: left;
+}
+
+.dock.collapsed .dockItem {
+  padding: var(--space-3);
+  justify-content: center;
+}
+
+.dockItem:hover {
+  background: var(--color-bg-secondary);
+}
+
+.dockItem:active {
+  cursor: grabbing;
+  background: var(--color-bg-tertiary);
+  transform: scale(0.98);
+}
+
+.dockItemIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-8);
+  height: var(--space-8);
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+  flex-shrink: 0;
+  transition: all var(--transition-fast);
+}
+
+.dockItem:hover .dockItemIcon {
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-primary);
+}
+
+.dockItemLabel {
+  font: var(--font-body-sm);
+  font-weight: 500;
+  color: var(--color-text-secondary);
+}
+
+.dockItem:hover .dockItemLabel {
+  color: var(--color-text-primary);
+}
+
+/* ============================================
+   ZOOM CONTROLS
+   ============================================ */
+.zoomControls {
+  position: absolute;
+  left: var(--space-4);
+  bottom: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  z-index: 100;
+}
+
+.zoomBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-8);
+  height: var(--space-8);
+  border: none;
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-fast);
+}
+
+.zoomBtn:hover {
+  background: var(--color-bg-secondary);
+  color: var(--color-text-primary);
+}
+
+.zoomDivider {
+  width: var(--space-5);
+  height: 1px;
+  background: var(--color-border);
+  margin: var(--space-1) 0;
+}
+
+.zoomLevel {
+  font: var(--font-body-xs);
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  padding: var(--space-1) 0;
+  min-width: var(--space-10);
+  text-align: center;
+}
+
+/* ============================================
+   MINIMAP
+   ============================================ */
+.minimap {
+  position: absolute !important;
+  right: var(--space-4) !important;
+  bottom: var(--space-4) !important;
+  background: var(--color-bg-primary) !important;
+  border: 1px solid var(--color-border) !important;
+  border-radius: var(--radius-lg) !important;
+  box-shadow: var(--shadow-lg) !important;
+}
+
+/* ============================================
+   EMPTY STATE
+   ============================================ */
+.emptyState {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  pointer-events: none;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-10);
+  background: var(--color-bg-primary);
+  border: 2px dashed var(--color-border);
+  border-radius: var(--radius-xl);
+  max-width: 320px;
+}
+
+.emptyIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-16);
+  height: var(--space-16);
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-xl);
+  color: var(--color-text-muted);
+}
+
+.emptyState h3 {
+  margin: 0;
+  font: var(--font-heading-lg);
+  color: var(--color-text-primary);
+}
+
+.emptyState p {
+  margin: 0;
+  font: var(--font-body-sm);
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+
+.emptyBtn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-5);
+  background: var(--color-primary);
+  color: var(--color-text-primary);
+  border: none;
+  border-radius: var(--radius-md);
+  font: var(--font-body-sm);
+  font-weight: 500;
+  cursor: pointer;
+  pointer-events: auto;
+  transition: all var(--transition-fast);
+  min-height: var(--touch-target-min);
+}
+
+.emptyBtn:hover {
+  background: var(--color-primary-hover);
+  transform: translateY(-1px);
+}
+
+/* ============================================
+   LOADING
+   ============================================ */
+.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  min-height: 400px;
+  background: var(--color-bg-secondary);
+  margin: calc(var(--space-6) * -1);
+}
+
+/* ============================================
+   ALERT
+   ============================================ */
+.alert {
+  position: absolute;
+  top: var(--space-4);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  max-width: 400px;
+}
+
+/* ============================================
+   REACT FLOW OVERRIDES
+   ============================================ */
+:global(.react-flow) {
+  background: transparent !important;
+}
+
+:global(.react-flow__background) {
+  background-color: var(--color-bg-secondary) !important;
+}
+
+/* CRITICAL: Ensure edges container is visible */
+:global(.react-flow__edges) {
+  overflow: visible !important;
+  pointer-events: none !important;
+}
+
+:global(.react-flow__edge) {
+  pointer-events: visibleStroke !important;
+}
+
+:global(.react-flow__edge-path) {
+  stroke: var(--color-text-secondary) !important;
+  stroke-width: 2.5 !important;
+  stroke-dasharray: 6, 4 !important;
+  fill: none !important;
+}
+
+:global(.react-flow__edge:hover .react-flow__edge-path),
+:global(.react-flow__edge.selected .react-flow__edge-path) {
+  stroke: var(--color-primary) !important;
+  stroke-width: 3 !important;
+}
+
+:global(.react-flow__connection-line) {
+  stroke: var(--color-primary) !important;
+  stroke-width: 2 !important;
+  stroke-dasharray: 5, 5 !important;
+}
+
+:global(.react-flow__handle) {
+  width: 14px !important;
+  height: 14px !important;
+  background: var(--color-bg-primary) !important;
+  border: 3px solid var(--color-text-muted) !important;
+  transition: all var(--transition-fast) !important;
+}
+
+:global(.react-flow__handle:hover) {
+  background: var(--color-primary) !important;
+  border-color: var(--color-primary) !important;
+  transform: scale(1.2) !important;
+}
+
+:global(.react-flow__handle-left) {
+  left: -7px !important;
+}
+
+:global(.react-flow__handle-right) {
+  right: -7px !important;
+}
+
+:global(.react-flow__attribution) {
+  display: none !important;
+}
+
+:global(.react-flow__controls) {
+  display: none !important;
+}
+
+:global(.react-flow__minimap) {
+  width: 140px !important;
+  height: 90px !important;
+}
+
+:global(.react-flow__minimap-mask) {
+  fill: var(--overlay-subtle) !important;
+}
+
+:global(.react-flow__minimap-node) {
+  fill: var(--color-text-secondary) !important;
+}
+
+:global(.react-flow__selection) {
+  background: var(--color-primary-alpha-10) !important;
+  border: 1px solid var(--color-primary) !important;
+}
+
+/* ============================================
+   RESPONSIVE BREAKPOINTS
+   ============================================ */
+
+/* Tablet (768px) */
+@media (max-width: 768px) {
+  .header {
+    padding: 0 var(--space-3);
+    height: var(--touch-target-comfortable);
+  }
+
+  .headerLeft {
+    gap: var(--space-2);
+  }
+
+  .headerTitleInput {
+    min-width: 150px;
+  }
+
+  .headerSubtitle {
+    display: none;
+  }
+
+  .headerDivider {
+    display: none;
+  }
+
+  .dock {
+    left: var(--space-2);
+    top: var(--space-2);
+  }
+
+  .dock.collapsed .dockItem {
+    padding: var(--space-2);
+  }
+
+  .zoomControls {
+    left: var(--space-2);
+    bottom: var(--space-2);
+  }
+
+  .minimap {
+    display: none !important;
+  }
+
+  .emptyState {
+    max-width: 280px;
+    padding: var(--space-6);
+  }
+}
+
+/* Mobile (640px) */
+@media (max-width: 640px) {
+  .container {
+    margin: calc(var(--space-3) * -1);
+  }
+
+  .header {
+    padding: 0 var(--space-2);
+  }
+
+  .headerTitle,
+  .headerTitleInput {
+    font: var(--font-heading-md);
+  }
+
+  .headerTitleInput {
+    min-width: 120px;
+  }
+
+  .toggleBtn {
+    padding: var(--space-1) var(--space-2);
+  }
+
+  .toggleBtn span:not(.toggleDot) {
+    display: none;
+  }
+
+  .iconBtn {
+    width: var(--space-10);
+    height: var(--space-10);
+  }
+
+  .dock {
+    position: fixed;
+    left: 0;
+    right: 0;
+    top: auto;
+    bottom: 0;
+    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+    flex-direction: row;
+  }
+
+  .dockItems {
+    flex-direction: row;
+    justify-content: space-around;
+    width: 100%;
+  }
+
+  .dockItem {
+    flex-direction: column;
+    gap: var(--space-1);
+    padding: var(--space-2);
+  }
+
+  .dockCollapseBtn {
+    display: none;
+  }
+
+  .dockItemLabel {
+    font: var(--font-body-xs);
+  }
+
+  .zoomControls {
+    bottom: calc(var(--space-16) + var(--space-4));
+  }
+}
+
+/* Mobile Small (480px) */
+@media (max-width: 480px) {
+  .headerLeft {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .headerTitleInput {
+    min-width: 80px;
+    flex: 1;
+  }
+
+  .headerRight {
+    gap: var(--space-1);
+  }
+
+  .emptyState {
+    max-width: 90%;
+    padding: var(--space-4);
+    gap: var(--space-2);
+  }
+
+  .emptyIcon {
+    width: var(--space-12);
+    height: var(--space-12);
+  }
+
+  .emptyState h3 {
+    font: var(--font-heading-md);
+  }
+}

@@ -1,0 +1,208 @@
+'use client';
+
+/**
+ * ConceptSelector Component
+ * Feature 031: Creative Concepts Migration
+ *
+ * Searchable combobox for selecting a creative concept.
+ * Uses Popover + Command (cmdk) pattern, grouped by category.
+ */
+
+import { useState, useMemo } from 'react';
+import { Check, ChevronsUpDown, Sparkles, X } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import type { CreativeConcept } from '@/types/image-studio';
+
+const CATEGORY_LABELS: Record<string, string> = {
+  universal: 'Universal',
+  narrativa: 'Narrativa',
+  prova_social: 'Prova Social',
+  produto: 'Produto',
+  curiosidade: 'Curiosidade',
+  estilo_visual: 'Estilo Visual',
+};
+
+// Order categories should appear
+const CATEGORY_ORDER = [
+  'universal',
+  'narrativa',
+  'prova_social',
+  'produto',
+  'curiosidade',
+  'estilo_visual',
+];
+
+interface ConceptSelectorProps {
+  concepts: CreativeConcept[];
+  selectedConceptSlug: string | null;
+  onSelectConcept: (slug: string | null) => void;
+  disabled?: boolean;
+  className?: string;
+}
+
+export function ConceptSelector({
+  concepts,
+  selectedConceptSlug,
+  onSelectConcept,
+  disabled = false,
+  className,
+}: ConceptSelectorProps) {
+  const [open, setOpen] = useState(false);
+
+  const selectedConcept = useMemo(
+    () => concepts.find((c) => c.slug === selectedConceptSlug) || null,
+    [concepts, selectedConceptSlug]
+  );
+
+  // Group concepts by category, sorted
+  const grouped = useMemo(() => {
+    const groups: Record<string, CreativeConcept[]> = {};
+    const sorted = [...concepts].sort((a, b) => a.sort_order - b.sort_order);
+
+    for (const concept of sorted) {
+      const cat = concept.category || 'universal';
+      if (!groups[cat]) groups[cat] = [];
+      groups[cat].push(concept);
+    }
+
+    // Return in defined order
+    return CATEGORY_ORDER
+      .filter((cat) => groups[cat]?.length)
+      .map((cat) => ({
+        category: cat,
+        label: CATEGORY_LABELS[cat] || cat,
+        concepts: groups[cat],
+      }));
+  }, [concepts]);
+
+  const handleSelect = (slug: string) => {
+    onSelectConcept(slug === selectedConceptSlug ? null : slug);
+    setOpen(false);
+  };
+
+  return (
+    <div className={cn('space-y-2', className)}>
+      <div className="flex items-center gap-2 text-sm font-medium text-gray-600 dark:text-gray-400">
+        <Sparkles className="w-4 h-4" />
+        <span>Conceito Criativo</span>
+      </div>
+
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            role="combobox"
+            aria-expanded={open}
+            disabled={disabled}
+            className={cn(
+              'w-full justify-between h-10 font-normal',
+              'bg-white dark:bg-gray-800',
+              'border-gray-200 dark:border-gray-700',
+              !selectedConcept && 'text-muted-foreground'
+            )}
+          >
+            {selectedConcept ? (
+              <span className="flex items-center gap-2 truncate">
+                <span className="text-base leading-none">{selectedConcept.icon || '🎯'}</span>
+                <span className="truncate">{selectedConcept.name_pt || selectedConcept.name}</span>
+              </span>
+            ) : (
+              <span>Selecione um conceito...</span>
+            )}
+            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+          <Command>
+            <CommandInput placeholder="Buscar conceito..." />
+            <CommandList className="max-h-[300px]">
+              <CommandEmpty>Nenhum conceito encontrado.</CommandEmpty>
+
+              {/* None option */}
+              <CommandGroup>
+                <CommandItem
+                  value="__none__"
+                  onSelect={() => {
+                    onSelectConcept(null);
+                    setOpen(false);
+                  }}
+                  className="gap-2"
+                >
+                  <span className="text-base leading-none">🚫</span>
+                  <span>Nenhum</span>
+                  {selectedConceptSlug === null && (
+                    <Check className="ml-auto h-4 w-4 text-blue-500" />
+                  )}
+                </CommandItem>
+              </CommandGroup>
+
+              {/* Grouped concepts */}
+              {grouped.map((group) => (
+                <CommandGroup key={group.category} heading={group.label}>
+                  {group.concepts.map((concept) => (
+                    <CommandItem
+                      key={concept.slug}
+                      value={`${concept.name_pt} ${concept.name} ${concept.description || ''}`}
+                      onSelect={() => handleSelect(concept.slug)}
+                      className="gap-2"
+                    >
+                      <span className="text-base leading-none shrink-0">
+                        {concept.icon || '🎯'}
+                      </span>
+                      <div className="flex flex-col min-w-0">
+                        <span className="truncate text-sm">
+                          {concept.name_pt || concept.name}
+                        </span>
+                        {concept.description && (
+                          <span className="truncate text-xs text-muted-foreground">
+                            {concept.description}
+                          </span>
+                        )}
+                      </div>
+                      {selectedConceptSlug === concept.slug && (
+                        <Check className="ml-auto h-4 w-4 shrink-0 text-blue-500" />
+                      )}
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              ))}
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
+
+      {/* Selected concept badge - quick clear */}
+      {selectedConcept && (
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200/50 dark:border-blue-800/50">
+          <span className="text-sm leading-none">{selectedConcept.icon || '🎯'}</span>
+          <span className="text-xs text-blue-700 dark:text-blue-300 truncate flex-1">
+            {selectedConcept.name_pt}
+          </span>
+          <button
+            type="button"
+            onClick={() => onSelectConcept(null)}
+            className="p-0.5 hover:bg-blue-100 dark:hover:bg-blue-900/50 rounded"
+          >
+            <X className="w-3 h-3 text-blue-500" />
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default ConceptSelector;

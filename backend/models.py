@@ -564,24 +564,32 @@ class AdminAuditLog(Base):
 
 
 # ============================================================================
-# STYLE PRESETS (Feature 027 - Visual Generation Studio)
+# CREATIVE CONCEPTS (Feature 031 - Creative Concepts Migration)
 # ============================================================================
 
-class StylePreset(Base):
-    """Predefined style presets for image generation studio"""
-    __tablename__ = "style_presets"
+class CreativeConcept(Base):
+    """Creative concept presets for image generation studio"""
+    __tablename__ = "creative_concepts"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name = Column(String(100), nullable=False)
     name_pt = Column(String(100), nullable=False)
     slug = Column(String(50), unique=True, nullable=False)
+    description = Column(Text, nullable=True)
     prompt_modifier = Column(Text, nullable=False)
     thumbnail_url = Column(Text, nullable=True)
-    category = Column(String(50), default="general")
-    preset_type = Column(String(20), default="style")  # 'style' or 'marketing'
+    prompt_template = Column(Text, nullable=True)
+    prompt_template_json = Column(JSONB, nullable=True)
+    template_variables = Column(JSONB, nullable=True)
+    icon = Column(String(10), nullable=True)
+    category = Column(String(50), nullable=True)
+    niche = Column(String(50), nullable=True)
+    works_for_niches = Column(JSONB, nullable=True)
+    example_images = Column(JSONB, nullable=True)
     sort_order = Column(Integer, default=0)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), nullable=True)
 
 
 # ============================================================================

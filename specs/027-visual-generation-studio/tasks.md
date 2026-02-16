@@ -24,10 +24,10 @@
 
 **Purpose**: Database migrations and basic structure for the feature
 
-- [ ] T001 Create migration file for style_presets table in backend/migrations/027_style_presets.sql
-- [ ] T002 Run migration to create style_presets table and populate initial data
-- [ ] T003 [P] Add StylePreset model to backend/models.py
-- [ ] T004 [P] Add StylePreset schema to backend/schemas.py
+- [x]T001 Create migration file for style_presets table in backend/migrations/027_style_presets.sql
+- [x]T002 Run migration to create style_presets table and populate initial data
+- [x]T003 [P] Add StylePreset model to backend/models.py
+- [x]T004 [P] Add StylePreset schema to backend/schemas.py
 
 ---
 
@@ -37,12 +37,12 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T005 Create bootstrap endpoint GET /projects/{id}/bootstrap in backend/routers/projects.py
-- [ ] T006 [P] Create style-presets endpoint GET /image-generation/style-presets in backend/routers/image_generation.py
-- [ ] T007 [P] Create generate-batch endpoint POST /image-generation/generate-batch in backend/routers/image_generation.py
-- [ ] T008 [P] Create batch stream endpoint GET /image-generation/batch/{batch_id}/stream in backend/routers/image_generation.py
-- [ ] T009 Create useProjectBootstrap hook in frontend/src/hooks/useProjectBootstrap.ts
-- [ ] T010 Create TypeScript types for BootstrapData, StylePreset, ImageBatchRequest in frontend/src/types/image-studio.ts
+- [x]T005 Create bootstrap endpoint GET /projects/{id}/bootstrap in backend/routers/projects.py
+- [x]T006 [P] Create style-presets endpoint GET /image-generation/style-presets in backend/routers/image_generation.py
+- [x]T007 [P] Create generate-batch endpoint POST /image-generation/generate-batch in backend/routers/image_generation.py
+- [x]T008 [P] Create batch stream endpoint GET /image-generation/batch/{batch_id}/stream in backend/routers/image_generation.py
+- [x]T009 Create useProjectBootstrap hook in frontend/src/hooks/useProjectBootstrap.ts
+- [x]T010 Create TypeScript types for BootstrapData, StylePreset, ImageBatchRequest in frontend/src/types/image-studio.ts
 
 **Checkpoint**: Foundation ready - user story implementation can now begin
 
@@ -56,10 +56,10 @@
 
 ### Implementation for User Story 6
 
-- [ ] T011 [US6] Refactor project page to use useProjectBootstrap instead of multiple hooks in frontend/src/app/workspace/[id]/project/[projectId]/page.tsx
-- [ ] T012 [US6] Add skeleton loading states for project page in frontend/src/app/workspace/[id]/project/[projectId]/page.tsx
-- [ ] T013 [US6] Cache bootstrap data with TanStack Query (staleTime: 5min) in frontend/src/hooks/useProjectBootstrap.ts
-- [ ] T014 [US6] Remove redundant API calls (settings, memories, visual-context) from project page
+- [x]T011 [US6] Refactor project page to use useProjectBootstrap instead of multiple hooks in frontend/src/app/workspace/[id]/project/[projectId]/page.tsx
+- [x]T012 [US6] Add skeleton loading states for project page in frontend/src/app/workspace/[id]/project/[projectId]/page.tsx
+- [x]T013 [US6] Cache bootstrap data with TanStack Query (staleTime: 5min) in frontend/src/hooks/useProjectBootstrap.ts
+- [x]T014 [US6] Remove redundant API calls (settings, memories, visual-context) from project page
 
 **Checkpoint**: Project page loads with 2 requests in <1s
 
@@ -73,10 +73,10 @@
 
 ### Implementation for User Story 4
 
-- [ ] T015 [P] [US4] Create StylePresetGrid component in frontend/src/components/image-studio/StylePresetGrid.tsx
-- [ ] T016 [P] [US4] Create StylePresetCard component in frontend/src/components/image-studio/StylePresetCard.tsx
-- [ ] T017 [US4] Add preset selection state to useImageStudio hook in frontend/src/hooks/useImageStudio.ts
-- [ ] T018 [US4] Style presets with glassmorphism design (border blue when selected) in StylePresetGrid.tsx
+- [x]T015 [P] [US4] Create StylePresetGrid component in frontend/src/components/image-studio/StylePresetGrid.tsx
+- [x]T016 [P] [US4] Create StylePresetCard component in frontend/src/components/image-studio/StylePresetCard.tsx
+- [x]T017 [US4] Add preset selection state to useImageStudio hook in frontend/src/hooks/useImageStudio.ts
+- [x]T018 [US4] Style presets with glassmorphism design (border blue when selected) in StylePresetGrid.tsx
 
 **Checkpoint**: Style presets grid renders and selection works
 
@@ -90,14 +90,14 @@
 
 ### Implementation for User Story 1
 
-- [ ] T019 [P] [US1] Create ImageStudio container component in frontend/src/components/image-studio/ImageStudio.tsx
-- [ ] T020 [P] [US1] Create PromptInput component with textarea in frontend/src/components/image-studio/PromptInput.tsx
-- [ ] T021 [P] [US1] Create FormatSelector component (1:1, 16:9, 9:16, 4:3) in frontend/src/components/image-studio/FormatSelector.tsx
-- [ ] T022 [P] [US1] Create ModelSelector dropdown component in frontend/src/components/image-studio/ModelSelector.tsx
-- [ ] T023 [P] [US1] Create CreativitySlider component (0-100%) in frontend/src/components/image-studio/CreativitySlider.tsx
-- [ ] T024 [US1] Create useImageStudio hook with all state and actions in frontend/src/hooks/useImageStudio.ts
-- [ ] T025 [US1] Wire up ImageStudio to call generate-batch API endpoint
-- [ ] T026 [US1] Create GenerateButton component with loading state in frontend/src/components/image-studio/GenerateButton.tsx
+- [x]T019 [P] [US1] Create ImageStudio container component in frontend/src/components/image-studio/ImageStudio.tsx
+- [x]T020 [P] [US1] Create PromptInput component with textarea in frontend/src/components/image-studio/PromptInput.tsx
+- [x]T021 [P] [US1] Create FormatSelector component (1:1, 16:9, 9:16, 4:3) in frontend/src/components/image-studio/FormatSelector.tsx
+- [x]T022 [P] [US1] Create ModelSelector dropdown component in frontend/src/components/image-studio/ModelSelector.tsx
+- [x]T023 [P] [US1] Create CreativitySlider component (0-100%) in frontend/src/components/image-studio/CreativitySlider.tsx
+- [x]T024 [US1] Create useImageStudio hook with all state and actions in frontend/src/hooks/useImageStudio.ts
+- [x]T025 [US1] Wire up ImageStudio to call generate-batch API endpoint
+- [x]T026 [US1] Create GenerateButton component with loading state in frontend/src/components/image-studio/GenerateButton.tsx
 
 **Checkpoint**: All controls work and generate button triggers API call
 
@@ -111,12 +111,12 @@
 
 ### Implementation for User Story 2
 
-- [ ] T027 [P] [US2] Create VariationGrid component (2x2 grid) in frontend/src/components/image-studio/VariationGrid.tsx
-- [ ] T028 [P] [US2] Create VariationCard component with image and actions in frontend/src/components/image-studio/VariationCard.tsx
-- [ ] T029 [US2] Implement SSE connection for batch progress in frontend/src/hooks/useImageStudio.ts
-- [ ] T030 [US2] Add loading skeleton for each variation slot in VariationCard.tsx
-- [ ] T031 [US2] Create ImageExpandModal for full-size view in frontend/src/components/image-studio/ImageExpandModal.tsx
-- [ ] T032 [US2] Add selection indicator (border/badge) for selected variation in VariationCard.tsx
+- [x]T027 [P] [US2] Create VariationGrid component (2x2 grid) in frontend/src/components/image-studio/VariationGrid.tsx
+- [x]T028 [P] [US2] Create VariationCard component with image and actions in frontend/src/components/image-studio/VariationCard.tsx
+- [x]T029 [US2] Implement SSE connection for batch progress in frontend/src/hooks/useImageStudio.ts
+- [x]T030 [US2] Add loading skeleton for each variation slot in VariationCard.tsx
+- [x]T031 [US2] Create ImageExpandModal for full-size view in frontend/src/components/image-studio/ImageExpandModal.tsx
+- [x]T032 [US2] Add selection indicator (border/badge) for selected variation in VariationCard.tsx
 
 **Checkpoint**: Grid shows 4 variations with hover actions and expand modal
 
@@ -130,11 +130,11 @@
 
 ### Implementation for User Story 3
 
-- [ ] T033 [US3] Add refine action handler to useImageStudio hook in frontend/src/hooks/useImageStudio.ts
-- [ ] T034 [US3] Implement "Usar como Base" functionality in VariationCard.tsx
-- [ ] T035 [US3] Add refinement state (referenceImage) to ImageStudio state
-- [ ] T036 [US3] Show reference image preview when refining in ImageStudio.tsx
-- [ ] T037 [US3] Implement generation history (last 5 sets) in useImageStudio hook
+- [x]T033 [US3] Add refine action handler to useImageStudio hook in frontend/src/hooks/useImageStudio.ts
+- [x]T034 [US3] Implement "Usar como Base" functionality in VariationCard.tsx
+- [x]T035 [US3] Add refinement state (referenceImage) to ImageStudio state
+- [x]T036 [US3] Show reference image preview when refining in ImageStudio.tsx
+- [x]T037 [US3] Implement generation history (last 5 sets) in useImageStudio hook
 
 **Checkpoint**: Refine flow works end-to-end
 
@@ -148,11 +148,11 @@
 
 ### Implementation for User Story 5
 
-- [ ] T038 [P] [US5] Add save action to VariationCard with folder picker in VariationCard.tsx
-- [ ] T039 [P] [US5] Create FolderPickerModal component in frontend/src/components/image-studio/FolderPickerModal.tsx
-- [ ] T040 [US5] Implement save document API call with metadata in useImageStudio.ts
-- [ ] T041 [US5] Add success toast after saving image
-- [ ] T042 [US5] Add download action (direct file download) to VariationCard.tsx
+- [x]T038 [P] [US5] Add save action to VariationCard with folder picker in VariationCard.tsx
+- [x]T039 [P] [US5] Create FolderPickerModal component in frontend/src/components/image-studio/FolderPickerModal.tsx
+- [x]T040 [US5] Implement save document API call with metadata in useImageStudio.ts
+- [x]T041 [US5] Add success toast after saving image
+- [x]T042 [US5] Add download action (direct file download) to VariationCard.tsx
 
 **Checkpoint**: Save and download actions work correctly
 
@@ -166,14 +166,14 @@
 
 ### Implementation for Tab System
 
-- [ ] T043 [P] Create TabNavigation component in frontend/src/components/project/TabNavigation.tsx
-- [ ] T044 [P] Create ChatTab wrapper component in frontend/src/components/project/tabs/ChatTab.tsx
-- [ ] T045 [P] Create ImagesTab wrapper component in frontend/src/components/project/tabs/ImagesTab.tsx
-- [ ] T046 [P] Create DocumentsTab wrapper component in frontend/src/components/project/tabs/DocumentsTab.tsx
-- [ ] T047 [P] Create AssetsTab wrapper component in frontend/src/components/project/tabs/AssetsTab.tsx
-- [ ] T048 Integrate tab system into project page in frontend/src/app/workspace/[id]/project/[projectId]/page.tsx
-- [ ] T049 Extract ChatSidebar logic to ChatTab preserving all functionality
-- [ ] T050 Add tab state persistence (remember last tab) via URL params or localStorage
+- [x]T043 [P] Create TabNavigation component in frontend/src/components/project/TabNavigation.tsx
+- [x]T044 [P] Create ChatTab wrapper component in frontend/src/components/project/tabs/ChatTab.tsx
+- [x]T045 [P] Create ImagesTab wrapper component in frontend/src/components/project/tabs/ImagesTab.tsx
+- [x]T046 [P] Create DocumentsTab wrapper component in frontend/src/components/project/tabs/DocumentsTab.tsx
+- [x]T047 [P] Create AssetsTab wrapper component in frontend/src/components/project/tabs/AssetsTab.tsx
+- [x]T048 Integrate tab system into project page in frontend/src/app/workspace/[id]/project/[projectId]/page.tsx
+- [x]T049 Extract ChatSidebar logic to ChatTab preserving all functionality
+- [x]T050 Add tab state persistence (remember last tab) via URL params or localStorage
 
 **Checkpoint**: Tab navigation works, all tabs render correctly
 
@@ -187,13 +187,13 @@
 
 ### Implementation for User Story 7
 
-- [ ] T051 [P] [US7] Create useOnboarding hook in frontend/src/hooks/useOnboarding.ts
-- [ ] T052 [P] [US7] Create TourOverlay component with spotlight in frontend/src/components/onboarding/TourOverlay.tsx
-- [ ] T053 [P] [US7] Create TourTooltip component with navigation in frontend/src/components/onboarding/TourTooltip.tsx
-- [ ] T054 [US7] Define 5-7 tour steps covering key features in useOnboarding.ts
-- [ ] T055 [US7] Add data-tour attributes to target elements in ImageStudio and TabNavigation
-- [ ] T056 [US7] Implement localStorage persistence for "tour completed" state
-- [ ] T057 [US7] Add "Pular Tour" button always visible during tour
+- [x]T051 [P] [US7] Create useOnboarding hook in frontend/src/hooks/useOnboarding.ts
+- [x]T052 [P] [US7] Create TourOverlay component with spotlight in frontend/src/components/onboarding/TourOverlay.tsx
+- [x]T053 [P] [US7] Create TourTooltip component with navigation in frontend/src/components/onboarding/TourTooltip.tsx
+- [x]T054 [US7] Define 5-7 tour steps covering key features in useOnboarding.ts
+- [x]T055 [US7] Add data-tour attributes to target elements in ImageStudio and TabNavigation
+- [x]T056 [US7] Implement localStorage persistence for "tour completed" state
+- [x]T057 [US7] Add "Pular Tour" button always visible during tour
 
 **Checkpoint**: Onboarding tour works for first-time users
 
@@ -203,13 +203,13 @@
 
 **Purpose**: Improvements that affect multiple user stories
 
-- [ ] T058 [P] Add GenerationHistory sidebar component in frontend/src/components/image-studio/GenerationHistory.tsx
-- [ ] T059 [P] Add ReferenceAssetPicker modal in frontend/src/components/image-studio/ReferenceAssetPicker.tsx
-- [ ] T060 [P] Add skeleton states to all components (StylePresetGrid, VariationGrid, ImageStudio)
-- [ ] T061 Performance testing: verify bootstrap <500ms, page load <1s
-- [ ] T062 Add error handling and error toasts for all API calls
-- [ ] T063 Add keyboard shortcuts (Enter to generate, Esc to close modals)
-- [ ] T064 Mobile responsive adjustments for ImageStudio layout
+- [x]T058 [P] Add GenerationHistory sidebar component in frontend/src/components/image-studio/GenerationHistory.tsx
+- [x]T059 [P] Add ReferenceAssetPicker modal in frontend/src/components/image-studio/ReferenceAssetPicker.tsx
+- [x]T060 [P] Add skeleton states to all components (StylePresetGrid, VariationGrid, ImageStudio)
+- [x]T061 Performance testing: verify bootstrap <500ms, page load <1s
+- [x]T062 Add error handling and error toasts for all API calls
+- [x]T063 Add keyboard shortcuts (Enter to generate, Esc to close modals)
+- [x]T064 Mobile responsive adjustments for ImageStudio layout
 
 ---
 

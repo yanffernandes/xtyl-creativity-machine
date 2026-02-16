@@ -1,0 +1,159 @@
+# Creative Concepts API Contract
+# Replaces the old /image-generation/style-presets endpoint
+
+openapi: "3.0.3"
+info:
+  title: Creative Concepts API
+  version: "1.0.0"
+  description: API for managing creative concepts used in image generation prompt composition.
+
+paths:
+  /image-generation/creative-concepts:
+    get:
+      summary: Get all active creative concepts
+      description: |
+        Returns a flat list of all active creative concepts, ordered by sort_order.
+        Replaces the old /image-generation/style-presets endpoint (clean break).
+      operationId: getCreativeConcepts
+      tags:
+        - Image Generation
+      responses:
+        "200":
+          description: List of active creative concepts
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreativeConceptList"
+
+  /image-generation/batch:
+    post:
+      summary: Generate image batch
+      description: |
+        Generate multiple image variations. The `creative_concept` field replaces
+        the old `visual_style`, `layout`, and `style_preset` fields.
+      operationId: generateImageBatch
+      tags:
+        - Image Generation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImageBatchRequest"
+      responses:
+        "200":
+          description: Batch generation initiated
+
+components:
+  schemas:
+    CreativeConcept:
+      type: object
+      required:
+        - id
+        - name
+        - name_pt
+        - slug
+        - prompt_modifier
+        - sort_order
+        - is_active
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          maxLength: 100
+          description: English name
+        name_pt:
+          type: string
+          maxLength: 100
+          description: Portuguese name
+        slug:
+          type: string
+          maxLength: 50
+          description: Unique URL-safe identifier
+        prompt_modifier:
+          type: string
+          description: Static text prepended to user prompt
+        prompt_template:
+          type: string
+          nullable: true
+          description: "Template with {{variable}} placeholders. Null for static concepts."
+        template_variables:
+          type: array
+          nullable: true
+          items:
+            type: string
+          description: "List of variable names accepted by prompt_template"
+        thumbnail_url:
+          type: string
+          nullable: true
+          description: URL to concept thumbnail image
+        sort_order:
+          type: integer
+          default: 0
+        is_active:
+          type: boolean
+          default: true
+        created_at:
+          type: string
+          format: date-time
+
+    CreativeConceptList:
+      type: object
+      required:
+        - concepts
+        - total
+      properties:
+        concepts:
+          type: array
+          items:
+            $ref: "#/components/schemas/CreativeConcept"
+        total:
+          type: integer
+          description: Total number of active concepts
+
+    ImageBatchRequest:
+      type: object
+      required:
+        - prompt
+        - project_id
+      properties:
+        prompt:
+          type: string
+          minLength: 1
+        project_id:
+          type: string
+        creative_concept:
+          type: string
+          nullable: true
+          description: "Slug of the creative concept to prepend to prompt. Replaces visual_style/layout/style_preset."
+        count:
+          type: integer
+          minimum: 1
+          maximum: 8
+          default: 4
+        model:
+          type: string
+          nullable: true
+        size:
+          type: string
+          default: "1024x1024"
+        aspect_ratio:
+          type: string
+          nullable: true
+        creativity:
+          type: number
+          minimum: 0.0
+          maximum: 1.0
+          default: 0.5
+
+    BootstrapData:
+      type: object
+      description: "Bootstrap response now includes creative_concepts instead of style_presets"
+      properties:
+        creative_concepts:
+          type: array
+          items:
+            $ref: "#/components/schemas/CreativeConcept"
+          description: "Replaces style_presets field"

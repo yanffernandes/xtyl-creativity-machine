@@ -1,0 +1,1 @@
+export { ArrowArticlesPage } from './ArrowArticlesPage'

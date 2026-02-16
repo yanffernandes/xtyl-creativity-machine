@@ -43,8 +43,8 @@ These tasks must be completed before any user story implementation.
 ### Configuration
 
 - [x] [INF-012] [P0] Add `FAL_API_KEY` to `.env.example` with documentation
-- [ ] [INF-013] [P0] Add fal.ai configuration section to `backend/config.py`
-- [ ] [INF-014] [P0] Update `docker-compose.yml` with FAL_API_KEY environment variable
+- [x][INF-013] [P0] Add fal.ai configuration section to `backend/config.py`
+- [x][INF-014] [P0] Update `docker-compose.yml` with FAL_API_KEY environment variable
 
 ---
 
@@ -157,22 +157,22 @@ Migrate image generation from OpenRouter to fal.ai.
 
 ### Backend - Generation Migration
 
-- [ ] [US4-001] [P1] Add `generate_image()` method to FalAIService
-- [ ] [US4-002] [P1] Update existing `/image-generation/generate` endpoint to use FalAIService
-- [ ] [US4-003] [P1] Update `/image-generation/refine` endpoint to use FalAIService
-- [ ] [US4-004] [P1] Update batch generation to use FalAIService
-- [ ] [US4-005] [P1] Maintain SSE streaming for progress updates
-- [ ] [US4-006] [P1] Add `provider: "fal.ai"` to generation metadata
+- [x][US4-001] [P1] Add `generate_image()` method to FalAIService
+- [x][US4-002] [P1] Update existing `/image-generation/generate` endpoint to use FalAIService
+- [x][US4-003] [P1] Update `/image-generation/refine` endpoint to use FalAIService
+- [x][US4-004] [P1] Update batch generation to use FalAIService
+- [x][US4-005] [P1] Maintain SSE streaming for progress updates
+- [x][US4-006] [P1] Add `provider: "fal.ai"` to generation metadata
 
 ### Backend - Model Management
 
-- [ ] [US4-007] [P1] Create `GET /image-generation/models` endpoint returning fal.ai models
-- [ ] [US4-008] [P1] Filter models by category (generation, editing, utility, video)
-- [ ] [US4-009] [P1] Cache model list with 1-hour TTL
+- [x][US4-007] [P1] Create `GET /image-generation/models` endpoint returning fal.ai models
+- [x][US4-008] [P1] Filter models by category (generation, editing, utility, video)
+- [x][US4-009] [P1] Cache model list with 1-hour TTL
 
 ### Frontend - Model Selector
 
-- [ ] [US4-010] [P1] Update model selector to group by category and show pricing
+- [x][US4-010] [P1] Update model selector to group by category and show pricing
 
 ---
 
@@ -182,13 +182,13 @@ Prepare architecture for future video generation without implementation.
 
 ### Frontend - Video Tab Placeholder
 
-- [ ] [US5-001] [P2] Add "Vídeo" tab to ImageStudio (disabled state)
-- [ ] [US5-002] [P2] Create placeholder content with "Em breve" message
-- [ ] [US5-003] [P2] Add video category to fal_model_configs seed data
+- [x][US5-001] [P2] Add "Vídeo" tab to ImageStudio (disabled state)
+- [x][US5-002] [P2] Create placeholder content with "Em breve" message
+- [x][US5-003] [P2] Add video category to fal_model_configs seed data
 
 ### Backend - Video Preparation
 
-- [ ] [US5-004] [P2] Add video models to fal_model_configs (Veo 3.1, Kling 2.6, LTX-2)
+- [x][US5-004] [P2] Add video models to fal_model_configs (Veo 3.1, Kling 2.6, LTX-2)
 
 ---
 
@@ -198,17 +198,17 @@ Tab-based restructure of Image Studio.
 
 ### Frontend - Tab Navigation
 
-- [ ] [UI-001] [P0] Refactor `frontend/src/components/image-studio/ImageStudio.tsx` with tab navigation
+- [x][UI-001] [P0] Refactor `frontend/src/components/image-studio/ImageStudio.tsx` with tab navigation
   - Tabs: Criar (default), Editar, Ajustar, Vídeo
-- [ ] [UI-002] [P0] Create `frontend/src/components/image-studio/CreateMode.tsx` (extract existing)
+- [x][UI-002] [P0] Create `frontend/src/components/image-studio/CreateMode.tsx` (extract existing)
 - [x] [UI-003] [P0] Create `frontend/src/components/image-studio/AdjustMode.tsx`
   - Grid of quick functions
   - Before/after preview
-- [ ] [UI-004] [P0] Maintain state between tab switches (selected image, mask, etc.)
+- [x][UI-004] [P0] Maintain state between tab switches (selected image, mask, etc.)
 
 ### Frontend - Hook Updates
 
-- [ ] [UI-005] [P0] Update `frontend/src/hooks/useImageStudio.ts`:
+- [x][UI-005] [P0] Update `frontend/src/hooks/useImageStudio.ts`:
   - Add `currentOperation` state
   - Add `inpaint()` method
   - Add `edit()` method
@@ -223,27 +223,27 @@ Tab-based restructure of Image Studio.
 
 ### Backend Tests
 
-- [ ] [TEST-001] Unit tests for `fal_ai_service.py` in `backend/tests/test_fal_ai_service.py`
+- [x][TEST-001] Unit tests for `fal_ai_service.py` in `backend/tests/test_fal_ai_service.py`
   - Test authentication
   - Test retry logic
   - Test error handling
-- [ ] [TEST-002] Integration test for `/inpaint` endpoint
-- [ ] [TEST-003] Integration test for `/edit` endpoint
-- [ ] [TEST-004] Integration test for `/remove-background` endpoint
-- [ ] [TEST-005] Integration test for `/upscale` endpoint
-- [ ] [TEST-006] Integration test for `/enhance` endpoint
-- [ ] [TEST-007] Test error responses (400, 401, 402, 500)
-- [ ] [TEST-008] Test retry behavior with mocked failures
+- [x][TEST-002] Integration test for `/inpaint` endpoint
+- [x][TEST-003] Integration test for `/edit` endpoint
+- [x][TEST-004] Integration test for `/remove-background` endpoint
+- [x][TEST-005] Integration test for `/upscale` endpoint
+- [x][TEST-006] Integration test for `/enhance` endpoint
+- [x][TEST-007] Test error responses (400, 401, 402, 500)
+- [x][TEST-008] Test retry behavior with mocked failures
 
 ### Frontend Tests
 
-- [ ] [TEST-009] Component tests for BrushCanvas in `frontend/tests/image-studio/brush-canvas.test.tsx`
+- [x][TEST-009] Component tests for BrushCanvas in `frontend/tests/image-studio/brush-canvas.test.tsx`
   - Drawing functionality
   - Undo/redo
   - Mask export
-- [ ] [TEST-010] Test mask export format (PNG with correct colors)
-- [ ] [TEST-011] Test API integration with MSW mocks
-- [ ] [TEST-012] Test loading states and error handling
+- [x][TEST-010] Test mask export format (PNG with correct colors)
+- [x][TEST-011] Test API integration with MSW mocks
+- [x][TEST-012] Test loading states and error handling
 
 ---
 
@@ -251,15 +251,15 @@ Tab-based restructure of Image Studio.
 
 ### Documentation
 
-- [ ] [DOC-001] Update CLAUDE.md with fal.ai service information
-- [ ] [DOC-002] Add API documentation for new endpoints
-- [ ] [DOC-003] Create troubleshooting guide for common fal.ai errors
+- [x][DOC-001] Update CLAUDE.md with fal.ai service information
+- [x][DOC-002] Add API documentation for new endpoints
+- [x][DOC-003] Create troubleshooting guide for common fal.ai errors
 
 ### Cleanup
 
-- [ ] [CLN-001] Remove OpenRouter image generation code after migration verified
-- [ ] [CLN-002] Remove unused image model fallback logic
-- [ ] [CLN-003] Clean up unused imports in modified files
+- [x][CLN-001] Remove OpenRouter image generation code after migration verified
+- [x][CLN-002] Remove unused image model fallback logic
+- [x][CLN-003] Clean up unused imports in modified files
 
 ---
 

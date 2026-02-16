@@ -1,0 +1,215 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background: var(--color-bg-secondary);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-4) var(--space-6);
+  background: var(--color-bg-primary);
+  border-bottom: 1px solid var(--color-border);
+  gap: var(--space-4);
+}
+
+.headerLeft {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.backButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.backButton:hover {
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
+}
+
+.headerTitle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.headerTitle h1 {
+  font: var(--font-heading-lg);
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+.headerIcon {
+  color: var(--color-primary);
+}
+
+.headerRight {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.content {
+  flex: 1;
+  padding: var(--space-6);
+  overflow-y: auto;
+}
+
+.section {
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+  max-width: 700px;
+  margin: 0 auto;
+}
+
+.sectionTitle {
+  font: var(--font-heading-md);
+  color: var(--color-text-primary);
+  margin: 0 0 var(--space-2);
+}
+
+.sectionDescription {
+  font: var(--font-body-sm);
+  color: var(--color-text-secondary);
+  margin: 0 0 var(--space-5);
+}
+
+.templateSection {
+  margin-bottom: var(--space-5);
+}
+
+.dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-10);
+  border: 2px dashed var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg-secondary);
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.dropzone.dragging {
+  border-color: var(--color-primary);
+  background: var(--color-primary-alpha-10);
+}
+
+.dropzone.hasFile {
+  border-style: solid;
+  border-color: var(--color-success);
+  background: var(--color-success-bg);
+}
+
+.uploadIcon {
+  color: var(--color-text-tertiary);
+  margin-bottom: var(--space-3);
+}
+
+.dropzoneText {
+  font: var(--font-body-md);
+  color: var(--color-text-secondary);
+  margin: 0 0 var(--space-2);
+}
+
+.fileInputLabel {
+  font: var(--font-label-md);
+  color: var(--color-primary);
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.fileInput {
+  display: none;
+}
+
+.dropzoneHint {
+  font: var(--font-body-xs);
+  color: var(--color-text-tertiary);
+  margin-top: var(--space-3);
+}
+
+.filePreview {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.fileIcon {
+  color: var(--color-success);
+}
+
+.fileName {
+  font: var(--font-body-md);
+  font-weight: 500;
+  color: var(--color-text-primary);
+}
+
+.fileSize {
+  font: var(--font-body-sm);
+  color: var(--color-text-secondary);
+}
+
+.removeFile {
+  font: var(--font-label-sm);
+  color: var(--color-error);
+  background: none;
+  border: none;
+  cursor: pointer;
+  margin-top: var(--space-2);
+}
+
+.instructions {
+  margin-top: var(--space-6);
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--color-border);
+}
+
+.instructionsTitle {
+  font: var(--font-heading-sm);
+  color: var(--color-text-primary);
+  margin: 0 0 var(--space-3);
+}
+
+.instructionsList {
+  font: var(--font-body-sm);
+  color: var(--color-text-secondary);
+  margin: 0;
+  padding-left: var(--space-5);
+  list-style-type: disc;
+}
+
+.instructionsList li {
+  margin-bottom: var(--space-2);
+}
+
+@media (max-width: 768px) {
+  .content {
+    padding: var(--space-4);
+  }
+
+  .section {
+    padding: var(--space-4);
+  }
+
+  .dropzone {
+    padding: var(--space-6);
+  }
+}

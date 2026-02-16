@@ -1,0 +1,261 @@
+/* ConditionBuilder Component Styles */
+
+.conditionBuilder {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.header {
+  margin-bottom: var(--space-2);
+}
+
+.title {
+  font-size: var(--font-size-md);
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin: 0 0 var(--space-1) 0;
+}
+
+.description {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+
+/* Condition Group */
+.conditionGroup {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  background-color: var(--color-bg-primary);
+}
+
+.conditionGroup[data-depth="1"] {
+  background-color: var(--color-bg-secondary);
+  margin-left: var(--space-4);
+}
+
+.conditionGroup[data-depth="2"] {
+  background-color: var(--color-bg-tertiary, #f3f4f6);
+  margin-left: var(--space-4);
+}
+
+.rootGroup {
+  border: 2px solid var(--color-border);
+}
+
+.groupHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-4);
+}
+
+.operatorToggle {
+  display: flex;
+  gap: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.operatorButton {
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  background-color: var(--color-bg-primary);
+  border: none;
+  cursor: pointer;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+  color: var(--color-text-secondary);
+}
+
+.operatorButton:hover {
+  background-color: var(--color-bg-secondary);
+}
+
+.operatorButton.active {
+  background-color: var(--color-primary);
+  color: var(--color-text-on-primary, #1f2937);
+  font-weight: 600;
+}
+
+.removeGroupButton {
+  color: var(--color-error);
+}
+
+.removeGroupButton:hover {
+  background-color: var(--color-error-bg, #fef2f2);
+}
+
+/* Group Children */
+.groupChildren {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.childWrapper {
+  position: relative;
+}
+
+.connector {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: var(--space-2) 0;
+}
+
+.connectorText {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--color-text-tertiary);
+  background-color: var(--color-bg-secondary);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-full);
+  text-transform: uppercase;
+}
+
+/* Add Buttons */
+.addButtons {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px dashed var(--color-border);
+}
+
+/* Condition Row */
+.conditionRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  background-color: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.metricSelect {
+  min-width: 160px;
+  flex: 1;
+}
+
+.operatorSelect {
+  min-width: 140px;
+}
+
+.valueInputWrapper {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 120px;
+}
+
+.inputPrefix,
+.inputSuffix {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.valueInput {
+  width: 80px;
+  text-align: right;
+}
+
+.removeButton {
+  padding: var(--space-1);
+  color: var(--color-text-tertiary);
+  flex-shrink: 0;
+}
+
+.removeButton:hover {
+  color: var(--color-error);
+  background-color: var(--color-error-bg, #fef2f2);
+}
+
+/* Validation Errors */
+.errors {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  background-color: var(--color-error-bg, #fef2f2);
+  border: 1px solid var(--color-error);
+  border-radius: var(--radius-md);
+}
+
+.error {
+  font-size: var(--font-size-sm);
+  color: var(--color-error);
+  margin: 0;
+}
+
+/* Read-only Preview */
+.preview {
+  padding: var(--space-3);
+  background-color: var(--color-bg-secondary);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+}
+
+.previewGroup {
+  display: inline;
+}
+
+.previewGroup[data-depth="1"]::before {
+  content: "(";
+}
+
+.previewGroup[data-depth="1"]::after {
+  content: ")";
+}
+
+.previewCondition {
+  font-family: var(--font-mono, monospace);
+  background-color: var(--color-bg-primary);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+}
+
+.previewOperator {
+  font-weight: 600;
+  color: var(--color-primary);
+  padding: 0 var(--space-1);
+}
+
+/* Single Condition (edge case) */
+.singleCondition {
+  padding: var(--space-3);
+}
+
+.singleConditionLabel {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  margin: 0 0 var(--space-2) 0;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .conditionRow {
+    flex-wrap: wrap;
+  }
+
+  .metricSelect,
+  .operatorSelect {
+    min-width: 100%;
+    flex: 1 1 100%;
+  }
+
+  .valueInputWrapper {
+    flex: 1;
+  }
+
+  .addButtons {
+    flex-wrap: wrap;
+  }
+}

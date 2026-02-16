@@ -15,7 +15,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import type { CreativeConcept } from '@/types/image-studio';
+import type { CreativeConcept } from '@repo/shared';
 
 const CATEGORY_LABELS: Record<string, string> = {
   universal: 'Universal',

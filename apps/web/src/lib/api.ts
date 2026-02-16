@@ -137,3 +137,39 @@ export async function transcribeAudio(
 
   return response.data;
 }
+
+// ============================================================================
+// Image Generation API (Feature 032 - Image Studio)
+// ============================================================================
+
+import type { ImageBatchRequest, ImageBatchResponse } from '@repo/shared';
+
+/**
+ * Generate a batch of images
+ */
+export async function generateImageBatch(
+  request: ImageBatchRequest
+): Promise<ImageBatchResponse> {
+  const response = await api.post('/api/image-generation/batch', request);
+  return response.data;
+}
+
+/**
+ * Get SSE stream URL for batch progress
+ */
+export function getBatchStreamUrl(batchId: string, token: string): string {
+  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+  return `${apiUrl}/api/image-generation/batch/${batchId}/stream?token=${encodeURIComponent(token)}`;
+}
+
+/**
+ * Attach an image to a document
+ */
+export async function attachImageToDocument(
+  documentId: string,
+  imageDocumentId: string
+): Promise<void> {
+  await api.post(`/api/documents/${documentId}/attach-image`, {
+    image_document_id: imageDocumentId,
+  });
+}

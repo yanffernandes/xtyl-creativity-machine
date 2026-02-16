@@ -1,0 +1,213 @@
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: 100%;
+}
+
+.labelRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.label {
+  font: var(--font-label-sm);
+  color: var(--color-text-primary);
+}
+
+.percentage {
+  font: var(--font-body-sm);
+  color: var(--color-text-secondary);
+}
+
+/* Track */
+.track {
+  width: 100%;
+  background-color: var(--color-bg-tertiary);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+}
+
+.sm {
+  height: 4px;
+}
+
+.md {
+  height: 8px;
+}
+
+.lg {
+  height: 12px;
+}
+
+/* Bar */
+.bar {
+  height: 100%;
+  border-radius: var(--radius-full);
+  transition: width 0.3s ease-out;
+}
+
+.default {
+  background-color: var(--color-primary);
+}
+
+.success {
+  background-color: var(--color-success);
+}
+
+.warning {
+  background-color: var(--color-warning);
+}
+
+.error {
+  background-color: var(--color-error);
+}
+
+/* Animated */
+.animated {
+  position: relative;
+  overflow: hidden;
+}
+
+.animated::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.3),
+    transparent
+  );
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* Striped */
+.striped {
+  background-image: linear-gradient(
+    45deg,
+    rgba(255, 255, 255, 0.15) 25%,
+    transparent 25%,
+    transparent 50%,
+    rgba(255, 255, 255, 0.15) 50%,
+    rgba(255, 255, 255, 0.15) 75%,
+    transparent 75%,
+    transparent
+  );
+  background-size: 1rem 1rem;
+}
+
+.striped.animated {
+  animation: stripeMove 1s linear infinite;
+}
+
+.striped.animated::after {
+  display: none;
+}
+
+@keyframes stripeMove {
+  0% {
+    background-position: 0 0;
+  }
+  100% {
+    background-position: 1rem 0;
+  }
+}
+
+/* Indeterminate */
+.indeterminate {
+  position: relative;
+}
+
+.indeterminateBar {
+  position: absolute;
+  width: 50%;
+  animation: indeterminate 1.5s ease-in-out infinite;
+}
+
+@keyframes indeterminate {
+  0% {
+    left: -50%;
+  }
+  100% {
+    left: 100%;
+  }
+}
+
+/* Circular Progress */
+.circularWrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.circular {
+  transform: rotate(-90deg);
+}
+
+.circularTrack {
+  fill: none;
+  stroke: var(--color-bg-tertiary);
+}
+
+.circularBar {
+  fill: none;
+  transition: stroke-dashoffset 0.3s ease-out;
+}
+
+.circular-default {
+  stroke: var(--color-primary);
+}
+
+.circular-success {
+  stroke: var(--color-success);
+}
+
+.circular-warning {
+  stroke: var(--color-warning);
+}
+
+.circular-error {
+  stroke: var(--color-error);
+}
+
+.circularLabel {
+  position: absolute;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.label-sm {
+  font-size: 10px;
+}
+
+.label-md {
+  font-size: 12px;
+}
+
+.label-lg {
+  font-size: 14px;
+}
+
+/* Accessibility */
+@media (prefers-reduced-motion: reduce) {
+  .animated::after,
+  .striped.animated,
+  .indeterminateBar {
+    animation: none;
+  }
+}

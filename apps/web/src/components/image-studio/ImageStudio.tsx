@@ -30,7 +30,7 @@ import { AdjustMode } from './AdjustMode';
 import { VariationGrid } from './VariationGrid';
 import { ImageExpandModal } from './ImageExpandModal';
 import { AssetPickerModal } from './AssetPickerModal';
-import type { CreativeConcept, GeneratedImage } from '@/types/image-studio';
+import type { CreativeConcept, GeneratedImage } from '@repo/shared';
 
 interface ImageStudioProps {
   projectId: string;

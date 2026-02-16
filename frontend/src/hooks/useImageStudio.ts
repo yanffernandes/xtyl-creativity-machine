@@ -2,10 +2,10 @@
 
 /**
  * useImageStudio Hook
- * Feature 027: Visual Generation Studio
+ * Feature 031: Creative Concepts Migration
  *
  * Manages the complete state for image generation including:
- * - Form state (prompt, style, format, model, creativity)
+ * - Form state (prompt, concept, format, model, creativity)
  * - SSE connection for real-time progress
  * - Generated variations
  * - Save/download actions
@@ -21,7 +21,7 @@ import type {
   ImageStudioState,
   GeneratedImage,
   AvailableModel,
-  StylePreset,
+  CreativeConcept,
   AspectRatioId,
 } from '@/types/image-studio';
 
@@ -46,10 +46,7 @@ interface UseImageStudioOptions {
   projectId: string;
   defaultModel?: string;
   imageModels?: AvailableModel[];
-  visualStylePresets?: StylePreset[];
-  layoutPresets?: StylePreset[];
-  /** @deprecated Use visualStylePresets instead */
-  stylePresets?: StylePreset[];
+  concepts?: CreativeConcept[];
   /** Initial history of generated images from the project */
   initialHistory?: GeneratedImage[];
 }
@@ -57,10 +54,7 @@ interface UseImageStudioOptions {
 interface UseImageStudioReturn extends ImageStudioState {
   // Setters
   setPrompt: (prompt: string) => void;
-  setVisualStyle: (slug: string | null) => void;
-  setLayout: (slug: string | null) => void;
-  /** @deprecated Use setVisualStyle instead */
-  setStylePreset: (slug: string | null) => void;
+  setConcept: (slug: string | null) => void;
   setAspectRatio: (ratio: AspectRatioId) => void;
   setModel: (model: string) => void;
   // Feature 029: Model-specific parameters
@@ -89,13 +83,10 @@ interface UseImageStudioReturn extends ImageStudioState {
   addVariation: (variation: GeneratedImage) => void;
 
   // Helpers
-  selectedVisualStyle: StylePreset | null;
-  selectedLayout: StylePreset | null;
-  /** @deprecated Use selectedVisualStyle instead */
-  selectedPreset: StylePreset | null;
+  selectedConcept: CreativeConcept | null;
   pendingCount: number;
   variationCount: number;
-  // Feature 028: Reference assets
+  // Feature 028
   /** @deprecated Use selectedAssetsWithModes instead */
   referenceAssets: SelectedAsset[];
   /** @deprecated Use selectedAssetsWithModes instead */
@@ -112,9 +103,7 @@ export function useImageStudio({
   projectId,
   defaultModel,
   imageModels = [],
-  visualStylePresets = [],
-  layoutPresets = [],
-  stylePresets = [], // deprecated, for backwards compatibility
+  concepts = [],
   initialHistory = [],
 }: UseImageStudioOptions): UseImageStudioReturn {
   const queryClient = useQueryClient();
@@ -122,14 +111,9 @@ export function useImageStudio({
   const eventSourceRef = useRef<EventSource | null>(null);
   const [pendingCount, setPendingCount] = useState(0);
 
-  // Use new presets if provided, fall back to deprecated stylePresets
-  const allVisualStyles = visualStylePresets.length > 0 ? visualStylePresets : stylePresets;
-  const allLayouts = layoutPresets;
-
   // State
   const [prompt, setPrompt] = useState('');
-  const [visualStyleSlug, setVisualStyle] = useState<string | null>(null);
-  const [layoutSlug, setLayout] = useState<string | null>(null);
+  const [conceptSlug, setConcept] = useState<string | null>(null);
   const [aspectRatio, setAspectRatio] = useState<AspectRatioId>('1:1');
   const [model, setModel] = useState(defaultModel || DEFAULT_MODEL);
   // Feature 029: Model-specific parameters
@@ -158,9 +142,6 @@ export function useImageStudio({
   const [currentBatchVariations, setCurrentBatchVariations] = useState<GeneratedImage[]>([]);
   const currentBatchIdRef = useRef<string | null>(null);
 
-  // Deprecated setter for backwards compatibility
-  const setStylePreset = setVisualStyle;
-
   // Cleanup SSE on unmount
   useEffect(() => {
     return () => {
@@ -179,17 +160,10 @@ export function useImageStudio({
     }
   }, [initialHistory]);
 
-  // Get selected presets
-  const selectedVisualStyle = visualStyleSlug
-    ? allVisualStyles.find((p) => p.slug === visualStyleSlug) || null
+  // Get selected concept
+  const selectedConcept = conceptSlug
+    ? concepts.find((c) => c.slug === conceptSlug) || null
     : null;
-
-  const selectedLayout = layoutSlug
-    ? allLayouts.find((p) => p.slug === layoutSlug) || null
-    : null;
-
-  // Deprecated: for backwards compatibility
-  const selectedPreset = selectedVisualStyle;
 
   // Setup SSE connection
   const setupSSE = useCallback(
@@ -210,12 +184,9 @@ export function useImageStudio({
 
           switch (data.type) {
             case 'variation_started':
-              // A variation is starting to generate - no action needed
-              // pendingCount represents variations not yet complete
               break;
 
             case 'variation_complete':
-              // A variation finished successfully - decrement pending
               setPendingCount((prev) => Math.max(0, prev - 1));
               const completedImage: GeneratedImage = {
                 success: true,
@@ -228,12 +199,10 @@ export function useImageStudio({
                 batchId: currentBatch || undefined,
                 generatedAt: new Date().toISOString(),
               };
-              // Add to current batch variations (for display during generation)
               setCurrentBatchVariations((prev) => [...prev, completedImage]);
               break;
 
             case 'variation_failed':
-              // A variation failed - decrement pending
               setPendingCount((prev) => Math.max(0, prev - 1));
               const failedImage: GeneratedImage = {
                 success: false,
@@ -242,16 +211,12 @@ export function useImageStudio({
                 batchId: currentBatch || undefined,
                 generatedAt: new Date().toISOString(),
               };
-              // Add to current batch variations
               setCurrentBatchVariations((prev) => [...prev, failedImage]);
               break;
 
             case 'batch_complete':
-              // All variations done - move current batch to history
-              // Use a single state update to avoid duplicates
               setCurrentBatchVariations([]);
               setVariations((history) => {
-                // Get unique images by document_id, preferring newer ones
                 const currentImages = data.data.images || [];
                 const newImages: GeneratedImage[] = currentImages.map((img: { document_id: string; file_url: string; thumbnail_url: string; title: string; modifier: string; index: number }) => ({
                   success: true,
@@ -265,7 +230,6 @@ export function useImageStudio({
                   generatedAt: new Date().toISOString(),
                 }));
 
-                // Filter out any duplicates from history
                 const existingIds = new Set(newImages.map(i => i.document_id));
                 const filteredHistory = history.filter(h => !existingIds.has(h.document_id));
 
@@ -275,7 +239,6 @@ export function useImageStudio({
               setPendingCount(0);
               eventSource.close();
 
-              // Invalidate documents to refresh the gallery
               queryClient.invalidateQueries({
                 queryKey: documentKeys.list(projectId),
               });
@@ -292,7 +255,6 @@ export function useImageStudio({
               break;
 
             case 'error':
-              // On error, still preserve any images that were generated
               setCurrentBatchVariations((currentBatch) => {
                 if (currentBatch.length > 0) {
                   setVariations((history) => [...currentBatch, ...history]);
@@ -328,7 +290,7 @@ export function useImageStudio({
     setError(null);
     setIsGenerating(true);
     setPendingCount(variationCount);
-    setCurrentBatchVariations([]); // Clear current batch, keep history in variations
+    setCurrentBatchVariations([]);
 
     try {
       // Feature 028: Prepare reference assets with modes for API
@@ -341,11 +303,10 @@ export function useImageStudio({
       const response = await generateImageBatch({
         prompt: prompt.trim(),
         project_id: projectId,
-        visual_style: visualStyleSlug,
-        layout: layoutSlug,
+        creative_concept: conceptSlug,
         aspect_ratio: aspectRatio,
         model: model,
-        creativity: creativity / 100, // Convert 0-100 to 0-1 for backend
+        creativity: creativity / 100,
         count: variationCount,
         reference_image_url: referenceImageUrl,
         // Feature 028: Pass reference assets with individual modes
@@ -357,8 +318,7 @@ export function useImageStudio({
 
       if (response.status === 'processing' && response.batch_id) {
         setBatchId(response.batch_id);
-        currentBatchIdRef.current = response.batch_id; // Store for SSE handler
-        // Get token for SSE authentication (EventSource doesn't support headers)
+        currentBatchIdRef.current = response.batch_id;
         const token = await getAccessToken();
         if (token) {
           setupSSE(response.batch_id, token);
@@ -385,8 +345,7 @@ export function useImageStudio({
     prompt,
     isGenerating,
     projectId,
-    visualStyleSlug,
-    layoutSlug,
+    conceptSlug,
     aspectRatio,
     model,
     creativity,
@@ -408,14 +367,11 @@ export function useImageStudio({
     }
   }, []);
 
-  // Save image to project (already saved during generation, this is for confirmation)
+  // Save image to project
   const save = useCallback(
     async (image: GeneratedImage, _folderId?: string) => {
-      // Images are already saved during generation
-      // This could be extended to move to a specific folder
       if (image.document_id) {
         toast.success('Imagem já salva no projeto');
-        // Refresh documents
         queryClient.invalidateQueries({
           queryKey: documentKeys.list(projectId),
         });
@@ -435,7 +391,6 @@ export function useImageStudio({
       try {
         await attachImageToDocument(documentId, image.document_id);
         toast.success('Imagem anexada ao documento');
-        // Refresh documents
         queryClient.invalidateQueries({
           queryKey: documentKeys.list(projectId),
         });
@@ -450,8 +405,7 @@ export function useImageStudio({
   // Reset all state
   const reset = useCallback(() => {
     setPrompt('');
-    setVisualStyle(null);
-    setLayout(null);
+    setConcept(null);
     setAspectRatio('1:1');
     setModel(defaultModel || DEFAULT_MODEL);
     setCreativity(50);
@@ -489,29 +443,24 @@ export function useImageStudio({
   }, []);
 
   // Combine current batch (being generated) + history for display
-  // Current batch appears at the top, history below
   const allVariations = [...currentBatchVariations, ...variations];
 
   return {
     // State
     prompt,
-    visualStyle: visualStyleSlug,
-    layout: layoutSlug,
-    stylePreset: visualStyleSlug, // deprecated
+    concept: conceptSlug,
     aspectRatio,
     model,
     creativity,
     referenceImageUrl,
-    variations: allVariations, // Combined: current batch + history
+    variations: allVariations,
     isGenerating,
     batchId,
     error,
 
     // Setters
     setPrompt,
-    setVisualStyle,
-    setLayout,
-    setStylePreset, // deprecated
+    setConcept,
     setAspectRatio,
     setModel,
     modelParams,
@@ -534,9 +483,7 @@ export function useImageStudio({
     addVariation,
 
     // Helpers
-    selectedVisualStyle,
-    selectedLayout,
-    selectedPreset, // deprecated
+    selectedConcept,
     pendingCount,
     variationCount,
     // Feature 028

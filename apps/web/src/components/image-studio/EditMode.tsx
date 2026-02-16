@@ -30,10 +30,10 @@ import { ModelSelector } from './ModelSelector';
 import { ModelParameters } from './ModelParameters';
 import { VariationsSelector } from './VariationsSelector';
 import { ReferenceAssetSelector } from './ReferenceAssetSelector';
-import type { SelectedAsset, AssetMode } from '@/hooks/useImageStudio';
+import type { SelectedAsset, AssetMode } from '@repo/shared';
 import { useBrushCanvas } from '@/hooks/useBrushCanvas';
 import { uploadMaskFromDataUrl, generateImageUnified } from '@/lib/image-api';
-import type { GeneratedImage } from '@/types/image-studio';
+import type { GeneratedImage } from '@repo/shared';
 import {
   IMAGE_TO_IMAGE_MODELS,
   getModelById,

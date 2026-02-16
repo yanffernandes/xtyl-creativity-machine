@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ImageIcon, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { VariationCard } from './VariationCard';
-import type { GeneratedImage } from '@/types/image-studio';
+import type { GeneratedImage } from '@repo/shared';
 
 interface VariationGridProps {
   variations: GeneratedImage[];

@@ -1,0 +1,149 @@
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-weight: 500;
+  border-radius: var(--radius-full);
+  white-space: nowrap;
+  transition: all var(--transition-fast);
+}
+
+/* Sizes */
+.sm {
+  padding: var(--space-0-5) var(--space-2);
+  font: var(--font-body-xs);
+}
+
+.md {
+  padding: var(--space-1) var(--space-3);
+  font: var(--font-body-sm);
+}
+
+.lg {
+  padding: var(--space-2) var(--space-4);
+  font: var(--font-body-md);
+}
+
+/* Variants */
+.default {
+  background-color: var(--color-bg-tertiary);
+  color: var(--color-text-secondary);
+}
+
+.primary {
+  background-color: color-mix(in srgb, var(--color-primary) 20%, transparent);
+  color: var(--color-primary);
+}
+
+.success {
+  background-color: var(--color-success-bg);
+  color: var(--color-success-dark);
+}
+
+.warning {
+  background-color: var(--color-warning-bg);
+  color: var(--color-warning-dark, #92400e);
+}
+
+.error {
+  background-color: var(--color-error-light);
+  color: var(--color-error-dark);
+}
+
+.info {
+  background-color: color-mix(in srgb, var(--color-info) 15%, transparent);
+  color: var(--color-info);
+}
+
+/* Outline variants */
+.outline {
+  background-color: transparent;
+  border: 1px solid currentColor;
+}
+
+.outline.default {
+  border-color: var(--color-border);
+  color: var(--color-text-secondary);
+}
+
+.outline.primary {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.outline.success {
+  border-color: var(--color-success);
+  color: var(--color-success);
+}
+
+.outline.warning {
+  border-color: var(--color-warning);
+  color: var(--color-warning-dark, #92400e);
+}
+
+.outline.error {
+  border-color: var(--color-error);
+  color: var(--color-error);
+}
+
+.outline.info {
+  border-color: var(--color-info);
+  color: var(--color-info);
+}
+
+/* Dot */
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background-color: currentColor;
+  flex-shrink: 0;
+}
+
+.withDot .dot {
+  animation: dotPulse 2s ease-in-out infinite;
+}
+
+@keyframes dotPulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(0.8);
+  }
+}
+
+/* Counter Badge */
+.counter {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 var(--space-1-5);
+  font: var(--font-body-xs);
+  font-weight: 600;
+  border-radius: var(--radius-full);
+  animation: counterPop 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.counter-primary {
+  background-color: var(--color-primary);
+  color: var(--color-text-primary);
+}
+
+.counter-error {
+  background-color: var(--color-error);
+  color: white;
+}
+
+@keyframes counterPop {
+  0% {
+    transform: scale(0);
+  }
+  100% {
+    transform: scale(1);
+  }
+}

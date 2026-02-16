@@ -52,6 +52,24 @@ export interface AvailableModel {
 }
 
 // ============================================================================
+// VISUAL ASSETS
+// ============================================================================
+
+export interface VisualAsset {
+  id: string;
+  project_id: string;
+  name: string;
+  file_url: string | null;
+  thumbnail_url: string | null;
+  category: string | null;
+  tags: string[] | null;
+  ai_description: string | null;
+  is_classified: boolean;
+  created_at: string;
+  updated_at: string | null;
+}
+
+// ============================================================================
 // BATCH IMAGE GENERATION
 // ============================================================================
 

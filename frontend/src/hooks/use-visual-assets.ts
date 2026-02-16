@@ -7,7 +7,7 @@
 
 import { useQuery, useMutation, useQueryClient, UseQueryOptions } from '@tanstack/react-query'
 import { visualAssetService, VisualAsset, AssetSelectionUpdate } from '@/lib/supabase/visual-assets'
-import type { AssistantVisualSettings, AssistantVisualSettingsUpdate, StylePreset } from '@/types/supabase'
+import type { AssistantVisualSettings, AssistantVisualSettingsUpdate, CreativeConcept } from '@/types/supabase'
 import { queryKeys } from '@/lib/query-keys'
 import { toast } from 'sonner'
 
@@ -136,19 +136,19 @@ export function useRecordAssetUsage() {
 }
 
 /**
- * Hook to fetch active style presets
+ * Hook to fetch active creative concepts
  */
-export function useStylePresets(
-  queryOptions?: Omit<UseQueryOptions<StylePreset[]>, 'queryKey' | 'queryFn'>
+export function useCreativeConcepts(
+  queryOptions?: Omit<UseQueryOptions<CreativeConcept[]>, 'queryKey' | 'queryFn'>
 ) {
-  return useQuery<StylePreset[]>({
-    queryKey: queryKeys.stylePresets.active(),
+  return useQuery<CreativeConcept[]>({
+    queryKey: queryKeys.creativeConcepts.active(),
     queryFn: async () => {
-      const result = await visualAssetService.getActiveStylePresets()
+      const result = await visualAssetService.getActiveCreativeConcepts()
       if (result.error) throw result.error
       return result.data || []
     },
-    staleTime: 300000, // 5 minutes - style presets rarely change
+    staleTime: 300000, // 5 minutes - concepts rarely change
     ...queryOptions,
   })
 }

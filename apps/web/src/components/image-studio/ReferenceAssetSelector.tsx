@@ -25,7 +25,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import api from '@/lib/api';
-import type { VisualAsset } from '@/types/image-studio';
+import type { VisualAsset } from '@repo/shared';
 
 export type AssetMode = 'style' | 'compose' | 'base';
 

@@ -1,28 +1,29 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import api from '@/lib/api';
-import { supabase } from '@/lib/supabase';
 import type {
   GeneratedImage,
   AvailableModel,
   CreativeConcept,
   AspectRatioId,
-} from '@/types/image-studio';
+  AssetMode,
+  SelectedAsset,
+  SelectedAssetWithMode,
+} from '@repo/shared';
+import { generateImageBatch, getBatchStreamUrl, attachImageToDocument } from '../lib/api';
+import { queryKeys } from '../lib/query-keys';
+import { useAuthStore } from '../lib/stores/authStore';
 
-export type AssetMode = 'style' | 'compose' | 'base';
+// Helper to access documentKeys
+const documentKeys = queryKeys.documents;
 
-export interface SelectedAsset {
-  id: string;
-  thumbnail_url?: string;
-  title?: string;
-}
-
-export interface SelectedAssetWithMode {
-  id: string;
-  mode: AssetMode;
-  thumbnail_url?: string;
-  title?: string;
+// Helper to get access token
+function useGetAccessToken() {
+  const store = useAuthStore();
+  return store.getAccessToken || (async () => {
+    const { data } = await import('../lib/supabase').then(m => m.supabase.auth.getSession());
+    return data.session?.access_token || null;
+  });
 }
 
 interface UseImageStudioOptions {
@@ -44,6 +45,7 @@ export function useImageStudio({
   initialHistory = [],
 }: UseImageStudioOptions) {
   const queryClient = useQueryClient();
+  const getAccessToken = useGetAccessToken();
   const eventSourceRef = useRef<EventSource | null>(null);
   const [pendingCount, setPendingCount] = useState(0);
 
@@ -112,8 +114,7 @@ export function useImageStudio({
         eventSourceRef.current.close();
       }
 
-      const baseUrl = api.defaults.baseURL || 'http://localhost:8000';
-      const streamUrl = `${baseUrl}/api/image-generation/batch/${batchId}/stream?token=${token}`;
+      const streamUrl = getBatchStreamUrl(batchId, token);
       const eventSource = new EventSource(streamUrl);
       eventSourceRef.current = eventSource;
 
@@ -240,7 +241,7 @@ export function useImageStudio({
             ? referenceAssets.map((a) => ({ id: a.id, mode: assetMode }))
             : undefined;
 
-      const response = await api.post('/api/image-generation/generate-batch', {
+      const result = await generateImageBatch({
         prompt: prompt.trim(),
         project_id: projectId,
         creative_concept: conceptSlug,
@@ -249,21 +250,16 @@ export function useImageStudio({
         creativity: creativity / 100,
         count: variationCount,
         reference_image_url: referenceImageUrl,
-        reference_assets: assetsForApi ? assetsForApi.map((a) => a.id) : undefined,
-        reference_asset_modes: assetsForApi,
+        reference_asset_ids: assetsForApi ? assetsForApi.map((a) => a.id) : undefined,
+        asset_modes: assetsForApi ? Object.fromEntries(assetsForApi.map(a => [a.id, a.mode])) : undefined,
         apply_brand_context: applyBrandContext,
       });
-
-      const result = response.data;
 
       if (result.status === 'processing' && result.batch_id) {
         setBatchId(result.batch_id);
         currentBatchIdRef.current = result.batch_id;
 
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
-        const token = session?.access_token;
+        const token = await getAccessToken();
 
         if (token) {
           setupSSE(result.batch_id, token);
@@ -330,12 +326,11 @@ export function useImageStudio({
         return;
       }
       try {
-        await api.post(`/api/documents/${documentId}/attach-image`, {
-          image_document_id: image.document_id,
-        });
+        await attachImageToDocument(documentId, image.document_id);
         toast.success('Imagem anexada ao documento');
-        queryClient.invalidateQueries({ queryKey: ['documents', projectId] });
-      } catch {
+        queryClient.invalidateQueries({ queryKey: documentKeys.byProject(projectId) });
+      } catch (err) {
+        console.error('Failed to attach image:', err);
         toast.error('Falha ao anexar imagem');
       }
     },

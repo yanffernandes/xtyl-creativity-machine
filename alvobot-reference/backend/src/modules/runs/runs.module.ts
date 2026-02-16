@@ -1,0 +1,12 @@
+import { Module } from "@nestjs/common";
+import { RunsController } from "./runs.controller";
+import { RunsService } from "./runs.service";
+import { SupabaseModule } from "../../common/supabase/supabase.module";
+
+@Module({
+  imports: [SupabaseModule],
+  controllers: [RunsController],
+  providers: [RunsService],
+  exports: [RunsService],
+})
+export class RunsModule {}

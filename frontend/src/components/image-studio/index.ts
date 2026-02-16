@@ -7,8 +7,8 @@
 
 export { ImageStudio } from './ImageStudio';
 export { PromptInput } from './PromptInput';
-export { StylePresetGrid } from './StylePresetGrid';
-export { StylePresetCard } from './StylePresetCard';
+export { ConceptGrid } from './ConceptGrid';
+export { ConceptCard } from './ConceptCard';
 export { FormatSelector } from './FormatSelector';
 export { ModelSelector } from './ModelSelector';
 export { CreativitySlider } from './CreativitySlider';

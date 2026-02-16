@@ -1,31 +1,36 @@
 /**
- * TypeScript types for Visual Generation Studio (Feature 027)
- * Includes types for bootstrap data, style presets, and batch image generation
+ * TypeScript types for Visual Generation Studio
+ * Feature 031 - Creative Concepts Migration
  */
 
 // ============================================================================
-// STYLE PRESETS
+// CREATIVE CONCEPTS
 // ============================================================================
 
-export type PresetType = 'visual_style' | 'layout';
-
-export interface StylePreset {
+export interface CreativeConcept {
   id: string;
   name: string;
   name_pt: string;
   slug: string;
+  description?: string | null;
   prompt_modifier: string;
   thumbnail_url: string | null;
-  category: 'realistic' | 'artistic' | 'digital' | 'design' | 'style' | 'general';
-  preset_type: PresetType;
+  prompt_template?: string | null;
+  prompt_template_json?: Record<string, unknown> | null;
+  template_variables?: string[] | null;
+  icon?: string | null;
+  category?: string | null;
+  niche?: string | null;
+  works_for_niches?: string[] | null;
+  example_images?: unknown[] | null;
   sort_order: number;
   is_active: boolean;
   created_at: string;
+  updated_at?: string | null;
 }
 
-export interface StylePresetList {
-  visual_styles: StylePreset[];
-  layouts: StylePreset[];
+export interface CreativeConceptList {
+  concepts: CreativeConcept[];
   total: number;
 }
 
@@ -134,7 +139,7 @@ export interface BootstrapData {
   recent_media: Document[];    // media_type='image'/'video' (generated images, videos)
   /** @deprecated Use recent_copies or recent_media instead */
   recent_documents: Document[];
-  style_presets: StylePreset[];
+  creative_concepts: CreativeConcept[];
 }
 
 // ============================================================================
@@ -144,9 +149,7 @@ export interface BootstrapData {
 export interface ImageBatchRequest {
   prompt: string;
   project_id: string;
-  style_preset?: string | null; // deprecated, use visual_style
-  visual_style?: string | null;
-  layout?: string | null;
+  creative_concept?: string | null;
   aspect_ratio?: AspectRatioId;
   model?: string;
   creativity?: number;
@@ -206,9 +209,7 @@ export interface BatchSSEEvent {
 
 export interface ImageStudioState {
   prompt: string;
-  stylePreset: string | null; // deprecated, use visualStyle
-  visualStyle: string | null;
-  layout: string | null;
+  concept: string | null;
   aspectRatio: AspectRatioId;
   model: string;
   creativity: number;
@@ -221,9 +222,7 @@ export interface ImageStudioState {
 
 export interface ImageStudioActions {
   setPrompt: (prompt: string) => void;
-  setStylePreset: (preset: string | null) => void; // deprecated
-  setVisualStyle: (preset: string | null) => void;
-  setLayout: (preset: string | null) => void;
+  setConcept: (slug: string | null) => void;
   setAspectRatio: (ratio: ImageStudioState['aspectRatio']) => void;
   setModel: (model: string) => void;
   setCreativity: (value: number) => void;

@@ -20,8 +20,6 @@ import {
   Loader2,
   Wand2,
   FileText,
-  ChevronDown,
-  ChevronUp,
   Zap,
   Edit3,
   Sliders,
@@ -46,7 +44,7 @@ import {
 import { cn } from '@/lib/utils';
 
 // Image Studio Components
-import { StylePresetGrid } from '@/components/image-studio/StylePresetGrid';
+import { ConceptSelector } from '@/components/image-studio/ConceptSelector';
 import { VariationGrid } from '@/components/image-studio/VariationGrid';
 import { ImageExpandModal } from '@/components/image-studio/ImageExpandModal';
 import { VisualContextPreview } from '@/components/image-studio/VisualContextPreview';
@@ -116,19 +114,12 @@ export default function StudioPage() {
   // Document prompt source state
   const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(null);
 
-  // Prompt style selection
-  const [selectedPromptStyle, setSelectedPromptStyle] = useState<string>('direct-response');
-
-  // Style section collapsed state
-  const [isStyleExpanded, setIsStyleExpanded] = useState(false);
-
   // Fetch bootstrap data (models, presets, etc.)
   const { data, isLoading: bootstrapLoading } = useProjectBootstrap(projectId);
   const bootstrapData = data as BootstrapData | undefined;
 
-  // Filter presets by type
-  const allPresets = bootstrapData?.style_presets || [];
-  const visualStylePresets = allPresets.filter((p) => p.preset_type === 'visual_style');
+  // Get creative concepts
+  const concepts = bootstrapData?.creative_concepts || [];
 
   // Infinite scroll media history
   const {
@@ -149,8 +140,7 @@ export default function StudioPage() {
     projectId,
     defaultModel: defaultImageModel,
     imageModels: bootstrapData?.models?.image || [],
-    visualStylePresets,
-    layoutPresets: [],
+    concepts,
   });
 
   // Combine current session variations with history from infinite scroll
@@ -224,8 +214,13 @@ export default function StudioPage() {
       return;
     }
 
-    await promptGenerator.generateCreativePrompt(doc.content, selectedPromptStyle);
-  }, [bootstrapData?.recent_copies, selectedDocumentId, promptGenerator, selectedPromptStyle]);
+    // Find the selected concept object to pass to the generator
+    const selectedConcept = studio.concept
+      ? concepts.find((c: { slug: string }) => c.slug === studio.concept) || null
+      : null;
+
+    await promptGenerator.generateCreativePrompt(doc.content, selectedConcept);
+  }, [bootstrapData?.recent_copies, selectedDocumentId, promptGenerator, studio.concept, concepts]);
 
   // Handler for attaching image to selected document
   const handleAttachImage = useCallback(
@@ -410,42 +405,26 @@ export default function StudioPage() {
                           </div>
                         )}
 
-                        {/* Seletor de estilo de prompt - Dropdown compacto */}
-                        <div className="flex gap-2">
-                          <div className="flex-1">
-                            <Select
-                              value={selectedPromptStyle}
-                              onValueChange={setSelectedPromptStyle}
-                              disabled={promptGenerator.isGenerating}
-                            >
-                              <SelectTrigger className="w-full bg-white dark:bg-gray-800">
-                                <SelectValue placeholder="Estilo do criativo..." />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {promptGenerator.promptStyles.map((style) => (
-                                  <SelectItem key={style.id} value={style.id}>
-                                    <div className="flex items-center gap-2">
-                                      <span className="font-medium">{style.name}</span>
-                                      <span className="text-xs text-gray-400">• {style.expert}</span>
-                                    </div>
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <Button
-                            onClick={handleGeneratePrompt}
-                            disabled={!selectedDocumentId || promptGenerator.isGenerating || studio.isGenerating}
-                            className="shrink-0 gap-2 bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600"
-                          >
-                            {promptGenerator.isGenerating ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                              <Wand2 className="h-4 w-4" />
-                            )}
-                            Gerar
-                          </Button>
-                        </div>
+                        {/* Conceito Criativo + Gerar Prompt */}
+                        <ConceptSelector
+                          concepts={concepts}
+                          selectedConceptSlug={studio.concept}
+                          onSelectConcept={studio.setConcept}
+                          disabled={studio.isGenerating}
+                        />
+
+                        <Button
+                          onClick={handleGeneratePrompt}
+                          disabled={!selectedDocumentId || promptGenerator.isGenerating || studio.isGenerating}
+                          className="w-full gap-2 bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600"
+                        >
+                          {promptGenerator.isGenerating ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Wand2 className="h-4 w-4" />
+                          )}
+                          Gerar Prompt
+                        </Button>
                       </div>
 
                       {/* Divider */}
@@ -554,52 +533,6 @@ export default function StudioPage() {
                         autoSelect={true}
                         prompt={studio.prompt}
                       />
-
-                      {/* Divider */}
-                      <div className="border-t border-gray-200 dark:border-gray-700" />
-
-                      {/* 4. ESTILO (colapsável) */}
-                      <div className="space-y-3">
-                        <button
-                          onClick={() => setIsStyleExpanded(!isStyleExpanded)}
-                          className="w-full flex items-center justify-between text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100"
-                        >
-                          <div className="flex items-center gap-2">
-                            <Sparkles className="w-4 h-4" />
-                            <span>Estilo Visual</span>
-                            {studio.visualStyle && (
-                              <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
-                                {visualStylePresets.find((p: { slug: string }) => p.slug === studio.visualStyle)?.name || studio.visualStyle}
-                              </span>
-                            )}
-                          </div>
-                          {isStyleExpanded ? (
-                            <ChevronUp className="w-4 h-4" />
-                          ) : (
-                            <ChevronDown className="w-4 h-4" />
-                          )}
-                        </button>
-
-                        <AnimatePresence>
-                          {isStyleExpanded && (
-                            <motion.div
-                              initial={{ height: 0, opacity: 0 }}
-                              animate={{ height: 'auto', opacity: 1 }}
-                              exit={{ height: 0, opacity: 0 }}
-                              transition={{ duration: 0.2 }}
-                              className="overflow-hidden"
-                            >
-                              <StylePresetGrid
-                                presets={visualStylePresets}
-                                selectedPresetSlug={studio.visualStyle}
-                                onSelectPreset={studio.setVisualStyle}
-                                isLoading={bootstrapLoading}
-                                title=""
-                              />
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-                      </div>
 
                       {/* Divider */}
                       <div className="border-t border-gray-200 dark:border-gray-700" />

@@ -7,7 +7,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import type { GeneratedImage } from '@/types/image-studio';
+import type { GeneratedImage } from '@repo/shared';
 
 interface ImageExpandModalProps {
   image: GeneratedImage | null;

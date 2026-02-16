@@ -1,0 +1,1 @@
+export { BaseArticlesPage } from './BaseArticlesPage'

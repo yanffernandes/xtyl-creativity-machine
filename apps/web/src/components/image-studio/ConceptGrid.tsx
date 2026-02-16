@@ -4,7 +4,7 @@ import { ChevronLeft, ChevronRight, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { ConceptCard } from './ConceptCard';
-import type { CreativeConcept } from '@/types/image-studio';
+import type { CreativeConcept } from '@repo/shared';
 
 interface ConceptGridProps {
   concepts: CreativeConcept[];

@@ -1,0 +1,62 @@
+.loadingContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  gap: var(--space-4);
+  background-color: var(--color-bg-secondary);
+}
+
+.loadingContainer p {
+  font: var(--font-body-md);
+  color: var(--color-text-secondary);
+}
+
+.accessDenied {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background-color: var(--color-bg-secondary);
+  padding: var(--space-4);
+}
+
+.accessDeniedContent {
+  text-align: center;
+  max-width: 400px;
+  padding: var(--space-8);
+  background-color: var(--color-bg-primary);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+}
+
+.accessDeniedContent h1 {
+  font: var(--font-display-sm);
+  color: var(--color-error);
+  margin: 0 0 var(--space-4);
+}
+
+.accessDeniedContent p {
+  font: var(--font-body-md);
+  color: var(--color-text-secondary);
+  margin: 0 0 var(--space-6);
+}
+
+.backLink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-3) var(--space-6);
+  font: var(--font-label-md);
+  color: var(--color-text-inverse);
+  background-color: var(--color-error);
+  border-radius: var(--radius-md);
+  text-decoration: none;
+  transition: background-color var(--transition-fast);
+}
+
+.backLink:hover {
+  background-color: color-mix(in srgb, var(--color-error) 85%, black);
+  text-decoration: none;
+}

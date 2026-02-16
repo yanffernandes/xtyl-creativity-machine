@@ -541,21 +541,29 @@ export interface AssistantAssetSelection {
 }
 
 // ============================================================================
-// STYLE PRESETS (Feature 027)
+// CREATIVE CONCEPTS (Feature 031)
 // ============================================================================
 
-export interface StylePreset {
+export interface CreativeConcept {
   id: string
   name: string
   name_pt: string
   slug: string
+  description: string | null
   prompt_modifier: string
   thumbnail_url: string | null
-  category: string
-  preset_type: 'visual_style' | 'marketing' | 'style'
+  prompt_template: string | null
+  prompt_template_json: Record<string, unknown> | null
+  template_variables: string[] | null
+  icon: string | null
+  category: string | null
+  niche: string | null
+  works_for_niches: string[] | null
+  example_images: unknown[] | null
   sort_order: number
   is_active: boolean
   created_at: string
+  updated_at: string | null
 }
 
 // ============================================================================

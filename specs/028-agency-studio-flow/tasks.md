@@ -28,7 +28,7 @@
 
 > Blocking prerequisites for all user stories
 
-- [ ] T011 Run migration 031_agency_studio.sql and verify tables created
+- [x]T011 Run migration 031_agency_studio.sql and verify tables created
 - [x] T012 Add RLS policies for copy_library_items, campaign_packages, image_masks tables
 - [x] T013 Register new routers in backend/main.py (copies, campaigns)
 
@@ -143,15 +143,15 @@
 > **Goal**: Use brush to mask region and refine with inpainting
 > **Independent Test**: Draw mask on image, enter prompt, generate refined image with only masked area changed
 
-- [ ] T062 [US8] Create inpainting_service.py in backend/services/
-- [ ] T063 [US8] Implement POST /image-generation/refine-with-mask endpoint
-- [ ] T064 [US8] Upload mask PNG to R2 and store in image_masks table
-- [ ] T065 [US8] Create useBrushCanvas hook in frontend/src/hooks/useBrushCanvas.ts
-- [ ] T066 [US8] Create BrushCanvas.tsx component in frontend/src/components/image-studio/
-- [ ] T067 [US8] Create BrushToolbar.tsx component (brush size, clear, undo)
-- [ ] T068 [US8] Add "Refinar com Pincel" action to VariationCard
-- [ ] T069 [US8] Export mask as base64 PNG and call refine-with-mask API
-- [ ] T070 [US8] Display refined result linked to original image
+- [x]T062 [US8] Create inpainting_service.py in backend/services/
+- [x]T063 [US8] Implement POST /image-generation/refine-with-mask endpoint
+- [x]T064 [US8] Upload mask PNG to R2 and store in image_masks table
+- [x]T065 [US8] Create useBrushCanvas hook in frontend/src/hooks/useBrushCanvas.ts
+- [x]T066 [US8] Create BrushCanvas.tsx component in frontend/src/components/image-studio/
+- [x]T067 [US8] Create BrushToolbar.tsx component (brush size, clear, undo)
+- [x]T068 [US8] Add "Refinar com Pincel" action to VariationCard
+- [x]T069 [US8] Export mask as base64 PNG and call refine-with-mask API
+- [x]T070 [US8] Display refined result linked to original image
 
 ---
 

@@ -10,13 +10,13 @@ from typing import List, Optional
 import httpx
 
 from database import get_db
-from models import Project, Document, StylePreset, UserMemory, Workspace, WorkspaceUser
+from models import Project, Document, CreativeConcept, UserMemory, Workspace, WorkspaceUser
 from schemas import (
     ProjectSettings, ProjectSettingsUpdate, ProjectContext,
     ColorExtractionResult, AssetColorExtractionRequest, AssetColorExtractionResult,
     DeleteProjectResponse, CascadeSummary,
     BootstrapData, ModelsConfig, Project as ProjectSchema, VisualAsset, MemoryResponse,
-    Document as DocumentSchema, StylePreset as StylePresetSchema, AvailableModel
+    Document as DocumentSchema, CreativeConcept as CreativeConceptSchema, AvailableModel
 )
 from supabase_auth import get_current_user
 from services.color_extraction import extract_colors, validate_image
@@ -380,13 +380,12 @@ async def delete_project(
 # ============================================================================
 
 async def get_available_models(db: Session) -> dict:
-    """Get available text and image models from OpenRouter, plus default from system_config"""
-    from llm_service import list_models as get_text_models
+    """Get available image models and default model from system_config.
+    Text models are fetched separately by pages that need them (admin, settings)."""
     from image_generation_service import get_available_models as get_available_image_models
     from models import SystemConfig
     import json
 
-    text_models = []
     image_models = []
     default_image_model = None
 
@@ -396,23 +395,6 @@ async def get_available_models(db: Session) -> dict:
         if ai_models_config and ai_models_config.value:
             config_data = json.loads(ai_models_config.value) if isinstance(ai_models_config.value, str) else ai_models_config.value
             default_image_model = config_data.get("defaults", {}).get("image_generation")
-    except Exception:
-        pass
-
-    try:
-        text_models_data = await get_text_models()
-        text_models = [
-            AvailableModel(
-                id=m.get("id", ""),
-                name=m.get("name", m.get("id", "")),
-                description=m.get("description"),
-                context_length=m.get("context_length"),
-                pricing_prompt=str(m.get("pricing", {}).get("prompt", "")) if m.get("pricing") else None,
-                pricing_completion=str(m.get("pricing", {}).get("completion", "")) if m.get("pricing") else None,
-                top_provider=m.get("top_provider", {}).get("context_length") if m.get("top_provider") else None,
-            )
-            for m in text_models_data
-        ]
     except Exception:
         pass
 
@@ -430,7 +412,7 @@ async def get_available_models(db: Session) -> dict:
     except Exception:
         pass
 
-    return {"text": text_models, "image": image_models, "default_image_model": default_image_model}
+    return {"text": [], "image": image_models, "default_image_model": default_image_model}
 
 
 @router.get("/{project_id}/bootstrap", response_model=BootstrapData)
@@ -549,14 +531,14 @@ async def get_project_bootstrap(
     # Deprecated: combined list for backwards compatibility
     recent_documents = recent_copies + recent_media
 
-    # Get active style presets
-    style_presets = db.query(StylePreset).filter(
-        StylePreset.is_active == True
-    ).order_by(StylePreset.sort_order).all()
+    # Get active creative concepts
+    creative_concepts = db.query(CreativeConcept).filter(
+        CreativeConcept.is_active == True
+    ).order_by(CreativeConcept.sort_order).all()
 
-    style_presets_response = [
-        StylePresetSchema.model_validate(sp)
-        for sp in style_presets
+    concepts_response = [
+        CreativeConceptSchema.model_validate(c)
+        for c in creative_concepts
     ]
 
     # Build project response
@@ -581,5 +563,5 @@ async def get_project_bootstrap(
         recent_copies=recent_copies,
         recent_media=recent_media,
         recent_documents=recent_documents,  # deprecated
-        style_presets=style_presets_response
+        creative_concepts=concepts_response
     )

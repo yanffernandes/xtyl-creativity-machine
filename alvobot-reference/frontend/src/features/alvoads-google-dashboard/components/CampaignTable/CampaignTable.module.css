@@ -1,0 +1,800 @@
+.tableContainer {
+  overflow-x: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg-primary);
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg-secondary);
+}
+
+.autoFitButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-primary);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.autoFitButton:hover {
+  background: var(--color-bg-secondary);
+  color: var(--color-text-primary);
+  border-color: var(--color-border-strong, var(--color-border));
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-sm);
+}
+
+.table th,
+.table td {
+  padding: var(--space-3) var(--space-4);
+  text-align: left;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.table th {
+  background: var(--color-bg-secondary);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+  transition: background var(--transition-fast);
+}
+
+.table th:hover {
+  background: var(--color-bg-hover);
+}
+
+.sortIcon {
+  display: inline-block;
+  margin-left: var(--space-1);
+  font-size: var(--font-size-xs);
+  opacity: 0.5;
+}
+
+.sortIcon.active {
+  opacity: 1;
+}
+
+.table tbody tr {
+  transition: background var(--transition-fast);
+}
+
+.table tbody tr:hover {
+  background: var(--color-bg-secondary);
+}
+
+.table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.campaignName {
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.campaignId {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+  font-family: var(--font-mono, monospace);
+  user-select: all;
+}
+
+/* Account name column */
+.accountName {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: inline-block;
+}
+
+/* Status badge */
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  text-transform: uppercase;
+}
+
+.statusEnabled {
+  background: var(--color-success-bg);
+  color: var(--color-success);
+}
+
+.statusPaused {
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
+}
+
+/* Metrics cells */
+.metricCell {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.metricValue {
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+}
+
+.metricLabel {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+}
+
+/* Alerts */
+.alerts {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.alertBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: var(--radius-full);
+  font-size: 10px;
+}
+
+.alertLowCtr {
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
+}
+
+.alertHighCpa {
+  background: var(--color-error-bg);
+  color: var(--color-error);
+}
+
+.alertNoConversions {
+  background: var(--color-info-bg);
+  color: var(--color-info);
+}
+
+.alertBudgetDepleted {
+  background: var(--color-error-bg);
+  color: var(--color-error);
+}
+
+/* Actions column */
+.actionsCell {
+  white-space: nowrap;
+}
+
+.actionsCell > div {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-1);
+}
+
+.actionButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: var(--space-1);
+  color: var(--color-text-secondary);
+  transition: color var(--transition-fast), background var(--transition-fast);
+  border-radius: var(--radius-sm);
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+}
+
+.actionButton svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.actionButton:hover {
+  color: var(--color-text-primary);
+  background: var(--color-bg-secondary);
+}
+
+/* Selection checkbox */
+.checkbox {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+/* Empty state */
+.emptyState {
+  text-align: center;
+  padding: var(--space-8);
+  color: var(--color-text-secondary);
+}
+
+/* Loading state */
+.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-8);
+}
+
+/* Summary row */
+.summaryRow td {
+  font-weight: var(--font-weight-semibold);
+  background: var(--color-bg-secondary);
+  border-top: 2px solid var(--color-border);
+}
+
+/* Progress bar for budget spent */
+.budgetProgress {
+  width: 60px;
+  height: 6px;
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+}
+
+.budgetProgressBar {
+  height: 100%;
+  background: var(--color-success);
+  transition: width var(--transition-normal);
+}
+
+.budgetProgressBar.warning {
+  background: var(--color-warning);
+}
+
+.budgetProgressBar.danger {
+  background: var(--color-error);
+}
+
+/* Strategy column */
+.strategyCell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.strategyLabel {
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+}
+
+.strategyInfo {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+/* ============================================================================
+   Hierarchical Expand Rows
+   ============================================================================ */
+
+/* Level 0 - Campaign rows (default) */
+.rowLevel0 {
+  background: var(--color-bg-primary);
+}
+
+/* Level 1 - Ad Group rows */
+.rowLevel1 {
+  background: var(--color-bg-secondary);
+}
+
+.rowLevel1 td {
+  padding-left: var(--space-6);
+  border-bottom: 1px solid var(--color-border);
+  font-size: var(--font-size-xs);
+}
+
+.rowLevel1:hover {
+  background: var(--color-bg-hover);
+}
+
+/* Level 2 - Ad rows */
+.rowLevel2 {
+  background: color-mix(in srgb, var(--color-bg-secondary) 70%, var(--color-bg-primary));
+}
+
+.rowLevel2 td {
+  padding-left: var(--space-10);
+  border-bottom: 1px solid var(--color-border-light, var(--color-border));
+  font-size: var(--font-size-xs);
+}
+
+.rowLevel2:hover {
+  background: var(--color-bg-hover);
+}
+
+/* Expand button */
+.expandBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  color: var(--color-text-secondary);
+  transition: color var(--transition-fast), background var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.expandBtn:hover:not(:disabled) {
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
+}
+
+.expandBtn:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* Spinner animation for loading expand */
+.spinner {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Campaign name cell with expand button */
+.campaignNameCell {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.campaignNameContent {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+/* Ad Group name cell */
+.adGroupNameCell {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding-left: var(--space-4);
+}
+
+.adGroupNameContent {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.adGroupName {
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.adGroupMeta {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+  font-family: var(--font-mono, monospace);
+}
+
+/* Ad name cell */
+.adNameCell {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding-left: var(--space-8);
+}
+
+.adNameContent {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.adName {
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--font-size-xs);
+}
+
+.adUrl {
+  font-size: 10px;
+  color: var(--color-info);
+  text-decoration: none;
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: inline-block;
+}
+
+.adUrl:hover {
+  text-decoration: underline;
+  color: var(--color-info-dark, var(--color-info));
+}
+
+/* Small status badge for child rows */
+.statusSmall {
+  padding: 2px var(--space-1);
+  font-size: 10px;
+}
+
+/* Ad type label */
+.adType {
+  font-size: 10px;
+  color: var(--color-text-tertiary);
+  text-transform: capitalize;
+}
+
+/* Ad Group name row with type badge */
+.adGroupNameRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.adGroupTypeBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  font-size: 9px;
+  font-weight: var(--font-weight-medium);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+}
+
+.typeStandard {
+  background: var(--color-bg-secondary);
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+}
+
+.typeDynamic {
+  background: var(--color-info-bg, rgba(59, 130, 246, 0.1));
+  color: var(--color-info);
+  border: 1px solid var(--color-info);
+}
+
+/* Ad type badges */
+.adTypeBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  font-size: 9px;
+  font-weight: var(--font-weight-medium);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+  cursor: help;
+}
+
+.typeRSA {
+  background: var(--color-success-bg, rgba(16, 185, 129, 0.1));
+  color: var(--color-success);
+  border: 1px solid var(--color-success);
+}
+
+.typeETA {
+  background: var(--color-warning-bg, rgba(245, 158, 11, 0.1));
+  color: var(--color-warning);
+  border: 1px solid var(--color-warning);
+}
+
+.typeDSA {
+  background: var(--color-info-bg, rgba(59, 130, 246, 0.1));
+  color: var(--color-info);
+  border: 1px solid var(--color-info);
+}
+
+.typeVideo {
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--color-error);
+  border: 1px solid var(--color-error);
+}
+
+.typeShopping {
+  background: rgba(168, 85, 247, 0.1);
+  color: #a855f7;
+  border: 1px solid #a855f7;
+}
+
+.typeDisplay {
+  background: rgba(236, 72, 153, 0.1);
+  color: #ec4899;
+  border: 1px solid #ec4899;
+}
+
+/* Level 3 - Ad creative/copy rows */
+.rowLevel3 {
+  background: color-mix(in srgb, var(--color-bg-secondary) 50%, var(--color-bg-primary));
+}
+
+.rowLevel3 td {
+  padding: var(--space-3) var(--space-4);
+  padding-left: var(--space-12);
+  border-bottom: 1px solid var(--color-border-light, var(--color-border));
+}
+
+/* Ad creative container */
+.adCreativeContainer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+}
+
+.adCreativeSection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.adCreativeLabel {
+  font-size: 10px;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.adCreativeList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.adHeadline {
+  display: inline-block;
+  padding: var(--space-1) var(--space-2);
+  background: var(--color-primary-bg, rgba(251, 191, 36, 0.1));
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-primary);
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.adDescription {
+  display: inline-block;
+  padding: var(--space-1) var(--space-2);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  max-width: 400px;
+}
+
+.adFinalUrl {
+  display: inline-block;
+  padding: var(--space-1) var(--space-2);
+  background: var(--color-info-bg, rgba(59, 130, 246, 0.1));
+  border: 1px solid var(--color-info);
+  border-radius: var(--radius-sm);
+  font-size: 10px;
+  color: var(--color-info);
+  text-decoration: none;
+  max-width: 350px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.adFinalUrl:hover {
+  background: var(--color-info);
+  color: white;
+}
+
+/* URL Section styling */
+.adUrlSection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.adUrlRow {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+
+.adUrlLabel {
+  font-size: 10px;
+  color: var(--color-text-tertiary);
+  min-width: 100px;
+  flex-shrink: 0;
+}
+
+.adDisplayUrl {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  background: var(--color-success-bg, rgba(16, 185, 129, 0.1));
+  border: 1px solid var(--color-success);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  color: var(--color-success);
+  font-weight: var(--font-weight-medium);
+}
+
+/* Auto-generated label for DSA */
+.autogenLabel {
+  margin-left: var(--space-2);
+  font-size: 9px;
+  color: var(--color-info);
+  font-weight: var(--font-weight-normal);
+  font-style: italic;
+}
+
+.autogenNote {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  font-style: italic;
+  padding: var(--space-2);
+  background: var(--color-info-bg, rgba(59, 130, 246, 0.1));
+  border-radius: var(--radius-sm);
+  border: 1px dashed var(--color-info);
+}
+
+/* Tracking URL template display */
+.trackingTemplate {
+  display: inline-block;
+  padding: var(--space-1) var(--space-2);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  color: var(--color-text-secondary);
+  word-break: break-all;
+  max-width: 100%;
+  overflow-wrap: break-word;
+}
+
+/* DSA dynamic URL explanation note */
+.dsaUrlNote {
+  display: block;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-info-bg, rgba(59, 130, 246, 0.08));
+  border-radius: var(--radius-sm);
+  border-left: 3px solid var(--color-info);
+  line-height: 1.5;
+}
+
+.dsaUrlNote strong {
+  color: var(--color-info);
+}
+
+/* Empty/not configured value note */
+.noValueNote {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+  font-style: italic;
+}
+
+/* Column resize handle */
+.resizeHandle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 6px;
+  height: 100%;
+  cursor: col-resize;
+  background: transparent;
+  z-index: 1;
+  transition: background var(--transition-fast);
+  border: none;
+  padding: 0;
+}
+
+.resizeHandle:hover {
+  background: var(--color-primary);
+}
+
+.resizeHandle:active {
+  background: var(--color-primary);
+}
+
+/* Column drag and drop */
+.headerDragging {
+  opacity: 0.5;
+  background: var(--color-bg-tertiary, #f3f4f6);
+}
+
+.headerDragOver {
+  background: var(--color-primary-light, rgba(59, 130, 246, 0.15));
+  box-shadow: inset 0 0 0 2px var(--color-primary);
+}
+
+th[draggable="true"] {
+  cursor: grab;
+}
+
+th[draggable="true"]:active {
+  cursor: grabbing;
+}
+
+/* Header content with tooltip */
+.headerContent {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.helpIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  font-size: 10px;
+  color: var(--color-text-tertiary);
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-full);
+  cursor: help;
+  opacity: 0.6;
+  transition: all var(--transition-fast);
+}
+
+.helpIcon:hover {
+  color: var(--color-primary);
+  opacity: 1;
+}

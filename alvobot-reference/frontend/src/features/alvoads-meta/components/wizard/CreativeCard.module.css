@@ -1,0 +1,310 @@
+.card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-bg-primary);
+  border-radius: var(--radius-lg);
+  border: 2px solid var(--color-border);
+  overflow: hidden;
+  transition: all var(--transition-fast);
+}
+
+.card:hover {
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-md);
+}
+
+/* Status Variants */
+.cardApproved {
+  border-color: var(--color-success);
+}
+
+.cardRejected {
+  border-color: var(--color-error);
+  opacity: 0.7;
+}
+
+.cardPending {
+  border-color: var(--color-warning);
+}
+
+.cardGenerating {
+  border-color: var(--color-info);
+}
+
+.cardFailed {
+  border-color: var(--color-error);
+  background: var(--color-error-bg, #fef2f2);
+}
+
+/* Image Container */
+.imageContainer {
+  position: relative;
+  aspect-ratio: 1;
+  background: var(--color-bg-secondary);
+  overflow: hidden;
+}
+
+.image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.imagePlaceholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  color: var(--color-text-tertiary);
+}
+
+/* Status Badge */
+.statusBadge {
+  position: absolute;
+  top: var(--space-2);
+  left: var(--space-2);
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+}
+
+.statusDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.statusDotApproved {
+  background: var(--color-success);
+}
+
+.statusDotRejected {
+  background: var(--color-error);
+}
+
+.statusDotPending {
+  background: var(--color-warning);
+}
+
+.statusDotGenerating {
+  background: var(--color-info);
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.statusDotFailed {
+  background: var(--color-error);
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* Model Badge */
+.modelBadge {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+}
+
+/* Info Section */
+.info {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+}
+
+.articleTitle {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.metadata {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.metaTag {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+/* Actions */
+.actions {
+  display: flex;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  padding-top: 0;
+}
+
+.actionButton {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  height: 40px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: transparent;
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.actionButton:hover:not(:disabled) {
+  background: var(--color-bg-secondary);
+}
+
+.actionButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.approveButton {
+  color: var(--color-success);
+  border-color: var(--color-success);
+}
+
+.approveButton:hover:not(:disabled) {
+  background: var(--color-success-bg, #ecfdf5);
+}
+
+.approveButtonActive {
+  background: var(--color-success);
+  color: white;
+}
+
+.rejectButton {
+  color: var(--color-error);
+  border-color: var(--color-error);
+}
+
+.rejectButton:hover:not(:disabled) {
+  background: var(--color-error-bg, #fef2f2);
+}
+
+.rejectButtonActive {
+  background: var(--color-error);
+  color: white;
+}
+
+.regenerateButton {
+  color: var(--color-info);
+  border-color: var(--color-info);
+  flex: 0 0 auto;
+  min-width: 56px;
+}
+
+.regenerateButton:hover:not(:disabled) {
+  background: var(--color-info-bg, #eff6ff);
+}
+
+/* Regenerate Dropdown */
+.regenerateDropdownContainer {
+  position: relative;
+  display: flex;
+}
+
+.regenerateDropdown {
+  position: absolute;
+  bottom: calc(100% + var(--space-1));
+  right: 0;
+  min-width: 160px;
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  z-index: 50;
+  overflow: hidden;
+}
+
+.dropdownItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  background: transparent;
+  border: none;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+  text-align: left;
+}
+
+.dropdownItem:hover:not(:disabled) {
+  background: var(--color-bg-secondary);
+}
+
+.dropdownItem:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.dropdownItem svg {
+  flex-shrink: 0;
+  color: var(--color-text-secondary);
+}
+
+/* Error State */
+.errorContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: var(--space-4);
+  text-align: center;
+}
+
+.errorIcon {
+  width: 40px;
+  height: 40px;
+  color: var(--color-error);
+  margin-bottom: var(--space-2);
+}
+
+.errorText {
+  font-size: var(--font-size-sm);
+  color: var(--color-error);
+}
+
+/* Loading Overlay */
+.loadingOverlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(2px);
+}

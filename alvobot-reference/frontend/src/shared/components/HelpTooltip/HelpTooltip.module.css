@@ -1,0 +1,25 @@
+.helpButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  margin-left: var(--space-1);
+  background: transparent;
+  border: none;
+  color: var(--color-text-tertiary);
+  cursor: help;
+  transition: color var(--transition-fast);
+  vertical-align: middle;
+}
+
+.helpButton:hover,
+.helpButton:focus {
+  color: var(--color-primary);
+  outline: none;
+}
+
+.helpButton:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  border-radius: var(--radius-full);
+}

@@ -1,0 +1,81 @@
+// Prisma Schema - Mirrors existing Supabase PostgreSQL schema
+// This is read-only initially - backend uses this for queries, not migrations
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")      // Pooled connection (pgbouncer)
+  directUrl = env("DIRECT_URL")        // Direct connection (for migrations)
+}
+
+// ============================================
+// Core Entities (Existing Supabase Tables)
+// ============================================
+
+model Blog {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  name      String
+  url       String
+  status    String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  projects  Project[]
+
+  @@map("blogs")
+}
+
+model Project {
+  id        String   @id @default(uuid())
+  blogId    String   @map("blog_id")
+  name      String
+  status    String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  blog      Blog       @relation(fields: [blogId], references: [id])
+  articles  Article[]
+  keywords  Keyword[]
+
+  @@map("projects")
+}
+
+model Article {
+  id        String   @id @default(uuid())
+  projectId String   @map("project_id")
+  title     String
+  content   String
+  status    String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  project   Project  @relation(fields: [projectId], references: [id])
+
+  @@map("articles")
+}
+
+model Keyword {
+  id        String   @id @default(uuid())
+  projectId String   @map("project_id")
+  keyword   String
+  volume    Int?
+  difficulty Int?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  project   Project  @relation(fields: [projectId], references: [id])
+
+  @@map("keywords")
+}
+
+// ============================================
+// Notes
+// ============================================
+// - This schema MIRRORS existing Supabase tables
+// - Do NOT run migrations that alter existing tables
+// - Frontend continues to use Supabase client directly
+// - Backend uses Prisma only for complex operations
+// - All RLS policies remain in Supabase

@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import api from '@/lib/api';
-import type { CreativeConcept } from '@/types/image-studio';
+import type { CreativeConcept } from '@repo/shared';
 
 interface UseCreativePromptGeneratorOptions {
   projectId: string;

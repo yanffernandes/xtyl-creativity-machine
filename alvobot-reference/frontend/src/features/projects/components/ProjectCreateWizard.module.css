@@ -1,0 +1,648 @@
+.container {
+  padding: var(--space-2);
+}
+
+.header {
+  margin-bottom: var(--space-4);
+}
+
+.title {
+  margin: 0;
+  font: var(--font-heading-xl);
+  color: var(--color-text-primary);
+}
+
+.subtitle {
+  margin: var(--space-1) 0 0 0;
+  font: var(--font-body-sm);
+  color: var(--color-text-secondary);
+}
+
+/* Stepper */
+.stepper {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  margin-bottom: var(--space-6);
+  padding: var(--space-4) 0;
+}
+
+.stepWrapper {
+  display: flex;
+  align-items: center;
+}
+
+.stepItem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.stepNumber {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-full);
+  background-color: var(--color-bg-tertiary);
+  color: var(--color-text-muted);
+  font: var(--font-body-sm);
+  font-weight: 600;
+  transition: all var(--transition-normal);
+}
+
+.stepNumber.active {
+  background-color: var(--color-info);
+  color: white;
+}
+
+.stepNumber.completed {
+  background-color: var(--color-warning);
+  color: white;
+}
+
+.stepLabel {
+  font: var(--font-body-xs);
+  color: var(--color-text-muted);
+  text-align: center;
+  max-width: 100px;
+}
+
+.stepLabel.activeLabel {
+  color: var(--color-info);
+  font-weight: 500;
+}
+
+.stepLine {
+  width: 60px;
+  height: 2px;
+  background-color: var(--color-border);
+  margin: 0 var(--space-2);
+  margin-bottom: var(--space-6);
+}
+
+.stepLine.completedLine {
+  background-color: var(--color-warning);
+}
+
+/* Form Content */
+.content {
+  min-height: 300px;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.label {
+  font: var(--font-label-md);
+  color: var(--color-text-primary);
+}
+
+.hint {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background-color: var(--color-bg-tertiary);
+  border-radius: var(--radius-md);
+  font: var(--font-body-xs);
+  color: var(--color-text-secondary);
+}
+
+.hint svg {
+  color: var(--color-info);
+  flex-shrink: 0;
+}
+
+.footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border);
+}
+
+.projectCount {
+  font: var(--font-body-sm);
+  color: var(--color-text-muted);
+}
+
+.continueButton {
+  min-width: 150px;
+  background-color: var(--color-warning) !important;
+}
+
+.continueButton:hover {
+  background-color: var(--color-warning-dark) !important;
+}
+
+/* Step 2: Instalar Plugin */
+.step2Content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.instruction {
+  display: flex;
+  gap: var(--space-4);
+}
+
+.instructionNumber {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-full);
+  background-color: var(--color-warning);
+  color: white;
+  font: var(--font-body-sm);
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.instructionContent {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.instructionTitle {
+  margin: 0;
+  font: var(--font-body-md);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.downloadButton {
+  background-color: var(--color-text-primary) !important;
+  color: white !important;
+}
+
+.stepsList {
+  margin: 0;
+  padding-left: var(--space-5);
+  font: var(--font-body-sm);
+  color: var(--color-text-secondary);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.confirmButton {
+  margin-top: var(--space-4);
+  background-color: var(--color-success) !important;
+}
+
+.confirmButton:hover {
+  background-color: #0fa968 !important;
+}
+
+.helpBox {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background-color: rgba(239, 68, 68, 0.08);
+  border-radius: var(--radius-md);
+  border-left: 3px solid var(--color-warning);
+  font: var(--font-body-sm);
+  color: var(--color-text-secondary);
+}
+
+.helpBox svg {
+  color: var(--color-warning);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.helpBox strong {
+  color: var(--color-error);
+}
+
+.infoBox {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background-color: rgba(59, 130, 246, 0.08);
+  border-radius: var(--radius-md);
+  border-left: 3px solid var(--color-info);
+  font: var(--font-body-sm);
+  color: var(--color-text-secondary);
+  margin-top: var(--space-4);
+}
+
+.infoBox svg {
+  color: var(--color-info);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+/* Step 3: Configuração Automática */
+.step3Content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+  text-align: center;
+}
+
+.loadingSection {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.spinner {
+  width: 48px;
+  height: 48px;
+  border: 3px solid var(--color-border);
+  border-top-color: var(--color-warning);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.loadingTitle {
+  margin: 0;
+  font: var(--font-heading-lg);
+  color: var(--color-text-primary);
+}
+
+.loadingText {
+  margin: 0;
+  font: var(--font-body-md);
+  color: var(--color-text-secondary);
+  max-width: 350px;
+}
+
+.successSection {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.successIcon {
+  color: var(--color-success);
+}
+
+.successTitle {
+  margin: 0;
+  font: var(--font-heading-lg);
+  color: var(--color-text-primary);
+}
+
+.successText {
+  margin: 0;
+  font: var(--font-body-md);
+  color: var(--color-text-secondary);
+  max-width: 400px;
+}
+
+.successButton {
+  margin-top: var(--space-4);
+  background-color: var(--color-success) !important;
+  width: 100%;
+  max-width: 300px;
+}
+
+.successButton:hover {
+  background-color: #0fa968 !important;
+}
+
+/* Step 3: Error State */
+.errorSection {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+
+.errorIcon {
+  color: var(--color-error);
+}
+
+.errorTitle {
+  margin: 0;
+  font: var(--font-heading-lg);
+  color: var(--color-text-primary);
+}
+
+.errorText {
+  margin: 0;
+  font: var(--font-body-md);
+  color: var(--color-text-secondary);
+  text-align: center;
+  max-width: 400px;
+}
+
+.checklistUl {
+  margin: var(--space-2) 0 0 var(--space-4);
+  padding: 0;
+  list-style: disc;
+}
+
+.checklistUl li {
+  margin-bottom: var(--space-1);
+  color: var(--color-text-secondary);
+}
+
+.timeoutActions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+  width: 100%;
+}
+
+.backButton {
+  margin-top: var(--space-4);
+}
+
+.retryButton {
+  background-color: var(--color-warning) !important;
+}
+
+.retryButton:hover {
+  background-color: var(--color-warning-dark) !important;
+}
+
+/* Step 2: Credenciais */
+.credentialsIntro {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background-color: var(--color-bg-tertiary);
+  border-radius: var(--radius-md);
+  text-align: center;
+  margin-bottom: var(--space-4);
+}
+
+.credentialsIcon {
+  color: var(--color-info);
+}
+
+.credentialsTitle {
+  margin: 0;
+  font: var(--font-heading-md);
+  color: var(--color-text-primary);
+}
+
+.credentialsDescription {
+  margin: 0;
+  font: var(--font-body-sm);
+  color: var(--color-text-secondary);
+  max-width: 400px;
+}
+
+.errorBox {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background-color: rgba(239, 68, 68, 0.08);
+  border-radius: var(--radius-md);
+  border-left: 3px solid var(--color-error);
+  font: var(--font-body-sm);
+  color: var(--color-error);
+}
+
+.errorBox svg {
+  flex-shrink: 0;
+}
+
+.successBox {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background-color: rgba(16, 185, 129, 0.08);
+  border-radius: var(--radius-md);
+  border-left: 3px solid var(--color-success);
+  font: var(--font-body-sm);
+  color: var(--color-success);
+}
+
+.successBox svg {
+  flex-shrink: 0;
+}
+
+/* Step 3: Plugins */
+.pluginsIntro {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  text-align: center;
+  margin-bottom: var(--space-4);
+}
+
+.pluginsIcon {
+  color: var(--color-info);
+}
+
+.pluginsTitle {
+  margin: 0;
+  font: var(--font-heading-md);
+  color: var(--color-text-primary);
+}
+
+.pluginsDescription {
+  margin: 0;
+  font: var(--font-body-sm);
+  color: var(--color-text-secondary);
+  max-width: 400px;
+}
+
+.pluginsList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: var(--space-4) 0;
+  width: 100%;
+  max-width: 500px;
+}
+
+.pluginItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background-color: var(--color-bg-secondary);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  transition: all var(--transition-fast);
+}
+
+.pluginIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+}
+
+.pluginIconPending {
+  width: 12px;
+  height: 12px;
+  border-radius: var(--radius-full);
+  background-color: var(--color-border);
+}
+
+.pluginIconSpinner {
+  animation: spin 1s linear infinite;
+  color: var(--color-info);
+}
+
+.pluginIconSuccess {
+  color: var(--color-success);
+}
+
+.pluginIconError {
+  color: var(--color-error);
+}
+
+.pluginInfo {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  flex: 1;
+}
+
+.pluginName {
+  font: var(--font-body-sm);
+  font-weight: 500;
+  color: var(--color-text-primary);
+}
+
+.pluginError {
+  font: var(--font-body-xs);
+  color: var(--color-error);
+}
+
+.pluginStatus {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.statusPending {
+  font: var(--font-body-xs);
+  color: var(--color-text-muted);
+}
+
+.statusInstalling {
+  font: var(--font-body-xs);
+  font-weight: 500;
+  color: var(--color-info);
+}
+
+.statusSuccess {
+  font: var(--font-body-xs);
+  font-weight: 500;
+  color: var(--color-success);
+}
+
+.statusError {
+  font: var(--font-body-xs);
+  font-weight: 500;
+  color: var(--color-error);
+}
+
+.pluginCheck {
+  color: var(--color-success);
+  flex-shrink: 0;
+}
+
+/* Step 4: Confirmação */
+.step4Content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+  text-align: center;
+}
+
+.projectSummary {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background-color: var(--color-bg-tertiary);
+  border-radius: var(--radius-md);
+  margin: var(--space-4) 0;
+  min-width: 300px;
+}
+
+.summaryItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font: var(--font-body-sm);
+  color: var(--color-text-secondary);
+  text-align: left;
+}
+
+.summaryItem svg {
+  color: var(--color-info);
+  flex-shrink: 0;
+}
+
+.spinner {
+  animation: spin 1s linear infinite;
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .stepper {
+    flex-wrap: wrap;
+    gap: var(--space-2);
+  }
+
+  .stepLine {
+    width: 30px;
+  }
+
+  .stepLabel {
+    font-size: 0.65rem;
+    max-width: 70px;
+  }
+
+  .footer {
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+
+  .continueButton {
+    width: 100%;
+  }
+}

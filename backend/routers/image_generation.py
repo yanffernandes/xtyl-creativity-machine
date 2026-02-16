@@ -25,7 +25,7 @@ class ReferenceAsset(BaseModel):
     usage_mode: str  # 'style', 'compose', 'base'
 from database import get_db
 import models
-from models import StylePreset
+from models import CreativeConcept
 from image_generation_service import (
     generate_and_store_image,
     DEFAULT_MODEL
@@ -54,7 +54,7 @@ from services.prompt_enrichment_service import (
     get_brand_context_for_project
 )
 from schemas import (
-    StylePreset as StylePresetSchema, StylePresetList,
+    CreativeConcept as CreativeConceptSchema, CreativeConceptList,
     ImageBatchRequest, ImageBatchResponse, ImageBatchProgress,
     InpaintRequest, EditRequest, RemoveBackgroundRequest,
     UpscaleRequest, EnhanceRequest, ImageOperationResponse,
@@ -815,31 +815,24 @@ async def get_image_metadata(
 # VISUAL GENERATION STUDIO ENDPOINTS (Feature 027)
 # ============================================================================
 
-@router.get("/style-presets", response_model=StylePresetList)
-async def get_style_presets(
+@router.get("/creative-concepts", response_model=CreativeConceptList)
+async def get_creative_concepts(
     db: Session = Depends(get_db)
 ):
     """
-    Get all active style presets for image generation, grouped by type.
+    Get all active creative concepts for image generation.
 
-    Returns:
-    - visual_styles: Aesthetic/visual style presets (photographic, watercolor, etc.)
-    - layouts: Structure/layout presets for marketing (banner, carousel, etc.)
+    Returns a flat list of creative concepts (compositional/narrative templates).
 
-    Feature 027 - Visual Generation Studio
+    Feature 031 - Creative Concepts Migration
     """
-    presets = db.query(StylePreset).filter(
-        StylePreset.is_active == True
-    ).order_by(StylePreset.sort_order).all()
+    concepts = db.query(CreativeConcept).filter(
+        CreativeConcept.is_active == True
+    ).order_by(CreativeConcept.sort_order).all()
 
-    # Separate by preset_type
-    visual_styles = [StylePresetSchema.model_validate(p) for p in presets if p.preset_type == 'visual_style']
-    layouts = [StylePresetSchema.model_validate(p) for p in presets if p.preset_type == 'layout']
-
-    return StylePresetList(
-        visual_styles=visual_styles,
-        layouts=layouts,
-        total=len(presets)
+    return CreativeConceptList(
+        concepts=[CreativeConceptSchema.model_validate(c) for c in concepts],
+        total=len(concepts)
     )
 
 
@@ -1148,30 +1141,43 @@ async def process_batch_generation(
         except Exception as vc_error:
             print(f"⚠️ Failed to fetch visual context for batch: {vc_error}")
 
-    # Build style modifier from visual_style and/or layout presets
-    modifiers = []
+    # Build style modifier from creative concept
+    style_modifier_base = ""
 
-    # Check for visual_style preset (new field or legacy style_preset)
-    visual_style_slug = request.visual_style or request.style_preset
-    if visual_style_slug:
-        preset = db.query(StylePreset).filter(
-            StylePreset.slug == visual_style_slug,
-            StylePreset.is_active == True
+    if request.creative_concept:
+        concept = db.query(CreativeConcept).filter(
+            CreativeConcept.slug == request.creative_concept,
+            CreativeConcept.is_active == True
         ).first()
-        if preset:
-            modifiers.append(preset.prompt_modifier)
-
-    # Check for layout preset
-    if request.layout:
-        layout_preset = db.query(StylePreset).filter(
-            StylePreset.slug == request.layout,
-            StylePreset.is_active == True
-        ).first()
-        if layout_preset:
-            modifiers.append(layout_preset.prompt_modifier)
-
-    # Combine modifiers
-    style_modifier_base = ". ".join(modifiers) if modifiers else ""
+        if concept:
+            # T016: Template variable resolution
+            concept_text = concept.prompt_modifier  # default fallback
+            if concept.prompt_template and concept.template_variables and project:
+                import re
+                # Build variable map from project settings + project name
+                settings = project.settings or {}
+                var_map = {
+                    "project_name": project.name or "",
+                    "client_name": settings.get("client_name", ""),
+                    "description": settings.get("description", "") or (project.description or ""),
+                    "target_audience": settings.get("target_audience", ""),
+                    "brand_voice": settings.get("brand_voice", ""),
+                }
+                # Attempt to resolve all {{var}} placeholders
+                resolved = concept.prompt_template
+                all_resolved = True
+                for var_name in concept.template_variables:
+                    value = var_map.get(var_name, "")
+                    if not value:
+                        all_resolved = False
+                        break
+                    resolved = resolved.replace(f"{{{{{var_name}}}}}", value)
+                if all_resolved:
+                    concept_text = resolved
+                    print(f"🧩 Template variables resolved for concept '{concept.slug}'")
+                else:
+                    print(f"⚠️ Template variable resolution failed for '{concept.slug}', using prompt_modifier fallback")
+            style_modifier_base = concept_text
 
     # Default creativity-based modifiers for variations
     creativity_modifiers = [

@@ -1,0 +1,335 @@
+/* ============================================================================
+ * ActionConfigurator — Component Styles
+ * Form-centric layout for configuring automation actions.
+ * Follows FilterBuilder visual language with native form elements.
+ * ========================================================================== */
+
+/* ── Main Container ── */
+
+.configurator {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+/* ── Header: action select + frequency cap ── */
+
+.header {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-4);
+}
+
+/* ── Field group (label + input/select) ── */
+
+.fieldGroup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1-5);
+}
+
+.fieldLabel {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.fieldHint {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+  margin-top: var(--space-0-5);
+}
+
+/* ── Body: dynamic form area ── */
+
+.body {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  background-color: var(--color-bg-primary);
+}
+
+/* ── Action form inner layout ── */
+
+.actionForm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+/* ── Two-column row (min/max, find/replace) ── */
+
+.row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-4);
+}
+
+/* ── Three-column row ── */
+
+.rowThree {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: var(--space-4);
+}
+
+/* ── Input with prefix/suffix ── */
+
+.inputWrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.inputPrefix {
+  position: absolute;
+  left: var(--space-3);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-tertiary);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.inputSuffix {
+  position: absolute;
+  right: var(--space-3);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-tertiary);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.inputWithPrefix {
+  padding-left: calc(var(--space-3) + 20px) !important;
+}
+
+.inputWithSuffix {
+  padding-right: calc(var(--space-3) + 16px) !important;
+}
+
+/* ── Info banner ── */
+
+.infoBanner {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  background-color: var(--color-info-bg);
+  border: 1px solid var(--color-blue-200);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  line-height: 1.5;
+}
+
+.infoBannerIcon {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+  color: var(--color-info);
+}
+
+.infoBannerText {
+  flex: 1;
+}
+
+/* ── Status action (no params) ── */
+
+.statusInfo {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background-color: var(--color-bg-secondary);
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.statusIcon {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-full);
+  background-color: var(--color-bg-tertiary);
+  color: var(--color-text-secondary);
+}
+
+/* ── Checkbox row ── */
+
+.checkboxRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  cursor: pointer;
+}
+
+.checkboxRow input[type='checkbox'] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--color-primary);
+  cursor: pointer;
+}
+
+.checkboxLabel {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  user-select: none;
+}
+
+/* ── Native form elements (shared with FilterBuilder) ── */
+
+.nativeSelect {
+  width: 100%;
+  height: 36px;
+  padding: 0 var(--space-8) 0 var(--space-3);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  background-color: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236B7280' d='M2.5 4.5L6 8l3.5-3.5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 12px;
+  cursor: pointer;
+  transition: border-color var(--transition-fast);
+}
+
+.nativeSelect:hover {
+  border-color: var(--color-text-tertiary);
+}
+
+.nativeSelect:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px rgba(251, 191, 36, 0.2);
+}
+
+.nativeSelect:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.nativeInput {
+  width: 100%;
+  height: 36px;
+  padding: 0 var(--space-3);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  background-color: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  transition: border-color var(--transition-fast);
+}
+
+.nativeInput:hover {
+  border-color: var(--color-text-tertiary);
+}
+
+.nativeInput:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px rgba(251, 191, 36, 0.2);
+}
+
+.nativeInput::placeholder {
+  color: var(--color-text-tertiary);
+}
+
+.nativeInput:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Number input — disable browser spinners */
+.nativeInput[type='number'] {
+  font-variant-numeric: tabular-nums;
+}
+
+.nativeInput[type='number']::-webkit-inner-spin-button,
+.nativeInput[type='number']::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* ── Textarea ── */
+
+.nativeTextarea {
+  width: 100%;
+  min-height: 80px;
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--font-size-sm);
+  font-family: var(--font-family);
+  color: var(--color-text-primary);
+  background-color: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  resize: vertical;
+  transition: border-color var(--transition-fast);
+}
+
+.nativeTextarea:hover {
+  border-color: var(--color-text-tertiary);
+}
+
+.nativeTextarea:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px rgba(251, 191, 36, 0.2);
+}
+
+.nativeTextarea::placeholder {
+  color: var(--color-text-tertiary);
+}
+
+/* ── Optgroup label in native selects ── */
+
+.nativeSelect optgroup {
+  font-weight: 600;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.nativeSelect option {
+  font-weight: 400;
+  color: var(--color-text-primary);
+}
+
+/* ── Section divider ── */
+
+.divider {
+  height: 1px;
+  background-color: var(--color-border);
+  margin: var(--space-1) 0;
+}
+
+/* ── Responsive ── */
+
+@media (max-width: 768px) {
+  .header {
+    grid-template-columns: 1fr;
+  }
+
+  .row {
+    grid-template-columns: 1fr;
+  }
+
+  .rowThree {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .body {
+    padding: var(--space-3);
+  }
+}

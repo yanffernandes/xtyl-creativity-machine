@@ -1,0 +1,359 @@
+openapi: 3.0.3
+info:
+  title: Menu Visibility API
+  description: API for managing menu item visibility based on user plans
+  version: 1.0.0
+
+paths:
+  # ============================================================
+  # Frontend API (Supabase Direct - via RLS)
+  # ============================================================
+
+  /rest/v1/user_menu_visibility:
+    get:
+      summary: Get current user's menu visibility
+      description: |
+        Returns computed visibility status for all menu items based on
+        the current user's effective plan (workspace plan or personal plan).
+        This is a Supabase view accessed directly from frontend.
+      tags:
+        - Frontend
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of menu items with visibility status
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UserMenuVisibility'
+              example:
+                - menu_item_key: "dashboard"
+                  visibility_status: "visible"
+                  coming_soon_text: "Disponível em breve"
+                  redirect_url: null
+                  is_essential: true
+                - menu_item_key: "alvoads-meta"
+                  visibility_status: "coming_soon"
+                  coming_soon_text: "Disponível no plano Pro"
+                  redirect_url: "/subscription"
+                  is_essential: false
+        '401':
+          description: Unauthorized - user not authenticated
+
+  # ============================================================
+  # Admin API (Supabase Direct - via RLS)
+  # ============================================================
+
+  /rest/v1/menu_visibility_config:
+    get:
+      summary: List all menu visibility configurations
+      description: |
+        Returns all menu visibility configurations for admin management.
+        Only accessible by admin users (enforced via RLS).
+      tags:
+        - Admin
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: select
+          in: query
+          schema:
+            type: string
+          example: "*,plans:plan_ids"
+        - name: order
+          in: query
+          schema:
+            type: string
+          example: "menu_item_key.asc"
+      responses:
+        '200':
+          description: List of all menu visibility configurations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MenuVisibilityConfig'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden - user is not admin
+
+    patch:
+      summary: Update menu visibility configuration
+      description: |
+        Update visibility settings for a specific menu item.
+        Only accessible by admin users (enforced via RLS).
+      tags:
+        - Admin
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: menu_item_key
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Filter by menu_item_key
+          example: "eq.alvoads-meta"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateMenuVisibilityDto'
+            example:
+              plan_ids: [2, 3]
+              is_public: false
+              show_as_coming_soon: true
+              coming_soon_text: "Disponível no plano Pro"
+              redirect_url: "/subscription"
+      responses:
+        '200':
+          description: Configuration updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MenuVisibilityConfig'
+        '400':
+          description: Validation error (e.g., trying to hide essential item)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                message: "Essential items cannot be completely hidden"
+                code: "VALIDATION_ERROR"
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden - user is not admin
+        '404':
+          description: Menu item not found
+
+  # ============================================================
+  # Admin API - Preview (Backend Endpoint)
+  # ============================================================
+
+  /api/admin/menu-visibility/preview:
+    get:
+      summary: Preview menu visibility for a specific plan
+      description: |
+        Returns computed visibility for all menu items as if the user
+        had the specified plan. Used for admin preview functionality.
+      tags:
+        - Admin
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: plan_id
+          in: query
+          required: true
+          schema:
+            type: integer
+          description: Plan ID to preview
+          example: 2
+      responses:
+        '200':
+          description: Preview of menu visibility for specified plan
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  plan:
+                    $ref: '#/components/schemas/PlanSummary'
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/MenuVisibilityPreview'
+              example:
+                plan:
+                  id: 2
+                  name: "Pro"
+                items:
+                  - menu_item_key: "dashboard"
+                    label: "Início"
+                    visibility_status: "visible"
+                  - menu_item_key: "alvoads-meta"
+                    label: "AlvoADS Meta"
+                    visibility_status: "visible"
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden - user is not admin
+        '404':
+          description: Plan not found
+
+  /api/admin/menu-visibility/preview/no-plan:
+    get:
+      summary: Preview menu visibility for users without plan
+      description: |
+        Returns computed visibility for all menu items for users
+        without any active plan (free users).
+      tags:
+        - Admin
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Preview of menu visibility for users without plan
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  plan:
+                    type: "null"
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/MenuVisibilityPreview'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Supabase auth token
+
+  schemas:
+    MenuVisibilityConfig:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        menu_item_key:
+          type: string
+          maxLength: 100
+          example: "alvoads-meta"
+        plan_ids:
+          type: array
+          items:
+            type: integer
+          example: [2, 3]
+        is_public:
+          type: boolean
+          default: false
+        show_as_coming_soon:
+          type: boolean
+          default: false
+        coming_soon_text:
+          type: string
+          maxLength: 255
+          default: "Disponível em breve"
+        redirect_url:
+          type: string
+          maxLength: 255
+          nullable: true
+        is_essential:
+          type: boolean
+          default: false
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - menu_item_key
+
+    UserMenuVisibility:
+      type: object
+      properties:
+        menu_item_key:
+          type: string
+          example: "alvoads-meta"
+        visibility_status:
+          $ref: '#/components/schemas/MenuVisibilityStatus'
+        coming_soon_text:
+          type: string
+          example: "Disponível no plano Pro"
+        redirect_url:
+          type: string
+          nullable: true
+          example: "/subscription"
+        is_essential:
+          type: boolean
+      required:
+        - menu_item_key
+        - visibility_status
+
+    MenuVisibilityStatus:
+      type: string
+      enum:
+        - visible
+        - coming_soon
+        - hidden
+      description: |
+        - `visible`: User has access, item shown normally
+        - `coming_soon`: User doesn't have access, shown disabled with badge
+        - `hidden`: User doesn't have access, item not shown
+
+    UpdateMenuVisibilityDto:
+      type: object
+      properties:
+        plan_ids:
+          type: array
+          items:
+            type: integer
+          description: Plan IDs with access (empty = no specific plans)
+        is_public:
+          type: boolean
+          description: If true, visible to all authenticated users
+        show_as_coming_soon:
+          type: boolean
+          description: If true, show as "Em Breve" for users without access
+        coming_soon_text:
+          type: string
+          maxLength: 255
+          description: Custom tooltip text for coming soon items
+        redirect_url:
+          type: string
+          maxLength: 255
+          nullable: true
+          description: URL to redirect when access denied
+
+    MenuVisibilityPreview:
+      type: object
+      properties:
+        menu_item_key:
+          type: string
+        label:
+          type: string
+          description: Human-readable label from frontend config
+        section:
+          type: string
+          description: Menu section (e.g., "PRINCIPAL", "FASE DE ESCALA")
+        visibility_status:
+          $ref: '#/components/schemas/MenuVisibilityStatus'
+        coming_soon_text:
+          type: string
+          nullable: true
+
+    PlanSummary:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+      required:
+        - id
+        - name
+
+    Error:
+      type: object
+      properties:
+        message:
+          type: string
+        code:
+          type: string
+      required:
+        - message

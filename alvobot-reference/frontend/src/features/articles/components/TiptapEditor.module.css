@@ -1,0 +1,177 @@
+.editor {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background-color: var(--color-bg-primary);
+  overflow: hidden;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+  background-color: var(--color-bg-secondary);
+  flex-wrap: wrap;
+}
+
+.toolbarGroup {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.toolbarButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border: none;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.toolbarButton:hover:not(:disabled) {
+  background-color: var(--color-bg-tertiary);
+  color: var(--color-text-primary);
+}
+
+.toolbarButton:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.toolbarButton.active {
+  background-color: var(--color-primary-light);
+  color: var(--color-text-primary);
+}
+
+.divider {
+  width: 1px;
+  height: 1.5rem;
+  background-color: var(--color-border);
+  margin: 0 var(--space-1);
+}
+
+.spacer {
+  flex: 1;
+}
+
+.content {
+  min-height: 20rem;
+  padding: var(--space-4);
+}
+
+.content :global(.tiptap) {
+  outline: none;
+  min-height: 18rem;
+}
+
+.content :global(.tiptap p.is-editor-empty:first-child::before) {
+  content: attr(data-placeholder);
+  float: left;
+  color: var(--color-text-muted);
+  pointer-events: none;
+  height: 0;
+}
+
+.content :global(.tiptap h1) {
+  font: var(--font-display-md);
+  margin: var(--space-4) 0 var(--space-2);
+}
+
+.content :global(.tiptap h2) {
+  font: var(--font-display-sm);
+  margin: var(--space-4) 0 var(--space-2);
+}
+
+.content :global(.tiptap h3) {
+  font: var(--font-heading-xl);
+  margin: var(--space-3) 0 var(--space-2);
+}
+
+.content :global(.tiptap p) {
+  margin: var(--space-2) 0;
+}
+
+.content :global(.tiptap ul),
+.content :global(.tiptap ol) {
+  padding-left: var(--space-6);
+  margin: var(--space-2) 0;
+}
+
+.content :global(.tiptap blockquote) {
+  border-left: 3px solid var(--color-primary);
+  padding-left: var(--space-4);
+  margin: var(--space-4) 0;
+  color: var(--color-text-secondary);
+  font-style: italic;
+}
+
+.content :global(.tiptap code) {
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-bg-tertiary);
+  font-family: monospace;
+  font-size: 0.9em;
+}
+
+.content :global(.tiptap pre) {
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  background-color: var(--color-zinc-900);
+  color: var(--color-text-inverse);
+  overflow-x: auto;
+}
+
+.content :global(.tiptap hr) {
+  border: none;
+  border-top: 1px solid var(--color-border);
+  margin: var(--space-4) 0;
+}
+
+.content :global(.tiptap a) {
+  color: var(--color-info);
+  text-decoration: underline;
+}
+
+.content :global(.tiptap img) {
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--radius-md);
+  margin: var(--space-4) 0;
+}
+
+.content :global(.tiptap table) {
+  border-collapse: collapse;
+  width: 100%;
+  margin: var(--space-4) 0;
+}
+
+.content :global(.tiptap th),
+.content :global(.tiptap td) {
+  border: 1px solid var(--color-border);
+  padding: var(--space-2) var(--space-3);
+  text-align: left;
+}
+
+.content :global(.tiptap th) {
+  background-color: var(--color-bg-secondary);
+  font-weight: 600;
+}
+
+.promptContent {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.promptActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+}

@@ -26,8 +26,8 @@ import { ModelParameters } from './ModelParameters';
 import { VariationsSelector } from './VariationsSelector';
 import { CreativitySlider } from './CreativitySlider';
 import { ReferenceAssetSelector } from './ReferenceAssetSelector';
-import type { CreativeConcept, AspectRatioId } from '@/types/image-studio';
-import type { SelectedAsset, AssetMode } from '@/hooks/useImageStudio';
+import type { CreativeConcept, AspectRatioId } from '@repo/shared';
+import type { SelectedAsset, AssetMode } from '@repo/shared';
 import {
   TEXT_TO_IMAGE_MODELS,
   IMAGE_TO_IMAGE_MODELS,

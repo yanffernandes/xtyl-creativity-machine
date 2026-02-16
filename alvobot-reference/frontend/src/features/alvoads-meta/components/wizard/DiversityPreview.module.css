@@ -1,0 +1,322 @@
+/**
+ * DiversityPreview.module.css - T064: Styles for diversity preview component
+ */
+
+.container {
+  padding: var(--space-4);
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border);
+}
+
+.container.compact {
+  padding: var(--space-3);
+}
+
+/* Collapsed state */
+.container.collapsed {
+  padding: var(--space-3);
+}
+
+/* Header - now clickable */
+.header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+  padding: 0;
+  background: none;
+  border: none;
+  width: 100%;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  transition: opacity var(--transition-fast);
+}
+
+.header:hover {
+  opacity: 0.8;
+}
+
+.collapsed .header {
+  margin-bottom: 0;
+}
+
+.compact .header {
+  margin-bottom: var(--space-3);
+}
+
+/* Toggle icon */
+.toggleIcon {
+  margin-left: auto;
+  color: var(--color-text-secondary);
+  display: flex;
+  align-items: center;
+}
+
+/* Collapsed summary inline */
+.collapsedSummary {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  margin-left: var(--space-2);
+}
+
+.collapsedSummary.good {
+  color: var(--color-success);
+}
+
+.collapsedSummary.low {
+  color: var(--color-warning);
+}
+
+.headerIcon {
+  color: var(--color-primary);
+}
+
+.title {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.nicheBadge {
+  padding: var(--space-1) var(--space-2);
+  background: var(--color-primary);
+  color: var(--color-text-on-primary, #000);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  text-transform: capitalize;
+}
+
+/* Free mode badge */
+.freeModeBadge {
+  padding: var(--space-1) var(--space-2);
+  background: var(--color-success-bg, #d1fae5);
+  color: var(--color-success, #10b981);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+}
+
+/* Content layout */
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.compact .content {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+/* T065: Score Gauge */
+.gaugeContainer {
+  position: relative;
+  width: 100px;
+  height: 100px;
+  flex-shrink: 0;
+  align-self: center;
+}
+
+.compact .gaugeContainer {
+  width: 80px;
+  height: 80px;
+}
+
+.gauge {
+  width: 100%;
+  height: 100%;
+}
+
+.gaugeProgress {
+  transition: stroke-dasharray 0.6s ease-out;
+}
+
+.gaugeValue {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.gaugePercentage {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+  line-height: 1;
+}
+
+.compact .gaugePercentage {
+  font-size: var(--font-size-lg);
+}
+
+.gaugePercentage.good {
+  color: var(--color-success);
+}
+
+.gaugePercentage.low {
+  color: var(--color-warning);
+}
+
+.gaugeLabel {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  margin-top: 2px;
+}
+
+/* Stats Grid */
+.statsGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-3);
+}
+
+.compact .statsGrid {
+  flex: 1;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-2);
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  background: var(--color-bg-primary);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+}
+
+.compact .stat {
+  padding: var(--space-2);
+}
+
+.statValue {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+}
+
+.compact .statValue {
+  font-size: var(--font-size-lg);
+}
+
+.statLabel {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+/* Tags Container */
+.tagsContainer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+/* T066, T067: Tag sections */
+.tagSection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.tagHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+}
+
+.tagList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+/* Concept Tags */
+.conceptTag {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--space-1) var(--space-2);
+  background: var(--color-primary-light, #fef3c7);
+  color: var(--color-primary-dark, #92400e);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+}
+
+/* Model Tags */
+.modelTag {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--space-1) var(--space-2);
+  background: var(--color-info-bg, #eff6ff);
+  color: var(--color-info, #3b82f6);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+}
+
+/* Background Tags */
+.backgroundTag {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--space-1) var(--space-2);
+  background: var(--color-bg-tertiary, #f3f4f6);
+  color: var(--color-text-secondary);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+}
+
+/* T068: Warning */
+.warning {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+  padding: var(--space-3);
+  background: var(--color-warning-bg, #fffbeb);
+  border: 1px solid var(--color-warning);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-xs);
+  color: var(--color-warning-dark, #92400e);
+  line-height: 1.5;
+}
+
+.warning svg {
+  flex-shrink: 0;
+  color: var(--color-warning);
+  margin-top: 1px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .compact .content {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .statsGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .compact .statsGrid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .statsGrid,
+  .compact .statsGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}

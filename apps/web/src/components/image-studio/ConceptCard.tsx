@@ -2,7 +2,7 @@ import { memo } from 'react';
 import { motion } from 'framer-motion';
 import { Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { CreativeConcept } from '@/types/image-studio';
+import type { CreativeConcept } from '@repo/shared';
 
 interface ConceptCardProps {
   concept: CreativeConcept;

@@ -666,13 +666,13 @@ export async function searchMemories(
 // ============================================================================
 
 // Import types from centralized types file
-import type { BootstrapData, StylePresetList, AvailableModel } from '@/types/image-studio';
+import type { BootstrapData, CreativeConceptList, AvailableModel } from '@/types/image-studio';
 
 /**
  * Get all bootstrap data for a project in a single request.
  * Replaces 8+ individual API calls with 1 optimized endpoint.
  *
- * Returns: project, settings, models, visual_context, memories, recent_documents, style_presets
+ * Returns: project, settings, models, visual_context, memories, recent_documents, creative_concepts
  */
 export async function getProjectBootstrap(projectId: string): Promise<BootstrapData> {
     const response = await api.get(`/projects/${projectId}/bootstrap`);
@@ -680,14 +680,12 @@ export async function getProjectBootstrap(projectId: string): Promise<BootstrapD
 }
 
 /**
- * Get all active style presets for image generation, grouped by type.
+ * Get all active creative concepts for image generation.
  *
- * Returns:
- * - visual_styles: Aesthetic/visual style presets (photographic, watercolor, etc.)
- * - layouts: Structure/layout presets for marketing (banner, carousel, etc.)
+ * Returns a flat list of creative concepts.
  */
-export async function getStylePresets(): Promise<StylePresetList> {
-    const response = await api.get('/image-generation/style-presets');
+export async function getCreativeConcepts(): Promise<CreativeConceptList> {
+    const response = await api.get('/image-generation/creative-concepts');
     return response.data;
 }
 
@@ -700,9 +698,7 @@ export interface ImageBatchRequest {
     project_id: string;
     count?: number;
     model?: string;
-    visual_style?: string | null;
-    layout?: string | null;
-    style_preset?: string | null; // Legacy field
+    creative_concept?: string | null;
     size?: string;
     aspect_ratio?: string;
     creativity?: number;

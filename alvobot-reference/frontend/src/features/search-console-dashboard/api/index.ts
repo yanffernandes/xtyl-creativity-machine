@@ -1,0 +1,1 @@
+export { useActiveSearchConsoleProperties } from './useActiveProperties';

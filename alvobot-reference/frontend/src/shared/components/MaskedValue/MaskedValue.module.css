@@ -1,0 +1,6 @@
+.masked {
+  color: var(--color-text-tertiary);
+  font-family: monospace;
+  letter-spacing: 0.05em;
+  user-select: none;
+}

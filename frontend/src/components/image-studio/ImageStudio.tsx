@@ -32,16 +32,13 @@ import { AdjustMode } from './AdjustMode';
 import { VariationGrid } from './VariationGrid';
 import { ImageExpandModal } from './ImageExpandModal';
 import { AssetPickerModal } from './AssetPickerModal';
-import type { AvailableModel, StylePreset, GeneratedImage } from '@/types/image-studio';
+import type { AvailableModel, CreativeConcept, GeneratedImage } from '@/types/image-studio';
 
 interface ImageStudioProps {
   projectId: string;
   /** @deprecated Models are now hardcoded - this prop is ignored */
   imageModels?: AvailableModel[];
-  visualStylePresets?: StylePreset[];
-  layoutPresets?: StylePreset[];
-  /** @deprecated Use visualStylePresets instead */
-  stylePresets?: StylePreset[];
+  concepts?: CreativeConcept[];
   defaultModel?: string;
   isLoading?: boolean;
   sourceDocumentId?: string | null;
@@ -52,9 +49,7 @@ type TabValue = 'create' | 'edit' | 'adjust' | 'video';
 
 export function ImageStudio({
   projectId,
-  visualStylePresets = [],
-  layoutPresets = [],
-  stylePresets = [], // deprecated
+  concepts = [],
   defaultModel,
   isLoading = false,
   sourceDocumentId = null,
@@ -65,15 +60,10 @@ export function ImageStudio({
   const [showAssetPicker, setShowAssetPicker] = useState(false);
   const [selectedImageForEdit, setSelectedImageForEdit] = useState<GeneratedImage | null>(null);
 
-  // Use new presets if provided, fall back to deprecated stylePresets
-  const effectiveVisualStyles = visualStylePresets.length > 0 ? visualStylePresets : stylePresets;
-  const effectiveLayouts = layoutPresets;
-
   const studio = useImageStudio({
     projectId,
     defaultModel,
-    visualStylePresets: effectiveVisualStyles,
-    layoutPresets: effectiveLayouts,
+    concepts,
   });
 
   const handleExpand = (image: GeneratedImage) => {
@@ -175,8 +165,7 @@ export function ImageStudio({
             <CreateMode
               projectId={projectId}
               studio={studio}
-              visualStylePresets={effectiveVisualStyles}
-              layoutPresets={effectiveLayouts}
+              concepts={concepts}
               isLoading={isLoading}
             />
           </TabsContent>

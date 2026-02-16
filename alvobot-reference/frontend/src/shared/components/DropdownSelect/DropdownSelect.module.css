@@ -1,0 +1,297 @@
+/* ============================================================================
+   DropdownSelect - WorkspaceSwitcher-style dropdown with Portal rendering
+   ============================================================================ */
+
+/* Trigger Button - WorkspaceSwitcher style */
+.triggerButton {
+  all: unset;
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface, var(--color-bg-primary));
+  color: var(--color-text, var(--color-text-primary));
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  height: var(--height-md); /* 36px - default for dropdowns/buttons */
+  cursor: pointer;
+  transition: all var(--transition-normal);
+  box-sizing: border-box;
+  white-space: nowrap;
+}
+
+/* Small size variant - for dense UIs */
+.triggerButtonSm {
+  height: var(--height-sm); /* 32px */
+  padding: var(--space-1-5) var(--space-2);
+  font-size: var(--font-size-xs);
+}
+
+/* Large size variant - touch-friendly */
+.triggerButtonLg {
+  height: var(--height-lg); /* 44px */
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--font-size-sm);
+}
+
+.triggerButton:hover:not(:disabled) {
+  background-color: var(--color-surface-hover, var(--color-bg-secondary));
+  border-color: var(--color-border-hover);
+}
+
+.triggerButton:focus-visible {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-light);
+  outline: none;
+}
+
+.triggerButton[data-state='open'] {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-light);
+}
+
+.triggerButton:disabled {
+  background-color: var(--color-bg-secondary);
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 var(--space-1);
+  background: var(--color-primary);
+  color: #000;
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  border-radius: var(--radius-full);
+}
+
+.chevron {
+  margin-left: auto;
+  color: var(--color-text-secondary);
+  flex-shrink: 0;
+  transition: transform var(--transition-normal);
+}
+
+.chevronOpen {
+  transform: rotate(180deg);
+}
+
+/* Dropdown Container - Portal rendered, WorkspaceSwitcher style */
+.dropdown {
+  z-index: var(--z-index-popover);
+  overflow: hidden;
+  background-color: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+
+  /* Animation */
+  animation-duration: 0.15s;
+  animation-timing-function: ease-out;
+}
+
+.dropdown[data-state='open'][data-side='bottom'] {
+  animation-name: slideUpAndFade;
+}
+
+.dropdown[data-state='open'][data-side='top'] {
+  animation-name: slideDownAndFade;
+}
+
+/* Header */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg-primary);
+}
+
+.title {
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  color: var(--color-text-primary);
+}
+
+.headerActions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.actionButton {
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  color: var(--color-primary);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: background var(--transition-fast);
+}
+
+.actionButton:hover {
+  background: var(--color-surface-hover, var(--color-bg-secondary));
+}
+
+/* Options Container */
+.options {
+  overflow-y: auto;
+  padding: var(--space-2);
+}
+
+/* Group */
+.group {
+  padding: var(--space-2) 0;
+}
+
+.group:first-child {
+  padding-top: 0;
+}
+
+.group + .group {
+  border-top: 1px solid var(--color-border);
+  margin-top: var(--space-2);
+  padding-top: var(--space-3);
+}
+
+.groupLabel {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0 var(--space-3);
+  margin-bottom: var(--space-2);
+}
+
+/* Option - WorkspaceSwitcher workspaceItem style */
+.option {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  color: var(--color-text, var(--color-text-primary));
+  cursor: pointer;
+  transition: background-color var(--transition-fast);
+  text-align: left;
+  outline: none;
+}
+
+.option:hover:not(:disabled) {
+  background-color: var(--color-surface-hover, var(--color-bg-secondary));
+}
+
+.option:focus-visible {
+  background-color: var(--color-surface-hover, var(--color-bg-secondary));
+}
+
+.optionActive {
+  background-color: var(--color-primary-light);
+  font-weight: 500;
+}
+
+.optionActive:hover:not(:disabled) {
+  background-color: var(--color-primary-light);
+}
+
+.optionDisabled {
+  color: var(--color-text-tertiary);
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.checkbox {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-primary);
+  flex-shrink: 0;
+  transition: all var(--transition-fast);
+}
+
+.optionActive .checkbox {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: #000;
+}
+
+.optionLabel {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Footer */
+.footer {
+  padding: var(--space-2) var(--space-3);
+  border-top: 1px solid var(--color-border);
+}
+
+.resetButton {
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.resetButton:hover {
+  background: var(--color-surface-hover, var(--color-bg-secondary));
+  border-color: var(--color-border-hover);
+  color: var(--color-text-primary);
+}
+
+/* Animations */
+@keyframes slideUpAndFade {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideDownAndFade {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Accessibility */
+@media (prefers-reduced-motion: reduce) {
+  .dropdown {
+    animation: none;
+  }
+}

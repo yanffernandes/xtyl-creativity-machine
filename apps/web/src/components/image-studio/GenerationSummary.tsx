@@ -14,7 +14,7 @@ import {
   Brush,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { CreativeConcept } from '@/types/image-studio';
+import type { CreativeConcept } from '@repo/shared';
 
 const ASSET_MODE_CONFIG = {
   style: { icon: Brush, label: 'Estilo', color: 'text-purple-500' },

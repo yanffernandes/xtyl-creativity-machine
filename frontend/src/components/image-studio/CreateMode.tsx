@@ -23,13 +23,13 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { PromptInput } from './PromptInput';
-import { StylePresetGrid } from './StylePresetGrid';
+import { ConceptGrid } from './ConceptGrid';
 import { ModelSelector } from './ModelSelector';
 import { ModelParameters } from './ModelParameters';
 import { VariationsSelector } from './VariationsSelector';
 import { CreativitySlider } from './CreativitySlider';
 import { ReferenceAssetSelector } from './ReferenceAssetSelector';
-import type { StylePreset, AspectRatioId } from '@/types/image-studio';
+import type { CreativeConcept, AspectRatioId } from '@/types/image-studio';
 import type { SelectedAsset, AssetMode } from '@/hooks/useImageStudio';
 import {
   TEXT_TO_IMAGE_MODELS,
@@ -40,10 +40,8 @@ import {
 export interface CreateModeStudio {
   prompt: string;
   setPrompt: (prompt: string) => void;
-  visualStyle: string | null;
-  setVisualStyle: (style: string | null) => void;
-  layout: string | null;
-  setLayout: (layout: string | null) => void;
+  concept: string | null;
+  setConcept: (slug: string | null) => void;
   aspectRatio: AspectRatioId;
   setAspectRatio: (ratio: AspectRatioId) => void;
   model: string;
@@ -67,8 +65,7 @@ export interface CreateModeStudio {
 interface CreateModeProps {
   projectId: string;
   studio: CreateModeStudio;
-  visualStylePresets?: StylePreset[];
-  layoutPresets?: StylePreset[];
+  concepts?: CreativeConcept[];
   isLoading?: boolean;
   className?: string;
 }
@@ -94,8 +91,7 @@ const IMAGE_SIZE_OPTIONS = [
 export function CreateMode({
   projectId,
   studio,
-  visualStylePresets = [],
-  layoutPresets = [],
+  concepts = [],
   isLoading = false,
   className,
 }: CreateModeProps) {
@@ -201,27 +197,15 @@ export function CreateMode({
           isLoading={isLoading}
         />
 
-        {/* Visual style presets */}
-        {visualStylePresets.length > 0 && (
-          <StylePresetGrid
-            presets={visualStylePresets}
-            selectedPresetSlug={studio.visualStyle}
-            onSelectPreset={studio.setVisualStyle}
+        {/* Creative concepts */}
+        {concepts.length > 0 && (
+          <ConceptGrid
+            concepts={concepts}
+            selectedConceptSlug={studio.concept}
+            onSelectConcept={studio.setConcept}
             isLoading={isLoading}
-            title="Estilo Visual"
+            title="Conceito Criativo"
             icon={<Sparkles className="w-4 h-4" />}
-          />
-        )}
-
-        {/* Layout presets */}
-        {layoutPresets.length > 0 && (
-          <StylePresetGrid
-            presets={layoutPresets}
-            selectedPresetSlug={studio.layout}
-            onSelectPreset={studio.setLayout}
-            isLoading={isLoading}
-            title="Diagramação"
-            icon={<LayoutGrid className="w-4 h-4" />}
           />
         )}
 

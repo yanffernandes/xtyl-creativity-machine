@@ -1,0 +1,194 @@
+/* Container inside Modal */
+.container {
+  width: 100%;
+}
+
+.header {
+  padding: var(--space-4) var(--space-6) var(--space-6);
+  text-align: center;
+}
+
+.headerIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  background: linear-gradient(135deg, var(--color-primary-alpha-20) 0%, var(--color-purple-50) 100%);
+  border-radius: var(--radius-lg);
+  color: var(--color-primary);
+  margin-bottom: var(--space-3);
+}
+
+.title {
+  font: var(--font-display-sm);
+  color: var(--color-text-primary);
+  margin: 0 0 var(--space-2);
+}
+
+.subtitle {
+  font: var(--font-body-md);
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+
+.options {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-5);
+}
+
+.optionCard {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  background: var(--color-bg-primary);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: left;
+  width: 100%;
+}
+
+.optionCard:hover:not(.disabled) {
+  border-color: var(--color-primary);
+  background: var(--color-bg-secondary);
+}
+
+.optionCard.disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+  background: var(--color-bg-tertiary);
+}
+
+.optionCard.disabled .iconWrapper {
+  background: var(--color-bg-secondary);
+  color: var(--color-text-tertiary);
+}
+
+.optionCard.disabled .optionLabel,
+.optionCard.disabled .optionDescription {
+  color: var(--color-text-tertiary);
+}
+
+.optionCard.recommended {
+  border-color: var(--color-primary);
+  background: var(--color-primary-alpha-10);
+}
+
+.optionCard.recommended:hover {
+  background: var(--color-primary-alpha-20);
+}
+
+.recommendedBadge {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  font: var(--font-label-xs);
+  font-weight: 600;
+  color: white;
+  background: var(--color-primary);
+  border-radius: var(--radius-full);
+}
+
+.badge {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  font: var(--font-label-xs);
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  background: var(--color-bg-tertiary);
+  border-radius: var(--radius-full);
+}
+
+.iconWrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-md);
+  color: var(--color-primary);
+  flex-shrink: 0;
+}
+
+.optionCard.recommended .iconWrapper {
+  background: var(--color-primary);
+  color: white;
+}
+
+.optionContent {
+  flex: 1;
+  min-width: 0;
+}
+
+.optionLabel {
+  font: var(--font-heading-sm);
+  color: var(--color-text-primary);
+  margin: 0 0 var(--space-1);
+}
+
+.optionDescription {
+  font: var(--font-body-sm);
+  color: var(--color-text-secondary);
+  margin: 0;
+  line-height: 1.5;
+}
+
+.footer {
+  display: flex;
+  justify-content: center;
+  padding: var(--space-4) var(--space-6);
+}
+
+.cancelButton {
+  padding: var(--space-2) var(--space-4);
+  font: var(--font-label-md);
+  color: var(--color-text-secondary);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.cancelButton:hover {
+  color: var(--color-text-primary);
+  background: var(--color-bg-secondary);
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .modal {
+    margin: var(--space-4);
+    max-height: calc(100vh - var(--space-8));
+  }
+
+  .header {
+    padding: var(--space-4);
+  }
+
+  .options {
+    padding: var(--space-4);
+  }
+
+  .optionCard {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  .recommendedBadge,
+  .badge {
+    position: static;
+    margin-bottom: var(--space-2);
+  }
+}

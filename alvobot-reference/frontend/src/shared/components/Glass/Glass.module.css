@@ -1,0 +1,239 @@
+/* Glassmorphism Utilities
+ * Modern frosted glass effects inspired by Apple/iOS design
+ */
+
+/* Base glass container */
+.glass {
+  position: relative;
+  background-color: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+/* Glass variants */
+.light {
+  background-color: rgba(255, 255, 255, 0.7);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.dark {
+  background-color: rgba(24, 24, 27, 0.75);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: var(--color-text-inverse);
+}
+
+.frosted {
+  background-color: rgba(249, 250, 251, 0.85);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+.subtle {
+  background-color: rgba(255, 255, 255, 0.5);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.tinted {
+  background-color: rgba(251, 191, 36, 0.15);
+  border-color: rgba(251, 191, 36, 0.3);
+}
+
+/* Blur intensity */
+.blur-sm {
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+.blur-md {
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.blur-lg {
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+.blur-xl {
+  backdrop-filter: blur(32px);
+  -webkit-backdrop-filter: blur(32px);
+}
+
+/* Border radius options */
+.rounded-sm { border-radius: var(--radius-sm); }
+.rounded-md { border-radius: var(--radius-md); }
+.rounded-lg { border-radius: var(--radius-lg); }
+.rounded-xl { border-radius: var(--radius-xl); }
+.rounded-2xl { border-radius: var(--radius-2xl); }
+.rounded-full { border-radius: var(--radius-full); }
+
+/* Shadow options */
+.shadow-none { box-shadow: none; }
+.shadow-sm { box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08); }
+.shadow-md { box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1); }
+.shadow-lg { box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12); }
+
+/* Glass card preset */
+.glassCard {
+  padding: var(--space-5);
+  border-radius: var(--radius-xl);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+}
+
+/* Glass panel preset (sidebar, navigation) */
+.glassPanel {
+  padding: var(--space-4);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+/* Glass button preset */
+.glassButton {
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.glassButton:hover {
+  background-color: rgba(255, 255, 255, 0.85);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.glassButton:active {
+  transform: translateY(0);
+}
+
+/* Glass modal overlay */
+.glassOverlay {
+  background-color: rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+/* Glass input preset */
+.glassInput {
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  outline: none;
+  transition: all var(--transition-fast);
+}
+
+.glassInput::placeholder {
+  color: var(--color-text-tertiary);
+}
+
+.glassInput:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.2);
+}
+
+/* Glass badge */
+.glassBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--space-1) var(--space-3);
+  font: var(--font-body-sm);
+  border-radius: var(--radius-full);
+}
+
+/* Glass with gradient border */
+.gradientBorder {
+  position: relative;
+  border: none;
+}
+
+.gradientBorder::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  padding: 1px;
+  border-radius: inherit;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.5) 0%,
+    rgba(255, 255, 255, 0.1) 50%,
+    rgba(255, 255, 255, 0.3) 100%
+  );
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* Interactive glow effect */
+.glow {
+  position: relative;
+  overflow: hidden;
+}
+
+.glow::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.3),
+    transparent
+  );
+  transition: left 0.5s ease;
+  pointer-events: none;
+}
+
+.glow:hover::after {
+  left: 100%;
+}
+
+/* Noise texture overlay for more realistic glass */
+.noise {
+  position: relative;
+}
+
+.noise::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+  opacity: 0.03;
+  pointer-events: none;
+  border-radius: inherit;
+}
+
+/* Fallback for browsers that don't support backdrop-filter */
+@supports not (backdrop-filter: blur(12px)) {
+  .glass {
+    background-color: rgba(255, 255, 255, 0.95);
+  }
+
+  .dark {
+    background-color: rgba(24, 24, 27, 0.95);
+  }
+}
+
+/* Accessibility */
+@media (prefers-reduced-motion: reduce) {
+  .glassButton {
+    transition: none;
+  }
+
+  .glow::after {
+    display: none;
+  }
+}
+
+/* Dark mode support (if using class-based dark mode) */
+:root.dark .light {
+  background-color: rgba(39, 39, 42, 0.7);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: var(--color-text-inverse);
+}

@@ -1,0 +1,338 @@
+/* ============================================================================
+ * FilterBuilder — Component Styles
+ * Visual language matches ConditionBuilder: cards with borders,
+ * "E"/"OU" connector badges, clean modern layout.
+ * ========================================================================== */
+
+/* ── Container ── */
+
+.filterBuilder {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.emptyState {
+  padding: var(--space-6);
+  text-align: center;
+  border: 2px dashed var(--color-border);
+  border-radius: var(--radius-lg);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.emptyStateText {
+  margin: 0 0 var(--space-3) 0;
+}
+
+/* ── Filter Group Card ── */
+
+.filterGroup {
+  border: 1px solid var(--color-border);
+  border-left: 3px solid #3b82f6;
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  background-color: var(--color-bg-primary);
+  transition: border-color var(--transition-fast);
+}
+
+.filterGroup:hover {
+  border-color: #93c5fd;
+}
+
+.groupHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-3);
+}
+
+.groupLabel {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.removeGroupButton {
+  color: var(--color-text-tertiary);
+}
+
+.removeGroupButton:hover {
+  color: var(--color-error);
+  background-color: var(--color-error-bg, #fef2f2);
+}
+
+/* ── Filters within group ── */
+
+.groupFilters {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+/* ── Single filter row ── */
+
+.filterRow {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  background-color: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.filterFieldGroup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.filterFieldLabel {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--color-text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.fieldSelect {
+  flex: 2;
+  min-width: 180px;
+}
+
+.operatorSelect {
+  flex: 1;
+  min-width: 140px;
+}
+
+.valueGroup {
+  flex: 2;
+  min-width: 140px;
+}
+
+.removeFilterButton {
+  flex-shrink: 0;
+  margin-top: 18px; /* Align with input fields (below label) */
+  color: var(--color-text-tertiary);
+}
+
+.removeFilterButton:hover {
+  color: var(--color-error);
+  background-color: var(--color-error-bg, #fef2f2);
+}
+
+/* ── Value input variations ── */
+
+.valueInputWrapper {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.betweenSeparator {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+  padding: 0 var(--space-1);
+}
+
+/* Multi-select for IN/NOT_IN operators */
+.multiSelectContainer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-bg-primary);
+  min-height: 36px;
+  cursor: pointer;
+}
+
+.multiSelectTag {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 2px var(--space-2);
+  background-color: #dbeafe;
+  color: #1e40af;
+  border-radius: var(--radius-full);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.multiSelectTagRemove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  border-radius: var(--radius-full);
+  font-size: 10px;
+  line-height: 1;
+}
+
+.multiSelectTagRemove:hover {
+  background-color: rgba(30, 64, 175, 0.15);
+}
+
+/* ── Connector badges ── */
+
+.connector {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: var(--space-1) 0;
+}
+
+.connectorBadge {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-full);
+  letter-spacing: 0.05em;
+}
+
+.connectorAnd {
+  background-color: #dbeafe;
+  color: #1d4ed8;
+}
+
+.connectorOr {
+  background-color: #fef3c7;
+  color: #92400e;
+}
+
+/* ── Add buttons ── */
+
+.addFilterButton {
+  margin-top: var(--space-2);
+}
+
+.addGroupContainer {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.addGroupDivider {
+  flex: 1;
+  height: 1px;
+  background-color: var(--color-border);
+}
+
+/* ── Native select styling ── */
+
+.nativeSelect {
+  width: 100%;
+  height: 36px;
+  padding: 0 var(--space-8) 0 var(--space-3);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  background-color: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236B7280' d='M2.5 4.5L6 8l3.5-3.5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 12px;
+  cursor: pointer;
+  transition: border-color var(--transition-fast);
+}
+
+.nativeSelect:hover {
+  border-color: var(--color-text-tertiary);
+}
+
+.nativeSelect:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px rgba(251, 191, 36, 0.2);
+}
+
+.nativeSelect:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.nativeSelectPlaceholder {
+  color: var(--color-text-tertiary);
+}
+
+/* ── Native input styling ── */
+
+.nativeInput {
+  width: 100%;
+  height: 36px;
+  padding: 0 var(--space-3);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  background-color: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  transition: border-color var(--transition-fast);
+}
+
+.nativeInput:hover {
+  border-color: var(--color-text-tertiary);
+}
+
+.nativeInput:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px rgba(251, 191, 36, 0.2);
+}
+
+.nativeInput::placeholder {
+  color: var(--color-text-tertiary);
+}
+
+.nativeInputSmall {
+  width: 100px;
+}
+
+/* ── Responsive ── */
+
+@media (max-width: 768px) {
+  .filterRow {
+    flex-wrap: wrap;
+  }
+
+  .fieldSelect,
+  .operatorSelect,
+  .valueGroup {
+    min-width: 100%;
+    flex: 1 1 100%;
+  }
+
+  .removeFilterButton {
+    margin-top: 0;
+    margin-left: auto;
+  }
+}
+
+@media (max-width: 480px) {
+  .filterGroup {
+    padding: var(--space-3);
+  }
+
+  .addGroupContainer {
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+
+  .addGroupDivider {
+    display: none;
+  }
+}

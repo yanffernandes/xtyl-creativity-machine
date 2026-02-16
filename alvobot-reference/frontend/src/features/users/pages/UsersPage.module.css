@@ -1,0 +1,184 @@
+.container {
+  max-width: var(--container-2xl);
+  margin: 0 auto;
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+}
+
+.title {
+  margin: 0;
+  font: var(--font-display-sm);
+  color: var(--color-text-primary);
+}
+
+.subtitle {
+  margin: var(--space-1) 0 0;
+  font: var(--font-body-md);
+  color: var(--color-text-secondary);
+}
+
+.toolbar {
+  display: flex;
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+}
+
+.search {
+  width: 100%;
+  max-width: var(--container-xs);
+}
+
+.alert {
+  margin-bottom: var(--space-4);
+}
+
+.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--container-xs);
+}
+
+.tableWrapper {
+  background-color: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.userCell {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-10); /* 40px */
+  height: var(--space-10);
+  border-radius: var(--radius-full);
+  background-color: var(--color-primary);
+  color: var(--color-text-inverse);
+  font: var(--font-label-sm);
+  overflow: hidden;
+}
+
+.avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.userName {
+  margin: 0;
+  font: var(--font-body-sm);
+  color: var(--color-text-primary);
+  font-weight: 500;
+}
+
+.userEmail {
+  margin: 0;
+  font: var(--font-body-xs);
+  color: var(--color-text-muted);
+}
+
+.role {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  font: var(--font-body-sm);
+  color: var(--color-text-secondary);
+}
+
+.status {
+  font: var(--font-label-sm);
+}
+
+.actions {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.actionBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--touch-target-min); /* 44px - touch friendly */
+  height: var(--touch-target-min);
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.actionBtn:hover {
+  background-color: var(--color-bg-secondary);
+  color: var(--color-text-primary);
+}
+
+.actionBtn.danger:hover {
+  background-color: var(--color-error-light);
+  color: var(--color-error);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.editingUser {
+  margin: 0;
+  font: var(--font-body-md);
+  color: var(--color-text-secondary);
+}
+
+.formActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+}
+
+.removeMessage {
+  margin: 0 0 var(--space-6);
+  font: var(--font-body-md);
+  color: var(--color-text-secondary);
+}
+
+/* Mobile (640px) */
+@media (max-width: 640px) {
+  .header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .toolbar {
+    flex-direction: column;
+  }
+
+  .search {
+    max-width: none;
+  }
+}
+
+/* Mobile Small (480px) */
+@media (max-width: 480px) {
+  .formActions {
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+
+  .formActions button {
+    width: 100%;
+  }
+}

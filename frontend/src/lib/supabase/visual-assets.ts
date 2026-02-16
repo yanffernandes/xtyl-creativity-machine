@@ -15,7 +15,7 @@ import type {
   AssistantVisualSettingsInsert,
   AssistantVisualSettingsUpdate,
   AssistantAssetSelection,
-  StylePreset,
+  CreativeConcept,
 } from '@/types/supabase'
 import type { ServiceResult } from '@/types/supabase-services'
 
@@ -285,32 +285,13 @@ export const visualAssetService = {
   // ============================================================================
 
   /**
-   * Get all active style presets
+   * Get all active creative concepts
    */
-  async getActiveStylePresets(): Promise<ServiceResult<StylePreset[]>> {
+  async getActiveCreativeConcepts(): Promise<ServiceResult<CreativeConcept[]>> {
     try {
       const { data, error } = await supabase
-        .from('style_presets')
+        .from('creative_concepts')
         .select('*')
-        .eq('is_active', true)
-        .order('sort_order', { ascending: true })
-
-      if (error) throw error
-      return { data: data || [], error: null }
-    } catch (error) {
-      return { data: null, error: error as Error }
-    }
-  },
-
-  /**
-   * Get style presets by category
-   */
-  async getStylePresetsByCategory(category: string): Promise<ServiceResult<StylePreset[]>> {
-    try {
-      const { data, error } = await supabase
-        .from('style_presets')
-        .select('*')
-        .eq('category', category)
         .eq('is_active', true)
         .order('sort_order', { ascending: true })
 

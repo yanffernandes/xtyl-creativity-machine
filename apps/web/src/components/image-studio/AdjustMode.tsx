@@ -26,7 +26,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { removeBackground, upscaleImage, enhanceImage } from '@/lib/image-api';
-import type { GeneratedImage } from '@/types/image-studio';
+import type { GeneratedImage } from '@repo/shared';
 
 interface QuickAction {
   id: string;

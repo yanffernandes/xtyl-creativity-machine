@@ -30,7 +30,7 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { useProjectMedia } from '@/hooks/useProjectMedia';
-import type { VisualAsset } from '@/types/image-studio';
+import type { VisualAsset } from '@repo/shared';
 
 export type AssetMode = 'style' | 'compose' | 'base';
 

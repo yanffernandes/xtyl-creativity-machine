@@ -1,0 +1,273 @@
+openapi: 3.0.3
+info:
+  title: OpenRouter Integration API
+  description: Backend API endpoints for OpenRouter integration
+  version: 1.0.0
+
+paths:
+  /admin/openrouter/models:
+    get:
+      summary: List available OpenRouter models
+      description: Fetches and returns available models from OpenRouter API, filtered by type
+      tags:
+        - OpenRouter
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: type
+          in: query
+          description: Filter models by capability
+          required: false
+          schema:
+            type: string
+            enum: [text, image, all]
+            default: all
+      responses:
+        '200':
+          description: List of available models
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  models:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/OpenRouterModel'
+                  cached:
+                    type: boolean
+                    description: Whether the response was served from cache
+        '401':
+          description: Unauthorized - not authenticated
+        '403':
+          description: Forbidden - not an admin
+        '503':
+          description: OpenRouter API unavailable
+
+  /admin/openrouter/validate-key:
+    post:
+      summary: Validate OpenRouter API key
+      description: Checks if the configured OPENROUTER_API_KEY is valid
+      tags:
+        - OpenRouter
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: API key validation result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  valid:
+                    type: boolean
+                  configured:
+                    type: boolean
+                    description: Whether the env var is set
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden - not an admin
+
+  /admin/system-prompts/test:
+    post:
+      summary: Test a system prompt
+      description: Extended to support OpenRouter provider
+      tags:
+        - System Prompts
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TestPromptRequest'
+      responses:
+        '200':
+          description: Test result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TestPromptResponse'
+        '400':
+          description: Invalid request
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden - not an admin
+
+  /admin/settings/image-model:
+    get:
+      summary: Get default image generation model
+      description: Returns the platform's default image generation model configuration
+      tags:
+        - Platform Settings
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Current default image model
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DefaultImageModel'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden - not an admin
+
+    put:
+      summary: Update default image generation model
+      description: Sets the platform's default image generation model
+      tags:
+        - Platform Settings
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DefaultImageModel'
+      responses:
+        '200':
+          description: Updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DefaultImageModel'
+        '400':
+          description: Invalid model configuration
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden - not an admin
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    AIProvider:
+      type: string
+      enum: [openai, openrouter, google]
+      description: AI provider identifier
+
+    OpenRouterModel:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Full model identifier (e.g., "openai/gpt-4o")
+          example: "openai/gpt-4o"
+        name:
+          type: string
+          description: Human-readable model name
+          example: "GPT-4o"
+        description:
+          type: string
+          description: Model description
+        context_length:
+          type: integer
+          description: Maximum context window size
+          example: 128000
+        pricing:
+          type: object
+          properties:
+            prompt:
+              type: string
+              description: USD per input token
+              example: "0.000005"
+            completion:
+              type: string
+              description: USD per output token
+              example: "0.000015"
+        capabilities:
+          type: object
+          properties:
+            text_input:
+              type: boolean
+            image_input:
+              type: boolean
+            text_output:
+              type: boolean
+            image_output:
+              type: boolean
+      required:
+        - id
+        - name
+
+    TestPromptRequest:
+      type: object
+      properties:
+        system_prompt:
+          type: string
+          description: System message content
+        user_prompt_template:
+          type: string
+          description: User message template with {{variables}}
+        variables:
+          type: object
+          additionalProperties:
+            type: string
+          description: Variable substitutions
+        provider:
+          $ref: '#/components/schemas/AIProvider'
+        model:
+          type: string
+          description: Model identifier (OpenAI model name or OpenRouter full ID)
+        temperature:
+          type: number
+          minimum: 0
+          maximum: 2
+          default: 0.7
+        max_tokens:
+          type: integer
+          minimum: 1
+          maximum: 128000
+          default: 2000
+      required:
+        - system_prompt
+        - user_prompt_template
+
+    TestPromptResponse:
+      type: object
+      properties:
+        output:
+          type: string
+          description: Generated response content
+        processingTime:
+          type: number
+          description: Time in milliseconds
+        provider:
+          $ref: '#/components/schemas/AIProvider'
+        model:
+          type: string
+          description: Model used for generation
+        tokensUsed:
+          type: object
+          properties:
+            prompt:
+              type: integer
+            completion:
+              type: integer
+            total:
+              type: integer
+
+    DefaultImageModel:
+      type: object
+      properties:
+        provider:
+          $ref: '#/components/schemas/AIProvider'
+        model:
+          type: string
+          description: Model identifier
+          example: "dall-e-3"
+      required:
+        - provider
+        - model

@@ -866,7 +866,7 @@ def list_project_media(
     Feature 030: Uses window function COUNT(*) OVER() to combine count and fetch
     in a single query for better performance.
     """
-    from sqlalchemy import desc, func, over
+    from sqlalchemy import desc, func
 
     # Verify access
     verify_project_access(db, project_id, str(current_user.id))
@@ -874,26 +874,18 @@ def list_project_media(
     # Calculate offset
     offset = (page - 1) * limit
 
-    # Feature 030: Combined query with window function for total count
-    # This runs a single query that returns both the data and total count
-    # EXPLAIN ANALYZE: Should show single sequential scan with window function
-    subquery = db.query(
-        Document,
-        func.count(Document.id).over().label('total_count')
-    ).filter(
+    # Base filter for project images
+    base_filter = [
         Document.project_id == project_id,
         Document.media_type == 'image',
         Document.is_reference_asset == False,
         Document.deleted_at == None
-    ).order_by(desc(Document.created_at)).offset(offset).limit(limit).subquery()
+    ]
 
-    # Execute the combined query
-    results = db.query(
-        Document,
-        subquery.c.total_count
-    ).select_entity_from(subquery).all()
+    # Count total matching documents
+    total = db.query(func.count(Document.id)).filter(*base_filter).scalar() or 0
 
-    if not results:
+    if total == 0:
         return {
             "items": [],
             "total": 0,
@@ -902,11 +894,11 @@ def list_project_media(
             "has_more": False
         }
 
-    # Extract items and total from results
-    items = [r[0] for r in results]
-    total = results[0][1] if results else 0
+    # Fetch paginated items
+    items = db.query(Document).filter(
+        *base_filter
+    ).order_by(desc(Document.created_at)).offset(offset).limit(limit).all()
 
-    # Check if there are more items
     has_more = offset + len(items) < total
 
     return {

@@ -1,0 +1,109 @@
+.menuItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  min-height: var(--touch-target-min);
+  border-radius: var(--radius-md);
+  font: var(--font-body-sm);
+  color: var(--color-zinc-600);
+  text-decoration: none;
+  cursor: not-allowed;
+  opacity: 0.6;
+  position: relative;
+  width: 100%;
+}
+
+.menuItem:hover {
+  background-color: var(--color-zinc-800);
+}
+
+.content {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex: 1;
+  min-width: 0;
+}
+
+.label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  background-color: var(--color-primary);
+  color: var(--color-zinc-900);
+  font: var(--font-label-xs);
+  border-radius: var(--radius-full);
+  white-space: nowrap;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.badge svg {
+  width: 10px;
+  height: 10px;
+}
+
+/* Tooltip */
+.tooltip {
+  position: absolute;
+  left: 100%;
+  top: 50%;
+  transform: translateY(-50%);
+  margin-left: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background-color: var(--color-zinc-800);
+  color: var(--color-zinc-100);
+  font: var(--font-body-xs);
+  border-radius: var(--radius-md);
+  white-space: nowrap;
+  opacity: 0;
+  visibility: hidden;
+  transition: all var(--transition-fast);
+  z-index: var(--z-index-tooltip);
+  pointer-events: none;
+  box-shadow: var(--shadow-md);
+}
+
+.tooltip::before {
+  content: '';
+  position: absolute;
+  right: 100%;
+  top: 50%;
+  transform: translateY(-50%);
+  border: 6px solid transparent;
+  border-right-color: var(--color-zinc-800);
+}
+
+.menuItem:hover .tooltip {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* When sidebar is collapsed or on mobile, show tooltip above */
+@media (max-width: 768px) {
+  .tooltip {
+    left: 50%;
+    top: auto;
+    bottom: 100%;
+    transform: translateX(-50%);
+    margin-left: 0;
+    margin-bottom: var(--space-2);
+  }
+
+  .tooltip::before {
+    right: auto;
+    left: 50%;
+    top: 100%;
+    transform: translateX(-50%);
+    border-right-color: transparent;
+    border-top-color: var(--color-zinc-800);
+  }
+}

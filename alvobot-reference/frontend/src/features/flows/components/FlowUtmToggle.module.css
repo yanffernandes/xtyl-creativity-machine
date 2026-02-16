@@ -1,0 +1,148 @@
+/* Flow UTM Toggle */
+.container {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  position: relative;
+}
+
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: white;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.toggle:hover:not(:disabled) {
+  border-color: #cbd5e1;
+  background: #f8fafc;
+}
+
+.toggle:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Enabled state */
+.toggle.enabled {
+  border-color: #10b981;
+  background: #ecfdf5;
+  color: #059669;
+}
+
+.toggle.enabled:hover:not(:disabled) {
+  background: #d1fae5;
+}
+
+/* Disabled state */
+.toggle.disabled {
+  border-color: #e2e8f0;
+  background: #f8fafc;
+  color: #64748b;
+}
+
+.label {
+  font-weight: 600;
+}
+
+.status {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.status.on {
+  background: #059669;
+  color: white;
+}
+
+.status.off {
+  background: #94a3b8;
+  color: white;
+}
+
+/* Tooltip */
+.tooltip {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.tooltipIcon {
+  color: #94a3b8;
+  cursor: help;
+  transition: color 0.15s ease;
+}
+
+.tooltipIcon:hover {
+  color: #64748b;
+}
+
+.tooltipContent {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 280px;
+  padding: 14px;
+  background: #1e293b;
+  border-radius: 8px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+  font-size: 13px;
+  color: #e2e8f0;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-4px);
+  transition: all 0.2s ease;
+  z-index: 1000;
+  pointer-events: none;
+}
+
+.tooltipContent::before {
+  content: '';
+  position: absolute;
+  top: -6px;
+  right: 10px;
+  width: 12px;
+  height: 12px;
+  background: #1e293b;
+  transform: rotate(45deg);
+}
+
+.tooltip:hover .tooltipContent {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+.tooltipContent strong {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: white;
+}
+
+.tooltipContent p {
+  margin: 0 0 8px 0;
+  line-height: 1.5;
+}
+
+.tooltipParams {
+  font-family: 'SF Mono', Monaco, Consolas, monospace;
+  font-size: 11px;
+  color: #94a3b8;
+  padding: 8px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+  word-break: break-all;
+}

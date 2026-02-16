@@ -1518,9 +1518,7 @@ class ImageBatchRequest(BaseModel):
     project_id: str
     count: int = Field(4, ge=1, le=8)
     model: Optional[str] = None
-    visual_style: Optional[str] = None  # Style preset slug
-    layout: Optional[str] = None  # Layout preset slug
-    style_preset: Optional[str] = None  # Legacy field, use visual_style
+    creative_concept: Optional[str] = None  # Creative concept slug
     size: Optional[str] = "1024x1024"
     aspect_ratio: Optional[str] = None
     creativity: float = Field(0.5, ge=0.0, le=1.0)
@@ -1563,30 +1561,38 @@ class ImageBatchResponse(BaseModel):
 
 
 # ============================================================================
-# STYLE PRESETS (Feature 027 - Visual Generation Studio)
+# CREATIVE CONCEPTS (Feature 031 - Creative Concepts Migration)
 # ============================================================================
 
-class StylePreset(BaseModel):
-    """Style preset for image generation"""
+class CreativeConcept(BaseModel):
+    """Creative concept for image generation"""
     id: UUID
     name: str
     name_pt: str
     slug: str
+    description: Optional[str] = None
     prompt_modifier: str
     thumbnail_url: Optional[str] = None
-    category: str = "general"
-    preset_type: str = "visual_style"  # 'visual_style' or 'layout'
+    prompt_template: Optional[str] = None
+    prompt_template_json: Optional[dict] = None
+    template_variables: Optional[List[str]] = None
+    icon: Optional[str] = None
+    category: Optional[str] = None
+    niche: Optional[str] = None
+    works_for_niches: Optional[List[str]] = None
+    example_images: Optional[list] = None
     sort_order: int = 0
     is_active: bool = True
     created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True
 
 
-class StylePresetList(BaseModel):
-    """List of style presets"""
-    presets: List[StylePreset]
+class CreativeConceptList(BaseModel):
+    """List of creative concepts"""
+    concepts: List[CreativeConcept]
     total: int
 
 
@@ -1613,7 +1619,7 @@ class BootstrapData(BaseModel):
     recent_media: List['Document'] = []   # media_type='image'/'video' only
     # Deprecated - kept for backwards compatibility
     recent_documents: List['Document'] = []
-    style_presets: List[StylePreset] = []
+    creative_concepts: List[CreativeConcept] = []
 
     class Config:
         from_attributes = True
@@ -1773,9 +1779,7 @@ class ImageBatchRequestExtended(BaseModel):
     project_id: str
     count: int = Field(4, ge=1, le=8)
     model: Optional[str] = None
-    visual_style: Optional[str] = None
-    layout: Optional[str] = None
-    style_preset: Optional[str] = None  # Legacy
+    creative_concept: Optional[str] = None  # Creative concept slug
     size: Optional[str] = "1024x1024"
     aspect_ratio: Optional[str] = None
     # Feature 028 additions

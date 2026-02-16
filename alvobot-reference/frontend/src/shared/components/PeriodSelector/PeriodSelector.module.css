@@ -1,0 +1,248 @@
+/**
+ * PeriodSelector - Estilos PADRÃO e ÚNICO para seleção de período
+ * 
+ * Este arquivo define o visual obrigatório do seletor de período.
+ * Todas as páginas devem usar este componente com estes estilos.
+ */
+
+/* ============================================
+   Trigger Button
+   ============================================ */
+
+.trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: var(--height-md); /* 36px - matches button default */
+  padding: 0 var(--space-3);
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font: var(--font-body-sm);
+  font-weight: 500;
+  color: var(--color-text-primary);
+  cursor: pointer;
+  transition: var(--transition-fast);
+  white-space: nowrap;
+}
+
+/* Size variants */
+.triggerSm {
+  height: var(--height-sm); /* 32px */
+  padding: 0 var(--space-2);
+  font-size: var(--font-size-xs);
+}
+
+.triggerLg {
+  height: var(--height-lg); /* 44px - touch-friendly */
+  padding: 0 var(--space-4);
+}
+
+.trigger:hover:not(:disabled) {
+  border-color: var(--color-border-hover, var(--color-text-tertiary));
+  background: var(--color-bg-secondary);
+}
+
+.trigger:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.trigger:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.trigger.empty {
+  color: var(--color-text-tertiary);
+}
+
+.calendarIcon {
+  color: var(--color-text-secondary);
+  flex-shrink: 0;
+}
+
+.text {
+  flex: 1;
+  text-align: left;
+}
+
+.chevron {
+  color: var(--color-text-tertiary);
+  flex-shrink: 0;
+  transition: transform var(--transition-fast);
+}
+
+.trigger[data-state="open"] .chevron {
+  transform: rotate(180deg);
+}
+
+/* ============================================
+   Popover Content
+   ============================================ */
+
+.popover {
+  width: auto;
+  min-width: auto;
+  max-width: none;
+  padding: 0 !important;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+}
+
+.content {
+  display: flex;
+}
+
+/* ============================================
+   Presets Sidebar
+   ============================================ */
+
+.presets {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  border-right: 1px solid var(--color-border);
+  min-width: 100px;
+}
+
+.presetsTitle {
+  padding: var(--space-1) var(--space-2);
+  margin-bottom: var(--space-1);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-tertiary);
+}
+
+.presetButton {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding: var(--space-2) var(--space-3);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-md);
+  font: var(--font-body-sm);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+
+.presetButton:hover {
+  background: var(--color-bg-secondary);
+}
+
+.presetButton.active {
+  background: var(--color-primary);
+  color: var(--color-text-on-primary, #000);
+  font-weight: 500;
+}
+
+/* ============================================
+   Calendar Wrapper
+   ============================================ */
+
+.calendarWrapper {
+  padding: var(--space-3);
+}
+
+/* Override calendar styles for consistency */
+.calendarWrapper :global(.rdp) {
+  --rdp-cell-size: 36px;
+  --rdp-accent-color: var(--color-primary);
+  --rdp-background-color: var(--color-primary-light, rgba(251, 191, 36, 0.1));
+  margin: 0;
+}
+
+.calendarWrapper :global(.rdp-months) {
+  gap: var(--space-4);
+}
+
+.calendarWrapper :global(.rdp-caption_label) {
+  font: var(--font-body-sm);
+  font-weight: 600;
+}
+
+.calendarWrapper :global(.rdp-head_cell) {
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+}
+
+.calendarWrapper :global(.rdp-day) {
+  border-radius: var(--radius-md);
+  font: var(--font-body-sm);
+}
+
+.calendarWrapper :global(.rdp-day_today) {
+  font-weight: 600;
+}
+
+.calendarWrapper :global(.rdp-day_selected) {
+  background: var(--color-primary);
+  color: var(--color-text-on-primary, #000);
+}
+
+.calendarWrapper :global(.rdp-day_range_middle) {
+  background: var(--color-primary-light, rgba(251, 191, 36, 0.2));
+  color: var(--color-text-primary);
+  border-radius: 0;
+}
+
+.calendarWrapper :global(.rdp-day_range_start) {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.calendarWrapper :global(.rdp-day_range_end) {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+/* ============================================
+   Warning Message
+   ============================================ */
+
+.warning {
+  margin-top: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--color-border);
+  font-size: var(--font-size-xs);
+  color: var(--color-warning);
+}
+
+/* ============================================
+   Responsive
+   ============================================ */
+
+@media (max-width: 768px) {
+  .content {
+    flex-direction: column;
+  }
+
+  .presets {
+    flex-direction: row;
+    flex-wrap: wrap;
+    border-right: none;
+    border-bottom: 1px solid var(--color-border);
+    min-width: auto;
+  }
+
+  .presetsTitle {
+    width: 100%;
+  }
+
+  .calendarWrapper :global(.rdp-months) {
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 480px) {
+  .trigger {
+    width: 100%;
+  }
+}

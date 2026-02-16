@@ -18,6 +18,9 @@ interface AuthState {
 
   /** Update session (called by auth state change listener) */
   setSession: (session: Session | null) => void;
+
+  /** Get current access token */
+  getAccessToken: () => Promise<string | null>;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -86,5 +89,10 @@ export const useAuthStore = create<AuthState>((set) => ({
       session,
       user: session?.user ?? null,
     });
+  },
+
+  getAccessToken: async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    return session?.access_token ?? null;
   },
 }));

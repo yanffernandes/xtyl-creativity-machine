@@ -1,0 +1,964 @@
+openapi: 3.0.3
+info:
+  title: AlvoADS Meta API
+  description: API endpoints for Meta/Facebook Ads campaign management
+  version: 1.0.0
+
+servers:
+  - url: /api/meta/campaigns
+    description: Meta Campaigns API
+
+paths:
+  # ============================================
+  # Template Management
+  # ============================================
+  /templates:
+    post:
+      summary: Save campaign template
+      description: Create or update a campaign template (draft)
+      operationId: saveTemplate
+      tags:
+        - Templates
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SaveTemplateRequest'
+      responses:
+        '201':
+          description: Template created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CampaignTemplate'
+        '200':
+          description: Template updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CampaignTemplate'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '402':
+          description: Insufficient credits
+
+    get:
+      summary: List campaign templates
+      description: Get all campaign templates for the user
+      operationId: listTemplates
+      tags:
+        - Templates
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [draft, ready, publishing, published, failed]
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: List of templates
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  templates:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/CampaignTemplate'
+                  total:
+                    type: integer
+
+  /templates/{id}:
+    get:
+      summary: Get campaign template
+      operationId: getTemplate
+      tags:
+        - Templates
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Template details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CampaignTemplate'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      summary: Delete campaign template
+      operationId: deleteTemplate
+      tags:
+        - Templates
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Template deleted
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ============================================
+  # Publishing
+  # ============================================
+  /{id}/publish:
+    post:
+      summary: Publish campaign to Meta Ads
+      operationId: publishCampaign
+      tags:
+        - Publishing
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                dryRun:
+                  type: boolean
+                  description: If true, validates but doesn't publish
+      responses:
+        '200':
+          description: Campaign published
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublishResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '402':
+          description: Insufficient credits
+
+  /{id}/pause:
+    post:
+      summary: Pause published campaign
+      operationId: pauseCampaign
+      tags:
+        - Publishing
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Campaign paused
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /{id}/resume:
+    post:
+      summary: Resume paused campaign
+      operationId: resumeCampaign
+      tags:
+        - Publishing
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Campaign resumed
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ============================================
+  # Data Fetching
+  # ============================================
+  /accounts/{connectionId}:
+    get:
+      summary: List ad accounts for connection
+      operationId: listAdAccounts
+      tags:
+        - Data
+      parameters:
+        - name: connectionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: List of ad accounts
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accounts:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/MetaAdAccount'
+
+  /pages/{connectionId}:
+    get:
+      summary: List Facebook pages for connection
+      operationId: listPages
+      tags:
+        - Data
+      parameters:
+        - name: connectionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: List of pages
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  pages:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/MetaPage'
+
+  /instagram/{pageId}:
+    get:
+      summary: Get Instagram account for page
+      operationId: getInstagramAccount
+      tags:
+        - Data
+      parameters:
+        - name: pageId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: connectionId
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Instagram account
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MetaInstagramAccount'
+        '404':
+          description: No Instagram account linked
+
+  /pixels/{adAccountId}:
+    get:
+      summary: List pixels for ad account
+      operationId: listPixels
+      tags:
+        - Data
+      parameters:
+        - name: adAccountId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: connectionId
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: List of pixels
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  pixels:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/MetaPixel'
+
+  # ============================================
+  # Targeting Data
+  # ============================================
+  /targeting/countries:
+    get:
+      summary: Search countries for targeting
+      operationId: searchCountries
+      tags:
+        - Targeting
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: List of countries
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  countries:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/GeoTarget'
+
+  /targeting/languages:
+    get:
+      summary: Search languages for targeting
+      operationId: searchLanguages
+      tags:
+        - Targeting
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of languages
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  languages:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Language'
+
+  # ============================================
+  # AI Generation
+  # ============================================
+  /ai/ad-copy:
+    post:
+      summary: Generate ad copy with AI
+      operationId: generateAdCopy
+      tags:
+        - AI
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenerateAdCopyRequest'
+      responses:
+        '200':
+          description: Generated ad copy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GeneratedAdCopy'
+        '402':
+          description: Insufficient credits
+
+  /ai/image:
+    post:
+      summary: Generate image with AI
+      operationId: generateImage
+      tags:
+        - AI
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenerateImageRequest'
+      responses:
+        '200':
+          description: Generated image
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GeneratedImage'
+        '402':
+          description: Insufficient credits
+
+  # ============================================
+  # Google Drive
+  # ============================================
+  /drive-files:
+    get:
+      summary: List files from Google Drive folder
+      operationId: listDriveFiles
+      tags:
+        - Drive
+      parameters:
+        - name: folderUrl
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uri
+      responses:
+        '200':
+          description: List of files
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  files:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/DriveFile'
+        '400':
+          description: Invalid folder URL or folder is private
+
+components:
+  schemas:
+    # ============================================
+    # Core Schemas
+    # ============================================
+    CampaignTemplate:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        workspaceId:
+          type: string
+          format: uuid
+        platform:
+          type: string
+          enum: [meta_ads]
+        name:
+          type: string
+        status:
+          type: string
+          enum: [draft, ready, publishing, published, failed]
+        campaignData:
+          $ref: '#/components/schemas/MetaCampaignData'
+        platformIds:
+          $ref: '#/components/schemas/MetaPlatformIds'
+        creditsConsumed:
+          type: integer
+        errorMessage:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        publishedAt:
+          type: string
+          format: date-time
+
+    MetaCampaignData:
+      type: object
+      required:
+        - adAccountId
+        - pageId
+        - name
+        - objective
+        - targeting
+        - budget
+        - creative
+        - adCopy
+      properties:
+        adAccountId:
+          type: string
+        pageId:
+          type: string
+        instagramAccountId:
+          type: string
+        name:
+          type: string
+        objective:
+          type: string
+          enum: [TRAFFIC, MESSAGES, LEADS, SALES]
+        specialAdCategories:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+          enum: [ACTIVE, PAUSED]
+        targeting:
+          $ref: '#/components/schemas/MetaTargeting'
+        budget:
+          $ref: '#/components/schemas/MetaBudget'
+        schedule:
+          $ref: '#/components/schemas/MetaSchedule'
+        creative:
+          $ref: '#/components/schemas/MetaCreative'
+        adCopy:
+          $ref: '#/components/schemas/MetaAdCopy'
+        messenger:
+          $ref: '#/components/schemas/MetaMessengerConfig'
+
+    MetaTargeting:
+      type: object
+      required:
+        - ageMin
+        - ageMax
+        - genders
+        - countries
+        - languages
+      properties:
+        ageMin:
+          type: integer
+          minimum: 18
+          maximum: 65
+        ageMax:
+          type: integer
+          minimum: 18
+          maximum: 65
+        genders:
+          type: array
+          items:
+            type: integer
+            enum: [0, 1, 2]
+        countries:
+          type: array
+          items:
+            type: string
+        languages:
+          type: array
+          items:
+            $ref: '#/components/schemas/Language'
+
+    MetaBudget:
+      type: object
+      required:
+        - type
+        - amount
+        - bidStrategy
+      properties:
+        type:
+          type: string
+          enum: [daily, lifetime]
+        amount:
+          type: integer
+          minimum: 600
+          description: Amount in cents (600 = R$6)
+        bidStrategy:
+          type: string
+          enum: [LOWEST_COST_WITHOUT_CAP, LOWEST_COST_WITH_BID_CAP, COST_CAP]
+        costPerResult:
+          type: integer
+          description: Desired cost per result in cents
+
+    MetaSchedule:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [continuous, scheduled]
+        startTime:
+          type: string
+          format: date-time
+        endTime:
+          type: string
+          format: date-time
+        timezone:
+          type: string
+          default: America/Sao_Paulo
+
+    MetaCreative:
+      type: object
+      required:
+        - sourceType
+        - images
+      properties:
+        sourceType:
+          type: string
+          enum: [google_drive, ai_generated, upload]
+        images:
+          type: array
+          items:
+            $ref: '#/components/schemas/CreativeImage'
+
+    CreativeImage:
+      type: object
+      properties:
+        id:
+          type: string
+        url:
+          type: string
+          format: uri
+        thumbnailUrl:
+          type: string
+          format: uri
+        hash:
+          type: string
+        source:
+          type: string
+          enum: [google_drive, ai_generated, upload]
+        prompt:
+          type: string
+        width:
+          type: integer
+        height:
+          type: integer
+
+    MetaAdCopy:
+      type: object
+      required:
+        - primaryText
+        - headline
+        - description
+        - callToAction
+        - destinationUrl
+      properties:
+        primaryText:
+          type: string
+          maxLength: 125
+        headline:
+          type: string
+          maxLength: 27
+        description:
+          type: string
+          maxLength: 27
+        callToAction:
+          type: string
+          enum:
+            - LEARN_MORE
+            - SHOP_NOW
+            - SIGN_UP
+            - SUBSCRIBE
+            - CONTACT_US
+            - GET_OFFER
+            - GET_QUOTE
+            - BOOK_NOW
+            - APPLY_NOW
+            - DOWNLOAD
+            - SEND_MESSAGE
+            - WHATSAPP_MESSAGE
+        destinationUrl:
+          type: string
+          format: uri
+        displayUrl:
+          type: string
+
+    MetaMessengerConfig:
+      type: object
+      properties:
+        welcomeMessage:
+          type: string
+        quickReplies:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              title:
+                type: string
+                maxLength: 20
+              payload:
+                type: string
+
+    MetaPlatformIds:
+      type: object
+      properties:
+        campaignId:
+          type: string
+        adSetId:
+          type: string
+        creativeId:
+          type: string
+        adId:
+          type: string
+
+    # ============================================
+    # Data Schemas
+    # ============================================
+    MetaAdAccount:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        accountId:
+          type: string
+        currency:
+          type: string
+        timezone:
+          type: string
+        status:
+          type: string
+          enum: [ACTIVE, DISABLED, PENDING_REVIEW, IN_GRACE_PERIOD, UNSETTLED]
+
+    MetaPage:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        category:
+          type: string
+        pictureUrl:
+          type: string
+          format: uri
+        instagramBusinessAccount:
+          $ref: '#/components/schemas/MetaInstagramAccount'
+
+    MetaInstagramAccount:
+      type: object
+      properties:
+        id:
+          type: string
+        username:
+          type: string
+        name:
+          type: string
+        profilePictureUrl:
+          type: string
+          format: uri
+        followersCount:
+          type: integer
+
+    MetaPixel:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        isActive:
+          type: boolean
+        lastFiredTime:
+          type: string
+          format: date-time
+
+    GeoTarget:
+      type: object
+      properties:
+        key:
+          type: string
+        name:
+          type: string
+        type:
+          type: string
+        countryCode:
+          type: string
+
+    Language:
+      type: object
+      properties:
+        key:
+          type: string
+        name:
+          type: string
+
+    DriveFile:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        mimeType:
+          type: string
+        thumbnailLink:
+          type: string
+          format: uri
+        webContentLink:
+          type: string
+          format: uri
+        size:
+          type: integer
+
+    # ============================================
+    # Request Schemas
+    # ============================================
+    SaveTemplateRequest:
+      type: object
+      required:
+        - campaignData
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Template ID for updates
+        name:
+          type: string
+        campaignData:
+          $ref: '#/components/schemas/MetaCampaignData'
+
+    GenerateAdCopyRequest:
+      type: object
+      required:
+        - productName
+      properties:
+        productName:
+          type: string
+        productDescription:
+          type: string
+        targetAudience:
+          type: string
+        tone:
+          type: string
+          enum: [professional, casual, urgent, friendly]
+        language:
+          type: string
+          default: pt-BR
+        variations:
+          type: integer
+          minimum: 1
+          maximum: 5
+          default: 3
+
+    GenerateImageRequest:
+      type: object
+      required:
+        - prompt
+      properties:
+        prompt:
+          type: string
+        style:
+          type: string
+          enum: [photorealistic, illustration, minimal, vibrant]
+        aspectRatio:
+          type: string
+          enum: ['1:1', '16:9', '9:16', '4:5']
+          default: '1:1'
+
+    # ============================================
+    # Response Schemas
+    # ============================================
+    PublishResult:
+      type: object
+      properties:
+        success:
+          type: boolean
+        template:
+          $ref: '#/components/schemas/CampaignTemplate'
+        platformIds:
+          $ref: '#/components/schemas/MetaPlatformIds'
+        error:
+          type: string
+
+    GeneratedAdCopy:
+      type: object
+      properties:
+        variations:
+          type: array
+          items:
+            type: object
+            properties:
+              primaryText:
+                type: string
+              headline:
+                type: string
+              description:
+                type: string
+
+    GeneratedImage:
+      type: object
+      properties:
+        id:
+          type: string
+        url:
+          type: string
+          format: uri
+        prompt:
+          type: string
+        revisedPrompt:
+          type: string
+
+  responses:
+    BadRequest:
+      description: Bad request - validation error
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+              details:
+                type: array
+                items:
+                  type: string
+
+    Unauthorized:
+      description: Unauthorized - authentication required
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: Templates
+    description: Campaign template management
+  - name: Publishing
+    description: Publish and manage campaigns
+  - name: Data
+    description: Fetch Meta account data
+  - name: Targeting
+    description: Targeting options
+  - name: AI
+    description: AI content generation
+  - name: Drive
+    description: Google Drive integration

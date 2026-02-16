@@ -65,7 +65,7 @@ async def generate_thumbnail_for_preset(preset_id: str, preset_name: str, prompt
             image_data = base64.b64decode(b64_data)
 
             # Upload to storage
-            file_key = f"style-presets/{preset_id}/{uuid.uuid4()}.png"
+            file_key = f"creative-concepts/{preset_id}/{uuid.uuid4()}.png"
             thumbnail_url = await upload_file(
                 file_data=image_data,
                 file_name=file_key,
@@ -95,7 +95,7 @@ async def main():
         # Get all presets that need thumbnails
         result = db.execute(text("""
             SELECT id, name, name_pt, slug, prompt_modifier
-            FROM style_presets
+            FROM creative_concepts
             WHERE thumbnail_url IS NULL AND is_active = true
             ORDER BY sort_order
         """))
@@ -125,7 +125,7 @@ async def main():
             if thumbnail_url:
                 # Update the database
                 db.execute(
-                    text("UPDATE style_presets SET thumbnail_url = :url WHERE id = :id"),
+                    text("UPDATE creative_concepts SET thumbnail_url = :url WHERE id = :id"),
                     {"url": thumbnail_url, "id": preset.id}
                 )
                 db.commit()

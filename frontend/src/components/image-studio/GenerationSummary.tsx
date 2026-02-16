@@ -29,7 +29,7 @@ import {
   Brush,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { StylePreset, AvailableModel } from '@/types/image-studio';
+import type { CreativeConcept, AvailableModel } from '@/types/image-studio';
 
 // Asset mode icons and labels
 const ASSET_MODE_CONFIG = {
@@ -47,8 +47,7 @@ interface ReferenceAsset {
 
 interface GenerationSummaryProps {
   prompt: string;
-  selectedVisualStyle: StylePreset | null;
-  selectedLayout: StylePreset | null;
+  selectedConcept: CreativeConcept | null;
   referenceAssets: ReferenceAsset[];
   model: string;
   modelName?: string;
@@ -63,8 +62,7 @@ interface GenerationSummaryProps {
 
 export function GenerationSummary({
   prompt,
-  selectedVisualStyle,
-  selectedLayout,
+  selectedConcept,
   referenceAssets,
   model,
   modelName,
@@ -80,23 +78,18 @@ export function GenerationSummary({
   const finalPromptPreview = useMemo(() => {
     const parts: string[] = [];
 
+    // Concept modifier
+    if (selectedConcept) {
+      parts.push(`[Conceito: ${selectedConcept.name_pt}]`);
+    }
+
     // Base prompt
     if (prompt) {
       parts.push(prompt);
     }
 
-    // Style modifier
-    if (selectedVisualStyle) {
-      parts.push(`[Estilo: ${selectedVisualStyle.name_pt}]`);
-    }
-
-    // Layout modifier
-    if (selectedLayout) {
-      parts.push(`[Diagramação: ${selectedLayout.name_pt}]`);
-    }
-
     return parts.join(' + ');
-  }, [prompt, selectedVisualStyle, selectedLayout]);
+  }, [prompt, selectedConcept]);
 
   // Count assets by mode
   const assetsByMode = useMemo(() => {
@@ -110,8 +103,7 @@ export function GenerationSummary({
 
   const hasAnySettings =
     prompt ||
-    selectedVisualStyle ||
-    selectedLayout ||
+    selectedConcept ||
     referenceAssets.length > 0;
 
   if (!hasAnySettings) {
@@ -144,8 +136,7 @@ export function GenerationSummary({
             <span className="text-xs text-gray-400 dark:text-gray-500 ml-2">
               {[
                 prompt && 'Prompt',
-                selectedVisualStyle && 'Estilo',
-                selectedLayout && 'Layout',
+                selectedConcept && 'Conceito',
                 referenceAssets.length > 0 && `${referenceAssets.length} assets`,
               ]
                 .filter(Boolean)
@@ -188,31 +179,18 @@ export function GenerationSummary({
                 </div>
               )}
 
-              {/* Style & Layout */}
-              {(selectedVisualStyle || selectedLayout) && (
+              {/* Creative Concept */}
+              {selectedConcept && (
                 <div className="flex gap-2">
-                  {selectedVisualStyle && (
-                    <div className="flex-1 p-2 rounded-lg bg-purple-50/60 dark:bg-purple-900/20 border border-purple-200/50 dark:border-purple-800/50">
-                      <div className="flex items-center gap-1.5 text-xs font-medium text-purple-600 dark:text-purple-400 mb-1">
-                        <Palette className="h-3 w-3" />
-                        <span>Estilo Visual</span>
-                      </div>
-                      <p className="text-sm text-purple-700 dark:text-purple-300 font-medium">
-                        {selectedVisualStyle.name_pt}
-                      </p>
+                  <div className="flex-1 p-2 rounded-lg bg-purple-50/60 dark:bg-purple-900/20 border border-purple-200/50 dark:border-purple-800/50">
+                    <div className="flex items-center gap-1.5 text-xs font-medium text-purple-600 dark:text-purple-400 mb-1">
+                      <Sparkles className="h-3 w-3" />
+                      <span>Conceito Criativo</span>
                     </div>
-                  )}
-                  {selectedLayout && (
-                    <div className="flex-1 p-2 rounded-lg bg-blue-50/60 dark:bg-blue-900/20 border border-blue-200/50 dark:border-blue-800/50">
-                      <div className="flex items-center gap-1.5 text-xs font-medium text-blue-600 dark:text-blue-400 mb-1">
-                        <LayoutGrid className="h-3 w-3" />
-                        <span>Diagramação</span>
-                      </div>
-                      <p className="text-sm text-blue-700 dark:text-blue-300 font-medium">
-                        {selectedLayout.name_pt}
-                      </p>
-                    </div>
-                  )}
+                    <p className="text-sm text-purple-700 dark:text-purple-300 font-medium">
+                      {selectedConcept.name_pt}
+                    </p>
+                  </div>
                 </div>
               )}
 
