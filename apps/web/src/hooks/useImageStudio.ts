@@ -1,29 +1,45 @@
+'use client';
+
+/**
+ * useImageStudio Hook
+ * Feature 031: Creative Concepts Migration
+ *
+ * Manages the complete state for image generation including:
+ * - Form state (prompt, concept, format, model, creativity)
+ * - SSE connection for real-time progress
+ * - Generated variations
+ * - Save/download actions
+ */
+
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { generateImageBatch, getBatchStreamUrl, attachImageToDocument } from '@/lib/api';
+import { queryKeys } from '@/lib/query-keys';
+import { useAuthStore } from '@/lib/stores/uiStore';
 import type {
+  ImageStudioState,
   GeneratedImage,
   AvailableModel,
   CreativeConcept,
   AspectRatioId,
-  AssetMode,
-  SelectedAsset,
-  SelectedAssetWithMode,
-} from '@repo/shared';
-import { generateImageBatch, getBatchStreamUrl, attachImageToDocument } from '../lib/api';
-import { queryKeys } from '../lib/query-keys';
-import { useAuthStore } from '../lib/stores/authStore';
+} from '@/types/image-studio';
 
-// Helper to access documentKeys
-const documentKeys = queryKeys.documents;
+// Feature 028: Reference asset types with per-asset modes
+export type AssetMode = 'style' | 'compose' | 'base';
 
-// Helper to get access token
-function useGetAccessToken() {
-  const store = useAuthStore();
-  return store.getAccessToken || (async () => {
-    const { data } = await import('../lib/supabase').then(m => m.supabase.auth.getSession());
-    return data.session?.access_token || null;
-  });
+export interface SelectedAsset {
+  id: string;
+  thumbnail_url?: string;
+  title?: string;
+}
+
+// Feature 028: Asset with individual mode selection
+export interface SelectedAssetWithMode {
+  id: string;
+  mode: AssetMode;
+  thumbnail_url?: string;
+  title?: string;
 }
 
 interface UseImageStudioOptions {
@@ -31,7 +47,53 @@ interface UseImageStudioOptions {
   defaultModel?: string;
   imageModels?: AvailableModel[];
   concepts?: CreativeConcept[];
+  /** Initial history of generated images from the project */
   initialHistory?: GeneratedImage[];
+}
+
+interface UseImageStudioReturn extends ImageStudioState {
+  // Setters
+  setPrompt: (prompt: string) => void;
+  setConcept: (slug: string | null) => void;
+  setAspectRatio: (ratio: AspectRatioId) => void;
+  setModel: (model: string) => void;
+  // Feature 029: Model-specific parameters
+  modelParams: Record<string, unknown>;
+  setModelParams: (params: Record<string, unknown>) => void;
+  setCreativity: (value: number) => void;
+  setVariationCount: (count: number) => void;
+  setReferenceImage: (url: string | null) => void;
+  // Feature 028: Reference assets with per-asset modes
+  /** @deprecated Use selectedAssetsWithModes and updateSelectedAssets instead */
+  setReferenceAssets: (assets: SelectedAsset[]) => void;
+  /** @deprecated Use updateSelectedAssets instead */
+  setAssetMode: (mode: AssetMode) => void;
+  // Feature 028: New per-asset mode API
+  updateSelectedAssets: (assets: SelectedAssetWithMode[]) => void;
+  // Feature 028: Brand context toggle
+  setApplyBrandContext: (apply: boolean) => void;
+
+  // Actions
+  generate: () => Promise<void>;
+  refine: (image: GeneratedImage) => void;
+  save: (image: GeneratedImage, folderId?: string) => Promise<void>;
+  attach: (image: GeneratedImage, documentId: string) => Promise<void>;
+  reset: () => void;
+  clearVariations: () => void;
+  addVariation: (variation: GeneratedImage) => void;
+
+  // Helpers
+  selectedConcept: CreativeConcept | null;
+  pendingCount: number;
+  variationCount: number;
+  // Feature 028
+  /** @deprecated Use selectedAssetsWithModes instead */
+  referenceAssets: SelectedAsset[];
+  /** @deprecated Use selectedAssetsWithModes instead */
+  assetMode: AssetMode;
+  // Feature 028: New per-asset mode state
+  selectedAssetsWithModes: SelectedAssetWithMode[];
+  applyBrandContext: boolean;
 }
 
 const DEFAULT_MODEL = 'google/gemini-2.5-flash-image';
@@ -40,46 +102,43 @@ const DEFAULT_VARIATIONS = 2;
 export function useImageStudio({
   projectId,
   defaultModel,
-  imageModels: _imageModels = [],
+  imageModels = [],
   concepts = [],
   initialHistory = [],
-}: UseImageStudioOptions) {
+}: UseImageStudioOptions): UseImageStudioReturn {
   const queryClient = useQueryClient();
-  const getAccessToken = useGetAccessToken();
+  const { getAccessToken } = useAuthStore();
   const eventSourceRef = useRef<EventSource | null>(null);
   const [pendingCount, setPendingCount] = useState(0);
 
-  // Form state
+  // State
   const [prompt, setPrompt] = useState('');
   const [conceptSlug, setConcept] = useState<string | null>(null);
   const [aspectRatio, setAspectRatio] = useState<AspectRatioId>('1:1');
   const [model, setModel] = useState(defaultModel || DEFAULT_MODEL);
+  // Feature 029: Model-specific parameters
   const [modelParams, setModelParams] = useState<Record<string, unknown>>({});
   const [creativity, setCreativity] = useState(50);
   const [variationCount, setVariationCount] = useState(DEFAULT_VARIATIONS);
   const [referenceImageUrl, setReferenceImage] = useState<string | null>(null);
+  // Feature 028: Reference assets state (deprecated - kept for backwards compatibility)
   const [referenceAssets, setReferenceAssets] = useState<SelectedAsset[]>([]);
   const [assetMode, setAssetMode] = useState<AssetMode>('style');
+  // Feature 028: New per-asset mode state
   const [selectedAssetsWithModes, setSelectedAssetsWithModes] = useState<SelectedAssetWithMode[]>([]);
-
   const updateSelectedAssets = useCallback((assets: SelectedAssetWithMode[]) => {
     setSelectedAssetsWithModes(assets);
-    setReferenceAssets(
-      assets.map((a) => ({
-        id: a.id,
-        thumbnail_url: a.thumbnail_url,
-        title: a.title,
-      })),
-    );
+    // Also update legacy state for backwards compatibility
+    setReferenceAssets(assets.map(a => ({ id: a.id, thumbnail_url: a.thumbnail_url, title: a.title })));
   }, []);
-
+  // Feature 028: Brand context toggle (default enabled)
   const [applyBrandContext, setApplyBrandContext] = useState(true);
-
-  // Generation state
   const [variations, setVariations] = useState<GeneratedImage[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [batchId, setBatchId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Track current batch variations separately (for prepending to history)
   const [currentBatchVariations, setCurrentBatchVariations] = useState<GeneratedImage[]>([]);
   const currentBatchIdRef = useRef<string | null>(null);
 
@@ -92,7 +151,7 @@ export function useImageStudio({
     };
   }, []);
 
-  // Load initial history
+  // Load initial history from project (only once when initialHistory becomes available)
   const initialHistoryLoadedRef = useRef(false);
   useEffect(() => {
     if (initialHistory.length > 0 && !initialHistoryLoadedRef.current) {
@@ -101,15 +160,15 @@ export function useImageStudio({
     }
   }, [initialHistory]);
 
+  // Get selected concept
   const selectedConcept = conceptSlug
     ? concepts.find((c) => c.slug === conceptSlug) || null
     : null;
 
-  // ---------------------------------------------------------------------------
-  // SSE setup - uses supabase token and api baseURL
-  // ---------------------------------------------------------------------------
+  // Setup SSE connection
   const setupSSE = useCallback(
     (batchId: string, token: string) => {
+      // Close existing connection
       if (eventSourceRef.current) {
         eventSourceRef.current.close();
       }
@@ -129,75 +188,77 @@ export function useImageStudio({
 
             case 'variation_complete':
               setPendingCount((prev) => Math.max(0, prev - 1));
-              setCurrentBatchVariations((prev) => [
-                ...prev,
-                {
-                  success: true,
-                  index: data.data.index,
-                  document_id: data.data.document_id,
-                  file_url: data.data.file_url,
-                  thumbnail_url: data.data.thumbnail_url,
-                  title: data.data.title,
-                  modifier: data.data.modifier,
-                  batchId: currentBatch || undefined,
-                  generatedAt: new Date().toISOString(),
-                },
-              ]);
+              const completedImage: GeneratedImage = {
+                success: true,
+                index: data.data.index,
+                document_id: data.data.document_id,
+                file_url: data.data.file_url,
+                thumbnail_url: data.data.thumbnail_url,
+                title: data.data.title,
+                modifier: data.data.modifier,
+                batchId: currentBatch || undefined,
+                generatedAt: new Date().toISOString(),
+              };
+              setCurrentBatchVariations((prev) => [...prev, completedImage]);
               break;
 
             case 'variation_failed':
               setPendingCount((prev) => Math.max(0, prev - 1));
-              setCurrentBatchVariations((prev) => [
-                ...prev,
-                {
-                  success: false,
-                  index: data.data.index,
-                  error: data.data.error,
-                  batchId: currentBatch || undefined,
-                  generatedAt: new Date().toISOString(),
-                },
-              ]);
+              const failedImage: GeneratedImage = {
+                success: false,
+                index: data.data.index,
+                error: data.data.error,
+                batchId: currentBatch || undefined,
+                generatedAt: new Date().toISOString(),
+              };
+              setCurrentBatchVariations((prev) => [...prev, failedImage]);
               break;
 
-            case 'batch_complete': {
+            case 'batch_complete':
               setCurrentBatchVariations([]);
               setVariations((history) => {
                 const currentImages = data.data.images || [];
-                const newImages: GeneratedImage[] = currentImages.map(
-                  (img: Record<string, unknown>) => ({
-                    success: true,
-                    index: img.index as number,
-                    document_id: img.document_id as string,
-                    file_url: img.file_url as string,
-                    thumbnail_url: img.thumbnail_url as string,
-                    title: img.title as string,
-                    modifier: img.modifier as string | undefined,
-                    batchId: currentBatch || undefined,
-                    generatedAt: new Date().toISOString(),
-                  }),
-                );
-                const existingIds = new Set(newImages.map((i) => i.document_id));
-                const filteredHistory = history.filter(
-                  (h) => !existingIds.has(h.document_id),
-                );
+                const newImages: GeneratedImage[] = currentImages.map((img: { document_id: string; file_url: string; thumbnail_url: string; title: string; modifier: string; index: number }) => ({
+                  success: true,
+                  index: img.index,
+                  document_id: img.document_id,
+                  file_url: img.file_url,
+                  thumbnail_url: img.thumbnail_url,
+                  title: img.title,
+                  modifier: img.modifier,
+                  batchId: currentBatch || undefined,
+                  generatedAt: new Date().toISOString(),
+                }));
+
+                const existingIds = new Set(newImages.map(i => i.document_id));
+                const filteredHistory = history.filter(h => !existingIds.has(h.document_id));
+
                 return [...newImages, ...filteredHistory];
               });
-
               setIsGenerating(false);
               setPendingCount(0);
               eventSource.close();
-              queryClient.invalidateQueries({ queryKey: ['documents', projectId] });
 
-              const successCount = (data.data.completed as number) || 0;
-              const failCount = (data.data.failed as number) || 0;
-              if (successCount > 0) toast.success(`${successCount} imagens geradas com sucesso`);
-              if (failCount > 0) toast.error(`${failCount} imagens falharam`);
+              queryClient.invalidateQueries({
+                queryKey: documentKeys.list(projectId),
+              });
+
+              const successCount = data.data.completed || 0;
+              const failCount = data.data.failed || 0;
+
+              if (successCount > 0) {
+                toast.success(`${successCount} imagens geradas com sucesso`);
+              }
+              if (failCount > 0) {
+                toast.error(`${failCount} imagens falharam`);
+              }
               break;
-            }
 
             case 'error':
-              setCurrentBatchVariations((cb) => {
-                if (cb.length > 0) setVariations((h) => [...cb, ...h]);
+              setCurrentBatchVariations((currentBatch) => {
+                if (currentBatch.length > 0) {
+                  setVariations((history) => [...currentBatch, ...history]);
+                }
                 return [];
               });
               setError(data.data.error || 'Erro desconhecido');
@@ -212,19 +273,17 @@ export function useImageStudio({
         }
       };
 
-      eventSource.onerror = () => {
-        console.error('SSE connection error');
+      eventSource.onerror = (err) => {
+        console.error('SSE connection error:', err);
         setIsGenerating(false);
         setPendingCount(0);
         eventSource.close();
       };
     },
-    [projectId, queryClient],
+    [projectId, queryClient]
   );
 
-  // ---------------------------------------------------------------------------
-  // Generate batch
-  // ---------------------------------------------------------------------------
+  // Generate images
   const generate = useCallback(async () => {
     if (!prompt.trim() || isGenerating) return;
 
@@ -234,46 +293,46 @@ export function useImageStudio({
     setCurrentBatchVariations([]);
 
     try {
-      const assetsForApi =
-        selectedAssetsWithModes.length > 0
-          ? selectedAssetsWithModes.map((a) => ({ id: a.id, mode: a.mode }))
-          : referenceAssets.length > 0
-            ? referenceAssets.map((a) => ({ id: a.id, mode: assetMode }))
-            : undefined;
+      // Feature 028: Prepare reference assets with modes for API
+      const assetsForApi = selectedAssetsWithModes.length > 0
+        ? selectedAssetsWithModes.map(a => ({ id: a.id, mode: a.mode }))
+        : referenceAssets.length > 0
+          ? referenceAssets.map(a => ({ id: a.id, mode: assetMode }))
+          : undefined;
 
-      const result = await generateImageBatch({
+      const response = await generateImageBatch({
         prompt: prompt.trim(),
         project_id: projectId,
         creative_concept: conceptSlug,
         aspect_ratio: aspectRatio,
-        model,
+        model: model,
         creativity: creativity / 100,
         count: variationCount,
         reference_image_url: referenceImageUrl,
-        reference_asset_ids: assetsForApi ? assetsForApi.map((a) => a.id) : undefined,
-        asset_modes: assetsForApi ? Object.fromEntries(assetsForApi.map(a => [a.id, a.mode])) : undefined,
+        // Feature 028: Pass reference assets with individual modes
+        reference_asset_ids: assetsForApi ? assetsForApi.map(a => a.id) : undefined,
+        reference_asset_modes: assetsForApi,
+        // Feature 028: Brand context toggle
         apply_brand_context: applyBrandContext,
       });
 
-      if (result.status === 'processing' && result.batch_id) {
-        setBatchId(result.batch_id);
-        currentBatchIdRef.current = result.batch_id;
-
+      if (response.status === 'processing' && response.batch_id) {
+        setBatchId(response.batch_id);
+        currentBatchIdRef.current = response.batch_id;
         const token = await getAccessToken();
-
         if (token) {
-          setupSSE(result.batch_id, token);
+          setupSSE(response.batch_id, token);
         } else {
           setError('Erro de autenticação');
           setIsGenerating(false);
           setPendingCount(0);
           toast.error('Erro de autenticação ao conectar ao stream');
         }
-      } else if (result.status === 'failed') {
-        setError(result.message || 'Falha ao iniciar geração');
+      } else if (response.status === 'failed') {
+        setError(response.message || 'Falha ao iniciar geração');
         setIsGenerating(false);
         setPendingCount(0);
-        toast.error(result.message || 'Falha ao iniciar geração');
+        toast.error(response.message || 'Falha ao iniciar geração');
       }
     } catch (err) {
       console.error('Failed to start batch generation:', err);
@@ -297,11 +356,10 @@ export function useImageStudio({
     selectedAssetsWithModes,
     applyBrandContext,
     setupSSE,
+    getAccessToken,
   ]);
 
-  // ---------------------------------------------------------------------------
-  // Actions
-  // ---------------------------------------------------------------------------
+  // Refine an existing image (use it as reference)
   const refine = useCallback((image: GeneratedImage) => {
     if (image.file_url) {
       setReferenceImage(image.file_url);
@@ -309,34 +367,42 @@ export function useImageStudio({
     }
   }, []);
 
+  // Save image to project
   const save = useCallback(
-    async (image: GeneratedImage) => {
+    async (image: GeneratedImage, _folderId?: string) => {
       if (image.document_id) {
         toast.success('Imagem já salva no projeto');
-        queryClient.invalidateQueries({ queryKey: ['documents', projectId] });
+        queryClient.invalidateQueries({
+          queryKey: documentKeys.list(projectId),
+        });
       }
     },
-    [projectId, queryClient],
+    [projectId, queryClient]
   );
 
+  // Attach image to a document
   const attach = useCallback(
     async (image: GeneratedImage, documentId: string) => {
       if (!image.document_id) {
         toast.error('Imagem não encontrada');
         return;
       }
+
       try {
         await attachImageToDocument(documentId, image.document_id);
         toast.success('Imagem anexada ao documento');
-        queryClient.invalidateQueries({ queryKey: documentKeys.byProject(projectId) });
+        queryClient.invalidateQueries({
+          queryKey: documentKeys.list(projectId),
+        });
       } catch (err) {
         console.error('Failed to attach image:', err);
         toast.error('Falha ao anexar imagem');
       }
     },
-    [projectId, queryClient],
+    [projectId, queryClient]
   );
 
+  // Reset all state
   const reset = useCallback(() => {
     setPrompt('');
     setConcept(null);
@@ -356,9 +422,13 @@ export function useImageStudio({
     currentBatchIdRef.current = null;
     setError(null);
     setPendingCount(0);
-    if (eventSourceRef.current) eventSourceRef.current.close();
+
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close();
+    }
   }, [defaultModel]);
 
+  // Clear just variations (history)
   const clearVariations = useCallback(() => {
     setVariations([]);
     setCurrentBatchVariations([]);
@@ -367,11 +437,12 @@ export function useImageStudio({
     setError(null);
   }, []);
 
+  // Add a variation manually (for Edit/Adjust mode results)
   const addVariation = useCallback((variation: GeneratedImage) => {
     setVariations((prev) => [variation, ...prev]);
   }, []);
 
-  // Merge in-progress batch variations with completed history
+  // Combine current batch (being generated) + history for display
   const allVariations = [...currentBatchVariations, ...variations];
 
   return {
@@ -411,10 +482,11 @@ export function useImageStudio({
     clearVariations,
     addVariation,
 
-    // Derived / extra
+    // Helpers
     selectedConcept,
     pendingCount,
     variationCount,
+    // Feature 028
     referenceAssets,
     assetMode,
     selectedAssetsWithModes,

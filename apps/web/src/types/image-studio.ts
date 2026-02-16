@@ -1,6 +1,6 @@
 /**
  * TypeScript types for Visual Generation Studio
- * Ported from frontend/src/types/image-studio.ts
+ * Feature 031 - Creative Concepts Migration
  */
 
 // ============================================================================
@@ -59,7 +59,7 @@ export interface VisualAsset {
   name: string;
   file_url: string | null;
   thumbnail_url: string | null;
-  category: string | null;
+  category: string | null;  // Accepts any category string from backend
   tags: string[] | null;
   ai_description: string | null;
   is_classified: boolean;
@@ -134,8 +134,9 @@ export interface BootstrapData {
   };
   visual_context: VisualAsset[];
   memories: Memory[];
-  recent_copies: Document[];
-  recent_media: Document[];
+  // Separated by media type
+  recent_copies: Document[];   // media_type='text' only (copies/text content)
+  recent_media: Document[];    // media_type='image'/'video' (generated images, videos)
   /** @deprecated Use recent_copies or recent_media instead */
   recent_documents: Document[];
   creative_concepts: CreativeConcept[];
@@ -171,7 +172,9 @@ export interface GeneratedImage {
   title?: string;
   modifier?: string;
   error?: string;
+  /** Batch ID for grouping variations in history view */
   batchId?: string;
+  /** Timestamp when image was generated */
   generatedAt?: string;
 }
 
@@ -244,6 +247,10 @@ export interface FormatOption {
   icon?: string;
 }
 
+/**
+ * OpenRouter supported aspect ratios and their resolutions
+ * Source: https://openrouter.ai/docs/guides/overview/multimodal/image-generation
+ */
 export const FORMAT_OPTIONS: FormatOption[] = [
   { id: '1:1', label: 'Quadrado', width: 1024, height: 1024 },
   { id: '16:9', label: 'Paisagem', width: 1344, height: 768 },
