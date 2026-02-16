@@ -1,61 +1,82 @@
-import React from 'react';
+import { Component, ErrorInfo, ReactNode } from 'react';
 import * as Sentry from '@sentry/react';
-import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
+import { Button } from './ui/button';
+import { AlertTriangle } from 'lucide-react';
 
-interface ErrorFallbackProps {
-  error: Error;
-  resetError: () => void;
+interface Props {
+  children: ReactNode;
+  fallback?: ReactNode;
 }
 
-function ErrorFallback({ error, resetError }: ErrorFallbackProps) {
-  return (
-    <div className="flex min-h-[400px] flex-col items-center justify-center gap-4 p-8 text-center">
-      <div className="rounded-full bg-destructive/10 p-4">
-        <svg
-          className="h-8 w-8 text-destructive"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-          strokeWidth={2}
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-          />
-        </svg>
-      </div>
-      <h2 className="text-xl font-semibold">Something went wrong</h2>
-      <p className="max-w-md text-sm text-muted-foreground">
-        {error.message || 'An unexpected error occurred. Please try again.'}
-      </p>
-      <Button onClick={resetError} variant="outline">
-        Try again
-      </Button>
-    </div>
-  );
+interface State {
+  hasError: boolean;
+  error: Error | null;
 }
 
-interface ErrorBoundaryProps {
-  children: React.ReactNode;
-  fallback?: React.ReactNode;
-}
+export class ErrorBoundary extends Component<Props, State> {
+  constructor(props: Props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
 
-/**
- * Error boundary that captures errors with Sentry and shows a fallback UI.
- */
-export function ErrorBoundary({ children, fallback }: ErrorBoundaryProps) {
-  return (
-    <Sentry.ErrorBoundary
-      fallback={({ error, resetError }) => {
-        if (fallback) {
-          return <>{fallback}</>;
-        }
-        return <ErrorFallback error={error as Error} resetError={resetError} />;
-      }}
-      showDialog={false}
-    >
-      {children}
-    </Sentry.ErrorBoundary>
-  );
+  static getDerivedStateFromError(error: Error): State {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error('ErrorBoundary caught error:', error, errorInfo);
+    Sentry.captureException(error, {
+      contexts: { react: { componentStack: errorInfo.componentStack } },
+    });
+  }
+
+  handleReset = () => {
+    this.setState({ hasError: false, error: null });
+  };
+
+  render() {
+    if (this.state.hasError) {
+      if (this.props.fallback) {
+        return this.props.fallback;
+      }
+
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 p-6">
+          <Card className="max-w-md w-full">
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-red-100 dark:bg-red-900/20">
+                  <AlertTriangle className="h-6 w-6 text-red-600 dark:text-red-400" />
+                </div>
+                <CardTitle>Something went wrong</CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-slate-600 dark:text-slate-400">
+                We're sorry, but something unexpected happened. Our team has been notified.
+              </p>
+
+              {import.meta.env.DEV && this.state.error && (
+                <div className="p-3 bg-red-50 dark:bg-red-900/10 rounded-lg">
+                  <p className="text-xs font-mono text-red-800 dark:text-red-400">
+                    {this.state.error.message}
+                  </p>
+                </div>
+              )}
+
+              <div className="flex gap-2">
+                <Button onClick={this.handleReset} className="flex-1">Try Again</Button>
+                <Button variant="outline" onClick={() => window.location.href = '/'} className="flex-1">
+                  Go Home
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
 }

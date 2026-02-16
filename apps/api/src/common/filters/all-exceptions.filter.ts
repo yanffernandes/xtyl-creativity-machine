@@ -1,5 +1,6 @@
 import { ExceptionFilter, Catch, ArgumentsHost, HttpException, HttpStatus, Logger } from '@nestjs/common';
 import { FastifyReply, FastifyRequest } from 'fastify';
+import { captureError } from '@repo/observability';
 
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
@@ -24,6 +25,16 @@ export class AllExceptionsFilter implements ExceptionFilter {
       `Unhandled exception: ${request.method} ${request.url}`,
       exception instanceof Error ? exception.stack : String(exception),
     );
+
+    // Capture error in Sentry (only for 5xx errors)
+    if (status >= 500 && exception instanceof Error) {
+      captureError(exception, {
+        method: request.method,
+        url: request.url,
+        statusCode: status,
+        requestId: (request as unknown as Record<string, unknown>).requestId,
+      });
+    }
 
     response.status(status).send({
       statusCode: status,
