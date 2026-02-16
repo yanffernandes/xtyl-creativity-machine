@@ -2,7 +2,7 @@
 
 **Last Updated**: 2026-02-16
 **Branch**: `032-full-stack-migration`
-**Overall Progress**: 75% Complete
+**Overall Progress**: 80% Complete
 
 ---
 
@@ -56,7 +56,7 @@ The full-stack migration from Next.js/FastAPI to TanStack Router/NestJS is progr
 - [x] Chat types
 - [x] Database types
 
-### 🔄 Phase 6: Frontend Migration (90%)
+### 🔄 Phase 6: Frontend Migration (95%)
 
 #### ✅ Completed Features
 - [x] TanStack Router setup (15 routes)
@@ -175,7 +175,7 @@ $ bun run build
 - `/workspace/:id/project/:projectId/studio` - Image Studio ⭐
 - `/workspace/:id/project/:projectId/workflows` - Workflow Builder ⭐
 
-**Total Routes**: 15 (Target: 20+)
+**Total Routes**: 23 (Target: 20+)
 
 ---
 
