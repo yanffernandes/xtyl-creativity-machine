@@ -16,7 +16,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { generateImageBatch, getBatchStreamUrl, attachImageToDocument } from '@/lib/api';
 import { queryKeys } from '@/lib/query-keys';
-import { useAuthStore } from '@/lib/stores/uiStore';
+import { supabase } from '@/lib/supabase';
 import type {
   ImageStudioState,
   GeneratedImage,
@@ -102,12 +102,10 @@ const DEFAULT_VARIATIONS = 2;
 export function useImageStudio({
   projectId,
   defaultModel,
-  imageModels = [],
   concepts = [],
   initialHistory = [],
 }: UseImageStudioOptions): UseImageStudioReturn {
   const queryClient = useQueryClient();
-  const { getAccessToken } = useAuthStore();
   const eventSourceRef = useRef<EventSource | null>(null);
   const [pendingCount, setPendingCount] = useState(0);
 
@@ -240,7 +238,7 @@ export function useImageStudio({
               eventSource.close();
 
               queryClient.invalidateQueries({
-                queryKey: documentKeys.list(projectId),
+                queryKey: queryKeys.documents.byProject(projectId),
               });
 
               const successCount = data.data.completed || 0;
@@ -311,7 +309,6 @@ export function useImageStudio({
         reference_image_url: referenceImageUrl,
         // Feature 028: Pass reference assets with individual modes
         reference_asset_ids: assetsForApi ? assetsForApi.map(a => a.id) : undefined,
-        reference_asset_modes: assetsForApi,
         // Feature 028: Brand context toggle
         apply_brand_context: applyBrandContext,
       });
@@ -319,7 +316,8 @@ export function useImageStudio({
       if (response.status === 'processing' && response.batch_id) {
         setBatchId(response.batch_id);
         currentBatchIdRef.current = response.batch_id;
-        const token = await getAccessToken();
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
         if (token) {
           setupSSE(response.batch_id, token);
         } else {
@@ -356,7 +354,6 @@ export function useImageStudio({
     selectedAssetsWithModes,
     applyBrandContext,
     setupSSE,
-    getAccessToken,
   ]);
 
   // Refine an existing image (use it as reference)
@@ -373,7 +370,7 @@ export function useImageStudio({
       if (image.document_id) {
         toast.success('Imagem já salva no projeto');
         queryClient.invalidateQueries({
-          queryKey: documentKeys.list(projectId),
+          queryKey: queryKeys.documents.byProject(projectId),
         });
       }
     },
@@ -392,7 +389,7 @@ export function useImageStudio({
         await attachImageToDocument(documentId, image.document_id);
         toast.success('Imagem anexada ao documento');
         queryClient.invalidateQueries({
-          queryKey: documentKeys.list(projectId),
+          queryKey: queryKeys.documents.byProject(projectId),
         });
       } catch (err) {
         console.error('Failed to attach image:', err);
