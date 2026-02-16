@@ -20,7 +20,7 @@ venv/
 ENV/
 *.egg-info/
 
-# Node
+# Node & Bun
 node_modules/
 .next/
 out/
@@ -30,6 +30,8 @@ build/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+bun.lockb
+.bun-cache/
 
 # IDE
 .vscode/
@@ -58,3 +60,13 @@ coverage/
 *.cover
 .pytest_cache/
 .nyc_output/
+
+# Turborepo
+.turbo/
+
+# Playwright
+test-results/
+playwright-report/
+
+# Drizzle
+drizzle/meta/

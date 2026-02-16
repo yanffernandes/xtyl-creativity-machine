@@ -1,0 +1,29 @@
+# Bun configuration for monorepo
+# Replaces pnpm-workspace.yaml
+
+[install]
+# Cache location
+cache = ".bun-cache"
+
+# Use exact versions
+exact = false
+
+# Peer dependencies
+peer = true
+
+# Optional dependencies
+optional = true
+
+# Development dependencies
+dev = true
+
+[install.scopes]
+# Workspace configuration - replaces pnpm-workspace.yaml
+"@repo" = "workspace:*"
+
+# Link workspace packages
+[workspace]
+packages = [
+  "apps/*",
+  "packages/*"
+]

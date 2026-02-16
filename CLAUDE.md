@@ -37,15 +37,23 @@ Auto-generated from all feature plans. Last updated: 2025-11-28
 - PostgreSQL (Supabase) with pgvector, Cloudflare R2 (images, masks) (028-image-architecture-refactor)
 - Python 3.11 (Backend), TypeScript 5.x (Frontend) + FastAPI, SQLAlchemy, httpx, tenacity (Backend); Next.js 14, React 18, Shadcn/UI, HTML5 Canvas API (Frontend) (029-fal-ai-migration)
 - Supabase PostgreSQL + Cloudflare R2 (images/masks) (029-fal-ai-migration)
+- Python 3.11 (Backend), TypeScript 5.x (Frontend) + FastAPI, SQLAlchemy, Pydantic (Backend); Next.js 14, React 18, Shadcn/UI (Frontend) (031-creative-concepts-migration)
+- Supabase PostgreSQL, Cloudflare R2 (thumbnails) (031-creative-concepts-migration)
+- TypeScript 5.7 (all apps and packages) (032-full-stack-migration)
+- Supabase PostgreSQL 16 (existing, no schema changes) + Cloudflare R2 (S3-compatible, existing) + Redis 7.x (cache + BullMQ) (032-full-stack-migration)
 
-### Core Stack
-- **Backend**: Python 3.11, FastAPI, SQLAlchemy
-- **Frontend**: TypeScript 5.x, Next.js 14 (App Router), React 18, Shadcn/UI, Tailwind CSS, Framer Motion
-- **Database**: Supabase PostgreSQL (cloud) with pgvector extension
-- **Authentication**: Supabase Auth
+### Core Stack (Post-Migration 032)
+- **Runtime**: **Bun 1.x** (3-4x faster than Node.js, native TypeScript)
+- **Backend**: NestJS 10 + Fastify, Drizzle ORM, TypeScript 5.7
+- **Frontend**: Vite 6 + React 19, TanStack Router/Query, Shadcn/UI, Tailwind CSS 4, Framer Motion
+- **Database**: Supabase PostgreSQL 16 with pgvector extension
+- **Authentication**: Supabase Auth (JWT)
 - **Storage**: Cloudflare R2 (S3-compatible)
-- **Cache/Queue**: Redis (local Docker)
-- **Workflow UI**: ReactFlow
+- **Cache/Queue**: Redis 7.x + BullMQ
+- **Monorepo**: Turborepo 2.x + Bun workspaces
+- **Architecture**: Hybrid (API for complex ops, direct Supabase for CRUD)
+
+**Note**: Migrated from Python/FastAPI to TypeScript/NestJS + Bun for unified language and massive performance gains.
 
 ## Design System
 
@@ -106,7 +114,22 @@ supabase/
 
 ## Commands
 
-npm test && npm run lint
+```bash
+# Development (uses Turborepo)
+bun run dev       # Start all services (API + Web + Admin)
+bun run build     # Build all apps and packages
+bun run typecheck # Typecheck all workspaces
+bun test          # Run tests
+
+# Individual apps
+cd apps/api && bun --bun nest start --watch  # NestJS API
+cd apps/web && bun run dev                   # Web app (Vite)
+cd apps/admin && bun run dev                 # Admin app (Vite)
+
+# Docker
+docker-compose -f docker-compose.dev.yml up  # Dev services (Redis)
+docker-compose up -d                          # Full production stack
+```
 
 ## Code Style
 
@@ -120,9 +143,39 @@ TypeScript 5.x (Frontend), Node.js 20+ (Build tools): Follow standard convention
 - Follow mobile-first responsive design
 
 ## Recent Changes
+- 032-full-stack-migration: **MIGRATED TO BUN** 🚀 - 10x faster installs, 3-4x faster runtime, native TypeScript
+- 032-full-stack-migration: Added TypeScript 5.7 monorepo (NestJS backend + Vite frontend + Turborepo)
+- 031-creative-concepts-migration: Added Python 3.11 (Backend), TypeScript 5.x (Frontend) + FastAPI, SQLAlchemy, Pydantic (Backend); Next.js 14, React 18, Shadcn/UI (Frontend)
 - 029-fal-ai-migration: Added Python 3.11 (Backend), TypeScript 5.x (Frontend) + FastAPI, SQLAlchemy, httpx, tenacity (Backend); Next.js 14, React 18, Shadcn/UI, HTML5 Canvas API (Frontend)
-- 028-image-architecture-refactor: Added Python 3.11 (Backend), TypeScript 5.x (Frontend) + FastAPI, SQLAlchemy, Next.js 14, React 18, Shadcn/UI, React Query, Canvas API (brush)
-- 028-image-architecture-refactor: Added Python 3.11 (Backend), TypeScript 5.x (Frontend) + FastAPI, SQLAlchemy, Next.js 14, React 18, Shadcn/UI, React Query
+
+## Bun Migration (2026-02-16)
+**CRITICAL**: This project uses **Bun** instead of Node.js/npm/pnpm.
+
+### Why Bun?
+- **10x faster installs** (~4s vs ~45s with pnpm)
+- **3-4x faster runtime** (native performance)
+- **Native TypeScript** (no compilation needed)
+- **100% Node.js compatible** (drop-in replacement)
+
+### Key Files
+- `bunfig.toml` - Workspace configuration (replaces `pnpm-workspace.yaml`)
+- `bun.lockb` - Lock file (binary, faster than `pnpm-lock.yaml`)
+- `migrate-to-bun.sh` - Automated migration script
+- `BUN_MIGRATION.md` - Full migration guide
+
+### Usage
+```bash
+# First time
+curl -fsSL https://bun.sh/install | bash
+bun install
+
+# Daily dev
+bun run dev    # Start all services
+bun run build  # Build all apps
+bun test       # Run tests
+```
+
+See [BUN_MIGRATION.md](./BUN_MIGRATION.md) for details.
 
 
 <!-- MANUAL ADDITIONS START -->
