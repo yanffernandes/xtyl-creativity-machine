@@ -17,3 +17,6 @@ export { default as ConditionalNode } from './nodes/ConditionalNode';
 export { default as LoopNode } from './nodes/LoopNode';
 export { default as ContextRetrievalNode } from './nodes/ContextRetrievalNode';
 export { default as AttachNode } from './nodes/AttachNode';
+
+// Workflow list component
+export { WorkflowList } from './WorkflowList';

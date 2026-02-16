@@ -14,15 +14,23 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as WorkspaceIdRouteRouteImport } from './routes/workspace/$id/route'
 import { Route as WorkspaceIdIndexRouteImport } from './routes/workspace/$id/index'
+import { Route as SharedTokenIndexRouteImport } from './routes/shared/$token/index'
+import { Route as AuthCallbackIndexRouteImport } from './routes/auth/callback/index'
 import { Route as WorkspaceIdTemplatesRouteImport } from './routes/workspace/$id/templates'
 import { Route as WorkspaceIdSettingsRouteImport } from './routes/workspace/$id/settings'
 import { Route as WorkspaceIdProfileRouteImport } from './routes/workspace/$id/profile'
 import { Route as WorkspaceIdAiUsageRouteImport } from './routes/workspace/$id/ai-usage'
+import { Route as WorkspaceIdWorkflowsIndexRouteImport } from './routes/workspace/$id/workflows/index'
+import { Route as WorkspaceIdWorkflowsTemplatesRouteImport } from './routes/workspace/$id/workflows/templates'
 import { Route as WorkspaceIdProjectProjectIdRouteRouteImport } from './routes/workspace/$id/project/$projectId/route'
 import { Route as WorkspaceIdProjectProjectIdIndexRouteImport } from './routes/workspace/$id/project/$projectId/index'
+import { Route as WorkspaceIdWorkflowsExecutionsExecutionIdIndexRouteImport } from './routes/workspace/$id/workflows/executions/$executionId/index'
 import { Route as WorkspaceIdProjectProjectIdWorkflowsIndexRouteImport } from './routes/workspace/$id/project/$projectId/workflows/index'
 import { Route as WorkspaceIdProjectProjectIdStudioIndexRouteImport } from './routes/workspace/$id/project/$projectId/studio/index'
 import { Route as WorkspaceIdProjectProjectIdSettingsIndexRouteImport } from './routes/workspace/$id/project/$projectId/settings/index'
+import { Route as WorkspaceIdProjectProjectIdWorkflowsNewRouteImport } from './routes/workspace/$id/project/$projectId/workflows/new'
+import { Route as WorkspaceIdProjectProjectIdSettingsVisualContextRouteImport } from './routes/workspace/$id/project/$projectId/settings/visual-context'
+import { Route as WorkspaceIdProjectProjectIdWorkflowsWorkflowIdIndexRouteImport } from './routes/workspace/$id/project/$projectId/workflows/$workflowId/index'
 
 const SignupRoute = SignupRouteImport.update({
   id: '/signup',
@@ -49,6 +57,16 @@ const WorkspaceIdIndexRoute = WorkspaceIdIndexRouteImport.update({
   path: '/',
   getParentRoute: () => WorkspaceIdRouteRoute,
 } as any)
+const SharedTokenIndexRoute = SharedTokenIndexRouteImport.update({
+  id: '/shared/$token/',
+  path: '/shared/$token/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthCallbackIndexRoute = AuthCallbackIndexRouteImport.update({
+  id: '/auth/callback/',
+  path: '/auth/callback/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const WorkspaceIdTemplatesRoute = WorkspaceIdTemplatesRouteImport.update({
   id: '/templates',
   path: '/templates',
@@ -69,6 +87,18 @@ const WorkspaceIdAiUsageRoute = WorkspaceIdAiUsageRouteImport.update({
   path: '/ai-usage',
   getParentRoute: () => WorkspaceIdRouteRoute,
 } as any)
+const WorkspaceIdWorkflowsIndexRoute =
+  WorkspaceIdWorkflowsIndexRouteImport.update({
+    id: '/workflows/',
+    path: '/workflows/',
+    getParentRoute: () => WorkspaceIdRouteRoute,
+  } as any)
+const WorkspaceIdWorkflowsTemplatesRoute =
+  WorkspaceIdWorkflowsTemplatesRouteImport.update({
+    id: '/workflows/templates',
+    path: '/workflows/templates',
+    getParentRoute: () => WorkspaceIdRouteRoute,
+  } as any)
 const WorkspaceIdProjectProjectIdRouteRoute =
   WorkspaceIdProjectProjectIdRouteRouteImport.update({
     id: '/project/$projectId',
@@ -80,6 +110,12 @@ const WorkspaceIdProjectProjectIdIndexRoute =
     id: '/',
     path: '/',
     getParentRoute: () => WorkspaceIdProjectProjectIdRouteRoute,
+  } as any)
+const WorkspaceIdWorkflowsExecutionsExecutionIdIndexRoute =
+  WorkspaceIdWorkflowsExecutionsExecutionIdIndexRouteImport.update({
+    id: '/workflows/executions/$executionId/',
+    path: '/workflows/executions/$executionId/',
+    getParentRoute: () => WorkspaceIdRouteRoute,
   } as any)
 const WorkspaceIdProjectProjectIdWorkflowsIndexRoute =
   WorkspaceIdProjectProjectIdWorkflowsIndexRouteImport.update({
@@ -99,6 +135,24 @@ const WorkspaceIdProjectProjectIdSettingsIndexRoute =
     path: '/settings/',
     getParentRoute: () => WorkspaceIdProjectProjectIdRouteRoute,
   } as any)
+const WorkspaceIdProjectProjectIdWorkflowsNewRoute =
+  WorkspaceIdProjectProjectIdWorkflowsNewRouteImport.update({
+    id: '/workflows/new',
+    path: '/workflows/new',
+    getParentRoute: () => WorkspaceIdProjectProjectIdRouteRoute,
+  } as any)
+const WorkspaceIdProjectProjectIdSettingsVisualContextRoute =
+  WorkspaceIdProjectProjectIdSettingsVisualContextRouteImport.update({
+    id: '/settings/visual-context',
+    path: '/settings/visual-context',
+    getParentRoute: () => WorkspaceIdProjectProjectIdRouteRoute,
+  } as any)
+const WorkspaceIdProjectProjectIdWorkflowsWorkflowIdIndexRoute =
+  WorkspaceIdProjectProjectIdWorkflowsWorkflowIdIndexRouteImport.update({
+    id: '/workflows/$workflowId/',
+    path: '/workflows/$workflowId/',
+    getParentRoute: () => WorkspaceIdProjectProjectIdRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -109,12 +163,20 @@ export interface FileRoutesByFullPath {
   '/workspace/$id/profile': typeof WorkspaceIdProfileRoute
   '/workspace/$id/settings': typeof WorkspaceIdSettingsRoute
   '/workspace/$id/templates': typeof WorkspaceIdTemplatesRoute
+  '/auth/callback/': typeof AuthCallbackIndexRoute
+  '/shared/$token/': typeof SharedTokenIndexRoute
   '/workspace/$id/': typeof WorkspaceIdIndexRoute
   '/workspace/$id/project/$projectId': typeof WorkspaceIdProjectProjectIdRouteRouteWithChildren
+  '/workspace/$id/workflows/templates': typeof WorkspaceIdWorkflowsTemplatesRoute
+  '/workspace/$id/workflows/': typeof WorkspaceIdWorkflowsIndexRoute
   '/workspace/$id/project/$projectId/': typeof WorkspaceIdProjectProjectIdIndexRoute
+  '/workspace/$id/project/$projectId/settings/visual-context': typeof WorkspaceIdProjectProjectIdSettingsVisualContextRoute
+  '/workspace/$id/project/$projectId/workflows/new': typeof WorkspaceIdProjectProjectIdWorkflowsNewRoute
   '/workspace/$id/project/$projectId/settings/': typeof WorkspaceIdProjectProjectIdSettingsIndexRoute
   '/workspace/$id/project/$projectId/studio/': typeof WorkspaceIdProjectProjectIdStudioIndexRoute
   '/workspace/$id/project/$projectId/workflows/': typeof WorkspaceIdProjectProjectIdWorkflowsIndexRoute
+  '/workspace/$id/workflows/executions/$executionId/': typeof WorkspaceIdWorkflowsExecutionsExecutionIdIndexRoute
+  '/workspace/$id/project/$projectId/workflows/$workflowId/': typeof WorkspaceIdProjectProjectIdWorkflowsWorkflowIdIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -124,11 +186,19 @@ export interface FileRoutesByTo {
   '/workspace/$id/profile': typeof WorkspaceIdProfileRoute
   '/workspace/$id/settings': typeof WorkspaceIdSettingsRoute
   '/workspace/$id/templates': typeof WorkspaceIdTemplatesRoute
+  '/auth/callback': typeof AuthCallbackIndexRoute
+  '/shared/$token': typeof SharedTokenIndexRoute
   '/workspace/$id': typeof WorkspaceIdIndexRoute
+  '/workspace/$id/workflows/templates': typeof WorkspaceIdWorkflowsTemplatesRoute
+  '/workspace/$id/workflows': typeof WorkspaceIdWorkflowsIndexRoute
   '/workspace/$id/project/$projectId': typeof WorkspaceIdProjectProjectIdIndexRoute
+  '/workspace/$id/project/$projectId/settings/visual-context': typeof WorkspaceIdProjectProjectIdSettingsVisualContextRoute
+  '/workspace/$id/project/$projectId/workflows/new': typeof WorkspaceIdProjectProjectIdWorkflowsNewRoute
   '/workspace/$id/project/$projectId/settings': typeof WorkspaceIdProjectProjectIdSettingsIndexRoute
   '/workspace/$id/project/$projectId/studio': typeof WorkspaceIdProjectProjectIdStudioIndexRoute
   '/workspace/$id/project/$projectId/workflows': typeof WorkspaceIdProjectProjectIdWorkflowsIndexRoute
+  '/workspace/$id/workflows/executions/$executionId': typeof WorkspaceIdWorkflowsExecutionsExecutionIdIndexRoute
+  '/workspace/$id/project/$projectId/workflows/$workflowId': typeof WorkspaceIdProjectProjectIdWorkflowsWorkflowIdIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -140,12 +210,20 @@ export interface FileRoutesById {
   '/workspace/$id/profile': typeof WorkspaceIdProfileRoute
   '/workspace/$id/settings': typeof WorkspaceIdSettingsRoute
   '/workspace/$id/templates': typeof WorkspaceIdTemplatesRoute
+  '/auth/callback/': typeof AuthCallbackIndexRoute
+  '/shared/$token/': typeof SharedTokenIndexRoute
   '/workspace/$id/': typeof WorkspaceIdIndexRoute
   '/workspace/$id/project/$projectId': typeof WorkspaceIdProjectProjectIdRouteRouteWithChildren
+  '/workspace/$id/workflows/templates': typeof WorkspaceIdWorkflowsTemplatesRoute
+  '/workspace/$id/workflows/': typeof WorkspaceIdWorkflowsIndexRoute
   '/workspace/$id/project/$projectId/': typeof WorkspaceIdProjectProjectIdIndexRoute
+  '/workspace/$id/project/$projectId/settings/visual-context': typeof WorkspaceIdProjectProjectIdSettingsVisualContextRoute
+  '/workspace/$id/project/$projectId/workflows/new': typeof WorkspaceIdProjectProjectIdWorkflowsNewRoute
   '/workspace/$id/project/$projectId/settings/': typeof WorkspaceIdProjectProjectIdSettingsIndexRoute
   '/workspace/$id/project/$projectId/studio/': typeof WorkspaceIdProjectProjectIdStudioIndexRoute
   '/workspace/$id/project/$projectId/workflows/': typeof WorkspaceIdProjectProjectIdWorkflowsIndexRoute
+  '/workspace/$id/workflows/executions/$executionId/': typeof WorkspaceIdWorkflowsExecutionsExecutionIdIndexRoute
+  '/workspace/$id/project/$projectId/workflows/$workflowId/': typeof WorkspaceIdProjectProjectIdWorkflowsWorkflowIdIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -158,12 +236,20 @@ export interface FileRouteTypes {
     | '/workspace/$id/profile'
     | '/workspace/$id/settings'
     | '/workspace/$id/templates'
+    | '/auth/callback/'
+    | '/shared/$token/'
     | '/workspace/$id/'
     | '/workspace/$id/project/$projectId'
+    | '/workspace/$id/workflows/templates'
+    | '/workspace/$id/workflows/'
     | '/workspace/$id/project/$projectId/'
+    | '/workspace/$id/project/$projectId/settings/visual-context'
+    | '/workspace/$id/project/$projectId/workflows/new'
     | '/workspace/$id/project/$projectId/settings/'
     | '/workspace/$id/project/$projectId/studio/'
     | '/workspace/$id/project/$projectId/workflows/'
+    | '/workspace/$id/workflows/executions/$executionId/'
+    | '/workspace/$id/project/$projectId/workflows/$workflowId/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -173,11 +259,19 @@ export interface FileRouteTypes {
     | '/workspace/$id/profile'
     | '/workspace/$id/settings'
     | '/workspace/$id/templates'
+    | '/auth/callback'
+    | '/shared/$token'
     | '/workspace/$id'
+    | '/workspace/$id/workflows/templates'
+    | '/workspace/$id/workflows'
     | '/workspace/$id/project/$projectId'
+    | '/workspace/$id/project/$projectId/settings/visual-context'
+    | '/workspace/$id/project/$projectId/workflows/new'
     | '/workspace/$id/project/$projectId/settings'
     | '/workspace/$id/project/$projectId/studio'
     | '/workspace/$id/project/$projectId/workflows'
+    | '/workspace/$id/workflows/executions/$executionId'
+    | '/workspace/$id/project/$projectId/workflows/$workflowId'
   id:
     | '__root__'
     | '/'
@@ -188,12 +282,20 @@ export interface FileRouteTypes {
     | '/workspace/$id/profile'
     | '/workspace/$id/settings'
     | '/workspace/$id/templates'
+    | '/auth/callback/'
+    | '/shared/$token/'
     | '/workspace/$id/'
     | '/workspace/$id/project/$projectId'
+    | '/workspace/$id/workflows/templates'
+    | '/workspace/$id/workflows/'
     | '/workspace/$id/project/$projectId/'
+    | '/workspace/$id/project/$projectId/settings/visual-context'
+    | '/workspace/$id/project/$projectId/workflows/new'
     | '/workspace/$id/project/$projectId/settings/'
     | '/workspace/$id/project/$projectId/studio/'
     | '/workspace/$id/project/$projectId/workflows/'
+    | '/workspace/$id/workflows/executions/$executionId/'
+    | '/workspace/$id/project/$projectId/workflows/$workflowId/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -201,6 +303,8 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   SignupRoute: typeof SignupRoute
   WorkspaceIdRouteRoute: typeof WorkspaceIdRouteRouteWithChildren
+  AuthCallbackIndexRoute: typeof AuthCallbackIndexRoute
+  SharedTokenIndexRoute: typeof SharedTokenIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -240,6 +344,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WorkspaceIdIndexRouteImport
       parentRoute: typeof WorkspaceIdRouteRoute
     }
+    '/shared/$token/': {
+      id: '/shared/$token/'
+      path: '/shared/$token'
+      fullPath: '/shared/$token/'
+      preLoaderRoute: typeof SharedTokenIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth/callback/': {
+      id: '/auth/callback/'
+      path: '/auth/callback'
+      fullPath: '/auth/callback/'
+      preLoaderRoute: typeof AuthCallbackIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/workspace/$id/templates': {
       id: '/workspace/$id/templates'
       path: '/templates'
@@ -268,6 +386,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WorkspaceIdAiUsageRouteImport
       parentRoute: typeof WorkspaceIdRouteRoute
     }
+    '/workspace/$id/workflows/': {
+      id: '/workspace/$id/workflows/'
+      path: '/workflows'
+      fullPath: '/workspace/$id/workflows/'
+      preLoaderRoute: typeof WorkspaceIdWorkflowsIndexRouteImport
+      parentRoute: typeof WorkspaceIdRouteRoute
+    }
+    '/workspace/$id/workflows/templates': {
+      id: '/workspace/$id/workflows/templates'
+      path: '/workflows/templates'
+      fullPath: '/workspace/$id/workflows/templates'
+      preLoaderRoute: typeof WorkspaceIdWorkflowsTemplatesRouteImport
+      parentRoute: typeof WorkspaceIdRouteRoute
+    }
     '/workspace/$id/project/$projectId': {
       id: '/workspace/$id/project/$projectId'
       path: '/project/$projectId'
@@ -281,6 +413,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/workspace/$id/project/$projectId/'
       preLoaderRoute: typeof WorkspaceIdProjectProjectIdIndexRouteImport
       parentRoute: typeof WorkspaceIdProjectProjectIdRouteRoute
+    }
+    '/workspace/$id/workflows/executions/$executionId/': {
+      id: '/workspace/$id/workflows/executions/$executionId/'
+      path: '/workflows/executions/$executionId'
+      fullPath: '/workspace/$id/workflows/executions/$executionId/'
+      preLoaderRoute: typeof WorkspaceIdWorkflowsExecutionsExecutionIdIndexRouteImport
+      parentRoute: typeof WorkspaceIdRouteRoute
     }
     '/workspace/$id/project/$projectId/workflows/': {
       id: '/workspace/$id/project/$projectId/workflows/'
@@ -303,26 +442,56 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WorkspaceIdProjectProjectIdSettingsIndexRouteImport
       parentRoute: typeof WorkspaceIdProjectProjectIdRouteRoute
     }
+    '/workspace/$id/project/$projectId/workflows/new': {
+      id: '/workspace/$id/project/$projectId/workflows/new'
+      path: '/workflows/new'
+      fullPath: '/workspace/$id/project/$projectId/workflows/new'
+      preLoaderRoute: typeof WorkspaceIdProjectProjectIdWorkflowsNewRouteImport
+      parentRoute: typeof WorkspaceIdProjectProjectIdRouteRoute
+    }
+    '/workspace/$id/project/$projectId/settings/visual-context': {
+      id: '/workspace/$id/project/$projectId/settings/visual-context'
+      path: '/settings/visual-context'
+      fullPath: '/workspace/$id/project/$projectId/settings/visual-context'
+      preLoaderRoute: typeof WorkspaceIdProjectProjectIdSettingsVisualContextRouteImport
+      parentRoute: typeof WorkspaceIdProjectProjectIdRouteRoute
+    }
+    '/workspace/$id/project/$projectId/workflows/$workflowId/': {
+      id: '/workspace/$id/project/$projectId/workflows/$workflowId/'
+      path: '/workflows/$workflowId'
+      fullPath: '/workspace/$id/project/$projectId/workflows/$workflowId/'
+      preLoaderRoute: typeof WorkspaceIdProjectProjectIdWorkflowsWorkflowIdIndexRouteImport
+      parentRoute: typeof WorkspaceIdProjectProjectIdRouteRoute
+    }
   }
 }
 
 interface WorkspaceIdProjectProjectIdRouteRouteChildren {
   WorkspaceIdProjectProjectIdIndexRoute: typeof WorkspaceIdProjectProjectIdIndexRoute
+  WorkspaceIdProjectProjectIdSettingsVisualContextRoute: typeof WorkspaceIdProjectProjectIdSettingsVisualContextRoute
+  WorkspaceIdProjectProjectIdWorkflowsNewRoute: typeof WorkspaceIdProjectProjectIdWorkflowsNewRoute
   WorkspaceIdProjectProjectIdSettingsIndexRoute: typeof WorkspaceIdProjectProjectIdSettingsIndexRoute
   WorkspaceIdProjectProjectIdStudioIndexRoute: typeof WorkspaceIdProjectProjectIdStudioIndexRoute
   WorkspaceIdProjectProjectIdWorkflowsIndexRoute: typeof WorkspaceIdProjectProjectIdWorkflowsIndexRoute
+  WorkspaceIdProjectProjectIdWorkflowsWorkflowIdIndexRoute: typeof WorkspaceIdProjectProjectIdWorkflowsWorkflowIdIndexRoute
 }
 
 const WorkspaceIdProjectProjectIdRouteRouteChildren: WorkspaceIdProjectProjectIdRouteRouteChildren =
   {
     WorkspaceIdProjectProjectIdIndexRoute:
       WorkspaceIdProjectProjectIdIndexRoute,
+    WorkspaceIdProjectProjectIdSettingsVisualContextRoute:
+      WorkspaceIdProjectProjectIdSettingsVisualContextRoute,
+    WorkspaceIdProjectProjectIdWorkflowsNewRoute:
+      WorkspaceIdProjectProjectIdWorkflowsNewRoute,
     WorkspaceIdProjectProjectIdSettingsIndexRoute:
       WorkspaceIdProjectProjectIdSettingsIndexRoute,
     WorkspaceIdProjectProjectIdStudioIndexRoute:
       WorkspaceIdProjectProjectIdStudioIndexRoute,
     WorkspaceIdProjectProjectIdWorkflowsIndexRoute:
       WorkspaceIdProjectProjectIdWorkflowsIndexRoute,
+    WorkspaceIdProjectProjectIdWorkflowsWorkflowIdIndexRoute:
+      WorkspaceIdProjectProjectIdWorkflowsWorkflowIdIndexRoute,
   }
 
 const WorkspaceIdProjectProjectIdRouteRouteWithChildren =
@@ -337,6 +506,9 @@ interface WorkspaceIdRouteRouteChildren {
   WorkspaceIdTemplatesRoute: typeof WorkspaceIdTemplatesRoute
   WorkspaceIdIndexRoute: typeof WorkspaceIdIndexRoute
   WorkspaceIdProjectProjectIdRouteRoute: typeof WorkspaceIdProjectProjectIdRouteRouteWithChildren
+  WorkspaceIdWorkflowsTemplatesRoute: typeof WorkspaceIdWorkflowsTemplatesRoute
+  WorkspaceIdWorkflowsIndexRoute: typeof WorkspaceIdWorkflowsIndexRoute
+  WorkspaceIdWorkflowsExecutionsExecutionIdIndexRoute: typeof WorkspaceIdWorkflowsExecutionsExecutionIdIndexRoute
 }
 
 const WorkspaceIdRouteRouteChildren: WorkspaceIdRouteRouteChildren = {
@@ -347,6 +519,10 @@ const WorkspaceIdRouteRouteChildren: WorkspaceIdRouteRouteChildren = {
   WorkspaceIdIndexRoute: WorkspaceIdIndexRoute,
   WorkspaceIdProjectProjectIdRouteRoute:
     WorkspaceIdProjectProjectIdRouteRouteWithChildren,
+  WorkspaceIdWorkflowsTemplatesRoute: WorkspaceIdWorkflowsTemplatesRoute,
+  WorkspaceIdWorkflowsIndexRoute: WorkspaceIdWorkflowsIndexRoute,
+  WorkspaceIdWorkflowsExecutionsExecutionIdIndexRoute:
+    WorkspaceIdWorkflowsExecutionsExecutionIdIndexRoute,
 }
 
 const WorkspaceIdRouteRouteWithChildren =
@@ -357,6 +533,8 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   SignupRoute: SignupRoute,
   WorkspaceIdRouteRoute: WorkspaceIdRouteRouteWithChildren,
+  AuthCallbackIndexRoute: AuthCallbackIndexRoute,
+  SharedTokenIndexRoute: SharedTokenIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
