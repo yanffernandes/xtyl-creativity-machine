@@ -45,8 +45,8 @@ import {
   useCreateCampaign,
   useUpdateCampaign,
   useDeleteCampaign,
-  type Campaign,
 } from '@/hooks/useCampaigns'
+import { Campaign } from '@/lib/api'
 import { CHANNEL_OPTIONS } from '@/types/agency-studio'
 
 interface CampaignManagerProps {

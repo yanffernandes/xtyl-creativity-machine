@@ -1,14 +1,16 @@
-import { useState } from 'react';
-import { Copy, MoreVertical, Pencil, Trash2, Wand2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+'use client'
+
+import { useState } from 'react'
+import { Copy, MoreVertical, Pencil, Trash2, Wand2 } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+} from '@/components/ui/dropdown-menu'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -18,17 +20,17 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-import type { CopyLibraryItem } from '@/lib/copy-library-api';
-import { cn } from '@/lib/utils';
-import { toast } from 'sonner';
+} from '@/components/ui/alert-dialog'
+import { CopyLibraryItem } from '@/lib/api'
+import { cn } from '@/lib/utils'
+import { toast } from 'sonner'
 
 interface CopyLibraryCardProps {
-  copy: CopyLibraryItem;
-  onUseAsPrompt?: (content: string) => void;
-  onEdit?: (copy: CopyLibraryItem) => void;
-  onDelete?: (copyId: string) => void;
-  isSelected?: boolean;
+  copy: CopyLibraryItem
+  onUseAsPrompt?: (content: string) => void
+  onEdit?: (copy: CopyLibraryItem) => void
+  onDelete?: (copyId: string) => void
+  isSelected?: boolean
 }
 
 export function CopyLibraryCard({
@@ -38,32 +40,32 @@ export function CopyLibraryCard({
   onDelete,
   isSelected,
 }: CopyLibraryCardProps) {
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
 
   const handleCopyToClipboard = async () => {
     try {
-      await navigator.clipboard.writeText(copy.content);
-      toast.success('Copied to clipboard');
+      await navigator.clipboard.writeText(copy.content)
+      toast.success('Copiado para a área de transferência')
     } catch {
-      toast.error('Failed to copy');
+      toast.error('Falha ao copiar')
     }
-  };
+  }
 
   const handleUseAsPrompt = () => {
-    onUseAsPrompt?.(copy.content);
-  };
+    onUseAsPrompt?.(copy.content)
+  }
 
   const handleDelete = () => {
-    onDelete?.(copy.id);
-    setShowDeleteDialog(false);
-  };
+    onDelete?.(copy.id)
+    setShowDeleteDialog(false)
+  }
 
   return (
     <>
       <div
         className={cn(
           'group rounded-lg border bg-card p-4 transition-all hover:shadow-md',
-          isSelected && 'ring-2 ring-primary',
+          isSelected && 'ring-2 ring-primary'
         )}
       >
         <div className="flex items-start justify-between gap-2">
@@ -87,23 +89,23 @@ export function CopyLibraryCard({
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={handleUseAsPrompt}>
                 <Wand2 className="mr-2 h-4 w-4" />
-                Use as Prompt
+                Usar como Prompt
               </DropdownMenuItem>
               <DropdownMenuItem onClick={handleCopyToClipboard}>
                 <Copy className="mr-2 h-4 w-4" />
-                Copy text
+                Copiar texto
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => onEdit?.(copy)}>
                 <Pencil className="mr-2 h-4 w-4" />
-                Edit
+                Editar
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() => setShowDeleteDialog(true)}
                 className="text-destructive focus:text-destructive"
               >
                 <Trash2 className="mr-2 h-4 w-4" />
-                Delete
+                Remover
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -126,7 +128,7 @@ export function CopyLibraryCard({
 
         <div className="mt-3 flex items-center justify-between">
           <span className="text-xs text-muted-foreground">
-            {new Date(copy.updated_at).toLocaleDateString()}
+            {new Date(copy.updated_at).toLocaleDateString('pt-BR')}
           </span>
           <Button
             size="sm"
@@ -135,7 +137,7 @@ export function CopyLibraryCard({
             onClick={handleUseAsPrompt}
           >
             <Wand2 className="mr-1 h-3 w-3" />
-            Use as Prompt
+            Usar como Prompt
           </Button>
         </div>
       </div>
@@ -143,23 +145,20 @@ export function CopyLibraryCard({
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Remove copy from library?</AlertDialogTitle>
+            <AlertDialogTitle>Remover copy da biblioteca?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. The copy &quot;{copy.title}&quot;
-              will be permanently removed from the library.
+              Esta ação não pode ser desfeita. A copy "{copy.title}" será
+              permanentemente removida da biblioteca.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDelete}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              Remove
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Remover
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
     </>
-  );
+  )
 }

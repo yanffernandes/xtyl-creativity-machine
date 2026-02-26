@@ -2,72 +2,31 @@
  * Visual Assets Service
  *
  * Handles visual asset settings, selections, and usage tracking via Supabase Client.
- * Replaces backend endpoints for CRUD operations where appropriate (hybrid architecture).
+ * Replaces backend/routers/projects.py visual asset endpoints for CRUD operations.
+ * Keeps upload/processing/classification in backend.
  *
  * Feature: Supabase Direct Migration
  */
 
-import { supabase } from '../supabase';
+import { supabase } from './client'
+import type {
+  Document,
+  AssistantVisualSettings,
+  AssistantVisualSettingsInsert,
+  AssistantVisualSettingsUpdate,
+  AssistantAssetSelection,
+  CreativeConcept,
+} from '@/types/supabase'
+import type { ServiceResult } from '@/types/supabase-services'
 
-export interface VisualAsset {
-  id: string;
-  project_id: string;
-  title: string | null;
-  content: string | null;
-  file_url: string | null;
-  thumbnail_url: string | null;
-  asset_type: string;
-  asset_metadata: Record<string, unknown> | null;
-  is_reference_asset: boolean;
-  created_at: string;
-  updated_at: string;
-  deleted_at: string | null;
-}
-
-export interface AssistantVisualSettings {
-  id: string;
-  project_id: string;
-  is_enabled: boolean;
-  mode: string;
-  assets_per_category: number;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface AssistantVisualSettingsUpdate {
-  is_enabled?: boolean;
-  mode?: string;
-  assets_per_category?: number;
-}
-
-export interface AssistantAssetSelection {
-  id: string;
-  settings_id: string;
-  asset_id: string;
-  is_enabled: boolean;
-  created_at: string;
-}
-
-export interface CreativeConcept {
-  id: string;
-  name: string;
-  slug: string;
-  description: string | null;
-  thumbnail_url: string | null;
-  prompt_template: string | null;
-  is_active: boolean;
-  sort_order: number;
-  created_at: string;
+export interface VisualAsset extends Document {
+  asset_type: string
+  asset_metadata: Record<string, unknown> | null
 }
 
 export interface AssetSelectionUpdate {
-  asset_id: string;
-  is_enabled: boolean;
-}
-
-interface ServiceResult<T> {
-  data: T | null;
-  error: Error | null;
+  asset_id: string
+  is_enabled: boolean
 }
 
 export const visualAssetService = {
@@ -89,18 +48,18 @@ export const visualAssetService = {
         .eq('project_id', projectId)
         .eq('is_reference_asset', true)
         .is('deleted_at', null)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
 
       if (filters?.assetType) {
-        query = query.eq('asset_type', filters.assetType);
+        query = query.eq('asset_type', filters.assetType)
       }
 
-      const { data, error } = await query;
+      const { data, error } = await query
 
-      if (error) throw error;
-      return { data: data as VisualAsset[], error: null };
+      if (error) throw error
+      return { data: data as VisualAsset[], error: null }
     } catch (error) {
-      return { data: null, error: error as Error };
+      return { data: null, error: error as Error }
     }
   },
 
@@ -114,12 +73,12 @@ export const visualAssetService = {
         .select('*')
         .eq('id', id)
         .eq('is_reference_asset', true)
-        .single();
+        .single()
 
-      if (error) throw error;
-      return { data: data as VisualAsset, error: null };
+      if (error) throw error
+      return { data: data as VisualAsset, error: null }
     } catch (error) {
-      return { data: null, error: error as Error };
+      return { data: null, error: error as Error }
     }
   },
 
@@ -136,12 +95,12 @@ export const visualAssetService = {
         .from('assistant_visual_settings')
         .select('*')
         .eq('project_id', projectId)
-        .maybeSingle();
+        .maybeSingle()
 
-      if (error) throw error;
-      return { data, error: null };
+      if (error) throw error
+      return { data, error: null }
     } catch (error) {
-      return { data: null, error: error as Error };
+      return { data: null, error: error as Error }
     }
   },
 
@@ -158,7 +117,7 @@ export const visualAssetService = {
         .from('assistant_visual_settings')
         .select('id')
         .eq('project_id', projectId)
-        .maybeSingle();
+        .maybeSingle()
 
       if (existing) {
         // Update existing
@@ -170,28 +129,28 @@ export const visualAssetService = {
           })
           .eq('project_id', projectId)
           .select()
-          .single();
+          .single()
 
-        if (error) throw error;
-        return { data, error: null };
+        if (error) throw error
+        return { data, error: null }
       } else {
         // Create new
-        const insertData = {
+        const insertData: AssistantVisualSettingsInsert = {
           project_id: projectId,
           ...settings,
-        };
+        }
 
         const { data, error } = await supabase
           .from('assistant_visual_settings')
           .insert(insertData)
           .select()
-          .single();
+          .single()
 
-        if (error) throw error;
-        return { data, error: null };
+        if (error) throw error
+        return { data, error: null }
       }
     } catch (error) {
-      return { data: null, error: error as Error };
+      return { data: null, error: error as Error }
     }
   },
 
@@ -209,20 +168,20 @@ export const visualAssetService = {
         .from('assistant_visual_settings')
         .select('id')
         .eq('project_id', projectId)
-        .maybeSingle();
+        .maybeSingle()
 
-      if (settingsError) throw settingsError;
-      if (!settings) return { data: [], error: null };
+      if (settingsError) throw settingsError
+      if (!settings) return { data: [], error: null }
 
       const { data, error } = await supabase
         .from('assistant_asset_selection')
         .select('*')
-        .eq('settings_id', settings.id);
+        .eq('settings_id', settings.id)
 
-      if (error) throw error;
-      return { data: data || [], error: null };
+      if (error) throw error
+      return { data: data || [], error: null }
     } catch (error) {
-      return { data: null, error: error as Error };
+      return { data: null, error: error as Error }
     }
   },
 
@@ -239,7 +198,7 @@ export const visualAssetService = {
         .from('assistant_visual_settings')
         .select('id')
         .eq('project_id', projectId)
-        .maybeSingle();
+        .maybeSingle()
 
       if (!settings) {
         // Create default settings
@@ -247,29 +206,29 @@ export const visualAssetService = {
           .from('assistant_visual_settings')
           .insert({ project_id: projectId })
           .select('id')
-          .single();
+          .single()
 
-        if (createError) throw createError;
-        settings = newSettings;
+        if (createError) throw createError
+        settings = newSettings
       }
 
       // Upsert selections
-      const upsertData = selections.map((s) => ({
+      const upsertData = selections.map(s => ({
         settings_id: settings!.id,
         asset_id: s.asset_id,
         is_enabled: s.is_enabled,
-      }));
+      }))
 
       const { error } = await supabase
         .from('assistant_asset_selection')
         .upsert(upsertData, {
           onConflict: 'settings_id,asset_id',
-        });
+        })
 
-      if (error) throw error;
-      return { data: null, error: null };
+      if (error) throw error
+      return { data: null, error: null }
     } catch (error) {
-      return { data: null, error: error as Error };
+      return { data: null, error: error as Error }
     }
   },
 
@@ -280,17 +239,22 @@ export const visualAssetService = {
   /**
    * Record asset usage for rotation tracking
    */
-  async recordUsage(assetId: string, generationId?: string): Promise<ServiceResult<void>> {
+  async recordUsage(
+    assetId: string,
+    generationId?: string
+  ): Promise<ServiceResult<void>> {
     try {
-      const { error } = await supabase.from('asset_usage_history').insert({
-        asset_id: assetId,
-        generation_id: generationId || null,
-      });
+      const { error } = await supabase
+        .from('asset_usage_history')
+        .insert({
+          asset_id: assetId,
+          generation_id: generationId || null,
+        })
 
-      if (error) throw error;
-      return { data: null, error: null };
+      if (error) throw error
+      return { data: null, error: null }
     } catch (error) {
-      return { data: null, error: error as Error };
+      return { data: null, error: error as Error }
     }
   },
 
@@ -307,17 +271,17 @@ export const visualAssetService = {
         .select('asset_id, used_at')
         .in('asset_id', assetIds)
         .order('used_at', { ascending: false })
-        .limit(limit);
+        .limit(limit)
 
-      if (error) throw error;
-      return { data: data || [], error: null };
+      if (error) throw error
+      return { data: data || [], error: null }
     } catch (error) {
-      return { data: null, error: error as Error };
+      return { data: null, error: error as Error }
     }
   },
 
   // ============================================================================
-  // CREATIVE CONCEPTS
+  // STYLE PRESETS
   // ============================================================================
 
   /**
@@ -329,12 +293,12 @@ export const visualAssetService = {
         .from('creative_concepts')
         .select('*')
         .eq('is_active', true)
-        .order('sort_order', { ascending: true });
+        .order('sort_order', { ascending: true })
 
-      if (error) throw error;
-      return { data: data || [], error: null };
+      if (error) throw error
+      return { data: data || [], error: null }
     } catch (error) {
-      return { data: null, error: error as Error };
+      return { data: null, error: error as Error }
     }
   },
 
@@ -356,10 +320,10 @@ export const visualAssetService = {
         .from('assistant_visual_settings')
         .select('id, is_enabled, mode, assets_per_category')
         .eq('project_id', projectId)
-        .maybeSingle();
+        .maybeSingle()
 
       if (!settings?.is_enabled) {
-        return { data: [], error: null };
+        return { data: [], error: null }
       }
 
       // Get enabled selections
@@ -367,45 +331,45 @@ export const visualAssetService = {
         .from('assistant_asset_selection')
         .select('asset_id')
         .eq('settings_id', settings.id)
-        .eq('is_enabled', true);
+        .eq('is_enabled', true)
 
       if (!selections?.length) {
-        return { data: [], error: null };
+        return { data: [], error: null }
       }
 
-      const assetIds = selections.map((s) => s.asset_id);
+      const assetIds = selections.map(s => s.asset_id)
 
       // Get assets with least recent usage (rotation)
       const { data: usageHistory } = await supabase
         .from('asset_usage_history')
         .select('asset_id')
         .in('asset_id', assetIds)
-        .order('used_at', { ascending: false });
+        .order('used_at', { ascending: false })
 
       // Count usage per asset
-      const usageCount: Record<string, number> = {};
+      const usageCount: Record<string, number> = {}
       for (const usage of usageHistory || []) {
-        usageCount[usage.asset_id] = (usageCount[usage.asset_id] || 0) + 1;
+        usageCount[usage.asset_id] = (usageCount[usage.asset_id] || 0) + 1
       }
 
       // Sort asset IDs by usage (least used first)
       const sortedAssetIds = assetIds.sort((a, b) => {
-        return (usageCount[a] || 0) - (usageCount[b] || 0);
-      });
+        return (usageCount[a] || 0) - (usageCount[b] || 0)
+      })
 
       // Get actual assets
       const { data: assets, error } = await supabase
         .from('documents')
         .select('*')
         .in('id', sortedAssetIds.slice(0, limit))
-        .eq('is_reference_asset', true);
+        .eq('is_reference_asset', true)
 
-      if (error) throw error;
-      return { data: assets as VisualAsset[], error: null };
+      if (error) throw error
+      return { data: assets as VisualAsset[], error: null }
     } catch (error) {
-      return { data: null, error: error as Error };
+      return { data: null, error: error as Error }
     }
   },
-};
+}
 
-export default visualAssetService;
+export default visualAssetService

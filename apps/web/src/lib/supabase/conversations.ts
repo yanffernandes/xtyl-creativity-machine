@@ -1,173 +1,74 @@
 /**
- * Conversation Service (Supabase Direct)
+ * Chat Conversations Service
  *
- * Provides CRUD operations for chat_conversations table via Supabase client.
- * Used by ChatSidebar for conversation persistence.
+ * Handles all conversation metadata operations via Supabase Client.
+ * Note: Actual chat messages may still be handled by Python backend for AI processing.
  *
- * Ported from: frontend/src/lib/supabase/conversations.ts
+ * Feature: 007-hybrid-supabase-architecture
+ * User Story: US6 - Preferences & Conversations
  */
 
-import { supabase } from '@/lib/supabase';
-
-// ============================================================================
-// Types
-// ============================================================================
-
-export interface ConversationRecord {
-  id: string;
-  user_id: string;
-  workspace_id: string;
-  project_id: string | null;
-  title: string | null;
-  summary: string | null;
-  messages_json: unknown[];
-  model_used: string | null;
-  document_ids_context: string[];
-  folder_ids_context: string[];
-  created_document_ids: string[];
-  is_archived: boolean;
-  message_count: number;
-  last_message_at: string | null;
-  created_at: string;
-  updated_at: string | null;
-}
-
-export interface ConversationInsert {
-  workspace_id: string;
-  project_id?: string | null;
-  title?: string;
-  summary?: string | null;
-  messages_json?: unknown[];
-  model_used?: string | null;
-  document_ids_context?: string[];
-  folder_ids_context?: string[];
-  created_document_ids?: string[];
-  is_archived?: boolean;
-  message_count?: number;
-  last_message_at?: string | null;
-}
-
-export interface ConversationUpdate {
-  title?: string | null;
-  summary?: string | null;
-  messages_json?: unknown[];
-  model_used?: string | null;
-  document_ids_context?: string[];
-  folder_ids_context?: string[];
-  created_document_ids?: string[];
-  is_archived?: boolean;
-  message_count?: number;
-  last_message_at?: string | null;
-}
-
-interface ServiceResult<T> {
-  data: T | null;
-  error: Error | null;
-}
-
-// ============================================================================
-// Conversation Service
-// ============================================================================
+import { supabase } from './client'
+import type {
+  ChatConversation,
+  ChatConversationInsert,
+  ChatConversationUpdate,
+} from '@/types/supabase'
+import type { ServiceResult } from '@/types/supabase-services'
 
 export const conversationService = {
-  async create(data: ConversationInsert): Promise<ServiceResult<ConversationRecord>> {
+  /**
+   * List all conversations for the current user
+   */
+  async list(): Promise<ServiceResult<ChatConversation[]>> {
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error('Not authenticated')
 
-      const { data: result, error } = await supabase
-        .from('chat_conversations')
-        .insert({
-          ...data,
-          user_id: user.id,
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-      return { data: result as ConversationRecord, error: null };
-    } catch (error) {
-      return { data: null, error: error as Error };
-    }
-  },
-
-  async update(
-    id: string,
-    data: ConversationUpdate
-  ): Promise<ServiceResult<ConversationRecord>> {
-    try {
-      const { data: result, error } = await supabase
-        .from('chat_conversations')
-        .update({
-          ...data,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', id)
-        .select()
-        .single();
-
-      if (error) throw error;
-      return { data: result as ConversationRecord, error: null };
-    } catch (error) {
-      return { data: null, error: error as Error };
-    }
-  },
-
-  async get(id: string): Promise<ServiceResult<ConversationRecord>> {
-    try {
       const { data, error } = await supabase
         .from('chat_conversations')
         .select('*')
-        .eq('id', id)
-        .single();
+        .eq('user_id', user.id)
+        .eq('is_archived', false)
+        .order('last_message_at', { ascending: false, nullsFirst: false })
 
-      if (error) throw error;
-      return { data: data as ConversationRecord, error: null };
+      if (error) throw error
+      return { data, error: null }
     } catch (error) {
-      return { data: null, error: error as Error };
+      return { data: null, error: error as Error }
     }
   },
 
-  async list(
-    workspaceId: string,
-    options?: { limit?: number }
-  ): Promise<ServiceResult<ConversationRecord[]>> {
+  /**
+   * List conversations in a workspace
+   */
+  async listByWorkspace(workspaceId: string): Promise<ServiceResult<ChatConversation[]>> {
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error('Not authenticated')
 
-      let query = supabase
+      const { data, error } = await supabase
         .from('chat_conversations')
         .select('*')
         .eq('user_id', user.id)
         .eq('workspace_id', workspaceId)
         .eq('is_archived', false)
-        .order('last_message_at', { ascending: false, nullsFirst: false });
+        .order('last_message_at', { ascending: false, nullsFirst: false })
 
-      if (options?.limit) {
-        query = query.limit(options.limit);
-      }
-
-      const { data, error } = await query;
-      if (error) throw error;
-      return { data: (data ?? []) as ConversationRecord[], error: null };
+      if (error) throw error
+      return { data, error: null }
     } catch (error) {
-      return { data: null, error: error as Error };
+      return { data: null, error: error as Error }
     }
   },
 
-  async listByProject(
-    projectId: string
-  ): Promise<ServiceResult<ConversationRecord[]>> {
+  /**
+   * List conversations in a project
+   */
+  async listByProject(projectId: string): Promise<ServiceResult<ChatConversation[]>> {
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error('Not authenticated')
 
       const { data, error } = await supabase
         .from('chat_conversations')
@@ -175,40 +76,97 @@ export const conversationService = {
         .eq('user_id', user.id)
         .eq('project_id', projectId)
         .eq('is_archived', false)
-        .order('last_message_at', { ascending: false, nullsFirst: false });
+        .order('last_message_at', { ascending: false, nullsFirst: false })
 
-      if (error) throw error;
-      return { data: (data ?? []) as ConversationRecord[], error: null };
+      if (error) throw error
+      return { data, error: null }
     } catch (error) {
-      return { data: null, error: error as Error };
+      return { data: null, error: error as Error }
     }
   },
 
-  async listArchived(
-    workspaceId: string
-  ): Promise<ServiceResult<ConversationRecord[]>> {
+  /**
+   * Get a single conversation by ID
+   */
+  async get(id: string): Promise<ServiceResult<ChatConversation>> {
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
-
       const { data, error } = await supabase
         .from('chat_conversations')
         .select('*')
-        .eq('user_id', user.id)
-        .eq('workspace_id', workspaceId)
-        .eq('is_archived', true)
-        .order('updated_at', { ascending: false });
+        .eq('id', id)
+        .single()
 
-      if (error) throw error;
-      return { data: (data ?? []) as ConversationRecord[], error: null };
+      if (error) throw error
+      return { data, error: null }
     } catch (error) {
-      return { data: null, error: error as Error };
+      return { data: null, error: error as Error }
     }
   },
 
-  async archive(id: string): Promise<ServiceResult<ConversationRecord>> {
+  /**
+   * Create a new conversation
+   */
+  async create(conversation: Omit<ChatConversationInsert, 'user_id'>): Promise<ServiceResult<ChatConversation>> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error('Not authenticated')
+
+      const { data, error } = await supabase
+        .from('chat_conversations')
+        .insert({
+          ...conversation,
+          user_id: user.id,
+        })
+        .select()
+        .single()
+
+      if (error) throw error
+      return { data, error: null }
+    } catch (error) {
+      return { data: null, error: error as Error }
+    }
+  },
+
+  /**
+   * Update conversation metadata (title, model, etc.)
+   */
+  async update(id: string, conversation: ChatConversationUpdate): Promise<ServiceResult<ChatConversation>> {
+    try {
+      const { data, error } = await supabase
+        .from('chat_conversations')
+        .update({
+          ...conversation,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', id)
+        .select()
+        .single()
+
+      if (error) throw error
+      return { data, error: null }
+    } catch (error) {
+      return { data: null, error: error as Error }
+    }
+  },
+
+  /**
+   * Update conversation title
+   */
+  async updateTitle(id: string, title: string): Promise<ServiceResult<ChatConversation>> {
+    return this.update(id, { title })
+  },
+
+  /**
+   * Move conversation to a different project
+   */
+  async moveToProject(id: string, projectId: string | null): Promise<ServiceResult<ChatConversation>> {
+    return this.update(id, { project_id: projectId })
+  },
+
+  /**
+   * Archive a conversation (soft delete)
+   */
+  async archive(id: string): Promise<ServiceResult<ChatConversation>> {
     try {
       const { data, error } = await supabase
         .from('chat_conversations')
@@ -218,16 +176,19 @@ export const conversationService = {
         })
         .eq('id', id)
         .select()
-        .single();
+        .single()
 
-      if (error) throw error;
-      return { data: data as ConversationRecord, error: null };
+      if (error) throw error
+      return { data, error: null }
     } catch (error) {
-      return { data: null, error: error as Error };
+      return { data: null, error: error as Error }
     }
   },
 
-  async restore(id: string): Promise<ServiceResult<ConversationRecord>> {
+  /**
+   * Restore an archived conversation
+   */
+  async restore(id: string): Promise<ServiceResult<ChatConversation>> {
     try {
       const { data, error } = await supabase
         .from('chat_conversations')
@@ -237,26 +198,53 @@ export const conversationService = {
         })
         .eq('id', id)
         .select()
-        .single();
+        .single()
 
-      if (error) throw error;
-      return { data: data as ConversationRecord, error: null };
+      if (error) throw error
+      return { data, error: null }
     } catch (error) {
-      return { data: null, error: error as Error };
+      return { data: null, error: error as Error }
     }
   },
 
+  /**
+   * List archived conversations
+   */
+  async listArchived(): Promise<ServiceResult<ChatConversation[]>> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error('Not authenticated')
+
+      const { data, error } = await supabase
+        .from('chat_conversations')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('is_archived', true)
+        .order('updated_at', { ascending: false })
+
+      if (error) throw error
+      return { data, error: null }
+    } catch (error) {
+      return { data: null, error: error as Error }
+    }
+  },
+
+  /**
+   * Permanently delete a conversation
+   */
   async delete(id: string): Promise<ServiceResult<void>> {
     try {
       const { error } = await supabase
         .from('chat_conversations')
         .delete()
-        .eq('id', id);
+        .eq('id', id)
 
-      if (error) throw error;
-      return { data: null, error: null };
+      if (error) throw error
+      return { data: null, error: null }
     } catch (error) {
-      return { data: null, error: error as Error };
+      return { data: null, error: error as Error }
     }
   },
-};
+}
+
+export default conversationService

@@ -1,76 +1,130 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import api from '@/lib/api';
-import { queryKeys } from '@/lib/query-keys';
-import { toast } from 'sonner';
-import type { Campaign } from '@/types/agency-studio';
+/**
+ * React Query hooks for Campaigns (Feature 028 - Agency Studio Flow)
+ *
+ * Provides data fetching, caching, and mutations for project-level campaign packages.
+ * Campaigns group copies and images by marketing campaign/channel.
+ */
 
-export type { Campaign };
+import { useQuery, useMutation, useQueryClient, UseQueryOptions } from '@tanstack/react-query'
+import {
+  listCampaigns,
+  getCampaign,
+  createCampaign,
+  updateCampaign,
+  deleteCampaign,
+  Campaign,
+  CampaignListResponse,
+  CreateCampaignRequest,
+  UpdateCampaignRequest,
+} from '@/lib/api'
+import { queryKeys } from '@/lib/query-keys'
+import { toast } from 'sonner'
 
-interface CampaignsResponse {
-  items: Campaign[];
-  total: number;
+interface UseCampaignsOptions {
+  channel?: string
 }
 
-export function useCampaigns(projectId: string) {
-  return useQuery<CampaignsResponse>({
-    queryKey: queryKeys.campaigns.byProject(projectId),
-    queryFn: async () => {
-      const { data } = await api.get(`/api/projects/${projectId}/campaigns`);
-      return data;
-    },
+/**
+ * Hook to fetch campaign packages for a project
+ */
+export function useCampaigns(
+  projectId: string | undefined,
+  options?: UseCampaignsOptions,
+  queryOptions?: Omit<UseQueryOptions<CampaignListResponse>, 'queryKey' | 'queryFn'>
+) {
+  return useQuery<CampaignListResponse>({
+    queryKey: queryKeys.campaigns.byProject(projectId || ''),
+    queryFn: () => listCampaigns(projectId!, options?.channel),
     enabled: !!projectId,
-  });
+    staleTime: 30000, // 30 seconds
+    ...queryOptions,
+  })
 }
 
+/**
+ * Hook to fetch a single campaign package by ID
+ */
+export function useCampaign(
+  projectId: string | undefined,
+  campaignId: string | undefined,
+  queryOptions?: Omit<UseQueryOptions<Campaign>, 'queryKey' | 'queryFn'>
+) {
+  return useQuery<Campaign>({
+    queryKey: queryKeys.campaigns.detail(projectId || '', campaignId || ''),
+    queryFn: () => getCampaign(projectId!, campaignId!),
+    enabled: !!projectId && !!campaignId,
+    staleTime: 30000,
+    ...queryOptions,
+  })
+}
+
+/**
+ * Hook to create a new campaign package
+ */
 export function useCreateCampaign(projectId: string) {
-  const queryClient = useQueryClient();
+  const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async (data: { name: string; channel?: string }) => {
-      const response = await api.post(`/api/projects/${projectId}/campaigns`, data);
-      return response.data;
-    },
+    mutationFn: (data: CreateCampaignRequest) => createCampaign(projectId, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.campaigns.byProject(projectId) });
-      toast.success('Campaign created successfully');
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.campaigns.byProject(projectId),
+      })
+      toast.success('Campanha criada com sucesso')
     },
-    onError: () => {
-      toast.error('Failed to create campaign');
+    onError: (error: Error) => {
+      console.error('Failed to create campaign:', error)
+      toast.error('Falha ao criar campanha')
     },
-  });
+  })
 }
 
+/**
+ * Hook to update an existing campaign package
+ */
 export function useUpdateCampaign(projectId: string) {
-  const queryClient = useQueryClient();
+  const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ campaignId, data }: { campaignId: string; data: { name: string; channel?: string } }) => {
-      const response = await api.patch(`/api/campaigns/${campaignId}`, data);
-      return response.data;
+    mutationFn: ({ campaignId, data }: { campaignId: string; data: UpdateCampaignRequest }) =>
+      updateCampaign(projectId, campaignId, data),
+    onSuccess: (updatedCampaign) => {
+      queryClient.setQueryData(
+        queryKeys.campaigns.detail(projectId, updatedCampaign.id),
+        updatedCampaign
+      )
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.campaigns.byProject(projectId),
+      })
+      toast.success('Campanha atualizada com sucesso')
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.campaigns.byProject(projectId) });
-      toast.success('Campaign updated successfully');
+    onError: (error: Error) => {
+      console.error('Failed to update campaign:', error)
+      toast.error('Falha ao atualizar campanha')
     },
-    onError: () => {
-      toast.error('Failed to update campaign');
-    },
-  });
+  })
 }
 
+/**
+ * Hook to delete a campaign package
+ */
 export function useDeleteCampaign(projectId: string) {
-  const queryClient = useQueryClient();
+  const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async (campaignId: string) => {
-      await api.delete(`/api/campaigns/${campaignId}`);
+    mutationFn: (campaignId: string) => deleteCampaign(projectId, campaignId),
+    onSuccess: (_, campaignId) => {
+      queryClient.removeQueries({
+        queryKey: queryKeys.campaigns.detail(projectId, campaignId),
+      })
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.campaigns.byProject(projectId),
+      })
+      toast.success('Campanha removida com sucesso')
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.campaigns.byProject(projectId) });
-      toast.success('Campaign deleted successfully');
+    onError: (error: Error) => {
+      console.error('Failed to delete campaign:', error)
+      toast.error('Falha ao remover campanha')
     },
-    onError: () => {
-      toast.error('Failed to delete campaign');
-    },
-  });
+  })
 }

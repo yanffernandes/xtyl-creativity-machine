@@ -17,5 +17,16 @@
   "devDependencies": {
     "turbo": "^2.3.0",
     "typescript": "^5.7.0"
+  },
+  "dependencies": {
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/sortable": "^10.0.0",
+    "@dnd-kit/utilities": "^3.2.2",
+    "@monaco-editor/react": "^4.7.0",
+    "@tanstack/react-virtual": "^3.13.19",
+    "monaco-editor": "^0.55.1",
+    "next-themes": "^0.4.6",
+    "react-colorful": "^5.6.1",
+    "react-dropzone": "^15.0.0"
   }
 }

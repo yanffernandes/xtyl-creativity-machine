@@ -1,8 +1,11 @@
 /**
  * Model Configuration for Image Studio
- * Hardcoded fal.ai models configuration
+ * Feature 029: Hardcoded fal.ai models configuration
  *
- * 4 text-to-image models + 4 image-to-image/edit models
+ * This file contains the 8 fal.ai models used for image generation and editing:
+ * - 4 text-to-image models (no reference image required)
+ * - 4 image-to-image/edit models (require reference image)
+ *
  * Only GPT-Image 1.5/edit supports mask_image_url for brush/inpainting.
  */
 
@@ -11,6 +14,33 @@
 // ============================================================================
 
 export type ModelType = 'text-to-image' | 'image-to-image';
+
+export type AspectRatio =
+  | '1:1'
+  | '16:9'
+  | '9:16'
+  | '4:3'
+  | '3:4'
+  | '3:2'
+  | '2:3'
+  | '21:9'
+  | '9:21';
+
+export type ImageSize =
+  | '1024x1024'
+  | '1536x1024'
+  | '1024x1536'
+  | '1792x1024'
+  | '1024x1792'
+  | 'auto';
+
+export type Resolution = '1K' | '2K' | '4K';
+
+export type Quality = 'low' | 'medium' | 'high';
+
+export type Background = 'auto' | 'transparent' | 'opaque';
+
+export type InputFidelity = 'low' | 'high';
 
 export interface ModelParameter {
   name: string;
@@ -33,10 +63,12 @@ export interface ModelConfig {
   supportsMask: boolean;
   maxImages: number;
   parameters: ModelParameter[];
+  // Pricing info (optional, for display)
+  pricing?: string;
 }
 
 // ============================================================================
-// PARAMETER DEFINITIONS
+// PARAMETER DEFINITIONS (reusable across models)
 // ============================================================================
 
 const ASPECT_RATIO_OPTIONS = [
@@ -58,6 +90,7 @@ const IMAGE_SIZE_OPTIONS = [
   { value: 'auto', label: 'Automático' },
 ];
 
+// Seedream 4.5 uses named presets instead of dimensions
 const SEEDREAM_IMAGE_SIZE_OPTIONS = [
   { value: 'square', label: '1:1 (Quadrado)' },
   { value: 'square_hd', label: '1:1 HD' },
@@ -93,7 +126,7 @@ const INPUT_FIDELITY_OPTIONS = [
 ];
 
 // ============================================================================
-// TEXT-TO-IMAGE MODELS
+// TEXT-TO-IMAGE MODELS (4 models)
 // ============================================================================
 
 export const GEMINI_3_PRO_TEXT: ModelConfig = {
@@ -105,9 +138,31 @@ export const GEMINI_3_PRO_TEXT: ModelConfig = {
   supportsMask: false,
   maxImages: 4,
   parameters: [
-    { name: 'num_images', type: 'number', label: 'Quantidade', default: 1, min: 1, max: 4, step: 1 },
-    { name: 'aspect_ratio', type: 'select', label: 'Proporção', options: ASPECT_RATIO_OPTIONS, default: '1:1' },
-    { name: 'resolution', type: 'select', label: 'Resolução', options: RESOLUTION_OPTIONS, default: '1K' },
+    {
+      name: 'num_images',
+      type: 'number',
+      label: 'Quantidade',
+      description: 'Número de imagens a gerar',
+      default: 1,
+      min: 1,
+      max: 4,
+      step: 1,
+    },
+    {
+      name: 'aspect_ratio',
+      type: 'select',
+      label: 'Proporção',
+      options: ASPECT_RATIO_OPTIONS,
+      default: '1:1',
+    },
+    {
+      name: 'resolution',
+      type: 'select',
+      label: 'Resolução',
+      description: 'Gemini 3 Pro suporta até 4K',
+      options: RESOLUTION_OPTIONS,
+      default: '1K',
+    },
   ],
 };
 
@@ -120,8 +175,23 @@ export const GEMINI_25_FLASH_TEXT: ModelConfig = {
   supportsMask: false,
   maxImages: 4,
   parameters: [
-    { name: 'num_images', type: 'number', label: 'Quantidade', default: 1, min: 1, max: 4, step: 1 },
-    { name: 'aspect_ratio', type: 'select', label: 'Proporção', options: ASPECT_RATIO_OPTIONS, default: '1:1' },
+    {
+      name: 'num_images',
+      type: 'number',
+      label: 'Quantidade',
+      description: 'Número de imagens a gerar',
+      default: 1,
+      min: 1,
+      max: 4,
+      step: 1,
+    },
+    {
+      name: 'aspect_ratio',
+      type: 'select',
+      label: 'Proporção',
+      options: ASPECT_RATIO_OPTIONS,
+      default: '1:1',
+    },
   ],
 };
 
@@ -134,10 +204,37 @@ export const GPT_IMAGE_15_TEXT: ModelConfig = {
   supportsMask: false,
   maxImages: 4,
   parameters: [
-    { name: 'num_images', type: 'number', label: 'Quantidade', default: 1, min: 1, max: 4, step: 1 },
-    { name: 'image_size', type: 'select', label: 'Tamanho', options: IMAGE_SIZE_OPTIONS, default: '1024x1024' },
-    { name: 'quality', type: 'select', label: 'Qualidade', options: QUALITY_OPTIONS, default: 'medium' },
-    { name: 'background', type: 'select', label: 'Fundo', options: BACKGROUND_OPTIONS, default: 'auto' },
+    {
+      name: 'num_images',
+      type: 'number',
+      label: 'Quantidade',
+      description: 'Número de imagens a gerar',
+      default: 1,
+      min: 1,
+      max: 4,
+      step: 1,
+    },
+    {
+      name: 'image_size',
+      type: 'select',
+      label: 'Tamanho',
+      options: IMAGE_SIZE_OPTIONS,
+      default: '1024x1024',
+    },
+    {
+      name: 'quality',
+      type: 'select',
+      label: 'Qualidade',
+      options: QUALITY_OPTIONS,
+      default: 'medium',
+    },
+    {
+      name: 'background',
+      type: 'select',
+      label: 'Fundo',
+      options: BACKGROUND_OPTIONS,
+      default: 'auto',
+    },
   ],
 };
 
@@ -150,14 +247,35 @@ export const SEEDREAM_45_TEXT: ModelConfig = {
   supportsMask: false,
   maxImages: 6,
   parameters: [
-    { name: 'num_images', type: 'number', label: 'Quantidade', default: 1, min: 1, max: 6, step: 1 },
-    { name: 'image_size', type: 'select', label: 'Tamanho', options: SEEDREAM_IMAGE_SIZE_OPTIONS, default: 'square' },
-    { name: 'enable_safety_checker', type: 'boolean', label: 'Filtro de segurança', default: true },
+    {
+      name: 'num_images',
+      type: 'number',
+      label: 'Quantidade',
+      description: 'Número de imagens a gerar',
+      default: 1,
+      min: 1,
+      max: 6,
+      step: 1,
+    },
+    {
+      name: 'image_size',
+      type: 'select',
+      label: 'Tamanho',
+      options: SEEDREAM_IMAGE_SIZE_OPTIONS,
+      default: 'square',
+    },
+    {
+      name: 'enable_safety_checker',
+      type: 'boolean',
+      label: 'Filtro de segurança',
+      description: 'Ativar filtro de conteúdo',
+      default: true,
+    },
   ],
 };
 
 // ============================================================================
-// IMAGE-TO-IMAGE / EDIT MODELS
+// IMAGE-TO-IMAGE / EDIT MODELS (4 models)
 // ============================================================================
 
 export const GEMINI_3_PRO_EDIT: ModelConfig = {
@@ -169,9 +287,31 @@ export const GEMINI_3_PRO_EDIT: ModelConfig = {
   supportsMask: false,
   maxImages: 4,
   parameters: [
-    { name: 'num_images', type: 'number', label: 'Quantidade', default: 1, min: 1, max: 4, step: 1 },
-    { name: 'aspect_ratio', type: 'select', label: 'Proporção', options: ASPECT_RATIO_OPTIONS, default: '1:1' },
-    { name: 'resolution', type: 'select', label: 'Resolução', options: RESOLUTION_OPTIONS, default: '1K' },
+    {
+      name: 'num_images',
+      type: 'number',
+      label: 'Quantidade',
+      description: 'Número de imagens a gerar',
+      default: 1,
+      min: 1,
+      max: 4,
+      step: 1,
+    },
+    {
+      name: 'aspect_ratio',
+      type: 'select',
+      label: 'Proporção',
+      options: ASPECT_RATIO_OPTIONS,
+      default: '1:1',
+    },
+    {
+      name: 'resolution',
+      type: 'select',
+      label: 'Resolução',
+      description: 'Gemini 3 Pro suporta até 4K',
+      options: RESOLUTION_OPTIONS,
+      default: '1K',
+    },
   ],
 };
 
@@ -184,8 +324,23 @@ export const GEMINI_25_FLASH_EDIT: ModelConfig = {
   supportsMask: false,
   maxImages: 4,
   parameters: [
-    { name: 'num_images', type: 'number', label: 'Quantidade', default: 1, min: 1, max: 4, step: 1 },
-    { name: 'aspect_ratio', type: 'select', label: 'Proporção', options: ASPECT_RATIO_OPTIONS, default: '1:1' },
+    {
+      name: 'num_images',
+      type: 'number',
+      label: 'Quantidade',
+      description: 'Número de imagens a gerar',
+      default: 1,
+      min: 1,
+      max: 4,
+      step: 1,
+    },
+    {
+      name: 'aspect_ratio',
+      type: 'select',
+      label: 'Proporção',
+      options: ASPECT_RATIO_OPTIONS,
+      default: '1:1',
+    },
   ],
 };
 
@@ -195,13 +350,41 @@ export const GPT_IMAGE_15_EDIT: ModelConfig = {
   description: 'Edição com alta fidelidade - SUPORTA MÁSCARA (brush)',
   provider: 'OpenAI',
   type: 'image-to-image',
-  supportsMask: true,
+  supportsMask: true, // ÚNICO modelo que suporta mask_image_url
   maxImages: 4,
   parameters: [
-    { name: 'num_images', type: 'number', label: 'Quantidade', default: 1, min: 1, max: 4, step: 1 },
-    { name: 'image_size', type: 'select', label: 'Tamanho', options: IMAGE_SIZE_OPTIONS, default: '1024x1024' },
-    { name: 'quality', type: 'select', label: 'Qualidade', options: QUALITY_OPTIONS, default: 'medium' },
-    { name: 'input_fidelity', type: 'select', label: 'Fidelidade', options: INPUT_FIDELITY_OPTIONS, default: 'high' },
+    {
+      name: 'num_images',
+      type: 'number',
+      label: 'Quantidade',
+      description: 'Número de imagens a gerar',
+      default: 1,
+      min: 1,
+      max: 4,
+      step: 1,
+    },
+    {
+      name: 'image_size',
+      type: 'select',
+      label: 'Tamanho',
+      options: IMAGE_SIZE_OPTIONS,
+      default: '1024x1024',
+    },
+    {
+      name: 'quality',
+      type: 'select',
+      label: 'Qualidade',
+      options: QUALITY_OPTIONS,
+      default: 'medium',
+    },
+    {
+      name: 'input_fidelity',
+      type: 'select',
+      label: 'Fidelidade',
+      description: 'Quão fiel ao original',
+      options: INPUT_FIDELITY_OPTIONS,
+      default: 'high',
+    },
   ],
 };
 
@@ -214,9 +397,30 @@ export const SEEDREAM_45_EDIT: ModelConfig = {
   supportsMask: false,
   maxImages: 6,
   parameters: [
-    { name: 'num_images', type: 'number', label: 'Quantidade', default: 1, min: 1, max: 6, step: 1 },
-    { name: 'image_size', type: 'select', label: 'Tamanho', options: SEEDREAM_IMAGE_SIZE_OPTIONS, default: 'square' },
-    { name: 'enable_safety_checker', type: 'boolean', label: 'Filtro de segurança', default: true },
+    {
+      name: 'num_images',
+      type: 'number',
+      label: 'Quantidade',
+      description: 'Número de imagens a gerar',
+      default: 1,
+      min: 1,
+      max: 6,
+      step: 1,
+    },
+    {
+      name: 'image_size',
+      type: 'select',
+      label: 'Tamanho',
+      options: SEEDREAM_IMAGE_SIZE_OPTIONS,
+      default: 'square',
+    },
+    {
+      name: 'enable_safety_checker',
+      type: 'boolean',
+      label: 'Filtro de segurança',
+      description: 'Ativar filtro de conteúdo',
+      default: true,
+    },
   ],
 };
 
@@ -224,6 +428,7 @@ export const SEEDREAM_45_EDIT: ModelConfig = {
 // MODEL COLLECTIONS
 // ============================================================================
 
+/** All text-to-image models (no reference image required) */
 export const TEXT_TO_IMAGE_MODELS: ModelConfig[] = [
   GPT_IMAGE_15_TEXT,
   GEMINI_3_PRO_TEXT,
@@ -231,6 +436,7 @@ export const TEXT_TO_IMAGE_MODELS: ModelConfig[] = [
   SEEDREAM_45_TEXT,
 ];
 
+/** All image-to-image/edit models (require reference image) */
 export const IMAGE_TO_IMAGE_MODELS: ModelConfig[] = [
   GPT_IMAGE_15_EDIT,
   GEMINI_3_PRO_EDIT,
@@ -238,6 +444,7 @@ export const IMAGE_TO_IMAGE_MODELS: ModelConfig[] = [
   SEEDREAM_45_EDIT,
 ];
 
+/** All models */
 export const ALL_MODELS: ModelConfig[] = [
   ...TEXT_TO_IMAGE_MODELS,
   ...IMAGE_TO_IMAGE_MODELS,
@@ -247,28 +454,117 @@ export const ALL_MODELS: ModelConfig[] = [
 // HELPER FUNCTIONS
 // ============================================================================
 
+/**
+ * Get model config by ID
+ */
 export function getModelById(modelId: string): ModelConfig | undefined {
   return ALL_MODELS.find((m) => m.id === modelId);
 }
 
+/**
+ * Get the edit counterpart of a text-to-image model
+ */
 export function getEditModel(textModelId: string): ModelConfig | undefined {
-  const editId = textModelId.endsWith('/edit') ? textModelId : `${textModelId}/edit`;
+  // Add /edit suffix if not present
+  const editId = textModelId.endsWith('/edit')
+    ? textModelId
+    : `${textModelId}/edit`;
   return IMAGE_TO_IMAGE_MODELS.find((m) => m.id === editId);
 }
 
+/**
+ * Get the text-to-image counterpart of an edit model
+ */
 export function getTextModel(editModelId: string): ModelConfig | undefined {
+  // Remove /edit suffix
   const textId = editModelId.replace('/edit', '');
   return TEXT_TO_IMAGE_MODELS.find((m) => m.id === textId);
 }
 
+/**
+ * Check if a model supports mask/brush editing
+ */
 export function modelSupportsMask(modelId: string): boolean {
-  return getModelById(modelId)?.supportsMask ?? false;
+  const model = getModelById(modelId);
+  return model?.supportsMask ?? false;
 }
 
+/**
+ * Get default model for text-to-image
+ */
 export function getDefaultTextModel(): ModelConfig {
   return GPT_IMAGE_15_TEXT;
 }
 
+/**
+ * Get default model for image-to-image/edit
+ */
 export function getDefaultEditModel(): ModelConfig {
   return GPT_IMAGE_15_EDIT;
+}
+
+/**
+ * Get appropriate model based on whether a reference image is provided
+ * @param hasReferenceImage - Whether the user has provided a reference image
+ * @param preferredModelId - Optional preferred model ID
+ */
+export function selectAppropriateModel(
+  hasReferenceImage: boolean,
+  preferredModelId?: string
+): ModelConfig {
+  if (preferredModelId) {
+    const model = getModelById(preferredModelId);
+    if (model) {
+      // If model type matches use case, return it
+      if (hasReferenceImage && model.type === 'image-to-image') {
+        return model;
+      }
+      if (!hasReferenceImage && model.type === 'text-to-image') {
+        return model;
+      }
+      // Otherwise, get the counterpart model
+      if (hasReferenceImage) {
+        return getEditModel(preferredModelId) || getDefaultEditModel();
+      }
+      return getTextModel(preferredModelId) || getDefaultTextModel();
+    }
+  }
+
+  // Return default based on use case
+  return hasReferenceImage ? getDefaultEditModel() : getDefaultTextModel();
+}
+
+/**
+ * Build API payload from model parameters and user values
+ */
+export function buildModelPayload(
+  model: ModelConfig,
+  prompt: string,
+  userParams: Record<string, unknown>,
+  options?: {
+    imageUrls?: string[];
+    maskUrl?: string;
+  }
+): Record<string, unknown> {
+  const payload: Record<string, unknown> = {
+    prompt,
+  };
+
+  // Add reference images for edit models
+  if (model.type === 'image-to-image' && options?.imageUrls?.length) {
+    payload.image_urls = options.imageUrls;
+  }
+
+  // Add mask for GPT-Image edit (only model that supports it)
+  if (model.supportsMask && options?.maskUrl) {
+    payload.mask_image_url = options.maskUrl;
+  }
+
+  // Add model-specific parameters with defaults
+  for (const param of model.parameters) {
+    const value = userParams[param.name] ?? param.default;
+    payload[param.name] = value;
+  }
+
+  return payload;
 }

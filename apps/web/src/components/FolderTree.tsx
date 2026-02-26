@@ -1,0 +1,455 @@
+"use client"
+
+import React, { useState } from "react"
+import { ChevronRight, ChevronDown, Folder, FolderOpen, File, Plus, Trash2, Edit2, FolderPlus } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+  ContextMenuSeparator,
+} from "@/components/ui/context-menu"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { useFolders, useCreateFolder, useUpdateFolder, useArchiveFolder, useMoveFolder } from "@/hooks/use-folders"
+import { useMoveDocument } from "@/hooks/use-documents"
+import { useConfirm } from "@/components/confirm-dialog"
+import type { Folder as FolderType } from "@/types/supabase"
+
+interface Document {
+  id: string
+  title: string
+  folder_id?: string | null
+  status: string
+  content?: string
+  created_at: string
+  type: "creation" | "context"
+  is_context?: boolean
+}
+
+interface FolderTreeProps {
+  projectId: string
+  documents: Document[]
+  selectedDoc: Document | null
+  onSelectDocument: (doc: Document) => void
+  onRefresh: () => void
+}
+
+interface TreeNode {
+  type: 'folder' | 'document'
+  data: FolderType | Document
+  children?: TreeNode[]
+  expanded?: boolean
+}
+
+export default function FolderTree({
+  projectId,
+  documents,
+  selectedDoc,
+  onSelectDocument,
+  onRefresh
+}: FolderTreeProps) {
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set())
+  const [showNewFolderDialog, setShowNewFolderDialog] = useState(false)
+  const [showRenameFolderDialog, setShowRenameFolderDialog] = useState(false)
+  const [newFolderName, setNewFolderName] = useState("")
+  const [renameFolderName, setRenameFolderName] = useState("")
+  const [selectedFolder, setSelectedFolder] = useState<FolderType | null>(null)
+  const [parentFolder, setParentFolder] = useState<FolderType | null>(null)
+  const [draggedItem, setDraggedItem] = useState<{type: 'document' | 'folder', id: string} | null>(null)
+  const [dragOverFolder, setDragOverFolder] = useState<string | null>(null)
+
+  // Supabase hooks
+  const { data: folders = [], refetch: refetchFolders } = useFolders(projectId)
+  const createFolder = useCreateFolder()
+  const updateFolder = useUpdateFolder()
+  const archiveFolder = useArchiveFolder()
+  const moveFolder = useMoveFolder()
+  const moveDocument = useMoveDocument()
+  const confirm = useConfirm()
+
+  const buildTree = (): TreeNode[] => {
+    const tree: TreeNode[] = []
+    const folderMap = new Map<string, TreeNode>()
+    const folderList = folders || []
+
+    // Create folder nodes
+    folderList.forEach(folder => {
+      const node: TreeNode = {
+        type: 'folder',
+        data: folder,
+        children: [],
+        expanded: expandedFolders.has(folder.id)
+      }
+      folderMap.set(folder.id, node)
+    })
+
+    // Build folder hierarchy
+    folderList.forEach(folder => {
+      const node = folderMap.get(folder.id)!
+      if (folder.parent_folder_id) {
+        const parent = folderMap.get(folder.parent_folder_id)
+        if (parent) {
+          parent.children!.push(node)
+        } else {
+          tree.push(node)
+        }
+      } else {
+        tree.push(node)
+      }
+    })
+
+    // Add documents to their folders or root
+    documents.forEach(doc => {
+      const docNode: TreeNode = {
+        type: 'document',
+        data: doc
+      }
+
+      if (doc.folder_id) {
+        const parent = folderMap.get(doc.folder_id)
+        if (parent) {
+          parent.children!.push(docNode)
+        } else {
+          tree.push(docNode)
+        }
+      } else {
+        tree.push(docNode)
+      }
+    })
+
+    return tree
+  }
+
+  const toggleFolder = (folderId: string) => {
+    setExpandedFolders(prev => {
+      const next = new Set(prev)
+      if (next.has(folderId)) {
+        next.delete(folderId)
+      } else {
+        next.add(folderId)
+      }
+      return next
+    })
+  }
+
+  const handleCreateFolder = () => {
+    if (!newFolderName.trim()) return
+
+    createFolder.mutate(
+      {
+        name: newFolderName,
+        project_id: projectId,
+        parent_folder_id: parentFolder?.id || null,
+      },
+      {
+        onSuccess: () => {
+          setNewFolderName("")
+          setParentFolder(null)
+          setShowNewFolderDialog(false)
+        },
+      }
+    )
+  }
+
+  const handleRenameFolder = () => {
+    if (!selectedFolder || !renameFolderName.trim()) return
+
+    updateFolder.mutate(
+      {
+        id: selectedFolder.id,
+        data: { name: renameFolderName },
+      },
+      {
+        onSuccess: () => {
+          setRenameFolderName("")
+          setSelectedFolder(null)
+          setShowRenameFolderDialog(false)
+        },
+      }
+    )
+  }
+
+  const handleDeleteFolder = async (folder: FolderType) => {
+    const confirmed = await confirm({
+      title: "Arquivar pasta",
+      description: `Arquivar pasta "${folder.name}" e todo seu conteúdo?`,
+      confirmLabel: "Arquivar",
+      cancelLabel: "Cancelar",
+      variant: "destructive",
+    })
+    if (!confirmed) return
+
+    archiveFolder.mutate(
+      { id: folder.id, cascade: true },
+      {
+        onSuccess: () => {
+          onRefresh()
+        },
+      }
+    )
+  }
+
+  const handleMoveDocument = (doc: Document, targetFolderId: string | null) => {
+    moveDocument.mutate(
+      { id: doc.id, folderId: targetFolderId },
+      {
+        onSuccess: () => {
+          onRefresh()
+        },
+      }
+    )
+  }
+
+  const handleMoveFolder = (folderId: string, targetParentId: string | null) => {
+    moveFolder.mutate(
+      { id: folderId, newParentId: targetParentId },
+      {
+        onSuccess: () => {
+          onRefresh()
+        },
+      }
+    )
+  }
+
+  // Drag & Drop handlers
+  const handleDragStart = (e: React.DragEvent, type: 'document' | 'folder', id: string) => {
+    setDraggedItem({ type, id })
+    e.dataTransfer.effectAllowed = 'move'
+  }
+
+  const handleDragOver = (e: React.DragEvent, folderId: string | null) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    setDragOverFolder(folderId || 'root')
+  }
+
+  const handleDragLeave = () => {
+    setDragOverFolder(null)
+  }
+
+  const handleDrop = (e: React.DragEvent, targetFolderId: string | null) => {
+    e.preventDefault()
+    e.stopPropagation()
+
+    if (!draggedItem) return
+
+    if (draggedItem.type === 'document') {
+      const doc = documents.find(d => d.id === draggedItem.id)
+      if (doc) {
+        handleMoveDocument(doc, targetFolderId)
+      }
+    } else if (draggedItem.type === 'folder') {
+      // Don't allow dropping folder into itself
+      if (draggedItem.id !== targetFolderId) {
+        handleMoveFolder(draggedItem.id, targetFolderId)
+      }
+    }
+
+    setDraggedItem(null)
+    setDragOverFolder(null)
+  }
+
+  const renderNode = (node: TreeNode, depth: number = 0): React.ReactElement => {
+    if (node.type === 'folder') {
+      const folder = node.data as FolderType
+      const isExpanded = expandedFolders.has(folder.id)
+      const isDragOver = dragOverFolder === folder.id
+
+      return (
+        <div key={folder.id}>
+          <ContextMenu>
+            <ContextMenuTrigger>
+              <div
+                draggable
+                onDragStart={(e) => handleDragStart(e, 'folder', folder.id)}
+                onDragOver={(e) => handleDragOver(e, folder.id)}
+                onDragLeave={handleDragLeave}
+                onDrop={(e) => handleDrop(e, folder.id)}
+                className={`flex items-center gap-2 py-1 px-2 hover:bg-accent rounded-md cursor-pointer transition-colors ${
+                  isDragOver ? 'bg-blue-100 dark:bg-blue-900/30 border-2 border-blue-500' : ''
+                }`}
+                style={{ paddingLeft: `${depth * 16 + 8}px` }}
+                onClick={() => toggleFolder(folder.id)}
+              >
+                {isExpanded ? (
+                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                ) : (
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                )}
+                {isExpanded ? (
+                  <FolderOpen className="h-4 w-4 text-blue-500" />
+                ) : (
+                  <Folder className="h-4 w-4 text-blue-500" />
+                )}
+                <span className="text-sm font-medium">{folder.name}</span>
+              </div>
+            </ContextMenuTrigger>
+            <ContextMenuContent>
+              <ContextMenuItem onClick={() => {
+                setParentFolder(folder)
+                setShowNewFolderDialog(true)
+              }}>
+                <FolderPlus className="h-4 w-4 mr-2" />
+                Nova pasta aqui
+              </ContextMenuItem>
+              <ContextMenuItem onClick={() => {
+                setSelectedFolder(folder)
+                setRenameFolderName(folder.name)
+                setShowRenameFolderDialog(true)
+              }}>
+                <Edit2 className="h-4 w-4 mr-2" />
+                Renomear
+              </ContextMenuItem>
+              <ContextMenuSeparator />
+              <ContextMenuItem
+                onClick={() => handleDeleteFolder(folder)}
+                className="text-destructive"
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Arquivar pasta
+              </ContextMenuItem>
+            </ContextMenuContent>
+          </ContextMenu>
+
+          {isExpanded && node.children && (
+            <div>
+              {node.children.map(child => renderNode(child, depth + 1))}
+            </div>
+          )}
+        </div>
+      )
+    } else {
+      const doc = node.data as Document
+      const isSelected = selectedDoc?.id === doc.id
+      const isDragging = draggedItem?.type === 'document' && draggedItem.id === doc.id
+
+      return (
+        <div
+          key={doc.id}
+          draggable
+          onDragStart={(e) => handleDragStart(e, 'document', doc.id)}
+          className={`flex items-center gap-2 py-1 px-2 hover:bg-accent rounded-md cursor-pointer ${
+            isSelected ? 'bg-accent' : ''
+          } ${isDragging ? 'opacity-50' : ''}`}
+          style={{ paddingLeft: `${depth * 16 + 32}px` }}
+          onClick={() => onSelectDocument(doc)}
+        >
+          <File className="h-4 w-4 text-muted-foreground" />
+          <span className="text-sm truncate">{doc.title}</span>
+        </div>
+      )
+    }
+  }
+
+  const tree = buildTree()
+  const isDragOverRoot = dragOverFolder === 'root'
+
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center justify-between mb-2 px-2">
+        <h3 className="text-sm font-semibold">Arquivos</h3>
+        <Button
+          size="sm"
+          variant="ghost"
+          className="h-7 w-7 p-0"
+          onClick={() => {
+            setParentFolder(null)
+            setShowNewFolderDialog(true)
+          }}
+          title="Nova pasta na raiz"
+        >
+          <FolderPlus className="h-4 w-4" />
+        </Button>
+      </div>
+
+      {/* Drop zone for root */}
+      <ContextMenu>
+        <ContextMenuTrigger>
+          <div
+            onDragOver={(e) => handleDragOver(e, null)}
+            onDragLeave={handleDragLeave}
+            onDrop={(e) => handleDrop(e, null)}
+            className={`min-h-[200px] ${isDragOverRoot ? 'bg-blue-50 dark:bg-blue-900/20 border-2 border-dashed border-blue-500 rounded-md' : ''}`}
+          >
+            {tree.map(node => renderNode(node))}
+            {tree.length === 0 && (
+              <div className="flex flex-col items-center justify-center py-8 text-center text-muted-foreground">
+                <Folder className="h-8 w-8 mb-2 opacity-50" />
+                <p className="text-xs">Nenhum arquivo ainda</p>
+                <p className="text-xs">Arraste arquivos aqui</p>
+              </div>
+            )}
+          </div>
+        </ContextMenuTrigger>
+        <ContextMenuContent>
+          <ContextMenuItem onClick={() => {
+            setParentFolder(null)
+            setShowNewFolderDialog(true)
+          }}>
+            <FolderPlus className="h-4 w-4 mr-2" />
+            Nova pasta na raiz
+          </ContextMenuItem>
+        </ContextMenuContent>
+      </ContextMenu>
+
+      {/* New Folder Dialog */}
+      <Dialog open={showNewFolderDialog} onOpenChange={setShowNewFolderDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Criar nova pasta</DialogTitle>
+            <DialogDescription>
+              {parentFolder ? `Dentro de "${parentFolder.name}"` : 'Na raiz do projeto'}
+            </DialogDescription>
+          </DialogHeader>
+          <Input
+            placeholder="Nome da pasta"
+            value={newFolderName}
+            onChange={(e) => setNewFolderName(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleCreateFolder()}
+            autoFocus
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowNewFolderDialog(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleCreateFolder}>Criar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Rename Folder Dialog */}
+      <Dialog open={showRenameFolderDialog} onOpenChange={setShowRenameFolderDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Renomear pasta</DialogTitle>
+            <DialogDescription>
+              Renomear "{selectedFolder?.name}"
+            </DialogDescription>
+          </DialogHeader>
+          <Input
+            placeholder="Novo nome"
+            value={renameFolderName}
+            onChange={(e) => setRenameFolderName(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleRenameFolder()}
+            autoFocus
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowRenameFolderDialog(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleRenameFolder}>Renomear</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  )
+}

@@ -1,0 +1,165 @@
+"use client"
+
+import { useState } from "react"
+import { useRouter, useParams } from "next/navigation"
+import { Button } from "@/components/ui/button"
+import {
+  ChevronRight,
+  ChevronDown,
+  Folder,
+  FolderOpen,
+  FileText,
+  Circle
+} from "lucide-react"
+import { cn } from "@/lib/utils"
+import { motion, AnimatePresence } from "framer-motion"
+
+interface Document {
+  id: string
+  title: string
+  status: string
+  type?: "creation" | "context"
+}
+
+interface Project {
+  id: string
+  name: string
+  description?: string
+  documents?: Document[]
+}
+
+interface ProjectTreeItemProps {
+  project: Project
+  workspaceId: string
+  isActive: boolean
+  isExpanded: boolean
+  onToggle: () => void
+  documentCount?: number
+  onDocumentNavigate?: (url: string) => void
+}
+
+const statusColors = {
+  draft: "text-slate-500",
+  review: "text-blue-500",
+  approved: "text-green-500",
+  production: "text-purple-500",
+  rascunho: "text-slate-500",
+  "em revisão": "text-blue-500",
+  aprovado: "text-green-500",
+  "em produção": "text-purple-500"
+}
+
+export default function ProjectTreeItem({
+  project,
+  workspaceId,
+  isActive,
+  isExpanded,
+  onToggle,
+  documentCount = 0,
+  onDocumentNavigate
+}: ProjectTreeItemProps) {
+  const router = useRouter()
+  const params = useParams()
+  const currentDocId = params.documentId as string
+
+  const handleProjectClick = () => {
+    router.push(`/workspace/${workspaceId}/project/${project.id}`)
+    if (!isExpanded) {
+      onToggle()
+    }
+  }
+
+  const handleDocumentClick = (docId: string) => {
+    const url = `/workspace/${workspaceId}/project/${project.id}?doc=${docId}`
+    if (onDocumentNavigate) {
+      onDocumentNavigate(url)
+    } else {
+      router.push(url)
+    }
+  }
+
+  return (
+    <div className="select-none">
+      <div
+        className={cn(
+          "group flex items-center gap-2 px-2 py-2 rounded-lg cursor-pointer transition-smooth",
+          "hover:bg-secondary/80",
+          isActive && "bg-secondary"
+        )}
+      >
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-5 w-5 p-0 hover:bg-transparent"
+          onClick={(e) => {
+            e.stopPropagation()
+            onToggle()
+          }}
+        >
+          {isExpanded ? (
+            <ChevronDown className="h-4 w-4 text-muted-foreground" />
+          ) : (
+            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+          )}
+        </Button>
+
+        <div
+          className="flex items-center gap-2 flex-1 min-w-0"
+          onClick={handleProjectClick}
+        >
+          {isActive || isExpanded ? (
+            <FolderOpen className="h-4 w-4 text-primary shrink-0" />
+          ) : (
+            <Folder className="h-4 w-4 text-muted-foreground shrink-0" />
+          )}
+          <span className={cn(
+            "text-sm truncate transition-smooth",
+            isActive ? "font-semibold text-foreground" : "font-medium text-muted-foreground"
+          )}>
+            {project.name}
+          </span>
+          {documentCount > 0 && (
+            <span className="text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded-full font-medium ml-auto">
+              {documentCount}
+            </span>
+          )}
+        </div>
+      </div>
+
+      <AnimatePresence initial={false}>
+        {isExpanded && project.documents && project.documents.length > 0 && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2, ease: "easeInOut" }}
+            className="overflow-hidden"
+          >
+            <div className="ml-7 mt-1 space-y-0.5 border-l border-border/50 pl-3">
+              {project.documents.map((doc) => {
+                const isDocActive = currentDocId === doc.id
+                const statusColor = statusColors[doc.status.toLowerCase() as keyof typeof statusColors] || "text-muted-foreground"
+
+                return (
+                  <div
+                    key={doc.id}
+                    className={cn(
+                      "flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer transition-smooth text-sm",
+                      "hover:bg-secondary/60",
+                      isDocActive && "bg-primary/10 text-primary font-medium"
+                    )}
+                    onClick={() => handleDocumentClick(doc.id)}
+                  >
+                    <FileText className={cn("h-3.5 w-3.5 shrink-0", isDocActive ? "text-primary" : "text-muted-foreground")} />
+                    <span className="truncate flex-1">{doc.title}</span>
+                    <Circle className={cn("h-2 w-2 fill-current shrink-0", statusColor)} />
+                  </div>
+                )
+              })}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  )
+}

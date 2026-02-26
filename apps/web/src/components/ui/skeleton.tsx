@@ -1,4 +1,4 @@
-import { cn } from '@/lib/utils';
+import { cn } from "@/lib/utils"
 
 function Skeleton({
   className,
@@ -7,12 +7,12 @@ function Skeleton({
   return (
     <div
       className={cn(
-        'rounded-md bg-muted/60 animate-[pulse_2s_cubic-bezier(0.4,0,0.6,1)_infinite]',
-        className,
+        "rounded-md bg-muted/60 animate-[pulse_2s_cubic-bezier(0.4,0,0.6,1)_infinite]",
+        className
       )}
       {...props}
     />
-  );
+  )
 }
 
-export { Skeleton };
+export { Skeleton }

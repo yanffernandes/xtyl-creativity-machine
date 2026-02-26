@@ -1,2 +1,2 @@
-export { CampaignManager } from './CampaignManager';
-export { CampaignPicker } from './CampaignPicker';
+export { CampaignPicker } from './CampaignPicker'
+export { CampaignManager } from './CampaignManager'

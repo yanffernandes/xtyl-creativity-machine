@@ -3,8 +3,6 @@
  *
  * TypeScript types for the image variation system that generates
  * multiple image options per request.
- *
- * Ported from: frontend/src/types/image-variations.ts
  */
 
 /**
@@ -127,16 +125,16 @@ export interface VariationState {
  * Default modifiers (matches backend)
  */
 export const DEFAULT_VARIATION_MODIFIERS = [
-  "minimalist and clean version, with white space, elegant typography",
-  "vibrant and impactful version, saturated colors, dynamic elements",
-  "sophisticated and premium version, neutral tones, balanced composition",
+  "versão minimalista e clean, com espaço em branco, tipografia elegante",
+  "versão vibrante e impactante, cores saturadas, elementos dinâmicos",
+  "versão sofisticada e premium, tons neutros, composição equilibrada"
 ];
 
 /**
  * Variation count options for admin settings
  */
 export const VARIATION_COUNT_OPTIONS = [
-  { value: 1, label: '1 variation (fastest)' },
-  { value: 2, label: '2 variations (recommended)' },
-  { value: 3, label: '3 variations (more options)' },
+  { value: 1, label: '1 variação (mais rápido)' },
+  { value: 2, label: '2 variações (recomendado)' },
+  { value: 3, label: '3 variações (mais opções)' },
 ] as const;

@@ -1,39 +1,126 @@
 /**
- * Models Cache
+ * Models Cache Utilities
  *
- * Simple localStorage cache for chat models to avoid
- * refetching on every page load.
+ * Provides localStorage persistence for AI models list.
+ * Implements stale-while-revalidate pattern for instant UI updates.
  *
- * Ported from: frontend/src/lib/models-cache.ts
+ * Feature: 013-sidebar-cache (extension)
  */
 
+const CACHE_KEY = 'models-cache-v1'
+const CURRENT_VERSION = 1
+const CACHE_TTL = 1000 * 60 * 60 // 1 hour - models don't change frequently
+
+// ============================================================================
+// Types
+// ============================================================================
+
 export interface CachedModel {
-  id: string;
-  name: string;
+  id: string
+  name: string
 }
 
-const CACHE_KEY = 'xtyl_models_cache';
-const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+interface ModelsCacheStorage {
+  version: number
+  models: CachedModel[]
+  timestamp: number
+}
 
-export function getModelsCache(): CachedModel[] | null {
+// ============================================================================
+// Storage utilities
+// ============================================================================
+
+function loadStorage(): ModelsCacheStorage | null {
+  if (typeof window === 'undefined') {
+    return null
+  }
+
   try {
-    const cached = localStorage.getItem(CACHE_KEY);
-    if (!cached) return null;
-    const { models, timestamp } = JSON.parse(cached);
-    if (Date.now() - timestamp > CACHE_TTL) return null;
-    return models;
-  } catch {
-    return null;
+    const raw = localStorage.getItem(CACHE_KEY)
+    if (!raw) return null
+
+    const parsed = JSON.parse(raw)
+
+    if (parsed.version !== CURRENT_VERSION) {
+      if (process.env.NODE_ENV === 'development') {
+        console.warn(`[models-cache] Version mismatch, clearing cache`)
+      }
+      localStorage.removeItem(CACHE_KEY)
+      return null
+    }
+
+    return parsed
+  } catch (error) {
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('[models-cache] Cache corrupted, clearing:', error)
+    }
+    localStorage.removeItem(CACHE_KEY)
+    return null
   }
 }
 
-export function setModelsCache(models: CachedModel[]): void {
-  localStorage.setItem(
-    CACHE_KEY,
-    JSON.stringify({ models, timestamp: Date.now() })
-  );
+function saveStorage(storage: ModelsCacheStorage): void {
+  if (typeof window === 'undefined') return
+
+  try {
+    localStorage.setItem(CACHE_KEY, JSON.stringify(storage))
+  } catch (e) {
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('[models-cache] Failed to save:', e)
+    }
+  }
 }
 
+// ============================================================================
+// Public API
+// ============================================================================
+
+/**
+ * Get cached models list
+ */
+export function getModelsCache(): CachedModel[] | null {
+  const storage = loadStorage()
+  if (!storage) return null
+
+  // Check if cache is still valid (within TTL)
+  const age = Date.now() - storage.timestamp
+  if (age > CACHE_TTL) {
+    // Cache expired, but still return it for stale-while-revalidate
+    // The consumer should trigger a refresh
+    return storage.models
+  }
+
+  return storage.models
+}
+
+/**
+ * Check if cache is stale (expired but still usable)
+ */
 export function isModelsCacheStale(): boolean {
-  return getModelsCache() === null;
+  const storage = loadStorage()
+  if (!storage) return true
+
+  const age = Date.now() - storage.timestamp
+  return age > CACHE_TTL
+}
+
+/**
+ * Save models to cache
+ */
+export function setModelsCache(models: CachedModel[]): void {
+  const storage: ModelsCacheStorage = {
+    version: CURRENT_VERSION,
+    models,
+    timestamp: Date.now()
+  }
+  saveStorage(storage)
+}
+
+/**
+ * Clear models cache
+ */
+export function clearModelsCache(): void {
+  if (typeof window !== 'undefined') {
+    localStorage.removeItem(CACHE_KEY)
+  }
 }

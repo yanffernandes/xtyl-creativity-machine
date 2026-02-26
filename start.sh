@@ -212,7 +212,7 @@ ensure_backend_venv() {
 # Frontend setup
 # ---------------------------------------------------------------------------
 ensure_frontend_deps() {
-    cd "$PROJECT_ROOT/frontend"
+    cd "$PROJECT_ROOT/apps/web"
 
     if [ ! -d "node_modules" ]; then
         info "Installing npm dependencies (first run)..."
@@ -252,7 +252,7 @@ run_backend() {
 # Run frontend with prefixed output
 # ---------------------------------------------------------------------------
 run_frontend() {
-    cd "$PROJECT_ROOT/frontend"
+    cd "$PROJECT_ROOT/apps/web"
 
     npm run dev 2>&1 | while IFS= read -r line; do
         case "$line" in
@@ -349,7 +349,7 @@ echo ""
 echo -e "${BOLD}${WHITE}  Services running:${RESET}"
 echo ""
 echo -e "    ${CYAN}Backend ${RESET} ${DIM}........${RESET} ${WHITE}http://localhost:8000${RESET}  ${DIM}(FastAPI + uvicorn)${RESET}"
-echo -e "    ${MAGENTA}Frontend${RESET} ${DIM}........${RESET} ${WHITE}http://localhost:3000${RESET}  ${DIM}(Next.js dev)${RESET}"
+echo -e "    ${MAGENTA}Frontend${RESET} ${DIM}........${RESET} ${WHITE}http://localhost:3000${RESET}  ${DIM}(React + Vite dev)${RESET}"
 
 if [ "$REDIS_RUNNING" = true ]; then
     echo -e "    ${DIM}Redis    ........ localhost:6379   (cache)${RESET}"

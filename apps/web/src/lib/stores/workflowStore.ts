@@ -7,16 +7,16 @@
 
 import { create } from 'zustand';
 import {
-  type Node,
-  type Edge,
-  type OnNodesChange,
-  type OnEdgesChange,
-  type Connection,
+  Node,
+  Edge,
+  OnNodesChange,
+  OnEdgesChange,
   applyNodeChanges,
   applyEdgeChanges,
   addEdge,
+  Connection,
 } from 'reactflow';
-import type { WorkflowNode, WorkflowEdge } from '../workflow-schema';
+import { WorkflowNode, WorkflowEdge } from '../workflow-schema';
 
 interface WorkflowState {
   // Workflow data
@@ -26,7 +26,7 @@ interface WorkflowState {
   workflowId: string | null;
   workflowName: string;
   workflowDescription: string;
-  isDirty: boolean;
+  isDirty: boolean; // Has unsaved changes
 
   // Node/Edge operations
   setNodes: (nodes: Node[]) => void;
@@ -37,7 +37,7 @@ interface WorkflowState {
 
   addNode: (node: Node) => void;
   removeNode: (nodeId: string) => void;
-  updateNodeData: (nodeId: string, data: Record<string, unknown>) => void;
+  updateNodeData: (nodeId: string, data: any) => void;
 
   addEdge: (edge: Edge) => void;
   removeEdge: (edgeId: string) => void;
@@ -52,10 +52,7 @@ interface WorkflowState {
   setWorkflowDescription: (description: string) => void;
 
   // Load/save
-  loadWorkflow: (workflow: {
-    nodes: WorkflowNode[];
-    edges: WorkflowEdge[];
-  }) => void;
+  loadWorkflow: (workflow: { nodes: WorkflowNode[]; edges: WorkflowEdge[] }) => void;
   clearWorkflow: () => void;
   markSaved: () => void;
 
@@ -109,11 +106,8 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   removeNode: (nodeId) => {
     set({
       nodes: get().nodes.filter((n) => n.id !== nodeId),
-      edges: get().edges.filter(
-        (e) => e.source !== nodeId && e.target !== nodeId,
-      ),
-      selectedNode:
-        get().selectedNode?.id === nodeId ? null : get().selectedNode,
+      edges: get().edges.filter((e) => e.source !== nodeId && e.target !== nodeId),
+      selectedNode: get().selectedNode?.id === nodeId ? null : get().selectedNode,
       isDirty: true,
     });
   },
@@ -122,14 +116,14 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     const nodes = get().nodes.map((node) =>
       node.id === nodeId
         ? { ...node, data: { ...node.data, ...data } }
-        : node,
+        : node
     );
 
+    // Also update selectedNode if it's the one being modified
     const selectedNode = get().selectedNode;
-    const newSelectedNode =
-      selectedNode?.id === nodeId
-        ? nodes.find((n) => n.id === nodeId) || null
-        : selectedNode;
+    const newSelectedNode = selectedNode?.id === nodeId
+      ? nodes.find(n => n.id === nodeId) || null
+      : selectedNode;
 
     set({
       nodes,
@@ -157,11 +151,13 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
 
   // Selection
   selectNode: (node) => {
+    // Deselect all nodes first
     const updatedNodes = get().nodes.map((n) => ({
       ...n,
       selected: false,
     }));
 
+    // Select the target node
     if (node) {
       const index = updatedNodes.findIndex((n) => n.id === node.id);
       if (index >= 0) {
@@ -199,6 +195,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
 
   // Load/save
   loadWorkflow: (workflow) => {
+    // Convert WorkflowNode[] to ReactFlow Node[]
     const nodes: Node[] = workflow.nodes.map((node) => ({
       id: node.id,
       type: node.type,
@@ -206,6 +203,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       data: node.data,
     }));
 
+    // Convert WorkflowEdge[] to ReactFlow Edge[]
     const edges: Edge[] = workflow.edges.map((edge) => ({
       id: edge.id,
       source: edge.source,

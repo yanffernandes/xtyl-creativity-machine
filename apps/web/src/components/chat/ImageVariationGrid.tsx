@@ -1,3 +1,5 @@
+"use client";
+
 /**
  * ImageVariationGrid Component - Smart Image Generation (Feature 026)
  *
@@ -13,15 +15,7 @@ import { useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
-
-export interface ImageVariation {
-  id: string;
-  imageUrl: string;
-  thumbnailUrl: string | null;
-  modifier: string;
-  index: number;
-  documentId: string;
-}
+import type { ImageVariation } from "@/types/image-variations";
 
 interface ImageVariationGridProps {
   totalVariations: number;
@@ -95,7 +89,7 @@ export function ImageVariationGrid({
                 >
                   <img
                     src={variation.thumbnailUrl || variation.imageUrl}
-                    alt={`Variation ${index + 1}`}
+                    alt={`Variação ${index + 1}`}
                     className="w-full h-full object-cover"
                     loading="lazy"
                     onError={() => handleImageError(variation.id)}
@@ -123,7 +117,7 @@ export function ImageVariationGrid({
                       />
                     </svg>
                     <p className="text-xs text-destructive">
-                      Failed
+                      Falhou
                     </p>
                   </div>
                 </motion.div>
@@ -141,7 +135,7 @@ export function ImageVariationGrid({
                       <div className="text-center">
                         <div className="animate-spin w-8 h-8 border-2 border-primary border-t-transparent rounded-full mx-auto mb-2" />
                         <p className="text-xs text-muted-foreground">
-                          Generating...
+                          Gerando...
                         </p>
                       </div>
                     </div>
@@ -161,7 +155,7 @@ export function ImageVariationGrid({
               {variation && !hasImageLoadError ? (
                 <>
                   <span className="font-medium">
-                    Variation {index + 1}
+                    Variação {index + 1}
                   </span>
                   <span className="hidden sm:inline text-white/70">
                     {" "}
@@ -170,11 +164,11 @@ export function ImageVariationGrid({
                 </>
               ) : hasFailed || hasImageLoadError ? (
                 <span className="text-destructive-foreground">
-                  {hasImageLoadError ? "Failed to load image" : `Error in variation ${index + 1}`}
+                  {hasImageLoadError ? "Erro ao carregar imagem" : `Erro na variação ${index + 1}`}
                 </span>
               ) : (
                 <span className="text-white/70">
-                  Generating {index + 1}/{totalVariations}...
+                  Gerando {index + 1}/{totalVariations}...
                 </span>
               )}
             </div>

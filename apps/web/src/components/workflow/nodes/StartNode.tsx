@@ -1,13 +1,14 @@
-import { memo } from 'react';
-import type { NodeProps } from 'reactflow';
-import { Position } from 'reactflow';
-import { Play } from 'lucide-react';
-import BaseNode from './BaseNode';
+"use client";
+
+import { memo } from "react";
+import { NodeProps, Position } from "reactflow";
+import { Play } from "lucide-react";
+import BaseNode from "./BaseNode";
 
 function StartNode({ data, selected }: NodeProps) {
   return (
     <BaseNode
-      label={data.label || 'Start'}
+      label={data.label || "Start"}
       icon={Play}
       color="text-green-500"
       selected={selected}

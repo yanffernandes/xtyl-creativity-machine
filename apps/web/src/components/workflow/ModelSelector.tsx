@@ -1,6 +1,17 @@
-import { useState, useEffect } from 'react';
-import { Check, ChevronsUpDown, Image as ImageIcon, Type } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+"use client";
+
+/**
+ * Model Selector Component
+ *
+ * Searchable model selector using Command component.
+ * Fetches models from appropriate API endpoint based on type:
+ * - /chat/models for text models
+ * - /image-generation/models for image models
+ */
+
+import { useState, useEffect } from "react";
+import { Check, ChevronsUpDown, Image as ImageIcon, Type } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import {
   Command,
   CommandEmpty,
@@ -8,15 +19,16 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
-} from '@/components/ui/command';
+} from "@/components/ui/command";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from '@/components/ui/popover';
-import { cn } from '@/lib/utils';
-import { glassModalClasses } from '@/lib/glass-utils';
-import api from '@/lib/api';
+} from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
+import { glassModalClasses } from "@/lib/glass-utils";
+import api from "@/lib/api";
+import { useAuthStore } from "@/lib/store";
 
 interface Model {
   id: string;
@@ -27,81 +39,85 @@ interface Model {
 interface ModelSelectorProps {
   value: string;
   onChange: (model: string) => void;
-  type: 'text' | 'image';
+  type: "text" | "image";
   disabled?: boolean;
   className?: string;
 }
 
+// Categorize models by their ID prefix
 const getModelProvider = (modelId: string): string => {
-  if (modelId.startsWith('anthropic/')) return 'Anthropic';
-  if (modelId.startsWith('openai/')) return 'OpenAI';
-  if (modelId.startsWith('google/')) return 'Google';
-  if (modelId.startsWith('x-ai/')) return 'xAI';
-  if (modelId.startsWith('black-forest-labs/')) return 'Black Forest Labs';
-  if (modelId.startsWith('stability-ai/')) return 'Stability AI';
-  if (modelId.startsWith('meta/')) return 'Meta';
-  if (modelId.startsWith('ideogram/')) return 'Ideogram';
-  if (modelId.startsWith('recraft/')) return 'Recraft';
-  return 'Other';
+  if (modelId.startsWith("anthropic/")) return "Anthropic";
+  if (modelId.startsWith("openai/")) return "OpenAI";
+  if (modelId.startsWith("google/")) return "Google";
+  if (modelId.startsWith("x-ai/")) return "xAI";
+  if (modelId.startsWith("black-forest-labs/")) return "Black Forest Labs";
+  if (modelId.startsWith("stability-ai/")) return "Stability AI";
+  if (modelId.startsWith("meta/")) return "Meta";
+  if (modelId.startsWith("ideogram/")) return "Ideogram";
+  if (modelId.startsWith("recraft/")) return "Recraft";
+  return "Outro";
 };
 
+// Get display name from model ID
 const getDisplayName = (modelId: string, modelName?: string): string => {
   if (modelName) return modelName;
-  const parts = modelId.split('/');
+  const parts = modelId.split("/");
   return parts[parts.length - 1]
-    .split('-')
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ');
+    .split("-")
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
 };
 
-export default function WorkflowModelSelector({
+export default function ModelSelector({
   value,
   onChange,
   type,
   disabled = false,
-  className,
+  className
 }: ModelSelectorProps) {
   const [open, setOpen] = useState(false);
   const [models, setModels] = useState<Model[]>([]);
   const [loading, setLoading] = useState(true);
+  const { token, isLoading: authLoading } = useAuthStore();
 
   useEffect(() => {
-    fetchModels();
-  }, [type]);
+    if (authLoading) return;
+    if (token) {
+      fetchModels();
+    }
+  }, [token, authLoading, type]);
 
   const fetchModels = async () => {
     try {
       setLoading(true);
-      const endpoint =
-        type === 'image'
-          ? '/api/image-generation/models'
-          : '/api/chat/models';
+
+      // Use different endpoint based on type - API returns only relevant models
+      const endpoint = type === "image" ? "/image-generation/models" : "/chat/models";
       const response = await api.get(endpoint);
 
-      const fetchedModels: Model[] = response.data.map(
-        (m: Record<string, unknown>) => ({
-          id: m.id,
-          name: (m.name as string) || getDisplayName(m.id as string),
-          provider: getModelProvider(m.id as string),
-        }),
-      );
+      // Map API response to our model format
+      const fetchedModels: Model[] = response.data.map((m: any) => ({
+        id: m.id,
+        name: m.name || getDisplayName(m.id),
+        provider: getModelProvider(m.id),
+      }));
 
       setModels(fetchedModels);
 
+      // Auto-select first model if no value is set
       if (!value && fetchedModels.length > 0) {
         onChange(fetchedModels[0].id);
       }
     } catch (error) {
-      console.error('Failed to fetch models', error);
+      console.error("Failed to fetch models", error);
       setModels([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const selectedModel = models.find((m) => m.id === value);
-  const displayValue =
-    selectedModel?.name || (value ? getDisplayName(value) : 'Select model...');
+  const selectedModel = models.find(m => m.id === value);
+  const displayValue = selectedModel?.name || (value ? getDisplayName(value) : "Select model...");
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -112,44 +128,43 @@ export default function WorkflowModelSelector({
           aria-expanded={open}
           disabled={disabled || loading}
           className={cn(
-            'w-full justify-between',
-            'bg-white/[0.04] border-white/[0.1]',
-            'hover:bg-white/[0.08] hover:border-primary/30',
-            'text-sm h-10',
-            className,
+            "w-full justify-between",
+            "bg-white/[0.04] border-white/[0.1]",
+            "hover:bg-white/[0.08] hover:border-primary/30",
+            "text-sm h-10",
+            className
           )}
         >
           <div className="flex items-center gap-2 truncate">
-            {type === 'image' ? (
+            {type === "image" ? (
               <ImageIcon className="h-4 w-4 text-pink-500 shrink-0" />
             ) : (
               <Type className="h-4 w-4 text-purple-500 shrink-0" />
             )}
             <span className="truncate">
-              {loading ? 'Loading...' : displayValue}
+              {loading ? "Carregando..." : displayValue}
             </span>
           </div>
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
       <PopoverContent
-        className={cn('w-[300px] p-0', glassModalClasses)}
+        className={cn(
+          "w-[300px] p-0",
+          glassModalClasses
+        )}
         align="start"
       >
         <Command className="bg-transparent">
           <CommandInput
-            placeholder="Search models..."
+            placeholder="Buscar modelos..."
             className="border-0 focus:ring-0"
           />
           <CommandList className="max-h-[300px]">
-            <CommandEmpty>No models found.</CommandEmpty>
+            <CommandEmpty>Nenhum modelo encontrado.</CommandEmpty>
 
             {models.length > 0 && (
-              <CommandGroup
-                heading={
-                  type === 'image' ? 'Image Models' : 'Text Models'
-                }
-              >
+              <CommandGroup heading={type === "image" ? "Modelos de Imagem" : "Modelos de Texto"}>
                 {models.map((model) => (
                   <CommandItem
                     key={model.id}
@@ -162,10 +177,8 @@ export default function WorkflowModelSelector({
                   >
                     <Check
                       className={cn(
-                        'h-4 w-4 shrink-0',
-                        value === model.id
-                          ? 'opacity-100 text-primary'
-                          : 'opacity-0',
+                        "h-4 w-4 shrink-0",
+                        value === model.id ? "opacity-100 text-primary" : "opacity-0"
                       )}
                     />
                     <div className="flex flex-col flex-1 min-w-0">

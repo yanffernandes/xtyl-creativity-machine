@@ -1,7 +1,7 @@
 /**
  * Workflow Schema Types
  *
- * TypeScript interfaces matching backend schemas and JSON Schema contracts.
+ * TypeScript interfaces matching backend Pydantic schemas and JSON Schema contracts.
  * Used for type-safe workflow creation and editing with ReactFlow.
  */
 
@@ -70,7 +70,7 @@ export interface ContextRetrievalNodeData {
     status?: string;
     asset_type?: string;
     tags?: string[];
-    [key: string]: unknown;
+    [key: string]: any;
   };
   maxResults?: number;
 }
@@ -82,6 +82,7 @@ export interface ProcessingNodeData {
   outputFormat?: 'text' | 'json' | 'markdown';
 }
 
+// Union type of all node data
 export type NodeData =
   | StartNodeData
   | FinishNodeData
@@ -110,7 +111,7 @@ export interface WorkflowNode {
   id: string;
   type: NodeType;
   position: NodePosition;
-  data: Record<string, unknown>;
+  data: Record<string, any>; // Flexible for ReactFlow, typed versions above
 }
 
 // ============================================================================
@@ -141,7 +142,7 @@ export interface WorkflowTemplateCreate extends WorkflowTemplateBase {
   workspace_id: string;
   nodes: WorkflowNode[];
   edges: WorkflowEdge[];
-  default_params?: Record<string, unknown>;
+  default_params?: Record<string, any>;
   is_system?: boolean;
   is_recommended?: boolean;
   version?: string;
@@ -153,7 +154,7 @@ export interface WorkflowTemplateUpdate {
   category?: string;
   nodes?: WorkflowNode[];
   edges?: WorkflowEdge[];
-  default_params?: Record<string, unknown>;
+  default_params?: Record<string, any>;
   is_recommended?: boolean;
 }
 
@@ -162,7 +163,7 @@ export interface WorkflowTemplateDetail extends WorkflowTemplateBase {
   workspace_id: string;
   nodes: WorkflowNode[];
   edges: WorkflowEdge[];
-  default_params: Record<string, unknown>;
+  default_params: Record<string, any>;
   is_system: boolean;
   is_recommended: boolean;
   usage_count: number;
@@ -179,7 +180,7 @@ export interface WorkflowTemplateDetail extends WorkflowTemplateBase {
 export interface ExecutionStartRequest {
   workflow_id: string;
   project_id: string;
-  input_variables?: Record<string, unknown>;
+  input_variables?: Record<string, any>;
 }
 
 export interface NodeExecutionLog {
@@ -187,7 +188,7 @@ export interface NodeExecutionLog {
   node_name: string;
   node_type: string;
   status: 'pending' | 'running' | 'completed' | 'failed';
-  outputs?: Record<string, unknown>;
+  outputs?: Record<string, any>;
   error_message?: string;
   execution_order: number;
   started_at?: string;
@@ -250,16 +251,19 @@ export interface ValidationResult {
 // HELPER TYPES FOR REACTFLOW INTEGRATION
 // ============================================================================
 
+// Extended node type for ReactFlow with custom data
 export interface ReactFlowNode extends WorkflowNode {
   selected?: boolean;
   dragging?: boolean;
 }
 
+// Extended edge type for ReactFlow
 export interface ReactFlowEdge extends WorkflowEdge {
   selected?: boolean;
   animated?: boolean;
 }
 
+// Workflow definition for ReactFlow canvas
 export interface WorkflowDefinition {
   nodes: ReactFlowNode[];
   edges: ReactFlowEdge[];

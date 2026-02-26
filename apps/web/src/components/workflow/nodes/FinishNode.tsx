@@ -1,13 +1,14 @@
-import { memo } from 'react';
-import type { NodeProps } from 'reactflow';
-import { Position } from 'reactflow';
-import { Square } from 'lucide-react';
-import BaseNode from './BaseNode';
+"use client";
+
+import { memo } from "react";
+import { NodeProps, Position } from "reactflow";
+import { Square } from "lucide-react";
+import BaseNode from "./BaseNode";
 
 function FinishNode({ data, selected }: NodeProps) {
   return (
     <BaseNode
-      label={data.label || 'Finish'}
+      label={data.label || "Finish"}
       icon={Square}
       color="text-red-500"
       selected={selected}

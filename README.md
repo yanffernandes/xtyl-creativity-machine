@@ -61,6 +61,8 @@ docker-compose up -d
 - `SUPABASE_JWT_SECRET`
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_ANON_KEY`
 
 **Cloudflare R2:**
 - `R2_ENDPOINT` - `https://[ACCOUNT_ID].r2.cloudflarestorage.com`
@@ -70,7 +72,7 @@ docker-compose up -d
 **Application:**
 - `OPENROUTER_API_KEY` - AI models
 - `BREVO_API_KEY` - Email
-- `FRONTEND_URL`, `NEXT_PUBLIC_API_URL`
+- `FRONTEND_URL`, `NEXT_PUBLIC_API_URL`, `VITE_API_URL`
 
 ---
 
@@ -110,7 +112,8 @@ docker-compose up -d
 
 ## Project Structure
 ```
-├── frontend/          Next.js 14 + Shadcn/UI
+├── apps/web/          React 19 + Vite + TanStack Router
+├── frontend/          Legacy Next.js app (deprecated)
 ├── backend/           FastAPI + SQLAlchemy
 ├── supabase/          Database resources
 │   ├── migrations/    SQL migration files

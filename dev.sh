@@ -110,7 +110,7 @@ setup_backend() {
 # Setup frontend
 setup_frontend() {
     print_status "Setting up frontend..."
-    cd "$PROJECT_ROOT/frontend"
+    cd "$PROJECT_ROOT/apps/web"
 
     if [ ! -d "node_modules" ]; then
         print_status "Installing npm dependencies..."
@@ -148,7 +148,7 @@ run_backend() {
 
 # Run frontend
 run_frontend() {
-    cd "$PROJECT_ROOT/frontend"
+    cd "$PROJECT_ROOT/apps/web"
     load_env
 
     print_status "Starting frontend on http://localhost:3000"
@@ -220,7 +220,7 @@ case "${1:-}" in
         sleep 2
 
         # Run frontend in background
-        cd "$PROJECT_ROOT/frontend"
+        cd "$PROJECT_ROOT/apps/web"
         npm run dev &
         FRONTEND_PID=$!
 
