@@ -3,6 +3,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 import asyncio
 from database import get_db, SessionLocal
 from supabase_auth import get_current_user
@@ -209,15 +210,21 @@ def _get_tool_description(tool_name: str, args: dict) -> str:
         "create_folder": lambda a: f"Criar pasta: {a.get('name', 'nova pasta')}",
         "list_documents": lambda a: "Listar documentos do projeto",
         "list_folders": lambda a: "Listar pastas do projeto",
+        "list_boards": lambda a: "Listar quadros do projeto",
         "search_documents": lambda a: f"Buscar documentos: {a.get('query', 'busca')[:30]}",
+        "create_board": lambda a: f"Criar quadro: {a.get('name', 'novo quadro')}",
         "move_file": lambda a: f"Mover arquivo para: {a.get('destination', 'destino')}",
+        "move_file_to_board": lambda a: "Mover arquivo para quadro",
         "move_folder": lambda a: f"Mover pasta para: {a.get('destination', 'destino')}",
+        "move_board": lambda a: "Mover quadro de pasta",
         "delete_file": lambda a: f"Deletar arquivo: {a.get('title', a.get('file_id', 'arquivo'))}",
         "delete_folder": lambda a: f"Deletar pasta: {a.get('name', a.get('folder_id', 'pasta'))}",
+        "delete_board": lambda a: f"Deletar quadro: {a.get('board_id', 'quadro')}",
         "web_search": lambda a: f"Pesquisar na web: {a.get('query', 'busca')[:30]}",
         "generate_image": lambda a: f"Gerar imagem: {a.get('prompt', 'imagem')[:30]}",
         "rename_document": lambda a: f"Renomear documento para: {a.get('new_title', 'novo nome')}",
         "rename_folder": lambda a: f"Renomear pasta para: {a.get('new_name', 'novo nome')}",
+        "rename_board": lambda a: f"Renomear quadro para: {a.get('new_name', 'novo nome')}",
         "get_folder_contents": lambda a: f"Listar conteúdo da pasta",
         # Image Analysis & Refinement Tools (Feature 023)
         "list_document_images": lambda a: "Listar imagens do documento",
@@ -302,6 +309,7 @@ class ChatRequest(BaseModel):
     current_document_id: Optional[str] = None  # Feature 028: For auto-attach even without RAG
     document_ids: Optional[List[str]] = None  # IDs of selected context documents
     folder_ids: Optional[List[str]] = None  # IDs of selected folders (all docs inside)
+    active_board_id: Optional[str] = None  # Active board in UI context
     autonomous_mode: bool = False  # Execute all tools without approval when True
 
 class ToolApprovalResponse(BaseModel):
@@ -580,6 +588,12 @@ Available actions:
 - When reading files: Use read_document tool
 - When creating content: Use appropriate tools to create and populate documents
 
+BOARD ORGANIZATION RULES (CRITICAL):
+- If there is an active board context, any new document must be created in that board.
+- Never answer "I did not put this in any board" after creating a document in board context.
+- If the user asks where content was placed, use tool results (board_id/board_name) and answer objectively.
+- If board context is missing and user asks board-specific organization, first list boards and then act.
+
 IMAGE GENERATION RULES (CRITICAL):
 - When generating images for a document, you MUST use the attach_to_document_id parameter in the generate_image tool
 - Do NOT manually add markdown image syntax (![...](...)) to document content - this is forbidden
@@ -616,6 +630,26 @@ CURRENT PROJECT CONTEXT:
 
 IMPORTANT: You are working within this project. When using tools that require project_id (like create_document, generate_image, etc.),
 you MUST use project_id="{request.project_id}". Do NOT ask the user for the project ID - you already have it.
+""")
+
+        if request.active_board_id:
+            board_row = db.execute(
+                text("""
+                    SELECT id, name
+                    FROM boards
+                    WHERE id = :id
+                      AND deleted_at IS NULL
+                    LIMIT 1
+                """),
+                {"id": request.active_board_id}
+            ).mappings().first()
+            if board_row:
+                system_parts.append(f"""
+ACTIVE BOARD CONTEXT:
+- Active Board ID: {board_row['id']}
+- Active Board Name: {board_row['name']}
+
+IMPORTANT: For create_document and move_file_to_board operations, prefer this board unless user explicitly requests another board.
 """)
 
         # Add project settings context for AI (T018-T022: AI Context Integration)
@@ -1429,6 +1463,14 @@ Retrieved Context:
                     # (LLM may pass "current_project" or similar placeholder)
                     if "project_id" in tool_args:
                         tool_args["project_id"] = request.project_id
+
+                    # Auto-inject active board context when creating documents from board view
+                    if tool_name == "create_document" and request.active_board_id and "board_id" not in tool_args:
+                        tool_args["board_id"] = request.active_board_id
+
+                    # If moving a document to board without explicit board_id, use current active board
+                    if tool_name == "move_file_to_board" and request.active_board_id and "board_id" not in tool_args:
+                        tool_args["board_id"] = request.active_board_id
 
                     # Feature 028: Auto-inject attach_to_document_id for generate_image
                     # This ensures images are always attached to the current document

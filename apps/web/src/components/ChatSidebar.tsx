@@ -123,6 +123,7 @@ interface CreatedDocument {
 interface ChatSidebarProps {
     workspaceId: string
     projectId?: string
+    currentBoardId?: string | null
     currentDocument?: { id: string; title: string; content?: string } | null
     onAiSuggestion?: (content: string) => void
     documents?: Document[]
@@ -139,6 +140,7 @@ interface ChatSidebarProps {
 export default function ChatSidebar({
     workspaceId,
     projectId,
+    currentBoardId,
     currentDocument,
     onAiSuggestion,
     documents = [],
@@ -692,6 +694,7 @@ export default function ChatSidebar({
                 messages: messagesWithAttachments,
                 model: selectedModel,
                 project_id: projectId,
+                active_board_id: currentBoardId || null,
                 use_rag: useRag,
                 document_ids: useRag ? selectedContextIds : [],
                 folder_ids: useRag ? selectedFolderIds : [],
@@ -935,11 +938,15 @@ export default function ChatSidebar({
                                         'move_file', 'move_folder',
                                         'delete_file', 'delete_folder',
                                         'rename_document', 'rename_folder',
+                                        'list_boards', 'create_board',
+                                        'move_file_to_board', 'move_board',
+                                        'rename_board', 'delete_board',
                                         'generate_image', 'attach_image_to_document',
                                         'edit_document'  // Include edit_document to update editor in real-time
                                     ]
                                     if (onToolExecuted && refreshTools.includes(event.tool)) {
                                         await onToolExecuted(event.tool, event.result)
+                                        window.dispatchEvent(new CustomEvent('workspace-sidebar-refresh'))
                                     }
 
                                     // Track created documents for navigation links

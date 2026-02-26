@@ -666,7 +666,12 @@ export async function searchMemories(
 // ============================================================================
 
 // Import types from centralized types file
-import type { BootstrapData, CreativeConceptList, AvailableModel } from '@/types/image-studio';
+import type {
+    BootstrapData,
+    CreativeConceptList,
+    AvailableModel,
+    Document as StudioDocument,
+} from '@/types/image-studio';
 
 /**
  * Get all bootstrap data for a project in a single request.
@@ -674,8 +679,32 @@ import type { BootstrapData, CreativeConceptList, AvailableModel } from '@/types
  *
  * Returns: project, settings, models, visual_context, memories, recent_documents, creative_concepts
  */
-export async function getProjectBootstrap(projectId: string): Promise<BootstrapData> {
-    const response = await api.get(`/projects/${projectId}/bootstrap`);
+export interface ProjectBootstrapOptions {
+    include_models?: boolean;
+    include_visual_context?: boolean;
+    include_memories?: boolean;
+    include_recent_copies?: boolean;
+    include_recent_media?: boolean;
+    include_copy_content?: boolean;
+    include_creative_concepts?: boolean;
+    recent_copies_limit?: number;
+    recent_media_limit?: number;
+    visual_context_limit?: number;
+    memories_limit?: number;
+}
+
+export async function getProjectBootstrap(
+    projectId: string,
+    options?: ProjectBootstrapOptions
+): Promise<BootstrapData> {
+    const response = await api.get(`/projects/${projectId}/bootstrap`, {
+        params: options,
+    });
+    return response.data;
+}
+
+export async function getDocumentById(documentId: string): Promise<StudioDocument> {
+    const response = await api.get(`/documents/${documentId}`);
     return response.data;
 }
 

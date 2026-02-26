@@ -2,6 +2,7 @@
 AI Agent Tools for document and folder manipulation
 """
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 from typing import List, Dict, Any, Optional, Callable
 from models import Document, Folder
 from crud import (
@@ -11,6 +12,7 @@ from crud import (
 )
 from schemas import DocumentUpdate, DocumentCreate
 import asyncio
+import uuid
 from image_generation_service import generate_and_store_image
 from image_naming_service import generate_image_title
 from services.visual_asset_service import visual_asset_service
@@ -170,7 +172,8 @@ def create_document_tool(
     project_id: str,
     title: str,
     content: str = "",
-    status: str = "draft"
+    status: str = "draft",
+    board_id: Optional[str] = None
 ) -> Dict[str, Any]:
     """
     Create a new document in a project.
@@ -181,6 +184,7 @@ def create_document_tool(
         title: Title of the new document
         content: Initial content (optional)
         status: Initial status (default: "draft")
+        board_id: Optional board ID to place the new document into
 
     Returns:
         Dictionary with created document data or error
@@ -194,6 +198,30 @@ def create_document_tool(
 
         new_doc = create_document(db, document_create, project_id)
 
+        assigned_board: Dict[str, Any] = {}
+        if board_id:
+            assign_result = assign_document_to_board_tool(
+                db=db,
+                document_id=new_doc.id,
+                board_id=board_id
+            )
+            if "error" in assign_result:
+                return {
+                    "id": new_doc.id,
+                    "title": new_doc.title,
+                    "content": new_doc.content,
+                    "status": new_doc.status,
+                    "project_id": new_doc.project_id,
+                    "created_at": str(new_doc.created_at),
+                    "warning": f"Document created, but board assignment failed: {assign_result['error']}"
+                }
+            assigned_board = {
+                "board_id": assign_result.get("board_id"),
+                "board_name": assign_result.get("board_name"),
+                "board_column_id": assign_result.get("board_column_id"),
+                "board_column_name": assign_result.get("board_column_name"),
+            }
+
         return {
             "id": new_doc.id,
             "title": new_doc.title,
@@ -201,6 +229,7 @@ def create_document_tool(
             "status": new_doc.status,
             "project_id": new_doc.project_id,
             "created_at": str(new_doc.created_at),
+            **assigned_board,
             "message": "Document created successfully"
         }
     except Exception as e:
@@ -430,6 +459,324 @@ def delete_folder_tool(
         }
     except Exception as e:
         return {"error": f"Failed to delete folder: {str(e)}"}
+
+
+# ========== BOARD TOOLS ==========
+
+def list_boards_tool(
+    db: Session,
+    project_id: str,
+    folder_id: Optional[str] = None
+) -> Dict[str, Any]:
+    """
+    List boards in a project, optionally filtered by folder.
+    """
+    try:
+        sql = """
+            SELECT id, project_id, folder_id, name, description, position, created_at
+            FROM boards
+            WHERE project_id = :project_id
+              AND deleted_at IS NULL
+        """
+        params: Dict[str, Any] = {"project_id": project_id}
+        if folder_id is None:
+            sql += " AND folder_id IS NULL"
+        else:
+            sql += " AND folder_id = :folder_id"
+            params["folder_id"] = folder_id
+        sql += " ORDER BY position ASC, created_at ASC"
+
+        rows = db.execute(text(sql), params).mappings().all()
+        boards = [dict(row) for row in rows]
+        return {"boards": boards, "count": len(boards)}
+    except Exception as e:
+        return {"error": f"Failed to list boards: {str(e)}"}
+
+
+def create_board_tool(
+    db: Session,
+    project_id: str,
+    name: str,
+    description: Optional[str] = None,
+    folder_id: Optional[str] = None
+) -> Dict[str, Any]:
+    """
+    Create a board inside a project.
+    """
+    try:
+        board_id = str(uuid.uuid4())
+        position = db.execute(
+            text("SELECT COALESCE(MAX(position), -1) + 1 FROM boards WHERE project_id = :project_id AND deleted_at IS NULL"),
+            {"project_id": project_id}
+        ).scalar() or 0
+
+        db.execute(
+            text("""
+                INSERT INTO boards (id, project_id, folder_id, name, description, position, created_at)
+                VALUES (:id, :project_id, :folder_id, :name, :description, :position, NOW())
+            """),
+            {
+                "id": board_id,
+                "project_id": project_id,
+                "folder_id": folder_id,
+                "name": name,
+                "description": description,
+                "position": int(position),
+            }
+        )
+        db.commit()
+
+        row = db.execute(
+            text("""
+                SELECT id, project_id, folder_id, name, description, position, created_at
+                FROM boards
+                WHERE id = :id
+            """),
+            {"id": board_id}
+        ).mappings().first()
+
+        return {
+            "id": row["id"],
+            "project_id": row["project_id"],
+            "folder_id": row["folder_id"],
+            "name": row["name"],
+            "description": row["description"],
+            "position": row["position"],
+            "created_at": str(row["created_at"]),
+            "message": f"Board '{row['name']}' created successfully"
+        }
+    except Exception as e:
+        db.rollback()
+        return {"error": f"Failed to create board: {str(e)}"}
+
+
+def move_board_tool(
+    db: Session,
+    board_id: str,
+    folder_id: Optional[str] = None
+) -> Dict[str, Any]:
+    """
+    Move board to a folder or project root.
+    """
+    try:
+        result = db.execute(
+            text("""
+                UPDATE boards
+                SET folder_id = :folder_id, updated_at = NOW()
+                WHERE id = :id AND deleted_at IS NULL
+                RETURNING id, project_id, folder_id, name
+            """),
+            {"id": board_id, "folder_id": folder_id}
+        ).mappings().first()
+        if not result:
+            db.rollback()
+            return {"error": f"Board with ID {board_id} not found"}
+        db.commit()
+        return {
+            "id": result["id"],
+            "project_id": result["project_id"],
+            "folder_id": result["folder_id"],
+            "name": result["name"],
+            "message": "Board moved successfully"
+        }
+    except Exception as e:
+        db.rollback()
+        return {"error": f"Failed to move board: {str(e)}"}
+
+
+def rename_board_tool(
+    db: Session,
+    board_id: str,
+    new_name: str
+) -> Dict[str, Any]:
+    """
+    Rename a board.
+    """
+    try:
+        result = db.execute(
+            text("""
+                UPDATE boards
+                SET name = :new_name, updated_at = NOW()
+                WHERE id = :id AND deleted_at IS NULL
+                RETURNING id, project_id, folder_id, name
+            """),
+            {"id": board_id, "new_name": new_name}
+        ).mappings().first()
+        if not result:
+            db.rollback()
+            return {"error": f"Board with ID {board_id} not found"}
+        db.commit()
+        return {
+            "id": result["id"],
+            "project_id": result["project_id"],
+            "folder_id": result["folder_id"],
+            "name": result["name"],
+            "message": f"Board renamed to '{result['name']}'"
+        }
+    except Exception as e:
+        db.rollback()
+        return {"error": f"Failed to rename board: {str(e)}"}
+
+
+def delete_board_tool(
+    db: Session,
+    board_id: str,
+    unassign_documents: bool = True
+) -> Dict[str, Any]:
+    """
+    Soft-delete a board and optionally unassign all documents from it.
+    """
+    try:
+        board = db.execute(
+            text("SELECT id, name FROM boards WHERE id = :id AND deleted_at IS NULL"),
+            {"id": board_id}
+        ).mappings().first()
+        if not board:
+            return {"error": f"Board with ID {board_id} not found"}
+
+        if unassign_documents:
+            db.execute(
+                text("""
+                    UPDATE documents
+                    SET board_id = NULL, board_column_id = NULL, board_position = NULL, updated_at = NOW()
+                    WHERE board_id = :board_id AND deleted_at IS NULL
+                """),
+                {"board_id": board_id}
+            )
+
+        db.execute(
+            text("UPDATE boards SET deleted_at = NOW(), updated_at = NOW() WHERE id = :id"),
+            {"id": board_id}
+        )
+        db.commit()
+        return {
+            "id": board["id"],
+            "name": board["name"],
+            "message": f"Board '{board['name']}' archived successfully"
+        }
+    except Exception as e:
+        db.rollback()
+        return {"error": f"Failed to delete board: {str(e)}"}
+
+
+def assign_document_to_board_tool(
+    db: Session,
+    document_id: str,
+    board_id: Optional[str] = None,
+    board_column_id: Optional[str] = None
+) -> Dict[str, Any]:
+    """
+    Assign document to board/column, or remove board assignment when board_id is None.
+    """
+    try:
+        doc = db.execute(
+            text("SELECT id, title, project_id FROM documents WHERE id = :id AND deleted_at IS NULL"),
+            {"id": document_id}
+        ).mappings().first()
+        if not doc:
+            return {"error": f"Document with ID {document_id} not found"}
+
+        if not board_id:
+            db.execute(
+                text("""
+                    UPDATE documents
+                    SET board_id = NULL, board_column_id = NULL, board_position = NULL, updated_at = NOW()
+                    WHERE id = :id
+                """),
+                {"id": document_id}
+            )
+            db.commit()
+            return {
+                "id": doc["id"],
+                "title": doc["title"],
+                "board_id": None,
+                "board_column_id": None,
+                "message": "Document unassigned from board"
+            }
+
+        board = db.execute(
+            text("""
+                SELECT id, project_id, name
+                FROM boards
+                WHERE id = :id AND deleted_at IS NULL
+            """),
+            {"id": board_id}
+        ).mappings().first()
+        if not board:
+            return {"error": f"Board with ID {board_id} not found"}
+        if board["project_id"] != doc["project_id"]:
+            return {"error": "Board does not belong to the same project as document"}
+
+        board_column_name: Optional[str] = None
+        if not board_column_id:
+            col = db.execute(
+                text("""
+                    SELECT id, name
+                    FROM board_columns
+                    WHERE board_id = :board_id
+                    ORDER BY position ASC, created_at ASC
+                    LIMIT 1
+                """),
+                {"board_id": board_id}
+            ).mappings().first()
+            if not col:
+                return {"error": f"Board '{board['name']}' has no columns"}
+            board_column_id = col["id"]
+            board_column_name = col.get("name")
+        else:
+            col = db.execute(
+                text("""
+                    SELECT id, name
+                    FROM board_columns
+                    WHERE id = :id AND board_id = :board_id
+                    LIMIT 1
+                """),
+                {"id": board_column_id, "board_id": board_id}
+            ).mappings().first()
+            if col:
+                board_column_name = col.get("name")
+
+        max_pos = db.execute(
+            text("""
+                SELECT COALESCE(MAX(board_position), -1) + 1
+                FROM documents
+                WHERE board_id = :board_id
+                  AND board_column_id = :board_column_id
+                  AND deleted_at IS NULL
+            """),
+            {"board_id": board_id, "board_column_id": board_column_id}
+        ).scalar() or 0
+
+        db.execute(
+            text("""
+                UPDATE documents
+                SET board_id = :board_id,
+                    board_column_id = :board_column_id,
+                    board_position = :board_position,
+                    updated_at = NOW()
+                WHERE id = :id
+            """),
+            {
+                "id": document_id,
+                "board_id": board_id,
+                "board_column_id": board_column_id,
+                "board_position": int(max_pos),
+            }
+        )
+        db.commit()
+        return {
+            "id": doc["id"],
+            "title": doc["title"],
+            "board_id": board_id,
+            "board_name": board["name"],
+            "board_column_id": board_column_id,
+            "board_column_name": board_column_name,
+            "board_position": int(max_pos),
+            "message": "Document assigned to board successfully"
+        }
+    except Exception as e:
+        db.rollback()
+        return {"error": f"Failed to assign document to board: {str(e)}"}
 
 
 # ========== RENAME AND CONTENTS TOOLS ==========
@@ -1288,6 +1635,10 @@ TOOL_DEFINITIONS = [
                         "type": "string",
                         "enum": ["draft", "text_ok", "art_ok", "done", "published"],
                         "description": "Initial status of the document (default: draft)"
+                    },
+                    "board_id": {
+                        "type": "string",
+                        "description": "Optional board ID to place the document into"
                     }
                 },
                 "required": ["project_id", "title"]
@@ -1343,6 +1694,56 @@ TOOL_DEFINITIONS = [
     {
         "type": "function",
         "function": {
+            "name": "list_boards",
+            "description": "List all boards in a project, optionally filtered by folder (or root if folder_id omitted)",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "project_id": {
+                        "type": "string",
+                        "description": "The ID of the project"
+                    },
+                    "folder_id": {
+                        "type": "string",
+                        "description": "Optional folder ID to filter boards. Omit for root boards."
+                    }
+                },
+                "required": ["project_id"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "create_board",
+            "description": "Create a new board in a project, optionally inside a folder",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "project_id": {
+                        "type": "string",
+                        "description": "The ID of the project where the board will be created"
+                    },
+                    "name": {
+                        "type": "string",
+                        "description": "Name of the new board"
+                    },
+                    "description": {
+                        "type": "string",
+                        "description": "Optional board description"
+                    },
+                    "folder_id": {
+                        "type": "string",
+                        "description": "Optional folder ID to place the board inside"
+                    }
+                },
+                "required": ["project_id", "name"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "move_file",
             "description": "Move a document to a different folder or to root level",
             "parameters": {
@@ -1358,6 +1759,52 @@ TOOL_DEFINITIONS = [
                     }
                 },
                 "required": ["document_id"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "move_file_to_board",
+            "description": "Move/assign a document to a board and optional board column, or unassign from board",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "document_id": {
+                        "type": "string",
+                        "description": "The ID of the document to move"
+                    },
+                    "board_id": {
+                        "type": "string",
+                        "description": "Destination board ID. Set null/omit to remove from board."
+                    },
+                    "board_column_id": {
+                        "type": "string",
+                        "description": "Optional destination board column ID. If omitted, first column is used."
+                    }
+                },
+                "required": ["document_id"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "move_board",
+            "description": "Move a board to a folder or back to root level",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "board_id": {
+                        "type": "string",
+                        "description": "The ID of the board to move"
+                    },
+                    "folder_id": {
+                        "type": "string",
+                        "description": "Destination folder ID. Omit/null to move board to root."
+                    }
+                },
+                "required": ["board_id"]
             }
         }
     },
@@ -1486,6 +1933,48 @@ TOOL_DEFINITIONS = [
                     }
                 },
                 "required": ["folder_id", "new_name"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "rename_board",
+            "description": "Rename a board by changing its name",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "board_id": {
+                        "type": "string",
+                        "description": "The ID of the board to rename"
+                    },
+                    "new_name": {
+                        "type": "string",
+                        "description": "The new name for the board"
+                    }
+                },
+                "required": ["board_id", "new_name"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "delete_board",
+            "description": "Archive (soft delete) a board and optionally unassign its documents",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "board_id": {
+                        "type": "string",
+                        "description": "The ID of the board to archive"
+                    },
+                    "unassign_documents": {
+                        "type": "boolean",
+                        "description": "Whether to remove board assignment from documents before archive (default: true)"
+                    }
+                },
+                "required": ["board_id"]
             }
         }
     },
@@ -1704,7 +2193,8 @@ async def execute_tool(
             tool_args["project_id"],
             tool_args["title"],
             content=tool_args.get("content", ""),
-            status=tool_args.get("status", "draft")
+            status=tool_args.get("status", "draft"),
+            board_id=tool_args.get("board_id")
         )
 
     elif tool_name == "create_folder":
@@ -1727,6 +2217,22 @@ async def execute_tool(
             parent_folder_id=tool_args.get("parent_folder_id")
         )
 
+    elif tool_name == "list_boards":
+        return list_boards_tool(
+            db,
+            tool_args["project_id"],
+            folder_id=tool_args.get("folder_id")
+        )
+
+    elif tool_name == "create_board":
+        return create_board_tool(
+            db,
+            tool_args["project_id"],
+            tool_args["name"],
+            description=tool_args.get("description"),
+            folder_id=tool_args.get("folder_id")
+        )
+
     elif tool_name == "move_file":
         return move_file_tool(
             db,
@@ -1734,11 +2240,26 @@ async def execute_tool(
             folder_id=tool_args.get("folder_id")
         )
 
+    elif tool_name == "move_file_to_board":
+        return assign_document_to_board_tool(
+            db,
+            tool_args["document_id"],
+            board_id=tool_args.get("board_id"),
+            board_column_id=tool_args.get("board_column_id")
+        )
+
     elif tool_name == "move_folder":
         return move_folder_tool(
             db,
             tool_args["folder_id"],
             new_parent_id=tool_args.get("new_parent_id")
+        )
+
+    elif tool_name == "move_board":
+        return move_board_tool(
+            db,
+            tool_args["board_id"],
+            folder_id=tool_args.get("folder_id")
         )
 
     elif tool_name == "delete_file":
@@ -1776,6 +2297,20 @@ async def execute_tool(
             db,
             tool_args["folder_id"],
             tool_args["new_name"]
+        )
+
+    elif tool_name == "rename_board":
+        return rename_board_tool(
+            db,
+            tool_args["board_id"],
+            tool_args["new_name"]
+        )
+
+    elif tool_name == "delete_board":
+        return delete_board_tool(
+            db,
+            tool_args["board_id"],
+            unassign_documents=tool_args.get("unassign_documents", True)
         )
 
     elif tool_name == "get_folder_contents":

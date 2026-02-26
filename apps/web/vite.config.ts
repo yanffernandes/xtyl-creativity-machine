@@ -16,10 +16,6 @@ export default defineConfig(({ mode }) => {
         'next/image': resolve(__dirname, './src/vite/shims/next-image.tsx'),
         'next/dynamic': resolve(__dirname, './src/vite/shims/next-dynamic.tsx'),
         'next-intl': resolve(__dirname, './src/vite/shims/next-intl.tsx'),
-        'next-intl/server': resolve(__dirname, './src/vite/shims/next-intl-server.ts'),
-        'next/headers': resolve(__dirname, './src/vite/shims/next-headers.ts'),
-        'next/font/google': resolve(__dirname, './src/vite/shims/next-font-google.ts'),
-        next: resolve(__dirname, './src/vite/shims/next.ts'),
       },
     },
     define: {

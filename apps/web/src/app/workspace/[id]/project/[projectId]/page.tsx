@@ -273,7 +273,15 @@ export default function ProjectPage() {
         console.log(`Tool executed: ${toolName}`, toolResult)
 
         // Refresh the document list when files/folders are created or moved
-        if (['create_document', 'create_folder', 'move_file', 'move_folder', 'delete_file', 'delete_folder', 'rename_document', 'rename_folder'].includes(toolName)) {
+        if ([
+            'create_document', 'create_folder',
+            'move_file', 'move_folder',
+            'delete_file', 'delete_folder',
+            'rename_document', 'rename_folder',
+            'list_boards', 'create_board',
+            'move_file_to_board', 'move_board',
+            'rename_board', 'delete_board'
+        ].includes(toolName)) {
             await fetchDocuments()
             toast({ title: "Atualizado", description: "Lista de arquivos atualizada." })
         }
@@ -543,14 +551,26 @@ export default function ProjectPage() {
     }
 
     // Handle breadcrumb click for current project - should close document and return to kanban
+    const closeEditor = useCallback(() => {
+        setSelectedDoc(null)
+        setViewingImage(null)
+        setSavedContent("")
+        setCurrentContent("")
+    }, [])
+
     const handleProjectBreadcrumbClick = () => {
-        if (selectedDoc || viewingImage) {
-            setSelectedDoc(null)
-            setViewingImage(null)
-            setSavedContent("")
-            setCurrentContent("")
-        }
+        if (selectedDoc || viewingImage) closeEditor()
     }
+
+    useEffect(() => {
+        const onBoardSelected = (event: Event) => {
+            const custom = event as CustomEvent<{ projectId?: string }>
+            if (custom.detail?.projectId && custom.detail.projectId !== projectId) return
+            closeEditor()
+        }
+        window.addEventListener('project-board-selected', onBoardSelected as EventListener)
+        return () => window.removeEventListener('project-board-selected', onBoardSelected as EventListener)
+    }, [projectId, closeEditor])
 
     const breadcrumbItems = [
         { label: "Home", href: `/workspace/${workspaceId}`, icon: <Home className="h-3.5 w-3.5" /> },
@@ -1068,6 +1088,10 @@ export default function ProjectPage() {
                                     </h2>
                                 )}
                                 <div className="flex gap-2 items-center">
+                                    <Button variant="outline" size="sm" onClick={closeEditor} className="gap-1.5">
+                                        <X className="h-4 w-4" />
+                                        Fechar
+                                    </Button>
                                     <DropdownMenu>
                                         <DropdownMenuTrigger asChild>
                                             <Button variant="ghost" size="icon">
@@ -1075,7 +1099,7 @@ export default function ProjectPage() {
                                             </Button>
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent align="end">
-                                            <DropdownMenuItem onClick={() => setSelectedDoc(null)}>
+                                            <DropdownMenuItem onClick={closeEditor}>
                                                 <X className="mr-2 h-4 w-4" />
                                                 Fechar Editor
                                             </DropdownMenuItem>
@@ -1292,6 +1316,7 @@ export default function ProjectPage() {
                 <ChatSidebar
                     workspaceId={workspaceId}
                     projectId={projectId}
+                    currentBoardId={activeBoardId}
                     currentDocument={selectedDoc}
                     onAiSuggestion={setSuggestedContent}
                     documents={[...creations, ...(contextFiles || []).map((f: any) => ({ ...f, type: "context" as const }))]}

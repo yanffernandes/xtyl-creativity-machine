@@ -8,7 +8,7 @@
  */
 
 import { useQuery, UseQueryOptions } from '@tanstack/react-query';
-import { getProjectBootstrap, getCreativeConcepts } from '@/lib/api';
+import { getProjectBootstrap, getCreativeConcepts, type ProjectBootstrapOptions } from '@/lib/api';
 import { queryKeys } from '@/lib/query-keys';
 import type { BootstrapData, CreativeConceptList } from '@/types/image-studio';
 
@@ -25,11 +25,12 @@ import type { BootstrapData, CreativeConceptList } from '@/types/image-studio';
  */
 export function useProjectBootstrap(
   projectId: string | undefined,
+  bootstrapOptions?: ProjectBootstrapOptions,
   queryOptions?: Omit<UseQueryOptions<BootstrapData>, 'queryKey' | 'queryFn'>
 ) {
   return useQuery<BootstrapData>({
-    queryKey: queryKeys.bootstrap.byProject(projectId || ''),
-    queryFn: () => getProjectBootstrap(projectId!),
+    queryKey: queryKeys.bootstrap.byProject(projectId || '', bootstrapOptions),
+    queryFn: () => getProjectBootstrap(projectId!, bootstrapOptions),
     enabled: !!projectId,
     staleTime: 1000 * 60 * 5, // 5 minutes - data doesn't change frequently
     gcTime: 1000 * 60 * 10, // 10 minutes garbage collection

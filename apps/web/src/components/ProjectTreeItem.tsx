@@ -230,6 +230,7 @@ export default function ProjectTreeItem({
   }
 
   const handleBoardClick = (boardId: string) => {
+    window.dispatchEvent(new CustomEvent("project-board-selected", { detail: { projectId: project.id, boardId } }))
     const url = `/workspace/${workspaceId}/project/${project.id}?board=${boardId}&view=kanban`
     if (onDocumentNavigate) onDocumentNavigate(url)
     else router.push(url)

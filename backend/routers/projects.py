@@ -418,6 +418,17 @@ async def get_available_models(db: Session) -> dict:
 @router.get("/{project_id}/bootstrap", response_model=BootstrapData)
 async def get_project_bootstrap(
     project_id: str,
+    include_models: bool = Query(True, description="Include available model list (may hit external provider on cold cache)"),
+    include_visual_context: bool = Query(True, description="Include reference visual assets"),
+    include_memories: bool = Query(True, description="Include project memories"),
+    include_recent_copies: bool = Query(True, description="Include recent text copies"),
+    include_recent_media: bool = Query(True, description="Include recent media"),
+    include_copy_content: bool = Query(True, description="Include full content for recent copies"),
+    include_creative_concepts: bool = Query(True, description="Include creative concepts"),
+    recent_copies_limit: int = Query(10, ge=0, le=50),
+    recent_media_limit: int = Query(10, ge=0, le=100),
+    visual_context_limit: int = Query(0, ge=0, le=500, description="0 = all"),
+    memories_limit: int = Query(10, ge=0, le=100),
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
@@ -454,92 +465,124 @@ async def get_project_bootstrap(
     if not workspace_access:
         raise HTTPException(status_code=403, detail="Access denied to this project")
 
-    # Get models (async) - pass db for fetching default model from system_config
-    models = await get_available_models(db)
+    models = {"text": [], "image": [], "default_image_model": None}
+    if include_models:
+        # Get models (async) - pass db for fetching default model from system_config
+        models = await get_available_models(db)
+    else:
+        # Fast path for Studio: keep configured default model without loading provider model catalog.
+        try:
+            from models import SystemConfig
+            import json
+
+            ai_models_config = db.query(SystemConfig).filter(SystemConfig.key == "ai_models").first()
+            if ai_models_config and ai_models_config.value:
+                config_data = json.loads(ai_models_config.value) if isinstance(ai_models_config.value, str) else ai_models_config.value
+                models["default_image_model"] = config_data.get("defaults", {}).get("image_generation")
+        except Exception:
+            pass
 
     # Get visual context assets (reference images for this project)
     # Return ALL assets so frontend can filter/select as needed
-    visual_assets = db.query(Document).filter(
-        Document.project_id == project_id,
-        Document.is_reference_asset == True,
-        Document.deleted_at == None
-    ).order_by(desc(Document.created_at)).all()
+    visual_context = []
+    if include_visual_context:
+        visual_assets_query = db.query(Document).filter(
+            Document.project_id == project_id,
+            Document.is_reference_asset == True,
+            Document.deleted_at == None
+        ).order_by(desc(Document.created_at))
 
-    visual_context = [
-        VisualAsset(
-            id=a.id,
-            project_id=a.project_id,
-            name=a.title or f"Asset {a.id}",
-            file_url=a.file_url,
-            thumbnail_url=a.thumbnail_url,
-            category=a.asset_category,
-            tags=a.asset_tags,
-            ai_description=a.ai_description,
-            is_classified=bool(a.asset_category),
-            created_at=a.created_at,
-            updated_at=a.updated_at
-        )
-        for a in visual_assets
-    ]
+        if visual_context_limit > 0:
+            visual_assets_query = visual_assets_query.limit(visual_context_limit)
 
-    # Get user memories for this project
-    memories = db.query(UserMemory).filter(
-        UserMemory.user_id == current_user.id,
-        UserMemory.project_id == project_id
-    ).order_by(desc(UserMemory.created_at)).limit(10).all()
+        visual_assets = visual_assets_query.all()
 
-    memories_response = [
-        MemoryResponse(
-            id=m.id,
-            user_id=m.user_id,
-            project_id=m.project_id,
-            content=m.content,
-            category=m.category,
-            source_conversation_id=m.source_conversation_id,
-            created_at=m.created_at,
-            updated_at=m.updated_at
-        )
-        for m in memories
-    ]
+        visual_context = [
+            VisualAsset(
+                id=a.id,
+                project_id=a.project_id,
+                name=a.title or f"Asset {a.id}",
+                file_url=a.file_url,
+                thumbnail_url=a.thumbnail_url,
+                category=a.asset_category,
+                tags=a.asset_tags,
+                ai_description=a.ai_description,
+                is_classified=bool(a.asset_category),
+                created_at=a.created_at,
+                updated_at=a.updated_at
+            )
+            for a in visual_assets
+        ]
 
-    # Get recent copies (text documents only)
-    recent_copies_query = db.query(Document).filter(
-        Document.project_id == project_id,
-        Document.is_reference_asset == False,
-        Document.deleted_at == None,
-        Document.media_type == 'text'
-    ).order_by(desc(Document.created_at)).limit(10).all()
+    memories_response = []
+    if include_memories and memories_limit > 0:
+        memories = db.query(UserMemory).filter(
+            UserMemory.user_id == current_user.id,
+            UserMemory.project_id == project_id
+        ).order_by(desc(UserMemory.created_at)).limit(memories_limit).all()
 
-    recent_copies = [
-        DocumentSchema.model_validate(d)
-        for d in recent_copies_query
-    ]
+        memories_response = [
+            MemoryResponse(
+                id=m.id,
+                user_id=m.user_id,
+                project_id=m.project_id,
+                content=m.content,
+                category=m.category,
+                source_conversation_id=m.source_conversation_id,
+                created_at=m.created_at,
+                updated_at=m.updated_at
+            )
+            for m in memories
+        ]
 
-    # Get recent media (images, videos)
-    recent_media_query = db.query(Document).filter(
-        Document.project_id == project_id,
-        Document.is_reference_asset == False,
-        Document.deleted_at == None,
-        Document.media_type.in_(['image', 'video'])
-    ).order_by(desc(Document.created_at)).limit(10).all()
+    recent_copies = []
+    if include_recent_copies and recent_copies_limit > 0:
+        recent_copies_query = db.query(Document).filter(
+            Document.project_id == project_id,
+            Document.is_reference_asset == False,
+            Document.deleted_at == None,
+            Document.media_type == 'text'
+        ).order_by(desc(Document.created_at)).limit(recent_copies_limit).all()
 
-    recent_media = [
-        DocumentSchema.model_validate(d)
-        for d in recent_media_query
-    ]
+        if include_copy_content:
+            recent_copies = [
+                DocumentSchema.model_validate(d)
+                for d in recent_copies_query
+            ]
+        else:
+            # Return metadata-only copies to reduce payload size on initial Studio load.
+            recent_copies = [
+                DocumentSchema.model_validate(d).model_copy(update={"content": None})
+                for d in recent_copies_query
+            ]
+
+    recent_media = []
+    if include_recent_media and recent_media_limit > 0:
+        recent_media_query = db.query(Document).filter(
+            Document.project_id == project_id,
+            Document.is_reference_asset == False,
+            Document.deleted_at == None,
+            Document.media_type.in_(['image', 'video'])
+        ).order_by(desc(Document.created_at)).limit(recent_media_limit).all()
+
+        recent_media = [
+            DocumentSchema.model_validate(d)
+            for d in recent_media_query
+        ]
+
+    concepts_response = []
+    if include_creative_concepts:
+        creative_concepts = db.query(CreativeConcept).filter(
+            CreativeConcept.is_active == True
+        ).order_by(CreativeConcept.sort_order).all()
+
+        concepts_response = [
+            CreativeConceptSchema.model_validate(c)
+            for c in creative_concepts
+        ]
 
     # Deprecated: combined list for backwards compatibility
     recent_documents = recent_copies + recent_media
-
-    # Get active creative concepts
-    creative_concepts = db.query(CreativeConcept).filter(
-        CreativeConcept.is_active == True
-    ).order_by(CreativeConcept.sort_order).all()
-
-    concepts_response = [
-        CreativeConceptSchema.model_validate(c)
-        for c in creative_concepts
-    ]
 
     # Build project response
     project_response = ProjectSchema(

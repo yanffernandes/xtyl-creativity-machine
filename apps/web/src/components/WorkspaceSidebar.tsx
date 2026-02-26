@@ -113,6 +113,12 @@ export default function WorkspaceSidebar({ className, onDocumentNavigate }: Work
     invalidate()
   }, [invalidate])
 
+  useEffect(() => {
+    const onExternalRefresh = () => handleRefresh()
+    window.addEventListener('workspace-sidebar-refresh', onExternalRefresh)
+    return () => window.removeEventListener('workspace-sidebar-refresh', onExternalRefresh)
+  }, [handleRefresh])
+
   // Hydrate collapsed state from localStorage on mount
   useEffect(() => {
     const saved = localStorage.getItem('sidebar-collapsed') === 'true'

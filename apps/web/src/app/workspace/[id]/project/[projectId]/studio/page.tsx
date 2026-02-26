@@ -8,7 +8,7 @@
  * Tabs: Criar | Editar | Ajustar | Vídeo
  */
 
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
@@ -42,15 +42,12 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
+import { getDocumentById } from '@/lib/api';
 
 // Image Studio Components
 import { ConceptSelector } from '@/components/image-studio/ConceptSelector';
 import { VariationGrid } from '@/components/image-studio/VariationGrid';
-import { ImageExpandModal } from '@/components/image-studio/ImageExpandModal';
 import { VisualContextPreview } from '@/components/image-studio/VisualContextPreview';
-import { EditMode } from '@/components/image-studio/EditMode';
-import { AdjustMode } from '@/components/image-studio/AdjustMode';
-import { AssetPickerModal } from '@/components/image-studio/AssetPickerModal';
 import type { GeneratedImage, AspectRatioId } from '@/types/image-studio';
 import {
   TEXT_TO_IMAGE_MODELS,
@@ -96,6 +93,19 @@ const TABS = [
   { id: 'video' as TabValue, label: 'Vídeo', icon: Video, disabled: true },
 ];
 
+const EditMode = lazy(() =>
+  import('@/components/image-studio/EditMode').then((mod) => ({ default: mod.EditMode }))
+);
+const AdjustMode = lazy(() =>
+  import('@/components/image-studio/AdjustMode').then((mod) => ({ default: mod.AdjustMode }))
+);
+const ImageExpandModal = lazy(() =>
+  import('@/components/image-studio/ImageExpandModal').then((mod) => ({ default: mod.ImageExpandModal }))
+);
+const AssetPickerModal = lazy(() =>
+  import('@/components/image-studio/AssetPickerModal').then((mod) => ({ default: mod.AssetPickerModal }))
+);
+
 export default function StudioPage() {
   const params = useParams();
   const router = useRouter();
@@ -113,9 +123,25 @@ export default function StudioPage() {
 
   // Document prompt source state
   const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(null);
+  const [selectedDocumentContent, setSelectedDocumentContent] = useState<string | null>(null);
+  const [isLoadingSelectedDocument, setIsLoadingSelectedDocument] = useState(false);
+  const bootstrapOptions = useMemo(
+    () => ({
+      include_models: false,
+      include_memories: false,
+      include_visual_context: true,
+      include_recent_copies: true,
+      include_recent_media: false,
+      include_copy_content: false,
+      include_creative_concepts: true,
+      recent_copies_limit: 20,
+      visual_context_limit: 120,
+    }),
+    []
+  );
 
   // Fetch bootstrap data (models, presets, etc.)
-  const { data, isLoading: bootstrapLoading } = useProjectBootstrap(projectId);
+  const { data } = useProjectBootstrap(projectId, bootstrapOptions);
   const bootstrapData = data as BootstrapData | undefined;
 
   // Get creative concepts
@@ -131,7 +157,7 @@ export default function StudioPage() {
   } = useProjectMedia({
     projectId,
     limit: 20,
-    enabled: !bootstrapLoading,
+    enabled: !!projectId,
   });
 
   // Image studio state management (no initialHistory - we use infinite scroll now)
@@ -205,11 +231,7 @@ export default function StudioPage() {
       return;
     }
 
-    const doc = bootstrapData?.recent_copies?.find(
-      (d: { id: string }) => d.id === selectedDocumentId
-    );
-
-    if (!doc?.content) {
+    if (!selectedDocumentContent) {
       toast.error('A copy selecionada não tem conteúdo');
       return;
     }
@@ -219,8 +241,8 @@ export default function StudioPage() {
       ? concepts.find((c: { slug: string }) => c.slug === studio.concept) || null
       : null;
 
-    await promptGenerator.generateCreativePrompt(doc.content, selectedConcept);
-  }, [bootstrapData?.recent_copies, selectedDocumentId, promptGenerator, studio.concept, concepts]);
+    await promptGenerator.generateCreativePrompt(selectedDocumentContent, selectedConcept);
+  }, [selectedDocumentId, selectedDocumentContent, promptGenerator, studio.concept, concepts]);
 
   // Handler for attaching image to selected document
   const handleAttachImage = useCallback(
@@ -238,6 +260,40 @@ export default function StudioPage() {
   const selectedDocument = selectedDocumentId
     ? bootstrapData?.recent_copies?.find((d: { id: string }) => d.id === selectedDocumentId)
     : null;
+  const selectedDocumentPreview = selectedDocumentContent ?? selectedDocument?.content ?? null;
+
+  useEffect(() => {
+    if (!selectedDocumentId) {
+      setSelectedDocumentContent(null);
+      setIsLoadingSelectedDocument(false);
+      return;
+    }
+
+    let isCancelled = false;
+    const run = async () => {
+      setIsLoadingSelectedDocument(true);
+      try {
+        const doc = await getDocumentById(selectedDocumentId);
+        if (!isCancelled) {
+          setSelectedDocumentContent(doc.content || null);
+        }
+      } catch {
+        if (!isCancelled) {
+          setSelectedDocumentContent(null);
+          toast.error('Falha ao carregar conteúdo da copy');
+        }
+      } finally {
+        if (!isCancelled) {
+          setIsLoadingSelectedDocument(false);
+        }
+      }
+    };
+
+    run();
+    return () => {
+      isCancelled = true;
+    };
+  }, [selectedDocumentId]);
 
   // Handlers for edit/adjust operations
   const handleEditComplete = (result: GeneratedImage) => {
@@ -258,12 +314,12 @@ export default function StudioPage() {
   }, []);
 
   // Loading state
-  if (authLoading || bootstrapLoading) {
+  if (authLoading) {
     return (
       <div className="h-screen w-screen flex items-center justify-center bg-gradient-to-br from-gray-50 via-blue-50/30 to-purple-50/20 dark:from-gray-950 dark:via-blue-950/20 dark:to-purple-950/10">
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
-          <span className="text-gray-500 dark:text-gray-400">Carregando estúdio...</span>
+          <span className="text-gray-500 dark:text-gray-400">Carregando sessão...</span>
         </div>
       </div>
     );
@@ -383,7 +439,10 @@ export default function StudioPage() {
 
                         <Select
                           value={selectedDocumentId || ''}
-                          onValueChange={(value) => setSelectedDocumentId(value || null)}
+                          onValueChange={(value) => {
+                            setSelectedDocumentContent(null);
+                            setSelectedDocumentId(value || null);
+                          }}
                         >
                           <SelectTrigger className="w-full bg-white dark:bg-gray-800">
                             <SelectValue placeholder="Selecione uma copy..." />
@@ -400,7 +459,9 @@ export default function StudioPage() {
                         {selectedDocument && (
                           <div className="p-3 rounded-lg bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
                             <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2">
-                              {selectedDocument.content || 'Sem conteúdo'}
+                              {isLoadingSelectedDocument
+                                ? 'Carregando conteúdo...'
+                                : selectedDocumentPreview || 'Sem conteúdo'}
                             </p>
                           </div>
                         )}
@@ -415,7 +476,12 @@ export default function StudioPage() {
 
                         <Button
                           onClick={handleGeneratePrompt}
-                          disabled={!selectedDocumentId || promptGenerator.isGenerating || studio.isGenerating}
+                          disabled={
+                            !selectedDocumentId ||
+                            isLoadingSelectedDocument ||
+                            promptGenerator.isGenerating ||
+                            studio.isGenerating
+                          }
                           className="w-full gap-2 bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600"
                         >
                           {promptGenerator.isGenerating ? (
@@ -660,13 +726,21 @@ export default function StudioPage() {
                       transition={{ duration: 0.2 }}
                       className="p-6"
                     >
-                      <EditMode
-                        projectId={projectId}
-                        selectedImage={selectedImageForEdit}
-                        onSelectImage={() => setShowAssetPicker(true)}
-                        onEditComplete={handleEditComplete}
-                        isLoading={bootstrapLoading}
-                      />
+                      <Suspense
+                        fallback={
+                          <div className="py-10 flex justify-center">
+                            <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
+                          </div>
+                        }
+                      >
+                        <EditMode
+                          projectId={projectId}
+                          selectedImage={selectedImageForEdit}
+                          onSelectImage={() => setShowAssetPicker(true)}
+                          onEditComplete={handleEditComplete}
+                          isLoading={false}
+                        />
+                      </Suspense>
                     </motion.div>
                   )}
 
@@ -679,12 +753,20 @@ export default function StudioPage() {
                       transition={{ duration: 0.2 }}
                       className="p-6"
                     >
-                      <AdjustMode
-                        projectId={projectId}
-                        selectedImage={selectedImageForEdit}
-                        onSelectImage={() => setShowAssetPicker(true)}
-                        onOperationComplete={handleAdjustComplete}
-                      />
+                      <Suspense
+                        fallback={
+                          <div className="py-10 flex justify-center">
+                            <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
+                          </div>
+                        }
+                      >
+                        <AdjustMode
+                          projectId={projectId}
+                          selectedImage={selectedImageForEdit}
+                          onSelectImage={() => setShowAssetPicker(true)}
+                          onOperationComplete={handleAdjustComplete}
+                        />
+                      </Suspense>
                     </motion.div>
                   )}
 
@@ -812,36 +894,40 @@ export default function StudioPage() {
         </AnimatePresence>
 
         {/* Expanded image modal */}
-        <ImageExpandModal
-          image={expandedImage}
-          images={studio.variations.filter((v) => v.success)}
-          isOpen={!!expandedImage}
-          onClose={handleCloseExpand}
-          onSave={studio.save}
-          onRefine={studio.refine}
-        />
+        <Suspense fallback={null}>
+          <ImageExpandModal
+            image={expandedImage}
+            images={studio.variations.filter((v) => v.success)}
+            isOpen={!!expandedImage}
+            onClose={handleCloseExpand}
+            onSave={studio.save}
+            onRefine={studio.refine}
+          />
+        </Suspense>
 
         {/* Asset picker modal for selecting images to edit/adjust */}
-        <AssetPickerModal
-          mode="single"
-          projectId={projectId}
-          isOpen={showAssetPicker}
-          onClose={() => setShowAssetPicker(false)}
-          onSelect={(asset) => {
-            const generatedImage: GeneratedImage = {
-              success: true,
-              index: 0,
-              document_id: asset.id,
-              file_url: asset.file_url || undefined,
-              thumbnail_url: asset.thumbnail_url || undefined,
-              title: asset.name || 'Imagem selecionada',
-            };
-            setSelectedImageForEdit(generatedImage);
-            setShowAssetPicker(false);
-          }}
-          title="Selecionar Imagem"
-          description="Escolha uma imagem da galeria para editar ou ajustar"
-        />
+        <Suspense fallback={null}>
+          <AssetPickerModal
+            mode="single"
+            projectId={projectId}
+            isOpen={showAssetPicker}
+            onClose={() => setShowAssetPicker(false)}
+            onSelect={(asset) => {
+              const generatedImage: GeneratedImage = {
+                success: true,
+                index: 0,
+                document_id: asset.id,
+                file_url: asset.file_url || undefined,
+                thumbnail_url: asset.thumbnail_url || undefined,
+                title: asset.name || 'Imagem selecionada',
+              };
+              setSelectedImageForEdit(generatedImage);
+              setShowAssetPicker(false);
+            }}
+            title="Selecionar Imagem"
+            description="Escolha uma imagem da galeria para editar ou ajustar"
+          />
+        </Suspense>
       </div>
     </TooltipProvider>
   );

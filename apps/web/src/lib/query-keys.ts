@@ -98,7 +98,8 @@ export const queryKeys = {
   // Feature 027: Visual Generation Studio
   bootstrap: {
     all: ['bootstrap'] as const,
-    byProject: (projectId: string) => [...queryKeys.bootstrap.all, 'project', projectId] as const,
+    byProject: (projectId: string, options?: unknown) =>
+      [...queryKeys.bootstrap.all, 'project', projectId, options ?? {}] as const,
   },
 
   creativeConcepts: {
