@@ -24,11 +24,11 @@ services:
       retries: 3
     restart: unless-stopped
 
-  web:
+  frontend:
     build:
       context: .
       dockerfile: apps/web/Dockerfile
-    container_name: xtyl-web
+    container_name: xtyl-frontend
     ports:
       - '8080:80'
     depends_on:

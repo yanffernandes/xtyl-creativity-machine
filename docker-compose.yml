@@ -88,7 +88,7 @@ services:
           memory: 1G
 
   # Frontend: React + Vite Application
-  web:
+  frontend:
     build:
       context: .
       dockerfile: apps/web/Dockerfile
@@ -106,9 +106,9 @@ services:
         condition: service_healthy
     environment:
       NODE_ENV: production
-      VITE_API_URL: ${VITE_API_URL}
-      VITE_SUPABASE_URL: ${VITE_SUPABASE_URL}
-      VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY}
+      VITE_API_URL: ${VITE_API_URL:-}
+      VITE_SUPABASE_URL: ${VITE_SUPABASE_URL:-}
+      VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY:-}
       VITE_SENTRY_DSN: ${VITE_SENTRY_DSN:-}
     networks:
       - xtyl-network

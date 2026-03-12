@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/collapsible"
 import { getProjectSettings, updateProjectSettings, ProjectSettings, BrandIdentity, BrandTypography } from "@/lib/api"
 import { useQueryClient } from "@tanstack/react-query"
-import { projectKeys } from "@/hooks/use-projects"
+import { projectKeys, useProject } from "@/hooks/use-projects"
 import ColorPalette from "./brand-identity/ColorPalette"
 import ColorExtractor from "./brand-identity/ColorExtractor"
 import TypographySettings from "./brand-identity/TypographySettings"
@@ -46,6 +46,7 @@ export default function ProjectSettingsForm({ projectId, workspaceId }: ProjectS
     const router = useRouter()
     const { toast } = useToast()
     const queryClient = useQueryClient()
+    const { data: project } = useProject(projectId)
 
     const [isLoading, setIsLoading] = useState(true)
     const [isSaving, setIsSaving] = useState(false)
@@ -71,6 +72,7 @@ export default function ProjectSettingsForm({ projectId, workspaceId }: ProjectS
 
     // Validation
     const [errors, setErrors] = useState<Record<string, string>>({})
+    const deleteProjectName = clientName.trim() || project?.name?.trim() || "Untitled Project"
 
     // Load settings
     useEffect(() => {
@@ -561,7 +563,7 @@ export default function ProjectSettingsForm({ projectId, workspaceId }: ProjectS
                 </p>
                 <DeleteProjectDialog
                     projectId={projectId}
-                    projectName={clientName || "Untitled Project"}
+                    projectName={deleteProjectName}
                     workspaceId={workspaceId}
                 />
             </div>
