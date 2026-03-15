@@ -10,6 +10,8 @@ WORKDIR /app
 FROM base AS deps
 COPY bun.lock bunfig.toml package.json ./
 COPY apps/web/package.json apps/web/
+COPY apps/api/package.json apps/api/
+COPY apps/admin/package.json apps/admin/
 COPY packages/shared/package.json packages/shared/
 COPY packages/observability/package.json packages/observability/
 RUN bun install --frozen-lockfile

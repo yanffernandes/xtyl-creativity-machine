@@ -74,6 +74,7 @@
     "zustand": "^5.0.8"
   },
   "devDependencies": {
+    "dotenv": "^16.4.5",
     "@playwright/test": "^1.57.0",
     "@tanstack/react-query-devtools": "^5.91.1",
     "@testing-library/jest-dom": "^6.6.0",
