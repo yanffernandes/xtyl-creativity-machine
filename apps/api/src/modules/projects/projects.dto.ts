@@ -69,7 +69,6 @@ export interface CascadeSummary {
   folders_deleted: number;
   workflow_templates_deleted: number;
   workflow_executions_deleted: number;
-  user_memories_deleted?: number;
 }
 
 export interface DeleteProjectResponse {
@@ -83,6 +82,7 @@ export interface AvailableModel {
   id: string;
   name: string;
   description?: string;
+  top_provider?: string;
   output_modalities: string[];
 }
 
@@ -90,6 +90,18 @@ export interface ModelsConfig {
   text: AvailableModel[];
   image: AvailableModel[];
   default_image_model?: string;
+}
+
+export interface ProjectBootstrapQuery {
+  include_models?: boolean | string;
+  include_visual_context?: boolean | string;
+  include_recent_copies?: boolean | string;
+  include_recent_media?: boolean | string;
+  include_copy_content?: boolean | string;
+  include_creative_concepts?: boolean | string;
+  recent_copies_limit?: number | string;
+  recent_media_limit?: number | string;
+  visual_context_limit?: number | string;
 }
 
 export interface VisualAsset {
@@ -102,17 +114,6 @@ export interface VisualAsset {
   tags?: string[];
   ai_description?: string;
   is_classified: boolean;
-  created_at: Date;
-  updated_at?: Date;
-}
-
-export interface MemoryResponse {
-  id: string;
-  user_id: string;
-  project_id: string;
-  content: string;
-  category?: string;
-  source_conversation_id?: string;
   created_at: Date;
   updated_at?: Date;
 }
@@ -162,7 +163,6 @@ export interface BootstrapData {
   settings?: any;
   models: ModelsConfig;
   visual_context: VisualAsset[];
-  memories: MemoryResponse[];
   recent_copies: Document[];
   recent_media: Document[];
   recent_documents: Document[]; // deprecated

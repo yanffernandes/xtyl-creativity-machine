@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
+import Redis from 'ioredis';
 import { ImageGenerationController } from './image-generation.controller';
 import { ImageGenerationService } from './image-generation.service';
 import { ImageGenerationProcessor } from './image-generation.processor';
@@ -8,6 +9,9 @@ import { DatabaseModule } from '../../database/database.module';
 import { FalAiModule } from '../../integrations/fal-ai/fal-ai.module';
 import { StorageModule } from '../storage/storage.module';
 import { OpenRouterModule } from '../../integrations/openrouter/openrouter.module';
+import { IMAGE_GEN_REDIS } from './image-generation.constants';
+
+export { IMAGE_GEN_REDIS };
 
 /**
  * Image Generation Module
@@ -38,6 +42,13 @@ import { OpenRouterModule } from '../../integrations/openrouter/openrouter.modul
   ],
   controllers: [ImageGenerationController],
   providers: [
+    {
+      provide: IMAGE_GEN_REDIS,
+      useFactory: () => {
+        const url = process.env.REDIS_URL || 'redis://localhost:6379';
+        return new Redis(url, { maxRetriesPerRequest: null, lazyConnect: false });
+      },
+    },
     ImageGenerationService,
     ImageGenerationProcessor,
     PromptEnrichmentService,

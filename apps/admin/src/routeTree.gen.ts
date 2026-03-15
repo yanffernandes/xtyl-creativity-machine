@@ -12,7 +12,6 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as ModelsRouteImport } from './routes/models'
 import { Route as MessagesRouteImport } from './routes/messages'
-import { Route as MemoryRouteImport } from './routes/memory'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as WorkspacesIndexRouteImport } from './routes/workspaces/index'
 import { Route as UsersIndexRouteImport } from './routes/users/index'
@@ -32,11 +31,6 @@ const ModelsRoute = ModelsRouteImport.update({
 const MessagesRoute = MessagesRouteImport.update({
   id: '/messages',
   path: '/messages',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const MemoryRoute = MemoryRouteImport.update({
-  id: '/memory',
-  path: '/memory',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -67,7 +61,6 @@ const UsersUserIdRoute = UsersUserIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/memory': typeof MemoryRoute
   '/messages': typeof MessagesRoute
   '/models': typeof ModelsRoute
   '/settings': typeof SettingsRoute
@@ -78,7 +71,6 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/memory': typeof MemoryRoute
   '/messages': typeof MessagesRoute
   '/models': typeof ModelsRoute
   '/settings': typeof SettingsRoute
@@ -90,7 +82,6 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/memory': typeof MemoryRoute
   '/messages': typeof MessagesRoute
   '/models': typeof ModelsRoute
   '/settings': typeof SettingsRoute
@@ -103,7 +94,6 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/memory'
     | '/messages'
     | '/models'
     | '/settings'
@@ -114,7 +104,6 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/memory'
     | '/messages'
     | '/models'
     | '/settings'
@@ -125,7 +114,6 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
-    | '/memory'
     | '/messages'
     | '/models'
     | '/settings'
@@ -137,7 +125,6 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  MemoryRoute: typeof MemoryRoute
   MessagesRoute: typeof MessagesRoute
   ModelsRoute: typeof ModelsRoute
   SettingsRoute: typeof SettingsRoute
@@ -168,13 +155,6 @@ declare module '@tanstack/react-router' {
       path: '/messages'
       fullPath: '/messages'
       preLoaderRoute: typeof MessagesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/memory': {
-      id: '/memory'
-      path: '/memory'
-      fullPath: '/memory'
-      preLoaderRoute: typeof MemoryRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -217,7 +197,6 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  MemoryRoute: MemoryRoute,
   MessagesRoute: MessagesRoute,
   ModelsRoute: ModelsRoute,
   SettingsRoute: SettingsRoute,

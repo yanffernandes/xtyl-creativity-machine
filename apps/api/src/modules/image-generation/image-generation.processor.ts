@@ -65,6 +65,13 @@ export class ImageGenerationProcessor extends WorkerHost {
     } = job.data;
 
     try {
+      await this.imageGenerationService.updateBatchProgress(batchId, {
+        started: {
+          index: variationIndex,
+          total_variations: job.data.count || undefined,
+        },
+      });
+
       // Build style modifier based on creativity level and variation index
       const styleModifier = this.buildStyleModifier(variationIndex, creativity);
 
@@ -136,7 +143,7 @@ export class ImageGenerationProcessor extends WorkerHost {
       });
 
       // Update batch progress
-      this.imageGenerationService.updateBatchProgress(batchId, {
+      await this.imageGenerationService.updateBatchProgress(batchId, {
         completed: 1,
         image: {
           index: variationIndex,
@@ -162,9 +169,12 @@ export class ImageGenerationProcessor extends WorkerHost {
       console.error(`Batch variation ${variationIndex} failed:`, error);
 
       // Update batch progress with failure
-      this.imageGenerationService.updateBatchProgress(batchId, {
+      await this.imageGenerationService.updateBatchProgress(batchId, {
         failed: 1,
-        error: errorMessage,
+        error: {
+          index: variationIndex,
+          error: errorMessage,
+        },
       });
 
       return {

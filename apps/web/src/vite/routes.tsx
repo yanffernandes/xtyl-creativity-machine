@@ -15,23 +15,16 @@ import WorkspaceProfilePage from '@/app/workspace/[id]/profile/page'
 import WorkspaceSettingsPage from '@/app/workspace/[id]/settings/page'
 import WorkspaceTemplatesPage from '@/app/workspace/[id]/templates/page'
 import WorkspaceAIUsagePage from '@/app/workspace/[id]/ai-usage/page'
-import WorkspaceWorkflowsPage from '@/app/workspace/[id]/workflows/page'
-import WorkspaceWorkflowTemplatesPage from '@/app/workspace/[id]/workflows/templates/page'
-import WorkspaceExecutionPage from '@/app/workspace/[id]/workflows/executions/[executionId]/page'
 
 import ProjectPage from '@/app/workspace/[id]/project/[projectId]/page'
 import ProjectSettingsPage from '@/app/workspace/[id]/project/[projectId]/settings/page'
 import ProjectStudioPage from '@/app/workspace/[id]/project/[projectId]/studio/page'
-import ProjectWorkflowsPage from '@/app/workspace/[id]/project/[projectId]/workflows/page'
-import ProjectWorkflowsNewPage from '@/app/workspace/[id]/project/[projectId]/workflows/new/page'
-import ProjectWorkflowDetailPage from '@/app/workspace/[id]/project/[projectId]/workflows/[workflowId]/page'
 import ProjectVisualContextPage from '@/app/workspace/[id]/project/[projectId]/settings/visual-context/page'
 
 import AdminLayout from '@/app/admin/layout'
 import AdminDashboardPage from '@/app/admin/page'
 import AdminSettingsPage from '@/app/admin/settings/page'
 import AdminMessagesPage from '@/app/admin/messages/page'
-import AdminMemoryPage from '@/app/admin/memory/page'
 import AdminModelsPage from '@/app/admin/models/page'
 import AdminUsersPage from '@/app/admin/users/page'
 import AdminUserDetailPage from '@/app/admin/users/[id]/page'
@@ -69,22 +62,15 @@ const routes: AppRoute[] = [
   { path: '/workspace/:id/settings', component: WorkspaceSettingsPage },
   { path: '/workspace/:id/templates', component: WorkspaceTemplatesPage },
   { path: '/workspace/:id/ai-usage', component: WorkspaceAIUsagePage },
-  { path: '/workspace/:id/workflows', component: WorkspaceWorkflowsPage },
-  { path: '/workspace/:id/workflows/templates', component: WorkspaceWorkflowTemplatesPage },
-  { path: '/workspace/:id/workflows/executions/:executionId', component: WorkspaceExecutionPage },
 
   { path: '/workspace/:id/project/:projectId', component: ProjectPage },
   { path: '/workspace/:id/project/:projectId/settings', component: ProjectSettingsPage },
   { path: '/workspace/:id/project/:projectId/studio', component: ProjectStudioPage },
-  { path: '/workspace/:id/project/:projectId/workflows', component: ProjectWorkflowsPage },
-  { path: '/workspace/:id/project/:projectId/workflows/new', component: ProjectWorkflowsNewPage },
-  { path: '/workspace/:id/project/:projectId/workflows/:workflowId', component: ProjectWorkflowDetailPage },
   { path: '/workspace/:id/project/:projectId/settings/visual-context', component: ProjectVisualContextPage },
 
   { path: '/admin', component: AdminDashboardPage, wrapWithAdminLayout: true },
   { path: '/admin/settings', component: AdminSettingsPage, wrapWithAdminLayout: true },
   { path: '/admin/messages', component: AdminMessagesPage, wrapWithAdminLayout: true },
-  { path: '/admin/memory', component: AdminMemoryPage, wrapWithAdminLayout: true },
   { path: '/admin/models', component: AdminModelsPage, wrapWithAdminLayout: true },
   { path: '/admin/users', component: AdminUsersPage, wrapWithAdminLayout: true },
   { path: '/admin/users/:id', component: AdminUserDetailPage, wrapWithAdminLayout: true },

@@ -1,6 +1,8 @@
 import { Injectable, Inject, NotFoundException, BadRequestException } from '@nestjs/common';
 import { eq, and, desc, sql, ilike, gte, count, sum } from 'drizzle-orm';
 import { DATABASE } from '../../database/database.module';
+import { OpenRouterService } from '../../integrations/openrouter';
+import { FalAiService } from '../../integrations/fal-ai/fal-ai.service';
 import {
   users,
   workspaces,
@@ -11,13 +13,16 @@ import {
   systemConfig,
   systemMessages,
   adminAuditLog,
-  userMemories,
   aiUsageLog,
 } from '../../database/drizzle/schema';
 
 @Injectable()
 export class AdminService {
-  constructor(@Inject(DATABASE) private readonly db: any) {}
+  constructor(
+    @Inject(DATABASE) private readonly db: any,
+    private readonly openRouterService: OpenRouterService,
+    private readonly falAiService: FalAiService,
+  ) {}
 
   // ============================================================================
   // Dashboard
@@ -91,6 +96,113 @@ export class AdminService {
       },
       periodDays,
     };
+  }
+
+  async getActivityTrends(periodDays: number = 30) {
+    const trends: { date: string; conversations: number; documents: number; imageGenerations: number }[] = [];
+
+    for (let i = periodDays - 1; i >= 0; i--) {
+      const day = new Date();
+      day.setDate(day.getDate() - i);
+      const dayStart = new Date(day.getFullYear(), day.getMonth(), day.getDate());
+      const dayEnd = new Date(dayStart);
+      dayEnd.setDate(dayEnd.getDate() + 1);
+
+      const [convCount] = await this.db
+        .select({ count: count() })
+        .from(chatConversations)
+        .where(and(gte(chatConversations.createdAt, dayStart), sql`${chatConversations.createdAt} < ${dayEnd}`));
+
+      const [docCount] = await this.db
+        .select({ count: count() })
+        .from(documents)
+        .where(and(gte(documents.createdAt, dayStart), sql`${documents.createdAt} < ${dayEnd}`));
+
+      const [imgCount] = await this.db
+        .select({ count: count() })
+        .from(documents)
+        .where(and(
+          gte(documents.createdAt, dayStart),
+          sql`${documents.createdAt} < ${dayEnd}`,
+          eq(documents.mediaType, 'image'),
+        ));
+
+      trends.push({
+        date: dayStart.toISOString().split('T')[0],
+        conversations: Number(convCount.count),
+        documents: Number(docCount.count),
+        imageGenerations: Number(imgCount.count),
+      });
+    }
+
+    return trends;
+  }
+
+  async getRecentActivity() {
+    const recentUsers = await this.db
+      .select({ id: users.id, email: users.email, fullName: users.fullName, createdAt: users.createdAt })
+      .from(users)
+      .orderBy(desc(users.createdAt))
+      .limit(5);
+
+    const recentConversations = await this.db
+      .select({ id: chatConversations.id, title: chatConversations.title, userId: chatConversations.userId, createdAt: chatConversations.createdAt })
+      .from(chatConversations)
+      .orderBy(desc(chatConversations.createdAt))
+      .limit(5);
+
+    return {
+      users: recentUsers,
+      conversations: recentConversations,
+      documents: [],
+    };
+  }
+
+  async getAvailableModels() {
+    const [openRouterModels, falPlatformModels] = await Promise.all([
+      this.openRouterService.listModels(),
+      this.falAiService.listAvailableModels(),
+    ]);
+
+    const textModels = openRouterModels
+      .filter((m) => m.architecture?.output_modalities?.includes('text'))
+      .map((m) => ({
+        id: m.id,
+        name: m.name,
+        provider: m.id.split('/')[0] ?? 'unknown',
+        type: 'text' as const,
+        hasVision: m.architecture?.input_modalities?.includes('image') ?? false,
+        contextLength: m.context_length ?? null,
+        pricing: m.pricing
+          ? { prompt: parseFloat(m.pricing.prompt), completion: parseFloat(m.pricing.completion) }
+          : null,
+      }));
+
+    // Use dynamic fal.ai platform models if available, fall back to hardcoded list
+    const falSource = falPlatformModels.length > 0
+      ? falPlatformModels.map((m) => ({
+          id: m.endpoint_id,
+          name: m.metadata?.display_name ?? m.endpoint_id,
+          provider: m.endpoint_id.split('/')[0] ?? 'fal-ai',
+          type: 'image' as const,
+          hasVision: false,
+          contextLength: null,
+          pricing: null,
+          category: m.metadata?.category,
+        }))
+      : this.falAiService.listModels()
+          .filter((m) => m.modelType === 'text-to-image')
+          .map((m) => ({
+            id: m.id,
+            name: m.name,
+            provider: m.provider,
+            type: 'image' as const,
+            hasVision: false,
+            contextLength: null,
+            pricing: null,
+          }));
+
+    return [...textModels, ...falSource];
   }
 
   // ============================================================================
@@ -364,32 +476,32 @@ export class AdminService {
       .select()
       .from(systemConfig)
       .where(
-        sql`${systemConfig.key} IN ('model_defaults', 'model_fallbacks', 'visible_models', 'visible_text_models', 'visible_image_models')`,
+        sql`${systemConfig.key} IN ('ai_models', 'visible_text_models', 'visible_image_models')`,
       );
 
     const result: any = {
       defaults: {},
       fallbacks: {},
-      visibleModels: [],
       visibleTextModels: [],
       visibleImageModels: [],
     };
 
     for (const config of configs) {
-      if (config.key === 'model_defaults') {
-        result.defaults = config.value;
-      } else if (config.key === 'model_fallbacks') {
-        result.fallbacks = config.value;
-      } else if (config.key === 'visible_models') {
-        result.visibleModels = config.value;
+      if (config.key === 'ai_models') {
+        result.defaults = config.value?.defaults ?? {};
+        result.fallbacks = config.value?.fallbacks ?? {};
       } else if (config.key === 'visible_text_models') {
-        result.visibleTextModels = config.value;
+        result.visibleTextModels = config.value ?? [];
       } else if (config.key === 'visible_image_models') {
-        result.visibleImageModels = config.value;
+        result.visibleImageModels = config.value ?? [];
       }
     }
 
     return result;
+  }
+
+  async getModelSchema(modelId: string) {
+    return this.falAiService.getModelSchema(modelId);
   }
 
   async updateModelConfig(
@@ -397,59 +509,50 @@ export class AdminService {
     data: {
       defaults?: Record<string, string>;
       fallbacks?: Record<string, string>;
-      visibleModels?: string[];
       visibleTextModels?: string[];
-      visibleImageModels?: string[];
+      visibleImageModels?: any[];
     },
   ) {
-    const updates: Array<{ key: string; value: any }> = [];
-
-    if (data.defaults) {
-      updates.push({ key: 'model_defaults', value: data.defaults });
-    }
-
-    if (data.fallbacks) {
-      updates.push({ key: 'model_fallbacks', value: data.fallbacks });
-    }
-
-    if (data.visibleModels) {
-      updates.push({ key: 'visible_models', value: data.visibleModels });
-    }
-
-    if (data.visibleTextModels) {
-      updates.push({ key: 'visible_text_models', value: data.visibleTextModels });
-    }
-
-    if (data.visibleImageModels) {
-      updates.push({ key: 'visible_image_models', value: data.visibleImageModels });
-    }
-
-    for (const update of updates) {
+    const upsert = async (key: string, value: any) => {
       const [existing] = await this.db
         .select()
         .from(systemConfig)
-        .where(eq(systemConfig.key, update.key))
+        .where(eq(systemConfig.key, key))
         .limit(1);
 
       if (existing) {
         await this.db
           .update(systemConfig)
-          .set({
-            value: update.value,
-            updatedAt: new Date(),
-            updatedBy: adminId,
-          })
+          .set({ value, updatedAt: new Date(), updatedBy: adminId })
           .where(eq(systemConfig.id, existing.id));
       } else {
-        await this.db.insert(systemConfig).values({
-          key: update.key,
-          value: update.value,
-          updatedBy: adminId,
-        });
+        await this.db.insert(systemConfig).values({ key, value, updatedBy: adminId });
       }
+    };
+
+    // Update ai_models if defaults or fallbacks changed
+    if (data.defaults || data.fallbacks) {
+      const [existing] = await this.db
+        .select()
+        .from(systemConfig)
+        .where(eq(systemConfig.key, 'ai_models'))
+        .limit(1);
+
+      const current = existing?.value ?? { defaults: {}, fallbacks: {} };
+      await upsert('ai_models', {
+        defaults: data.defaults ?? current.defaults ?? {},
+        fallbacks: data.fallbacks ?? current.fallbacks ?? {},
+      });
     }
 
-    // Log audit
+    if (data.visibleTextModels !== undefined) {
+      await upsert('visible_text_models', data.visibleTextModels);
+    }
+
+    if (data.visibleImageModels !== undefined) {
+      await upsert('visible_image_models', data.visibleImageModels);
+    }
+
     await this.logAudit(adminId, 'models.config.update', 'model_config', 'ai_models', {}, data);
 
     return this.getModelConfig();
@@ -688,51 +791,6 @@ export class AdminService {
 
     // Log audit
     await this.logAudit(adminId, 'system_message.delete', 'system_message', messageId, existing, null);
-
-    return true;
-  }
-
-  // ============================================================================
-  // Global Memories
-  // ============================================================================
-
-  async getAllMemories(options: { limit?: number; offset?: number }) {
-    const { limit = 50, offset = 0 } = options;
-
-    const [{ count: total }] = await this.db
-      .select({ count: count() })
-      .from(userMemories);
-
-    const memories = await this.db
-      .select()
-      .from(userMemories)
-      .orderBy(desc(userMemories.createdAt))
-      .limit(limit)
-      .offset(offset);
-
-    return {
-      memories,
-      total,
-      limit,
-      offset,
-    };
-  }
-
-  async deleteMemory(memoryId: string, adminId: string) {
-    const [existing] = await this.db
-      .select()
-      .from(userMemories)
-      .where(eq(userMemories.id, memoryId))
-      .limit(1);
-
-    if (!existing) {
-      throw new NotFoundException('Memory not found');
-    }
-
-    await this.db.delete(userMemories).where(eq(userMemories.id, memoryId));
-
-    // Log audit
-    await this.logAudit(adminId, 'memory.delete', 'user_memory', memoryId, existing, null);
 
     return true;
   }

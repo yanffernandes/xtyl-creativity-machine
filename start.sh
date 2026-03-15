@@ -4,10 +4,12 @@
 #  XTYL Creativity Machine - Local Development Launcher
 # ============================================================================
 
-set -e
+set -euo pipefail
 
 PROJECT_ROOT="$(cd "$(dirname "$0")" && pwd)"
 cd "$PROJECT_ROOT"
+
+MODE="${1:-modern}"
 
 # ---------------------------------------------------------------------------
 # Colors & Formatting
@@ -26,13 +28,26 @@ WHITE='\033[1;37m'
 
 # Service log prefixes (fixed width for alignment)
 PREFIX_REDIS="${DIM}${WHITE}[redis]   ${RESET}"
-PREFIX_BACK="${CYAN}[backend] ${RESET}"
+PREFIX_API="${CYAN}[api]     ${RESET}"
+PREFIX_WORKER="${BLUE}[worker]  ${RESET}"
+PREFIX_AGNO="${YELLOW}[agno]    ${RESET}"
 PREFIX_FRONT="${MAGENTA}[frontend]${RESET}"
-PREFIX_SYS="${BLUE}[system]  ${RESET}"
+PREFIX_ADMIN="${GREEN}[admin]   ${RESET}"
+PREFIX_LEGACY="${RED}[legacy]  ${RESET}"
+PREFIX_SYS="${WHITE}[system]  ${RESET}"
 
-# State
-BACKEND_PID=""
+API_PORT=3000
+FRONTEND_PORT=4000
+ADMIN_PORT=5174
+AGNO_PORT=7777
+LEGACY_PORT=8000
+
+API_PID=""
+WORKER_PID=""
+AGNO_PID=""
 FRONTEND_PID=""
+ADMIN_PID=""
+LEGACY_PID=""
 REDIS_RUNNING=false
 
 # ---------------------------------------------------------------------------
@@ -56,6 +71,12 @@ separator() {
     echo -e "${DIM}  ──────────────────────────────────────────────────────${RESET}"
 }
 
+usage() {
+    echo "Usage: ./start.sh [modern|legacy]"
+    echo "  modern: apps/api + api-worker + apps/agno + apps/web"
+    echo "  legacy: backend Python legado + apps/web"
+}
+
 # ---------------------------------------------------------------------------
 # Prerequisite checks (Docker is optional)
 # ---------------------------------------------------------------------------
@@ -63,14 +84,19 @@ check_prereqs() {
     info "Checking prerequisites..."
 
     local required_missing=0
+    local required_cmds=("bun" "uv")
 
-    for cmd in python3 node npm; do
+    if [ "$MODE" = "legacy" ]; then
+        required_cmds+=("python3")
+    fi
+
+    for cmd in "${required_cmds[@]}"; do
         if command -v "$cmd" &>/dev/null; then
-            local ver
+            local ver=""
             case "$cmd" in
+                bun) ver=$(bun --version 2>/dev/null) ;;
+                uv) ver=$(uv --version 2>/dev/null | awk '{print $2}') ;;
                 python3) ver=$(python3 --version 2>/dev/null | cut -d' ' -f2) ;;
-                node)    ver=$(node --version 2>/dev/null) ;;
-                npm)     ver=$(npm --version 2>/dev/null) ;;
             esac
             echo -e "${PREFIX_SYS}  ${GREEN}+${RESET} $cmd ${DIM}($ver)${RESET}"
         else
@@ -79,7 +105,6 @@ check_prereqs() {
         fi
     done
 
-    # Docker is optional
     if command -v docker &>/dev/null; then
         local ver
         ver=$(docker --version 2>/dev/null | cut -d' ' -f3 | tr -d ',')
@@ -91,8 +116,10 @@ check_prereqs() {
     if [ "$required_missing" -eq 1 ]; then
         echo ""
         fail "Install missing dependencies and try again."
+        usage
         exit 1
     fi
+
     echo ""
 }
 
@@ -101,7 +128,7 @@ check_prereqs() {
 # ---------------------------------------------------------------------------
 load_env() {
     if [ ! -f "$PROJECT_ROOT/.env" ]; then
-        fail ".env file not found! Copy .env.example and configure it:"
+        fail ".env file not found. Copy .env.example and configure it first."
         echo -e "  ${DIM}cp .env.example .env${RESET}"
         exit 1
     fi
@@ -123,7 +150,7 @@ free_port() {
     local pids
     pids=$(lsof -ti :"$port" 2>/dev/null || true)
     if [ -n "$pids" ]; then
-        warn "Port $port in use - freeing it..."
+        warn "Port $port in use. Freeing it..."
         echo "$pids" | xargs kill -9 2>/dev/null || true
         sleep 1
     fi
@@ -133,17 +160,23 @@ free_port() {
 # Redis (optional - tries Docker, then local redis-cli, then skips)
 # ---------------------------------------------------------------------------
 try_start_redis() {
-    # 1. Try Docker
+    # Check if Redis is already accessible (local or Docker) before doing anything
+    if command -v redis-cli &>/dev/null && redis-cli ping &>/dev/null 2>&1; then
+        echo -e "${PREFIX_REDIS}${GREEN}Ready${RESET} ${DIM}(already running on localhost:6379)${RESET}"
+        REDIS_RUNNING=true
+        return
+    fi
+
     if command -v docker &>/dev/null && docker info &>/dev/null 2>&1; then
         info "Starting Redis via Docker..."
 
         if docker ps --format '{{.Names}}' | grep -q '^xtyl-redis$'; then
             echo -e "${PREFIX_REDIS}${DIM}Already running${RESET}"
         elif docker ps -a --format '{{.Names}}' | grep -q '^xtyl-redis$'; then
-            docker start xtyl-redis >/dev/null 2>&1
+            docker start xtyl-redis >/dev/null 2>&1 || true
             echo -e "${PREFIX_REDIS}${GREEN}Container resumed${RESET}"
         else
-            docker run -d --name xtyl-redis -p 6379:6379 redis:alpine >/dev/null 2>&1
+            docker run -d --name xtyl-redis -p 6379:6379 redis:7-alpine >/dev/null 2>&1 || true
             echo -e "${PREFIX_REDIS}${GREEN}Container created${RESET}"
         fi
 
@@ -151,7 +184,7 @@ try_start_redis() {
         while ! docker exec xtyl-redis redis-cli ping &>/dev/null; do
             retries=$((retries + 1))
             if [ "$retries" -gt 15 ]; then
-                warn "Redis failed to start via Docker, continuing without it..."
+                warn "Redis failed to start via Docker. Continuing without it."
                 return
             fi
             sleep 1
@@ -162,14 +195,12 @@ try_start_redis() {
         return
     fi
 
-    # 2. Try local redis-server already running
     if command -v redis-cli &>/dev/null && redis-cli ping &>/dev/null 2>&1; then
         echo -e "${PREFIX_REDIS}${GREEN}Ready${RESET} ${DIM}(local redis-server detected)${RESET}"
         REDIS_RUNNING=true
         return
     fi
 
-    # 3. Try starting local redis-server
     if command -v redis-server &>/dev/null; then
         info "Starting local redis-server..."
         redis-server --daemonize yes --loglevel warning >/dev/null 2>&1 || true
@@ -181,94 +212,161 @@ try_start_redis() {
         fi
     fi
 
-    # 4. Skip Redis entirely
     warn "Redis not available (no Docker, no local redis-server)"
-    echo -e "${PREFIX_REDIS}${DIM}Skipped - batch image progress tracking will be disabled${RESET}"
-    echo -e "${PREFIX_REDIS}${DIM}Install: brew install redis  OR  use Docker${RESET}"
+    echo -e "${PREFIX_REDIS}${DIM}Skipped. Queue/SSE progress features may be degraded.${RESET}"
     REDIS_RUNNING=false
 }
 
 # ---------------------------------------------------------------------------
-# Backend setup
+# Setup helpers
 # ---------------------------------------------------------------------------
-ensure_backend_venv() {
+ensure_workspace_deps() {
+    cd "$PROJECT_ROOT"
+
+    if [ ! -d "$PROJECT_ROOT/node_modules" ]; then
+        info "Installing Bun workspace dependencies..."
+        bun install 2>&1 | while IFS= read -r line; do
+            echo -e "${PREFIX_SYS}${DIM}$line${RESET}"
+        done
+        success "Workspace dependencies installed"
+    fi
+}
+
+ensure_agno_env() {
+    cd "$PROJECT_ROOT"
+
+    if [ ! -d "$PROJECT_ROOT/apps/agno" ]; then
+        warn "apps/agno not found, skipping Agno setup."
+        return
+    fi
+
+    if [ ! -d "$PROJECT_ROOT/apps/agno/.venv" ]; then
+        info "Syncing Agno environment..."
+        uv sync --project "$PROJECT_ROOT/apps/agno" 2>&1 | while IFS= read -r line; do
+            echo -e "${PREFIX_AGNO}${DIM}$line${RESET}"
+        done
+        success "Agno environment ready"
+    fi
+}
+
+ensure_legacy_backend() {
     cd "$PROJECT_ROOT/backend"
 
     if [ ! -d "venv" ]; then
-        info "Creating Python virtual environment..."
+        info "Creating legacy Python virtual environment..."
         python3 -m venv venv
         source venv/bin/activate
-        info "Installing Python dependencies (first run)..."
-        pip install -r requirements.txt -q 2>&1 | while read -r line; do
-            echo -e "${PREFIX_BACK}${DIM}$line${RESET}"
+        info "Installing legacy backend dependencies..."
+        pip install -r requirements.txt -q 2>&1 | while IFS= read -r line; do
+            echo -e "${PREFIX_LEGACY}${DIM}$line${RESET}"
         done
-        success "Backend dependencies installed"
-    else
-        source venv/bin/activate
+        success "Legacy backend dependencies installed"
     fi
 }
 
 # ---------------------------------------------------------------------------
-# Frontend setup
+# Run services with prefixed output
 # ---------------------------------------------------------------------------
-ensure_frontend_deps() {
-    cd "$PROJECT_ROOT/apps/web"
+run_api() {
+    cd "$PROJECT_ROOT/apps/api"
 
-    if [ ! -d "node_modules" ]; then
-        info "Installing npm dependencies (first run)..."
-        npm install 2>&1 | while read -r line; do
-            echo -e "${PREFIX_FRONT}${DIM}$line${RESET}"
-        done
-        success "Frontend dependencies installed"
-    fi
-}
-
-# ---------------------------------------------------------------------------
-# Run backend with prefixed output
-# ---------------------------------------------------------------------------
-run_backend() {
-    cd "$PROJECT_ROOT/backend"
-
-    if [ -d "venv" ]; then
-        source venv/bin/activate
-    fi
-
-    uvicorn main:app --reload --port 8000 2>&1 | while IFS= read -r line; do
+    bun run dev 2>&1 | while IFS= read -r line; do
         case "$line" in
             *"ERROR"*|*"error"*|*"Error"*)
-                echo -e "${PREFIX_BACK}${RED}$line${RESET}" ;;
-            *"WARNING"*|*"warning"*|*"Warning"*)
-                echo -e "${PREFIX_BACK}${YELLOW}$line${RESET}" ;;
-            *"INFO"*|*"Uvicorn running"*|*"Started"*)
-                echo -e "${PREFIX_BACK}${GREEN}$line${RESET}" ;;
+                echo -e "${PREFIX_API}${RED}$line${RESET}" ;;
+            *"WARN"*|*"warning"*|*"Warning"*)
+                echo -e "${PREFIX_API}${YELLOW}$line${RESET}" ;;
             *)
-                echo -e "${PREFIX_BACK}$line" ;;
+                echo -e "${PREFIX_API}$line" ;;
         esac
     done &
-    BACKEND_PID=$!
+    API_PID=$!
 }
 
-# ---------------------------------------------------------------------------
-# Run frontend with prefixed output
-# ---------------------------------------------------------------------------
+run_worker() {
+    cd "$PROJECT_ROOT/apps/api"
+
+    bun run dev:worker 2>&1 | while IFS= read -r line; do
+        case "$line" in
+            *"ERROR"*|*"error"*|*"Error"*)
+                echo -e "${PREFIX_WORKER}${RED}$line${RESET}" ;;
+            *"WARN"*|*"warning"*|*"Warning"*)
+                echo -e "${PREFIX_WORKER}${YELLOW}$line${RESET}" ;;
+            *)
+                echo -e "${PREFIX_WORKER}$line" ;;
+        esac
+    done &
+    WORKER_PID=$!
+}
+
+run_agno() {
+    if [ ! -d "$PROJECT_ROOT/apps/agno" ]; then
+        echo -e "${PREFIX_AGNO}${DIM}Skipped (apps/agno not found)${RESET}"
+        return
+    fi
+
+    cd "$PROJECT_ROOT/apps/agno"
+
+    uv run uvicorn main:app --reload --host 0.0.0.0 --port "$AGNO_PORT" 2>&1 | while IFS= read -r line; do
+        case "$line" in
+            *"ERROR"*|*"error"*|*"Error"*)
+                echo -e "${PREFIX_AGNO}${RED}$line${RESET}" ;;
+            *"WARN"*|*"warning"*|*"Warning"*)
+                echo -e "${PREFIX_AGNO}${YELLOW}$line${RESET}" ;;
+            *)
+                echo -e "${PREFIX_AGNO}$line" ;;
+        esac
+    done &
+    AGNO_PID=$!
+}
+
 run_frontend() {
     cd "$PROJECT_ROOT/apps/web"
 
-    npm run dev 2>&1 | while IFS= read -r line; do
+    bun run dev -- --port "$FRONTEND_PORT" 2>&1 | while IFS= read -r line; do
         case "$line" in
-            *"error"*|*"Error"*|*"ERROR"*)
+            *"ERROR"*|*"error"*|*"Error"*)
                 echo -e "${PREFIX_FRONT}${RED}$line${RESET}" ;;
-            *"warning"*|*"Warning"*|*"WARN"*)
+            *"WARN"*|*"warning"*|*"Warning"*)
                 echo -e "${PREFIX_FRONT}${YELLOW}$line${RESET}" ;;
-            *"ready"*|*"Ready"*|*"started"*|*"compiled"*)
-                echo -e "${PREFIX_FRONT}${GREEN}$line${RESET}" ;;
-            *"localhost"*|*"http://"*)
-                echo -e "${PREFIX_FRONT}${GREEN}$line${RESET}" ;;
             *)
                 echo -e "${PREFIX_FRONT}$line" ;;
         esac
     done &
     FRONTEND_PID=$!
+}
+
+run_admin() {
+    cd "$PROJECT_ROOT/apps/admin"
+
+    bun run dev 2>&1 | while IFS= read -r line; do
+        case "$line" in
+            *"ERROR"*|*"error"*|*"Error"*)
+                echo -e "${PREFIX_ADMIN}${RED}$line${RESET}" ;;
+            *"WARN"*|*"warning"*|*"Warning"*)
+                echo -e "${PREFIX_ADMIN}${YELLOW}$line${RESET}" ;;
+            *)
+                echo -e "${PREFIX_ADMIN}$line" ;;
+        esac
+    done &
+    ADMIN_PID=$!
+}
+
+run_legacy_backend() {
+    cd "$PROJECT_ROOT/backend"
+    source venv/bin/activate
+
+    uvicorn main:app --reload --port "$LEGACY_PORT" 2>&1 | while IFS= read -r line; do
+        case "$line" in
+            *"ERROR"*|*"error"*|*"Error"*)
+                echo -e "${PREFIX_LEGACY}${RED}$line${RESET}" ;;
+            *"WARN"*|*"warning"*|*"Warning"*)
+                echo -e "${PREFIX_LEGACY}${YELLOW}$line${RESET}" ;;
+            *)
+                echo -e "${PREFIX_LEGACY}$line" ;;
+        esac
+    done &
+    LEGACY_PID=$!
 }
 
 # ---------------------------------------------------------------------------
@@ -279,24 +377,28 @@ cleanup() {
     separator
     info "Shutting down..."
 
-    if [ -n "$BACKEND_PID" ]; then
-        kill "$BACKEND_PID" 2>/dev/null || true
-    fi
-    if [ -n "$FRONTEND_PID" ]; then
-        kill "$FRONTEND_PID" 2>/dev/null || true
-    fi
+    for pid_var in API_PID WORKER_PID AGNO_PID FRONTEND_PID ADMIN_PID LEGACY_PID; do
+        pid="${!pid_var:-}"
+        if [ -n "$pid" ]; then
+            kill "$pid" 2>/dev/null || true
+        fi
+    done
 
-    local back_pids front_pids
-    back_pids=$(lsof -ti :8000 2>/dev/null || true)
-    front_pids=$(lsof -ti :3000 2>/dev/null || true)
-    [ -n "$back_pids" ] && echo "$back_pids" | xargs kill -9 2>/dev/null || true
-    [ -n "$front_pids" ] && echo "$front_pids" | xargs kill -9 2>/dev/null || true
+    free_port "$API_PORT"
+    free_port "$FRONTEND_PORT"
+    free_port "$ADMIN_PORT"
+    free_port "$AGNO_PORT"
+    free_port "$LEGACY_PORT"
 
-    echo -e "${PREFIX_BACK}${DIM}Stopped${RESET}"
-    echo -e "${PREFIX_FRONT}${DIM}Stopped${RESET}"
+    [ -n "$API_PID" ] && echo -e "${PREFIX_API}${DIM}Stopped${RESET}"
+    [ -n "$WORKER_PID" ] && echo -e "${PREFIX_WORKER}${DIM}Stopped${RESET}"
+    [ -n "$AGNO_PID" ] && echo -e "${PREFIX_AGNO}${DIM}Stopped${RESET}"
+    [ -n "$FRONTEND_PID" ] && echo -e "${PREFIX_FRONT}${DIM}Stopped${RESET}"
+    [ -n "$ADMIN_PID" ] && echo -e "${PREFIX_ADMIN}${DIM}Stopped${RESET}"
+    [ -n "$LEGACY_PID" ] && echo -e "${PREFIX_LEGACY}${DIM}Stopped${RESET}"
 
     if [ "$REDIS_RUNNING" = true ]; then
-        echo -e "${PREFIX_REDIS}${DIM}Still running (lightweight, reused on next start)${RESET}"
+        echo -e "${PREFIX_REDIS}${DIM}Still running (reused on next start)${RESET}"
     fi
 
     echo ""
@@ -307,64 +409,145 @@ cleanup() {
 
 trap cleanup SIGINT SIGTERM
 
+# ---------------------------------------------------------------------------
+# Main modes
+# ---------------------------------------------------------------------------
+start_modern_stack() {
+    separator
+    try_start_redis
+    separator
+
+    info "Preparing modern stack..."
+    echo ""
+
+    free_port "$API_PORT"
+    free_port "$FRONTEND_PORT"
+    free_port "$ADMIN_PORT"
+    free_port "$AGNO_PORT"
+
+    ensure_workspace_deps
+    ensure_agno_env
+
+    separator
+    echo ""
+    info "Launching modern stack..."
+    echo ""
+
+    run_api
+    sleep 2
+
+    run_worker
+    sleep 2
+
+    run_agno
+    sleep 2
+
+    run_frontend
+    sleep 2
+
+    run_admin
+    sleep 3
+
+    echo ""
+    separator
+    echo ""
+    echo -e "${BOLD}${WHITE}  Services running (modern stack):${RESET}"
+    echo ""
+    echo -e "    ${CYAN}API     ${RESET} ${DIM}........${RESET} ${WHITE}http://localhost:${API_PORT}${RESET}  ${DIM}(NestJS + Bun)${RESET}"
+    echo -e "    ${BLUE}Worker  ${RESET} ${DIM}........${RESET} ${WHITE}apps/api BullMQ runtime${RESET}"
+    echo -e "    ${YELLOW}Agno    ${RESET} ${DIM}........${RESET} ${WHITE}http://localhost:${AGNO_PORT}${RESET}  ${DIM}(chat runtime sidecar)${RESET}"
+    echo -e "    ${MAGENTA}Frontend${RESET} ${DIM}........${RESET} ${WHITE}http://localhost:${FRONTEND_PORT}${RESET}  ${DIM}(React + Vite dev)${RESET}"
+    echo -e "    ${GREEN}Admin   ${RESET} ${DIM}........${RESET} ${WHITE}http://localhost:${ADMIN_PORT}${RESET}  ${DIM}(React + Vite dev)${RESET}"
+
+    if [ "$REDIS_RUNNING" = true ]; then
+        echo -e "    ${DIM}Redis    ........ localhost:6379   (cache + BullMQ)${RESET}"
+    else
+        echo -e "    ${DIM}Redis    ........ ${YELLOW}skipped${RESET}${DIM}          (queue features degraded)${RESET}"
+    fi
+
+    echo ""
+    echo -e "    ${DIM}Database ........ Supabase (cloud)${RESET}"
+    echo -e "    ${DIM}Storage  ........ Cloudflare R2 (cloud)${RESET}"
+    echo ""
+    separator
+    echo ""
+    echo -e "  ${YELLOW}This mode uses the new backend by default.${RESET}"
+    echo -e "  ${YELLOW}Use the chat toggle to switch between native and Agno runtimes.${RESET}"
+    echo -e "  ${YELLOW}Ctrl+C${RESET} to stop all services"
+    echo ""
+
+    wait
+}
+
+start_legacy_stack() {
+    separator
+    try_start_redis
+    separator
+
+    info "Preparing legacy stack..."
+    echo ""
+
+    free_port "$LEGACY_PORT"
+    free_port "$FRONTEND_PORT"
+
+    ensure_workspace_deps
+    ensure_legacy_backend
+
+    separator
+    echo ""
+    info "Launching legacy stack..."
+    echo ""
+
+    run_legacy_backend
+    sleep 2
+
+    run_frontend
+    sleep 3
+
+    echo ""
+    separator
+    echo ""
+    echo -e "${BOLD}${WHITE}  Services running (legacy stack):${RESET}"
+    echo ""
+    echo -e "    ${RED}Legacy  ${RESET} ${DIM}........${RESET} ${WHITE}http://localhost:${LEGACY_PORT}${RESET}  ${DIM}(FastAPI + uvicorn)${RESET}"
+    echo -e "    ${MAGENTA}Frontend${RESET} ${DIM}........${RESET} ${WHITE}http://localhost:${FRONTEND_PORT}${RESET}  ${DIM}(React + Vite dev)${RESET}"
+
+    if [ "$REDIS_RUNNING" = true ]; then
+        echo -e "    ${DIM}Redis    ........ localhost:6379   (legacy cache)${RESET}"
+    else
+        echo -e "    ${DIM}Redis    ........ ${YELLOW}skipped${RESET}${DIM}          (optional)${RESET}"
+    fi
+
+    echo ""
+    separator
+    echo ""
+    echo -e "  ${YELLOW}This mode does not use Agno or the Nest backend.${RESET}"
+    echo -e "  ${YELLOW}Ctrl+C${RESET} to stop all services"
+    echo ""
+
+    wait
+}
+
 # ============================================================================
-# Main
+# Entrypoint
 # ============================================================================
 
 banner
-check_prereqs
-load_env
 
-separator
-try_start_redis
-separator
-
-info "Preparing services..."
-echo ""
-
-free_port 8000
-free_port 3000
-
-ensure_backend_venv
-ensure_frontend_deps
-
-separator
-echo ""
-info "Launching services..."
-echo ""
-
-run_backend
-
-# Give backend a head start
-sleep 2
-
-run_frontend
-
-# Wait for frontend to be reachable
-sleep 3
-
-echo ""
-separator
-echo ""
-echo -e "${BOLD}${WHITE}  Services running:${RESET}"
-echo ""
-echo -e "    ${CYAN}Backend ${RESET} ${DIM}........${RESET} ${WHITE}http://localhost:8000${RESET}  ${DIM}(FastAPI + uvicorn)${RESET}"
-echo -e "    ${MAGENTA}Frontend${RESET} ${DIM}........${RESET} ${WHITE}http://localhost:3000${RESET}  ${DIM}(React + Vite dev)${RESET}"
-
-if [ "$REDIS_RUNNING" = true ]; then
-    echo -e "    ${DIM}Redis    ........ localhost:6379   (cache)${RESET}"
-else
-    echo -e "    ${DIM}Redis    ........ ${YELLOW}skipped${RESET}${DIM}          (optional)${RESET}"
-fi
-
-echo ""
-echo -e "    ${DIM}Database ........ Supabase (cloud)${RESET}"
-echo -e "    ${DIM}Storage  ........ Cloudflare R2 (cloud)${RESET}"
-echo ""
-separator
-echo ""
-echo -e "  ${YELLOW}Ctrl+C${RESET} to stop all services"
-echo ""
-
-# Wait for child processes
-wait
+case "$MODE" in
+    modern)
+        check_prereqs
+        load_env
+        start_modern_stack
+        ;;
+    legacy)
+        check_prereqs
+        load_env
+        start_legacy_stack
+        ;;
+    *)
+        fail "Unknown mode: $MODE"
+        usage
+        exit 1
+        ;;
+esac

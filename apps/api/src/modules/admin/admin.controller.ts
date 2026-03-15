@@ -8,6 +8,7 @@ import {
   Body,
   Query,
   UseGuards,
+  BadRequestException,
 } from '@nestjs/common';
 import { AdminService } from './admin.service';
 import { AuthGuard } from '../../common/guards/auth.guard';
@@ -20,13 +21,38 @@ export class AdminController {
   constructor(private readonly adminService: AdminService) {}
 
   // ============================================================================
+  // Verify admin
+  // ============================================================================
+
+  @Get('verify')
+  async verify() {
+    return { is_admin: true };
+  }
+
+  // ============================================================================
   // Dashboard
   // ============================================================================
 
   @Get('dashboard')
-  async getDashboard(@Query('period_days') periodDays?: string) {
-    const days = periodDays ? parseInt(periodDays, 10) : 30;
+  async getDashboard(@Query('period_days') periodDays?: string, @Query('periodDays') periodDaysCamel?: string) {
+    const days = parseInt(periodDays ?? periodDaysCamel ?? '30', 10);
     return this.adminService.getDashboardStats(days);
+  }
+
+  @Get('dashboard/activity')
+  async getDashboardActivity(@Query('period_days') periodDays?: string, @Query('periodDays') periodDaysCamel?: string) {
+    const days = parseInt(periodDays ?? periodDaysCamel ?? '30', 10);
+    return this.adminService.getActivityTrends(days);
+  }
+
+  @Get('dashboard/recent-activity')
+  async getRecentActivity() {
+    return this.adminService.getRecentActivity();
+  }
+
+  @Get('available-models')
+  async getAvailableModels() {
+    return this.adminService.getAvailableModels();
   }
 
   // ============================================================================
@@ -106,6 +132,12 @@ export class AdminController {
   // ============================================================================
   // Model Configuration
   // ============================================================================
+
+  @Get('models/schema')
+  async getModelSchema(@Query('modelId') modelId: string) {
+    if (!modelId) throw new BadRequestException('modelId is required');
+    return this.adminService.getModelSchema(modelId);
+  }
 
   @Get('models/config')
   async getModelConfig() {
@@ -217,33 +249,6 @@ export class AdminController {
   ) {
     await this.adminService.deleteSystemMessage(messageId, adminId);
     return { success: true, message: 'Message deleted' };
-  }
-
-  // ============================================================================
-  // Global Memories (Admin View)
-  // ============================================================================
-
-  @Get('memories')
-  async getAllMemories(
-    @Query('limit') limit?: string,
-    @Query('offset') offset?: string,
-  ) {
-    const limitNum = limit ? parseInt(limit, 10) : 50;
-    const offsetNum = offset ? parseInt(offset, 10) : 0;
-
-    return this.adminService.getAllMemories({
-      limit: limitNum,
-      offset: offsetNum,
-    });
-  }
-
-  @Delete('memories/:memoryId')
-  async deleteMemory(
-    @Param('memoryId') memoryId: string,
-    @CurrentUser('id') adminId: string,
-  ) {
-    await this.adminService.deleteMemory(memoryId, adminId);
-    return { success: true, message: 'Memory deleted' };
   }
 
   // ============================================================================

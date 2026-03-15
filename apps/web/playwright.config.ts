@@ -1,4 +1,9 @@
 import { defineConfig, devices } from '@playwright/test';
+import * as dotenv from 'dotenv';
+import { resolve } from 'node:path';
+
+// Load .env.test so E2E_TEST_EMAIL, E2E_TEST_PASSWORD, E2E_BASE_URL are available
+dotenv.config({ path: resolve(__dirname, '.env.test') });
 
 /**
  * Playwright E2E Test Configuration
@@ -31,8 +36,8 @@ export default defineConfig({
 
   // Shared settings for all projects
   use: {
-    // Base URL for navigation
-    baseURL: process.env.E2E_BASE_URL || 'http://localhost:3000',
+    // Base URL for navigation (frontend runs on 4000 when using start.sh)
+    baseURL: process.env.E2E_BASE_URL || 'http://localhost:4000',
 
     // Collect trace when retrying the failed test
     trace: 'on-first-retry',
@@ -60,17 +65,24 @@ export default defineConfig({
       name: 'chromium',
       use: {
         ...devices['Desktop Chrome'],
-        // Use authenticated state from setup
         storageState: './e2e/.auth/user.json',
       },
       dependencies: ['setup'],
+      testIgnore: [/diagnose-full\.spec\.ts/],
+    },
+
+    // Full diagnostic (login → workspace → project → studio → settings) - no saved auth
+    {
+      name: 'diagnostic',
+      use: { ...devices['Desktop Chrome'] },
+      testMatch: /diagnose-full\.spec\.ts/,
     },
   ],
 
   // Run your local dev server before starting the tests
   webServer: process.env.CI ? undefined : {
-    command: 'npm run dev',
-    url: 'http://localhost:3000',
+    command: 'npm run dev -- --port 4000',
+    url: 'http://localhost:4000',
     reuseExistingServer: !process.env.CI,
     timeout: 120000,
   },

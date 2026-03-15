@@ -20,7 +20,8 @@ export default function VisualContextSettingsPage() {
         if (!authLoading && !session) {
             router.push("/login")
         }
-    }, [session, authLoading, router])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [session, authLoading])
 
     if (authLoading) {
         return (

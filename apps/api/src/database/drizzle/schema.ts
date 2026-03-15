@@ -24,7 +24,6 @@ import {
   primaryKey,
   unique,
   check,
-  vector,
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 
@@ -147,6 +146,34 @@ export const folders = pgTable(
   }),
 );
 
+/** 2.2b boards — Kanban boards inside a project (Migration 036) */
+export const boards = pgTable('boards', {
+  id: varchar('id').primaryKey(),
+  projectId: varchar('project_id')
+    .notNull()
+    .references(() => projects.id, { onDelete: 'cascade' }),
+  folderId: varchar('folder_id').references(() => folders.id, { onDelete: 'set null' }),
+  name: varchar('name').notNull(),
+  description: text('description'),
+  position: integer('position').notNull().default(0),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }),
+  deletedAt: timestamp('deleted_at', { withTimezone: true }),
+});
+
+/** 2.2c board_columns — Columns of a Kanban board */
+export const boardColumns = pgTable('board_columns', {
+  id: varchar('id').primaryKey(),
+  boardId: varchar('board_id')
+    .notNull()
+    .references(() => boards.id, { onDelete: 'cascade' }),
+  name: varchar('name').notNull(),
+  color: varchar('color'),
+  position: integer('position').notNull().default(0),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }),
+});
+
 /** 2.3 documents — largest table, extended by many features */
 export const documents = pgTable(
   'documents',
@@ -157,6 +184,11 @@ export const documents = pgTable(
     status: varchar('status').default('draft'), // 'draft' | 'text_ok' | 'art_ok' | 'done' | 'published'
     projectId: varchar('project_id').references(() => projects.id),
     folderId: varchar('folder_id').references(() => folders.id, { onDelete: 'set null' }),
+
+    // Board (Kanban) — Migration 036
+    boardId: varchar('board_id').references(() => boards.id, { onDelete: 'set null' }),
+    boardColumnId: varchar('board_column_id').references(() => boardColumns.id, { onDelete: 'set null' }),
+    boardPosition: integer('board_position'),
 
     // Media fields
     mediaType: varchar('media_type').default('text'), // 'text' | 'image' | 'pdf' | 'video'
@@ -470,48 +502,6 @@ export const aiUsageLog = pgTable('ai_usage_log', {
   durationMs: integer('duration_ms'),
 });
 
-/** 5.3 user_memories (pgvector) */
-export const userMemories = pgTable(
-  'user_memories',
-  {
-    id: uuid('id').primaryKey().defaultRandom(),
-    userId: uuid('user_id')
-      .notNull()
-      .references(() => users.id, { onDelete: 'cascade' }),
-    projectId: varchar('project_id')
-      .notNull()
-      .references(() => projects.id, { onDelete: 'cascade' }),
-
-    // Content
-    content: text('content').notNull(),
-    contentHash: varchar('content_hash', { length: 64 }).notNull(),
-
-    // Vector embedding (1536 dimensions for text-embedding-3-small)
-    embedding: vector('embedding', { dimensions: 1536 }),
-
-    // Categorization
-    category: varchar('category', { length: 50 }).default('other'),
-
-    // Source tracking
-    sourceConversationId: varchar('source_conversation_id')
-      .references(() => chatConversations.id, { onDelete: 'set null' }),
-
-    // Timestamps
-    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
-  },
-  (table) => ({
-    uniqueHash: unique('unique_user_project_memory_hash').on(
-      table.userId,
-      table.projectId,
-      table.contentHash,
-    ),
-    validCategory: check(
-      'valid_category',
-      sql`${table.category} IN ('personal', 'professional', 'preference', 'plan', 'health', 'other')`,
-    ),
-  }),
-);
 
 // ─────────────────────────────────────────────
 // 6. Visual Assets Domain

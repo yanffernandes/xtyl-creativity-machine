@@ -41,10 +41,10 @@ const config: Config = {
                 accent: {
                     DEFAULT: 'hsl(var(--accent))',
                     foreground: 'hsl(var(--accent-foreground))',
-                    // Ethereal Blue variants
-                    primary: '#5B8DEF',
-                    secondary: '#4A7AD9',
-                    tertiary: '#7AA5F5',
+                    // Terra variants
+                    primary: '#C86B2A',
+                    secondary: '#A8541E',
+                    tertiary: '#E8924E',
                 },
                 destructive: {
                     DEFAULT: 'hsl(var(--destructive))',
@@ -85,19 +85,18 @@ const config: Config = {
                 lg: shadows.lg,
                 xl: shadows.xl,
                 '2xl': shadows['2xl'],
-                // Glass shadows
-                'glass-sm': '0 8px 32px rgba(0, 0, 0, 0.04)',
-                'glass-md': '0 8px 32px rgba(31, 38, 135, 0.15)',
-                'glass-lg': '0 12px 48px rgba(91, 141, 239, 0.2)',
-                'glass-inset': 'inset 0 1px 0 rgba(255, 255, 255, 0.6)',
-                // Dark mode glass shadows
-                'glass-dark-sm': '0 8px 32px rgba(0, 0, 0, 0.3)',
-                'glass-dark-md': '0 8px 32px rgba(0, 0, 0, 0.4)',
-                'glass-dark-lg': '0 12px 48px rgba(91, 141, 239, 0.15)',
-                // Accent glow shadows
-                'accent-sm': '0 4px 12px rgba(91, 141, 239, 0.15)',
-                'accent-md': '0 8px 24px rgba(91, 141, 239, 0.2)',
-                'accent-lg': '0 12px 48px rgba(91, 141, 239, 0.25)',
+                // Subtle surface shadows
+                'glass-sm': '0 2px 8px rgba(0, 0, 0, 0.04)',
+                'glass-md': '0 4px 16px rgba(0, 0, 0, 0.08)',
+                'glass-lg': '0 8px 32px rgba(0, 0, 0, 0.1)',
+                'glass-inset': 'inset 0 1px 0 rgba(255, 255, 255, 0.5)',
+                'glass-dark-sm': '0 2px 8px rgba(0, 0, 0, 0.2)',
+                'glass-dark-md': '0 4px 16px rgba(0, 0, 0, 0.3)',
+                'glass-dark-lg': '0 8px 32px rgba(0, 0, 0, 0.4)',
+                // Terra accent glow (warm, subtle)
+                'accent-sm': '0 2px 8px rgba(200, 107, 42, 0.12)',
+                'accent-md': '0 4px 16px rgba(200, 107, 42, 0.18)',
+                'accent-lg': '0 8px 32px rgba(200, 107, 42, 0.22)',
             },
             borderRadius: {
                 ...borderRadius,
@@ -141,11 +140,11 @@ const config: Config = {
             },
             // Background gradients
             backgroundImage: {
-                'gradient-light': 'linear-gradient(135deg, #EFF6FF 0%, #E0E7FF 50%, #F3E8FF 100%)',
-                'gradient-dark': 'linear-gradient(135deg, #0A0E14 0%, #0F1419 50%, #14191F 100%)',
-                'gradient-orb-primary': 'radial-gradient(circle, rgba(91, 141, 239, 0.3) 0%, transparent 70%)',
-                'gradient-orb-secondary': 'radial-gradient(circle, rgba(122, 165, 245, 0.3) 0%, transparent 70%)',
-                'gradient-orb-tertiary': 'radial-gradient(circle, rgba(74, 122, 217, 0.2) 0%, transparent 70%)',
+                'gradient-light': 'linear-gradient(135deg, #FAF8F5 0%, #F5F0EA 50%, #EDE6DC 100%)',
+                'gradient-dark': 'linear-gradient(135deg, #141210 0%, #1A1510 50%, #1E1A16 100%)',
+                'gradient-orb-primary': 'radial-gradient(circle, rgba(200, 107, 42, 0.18) 0%, transparent 70%)',
+                'gradient-orb-secondary': 'radial-gradient(circle, rgba(212, 131, 63, 0.14) 0%, transparent 70%)',
+                'gradient-orb-tertiary': 'radial-gradient(circle, rgba(168, 84, 30, 0.1) 0%, transparent 70%)',
             },
             // Keyframe animations
             keyframes: {

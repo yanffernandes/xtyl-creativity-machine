@@ -1,13 +1,5 @@
 'use client';
 
-/**
- * ModelParameters Component
- * Feature 029: Dynamic model parameter controls
- *
- * Renders UI controls for model-specific parameters based on the
- * selected model's configuration from modelConfig.ts.
- */
-
 import { useCallback } from 'react';
 import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
@@ -20,27 +12,22 @@ import {
 } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
-import { getModelById, type ModelParameter, type ModelConfig } from '@/lib/modelConfig';
+import type { ModelParameter } from '@/types/image-studio';
 
 interface ModelParametersProps {
-  /** Model ID to show parameters for */
-  modelId: string;
-  /** Current parameter values */
+  parameters: ModelParameter[];
+  modelName?: string;
   values: Record<string, unknown>;
-  /** Callback when a parameter changes */
   onChange: (params: Record<string, unknown>) => void;
-  /** Whether controls are disabled */
   disabled?: boolean;
-  /** Parameter names to exclude from rendering (handled separately by parent) */
   excludeParams?: string[];
-  /** Whether to show the header */
   showHeader?: boolean;
-  /** Additional class names */
   className?: string;
 }
 
 export function ModelParameters({
-  modelId,
+  parameters,
+  modelName,
   values,
   onChange,
   disabled = false,
@@ -48,33 +35,22 @@ export function ModelParameters({
   showHeader = true,
   className,
 }: ModelParametersProps) {
-  const model = getModelById(modelId);
-
   const handleChange = useCallback(
     (name: string, value: unknown) => {
       onChange({ ...values, [name]: value });
     },
-    [values, onChange]
+    [values, onChange],
   );
 
-  if (!model) {
-    return null;
-  }
+  const visibleParams = parameters.filter((p) => !excludeParams.includes(p.name));
 
-  // Filter out excluded parameters
-  const visibleParams = model.parameters.filter(
-    (param) => !excludeParams.includes(param.name)
-  );
-
-  if (visibleParams.length === 0) {
-    return null;
-  }
+  if (visibleParams.length === 0) return null;
 
   return (
     <div className={cn('space-y-4', className)}>
-      {showHeader && (
+      {showHeader && modelName && (
         <div className="text-xs font-medium text-muted-foreground mb-2">
-          Parâmetros do {model.name}
+          Parâmetros do {modelName}
         </div>
       )}
       <div className="grid gap-4">
@@ -107,11 +83,7 @@ function ParameterControl({ param, value, onChange, disabled }: ParameterControl
           <Label htmlFor={param.name} className="text-sm">
             {param.label}
           </Label>
-          <Select
-            value={String(value)}
-            onValueChange={onChange}
-            disabled={disabled}
-          >
+          <Select value={String(value)} onValueChange={onChange} disabled={disabled}>
             <SelectTrigger id={param.name} className="w-full">
               <SelectValue placeholder={`Selecione ${param.label.toLowerCase()}`} />
             </SelectTrigger>
@@ -177,30 +149,6 @@ function ParameterControl({ param, value, onChange, disabled }: ParameterControl
     default:
       return null;
   }
-}
-
-/**
- * Hook to manage model parameters state
- */
-export function useModelParameters(modelId: string) {
-  const model = getModelById(modelId);
-
-  // Build initial values from model defaults
-  const getDefaultValues = useCallback((): Record<string, unknown> => {
-    if (!model) return {};
-    return model.parameters.reduce((acc, param) => {
-      acc[param.name] = param.default;
-      return acc;
-    }, {} as Record<string, unknown>);
-  }, [model]);
-
-  return {
-    model,
-    getDefaultValues,
-    supportsMask: model?.supportsMask ?? false,
-    maxImages: model?.maxImages ?? 4,
-    modelType: model?.type ?? 'text-to-image',
-  };
 }
 
 export default ModelParameters;

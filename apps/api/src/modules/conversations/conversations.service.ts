@@ -66,4 +66,43 @@ export class ConversationsService {
       throw new NotFoundException('Conversation not found');
     }
   }
+
+  async addCreatedDocument(
+    userId: string,
+    conversationId: string,
+    documentId: string,
+  ) {
+    const conversation = await this.getConversation(userId, conversationId);
+    const currentIds = Array.isArray(conversation.createdDocumentIds)
+      ? conversation.createdDocumentIds
+      : [];
+
+    if (currentIds.includes(documentId)) {
+      return {
+        success: true,
+        conversation_id: conversationId,
+        created_document_ids: currentIds,
+      };
+    }
+
+    const updatedIds = [...currentIds, documentId];
+    await this.db
+      .update(chatConversations)
+      .set({
+        createdDocumentIds: updatedIds,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(chatConversations.id, conversationId),
+          eq(chatConversations.userId, userId),
+        ),
+      );
+
+    return {
+      success: true,
+      conversation_id: conversationId,
+      created_document_ids: updatedIds,
+    };
+  }
 }

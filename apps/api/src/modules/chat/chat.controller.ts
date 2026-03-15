@@ -9,43 +9,11 @@ import {
 import { FastifyReply, FastifyRequest } from 'fastify';
 import { ChatService } from './chat.service';
 import { CurrentUser } from '../../common/decorators';
-
-interface ChatMessage {
-  role: 'user' | 'assistant' | 'system' | 'tool';
-  content: string;
-  attachments?: Array<{
-    type: string;
-    content: string;
-    filename: string;
-    metadata?: Record<string, unknown>;
-  }>;
-}
-
-interface CurrentDocument {
-  id: string;
-  title: string;
-  content: string;
-}
-
-interface ChatCompletionRequest {
-  messages: ChatMessage[];
-  model: string;
-  project_id?: string;
-  use_rag?: boolean;
-  current_document?: CurrentDocument;
-  current_document_id?: string;
-  document_ids?: string[];
-  folder_ids?: string[];
-  autonomous_mode?: boolean;
-}
+import type { ChatCompletionRequest } from './chat.types';
 
 interface ToolApprovalResponse {
   approval_id: string;
   approved: boolean;
-}
-
-interface ToolCancelRequest {
-  tool_call_id: string;
 }
 
 @Controller('chat')
@@ -83,13 +51,6 @@ export class ChatController {
     @Body() response: ToolApprovalResponse,
   ) {
     return this.chatService.handleToolApproval(response);
-  }
-
-  @Post('tool-cancel')
-  async cancelToolExecution(
-    @Body() request: ToolCancelRequest,
-  ) {
-    return this.chatService.cancelTool(request.tool_call_id);
   }
 
   @Post('completion')
@@ -131,22 +92,4 @@ export class ChatController {
     }
   }
 
-  @Post('analyze-image')
-  async analyzeImage(
-    @Req() req: FastifyRequest,
-  ) {
-    const data = await (req as any).file();
-    const body = data?.fields as Record<string, any>;
-    const prompt = (body?.prompt?.value as string) || 'Descreva esta imagem em detalhes.';
-    return this.chatService.analyzeImage(data, prompt);
-  }
-
-  @Post('analyze-document-image')
-  async analyzeDocumentImage(
-    @Body('document_id') documentId: string,
-    @Body('prompt')
-    prompt = 'Descreva esta imagem em detalhes e extraia qualquer texto visível.',
-  ) {
-    return this.chatService.analyzeDocumentImage(documentId, prompt);
-  }
 }

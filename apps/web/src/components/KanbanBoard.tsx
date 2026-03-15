@@ -52,26 +52,26 @@ const COLUMNS = [
   {
     id: "draft",
     title: "Rascunho",
-    accentColor: "bg-slate-400",
-    badgeColor: "bg-slate-500"
+    accentColor: "bg-muted-foreground/40",
+    badgeColor: "bg-muted-foreground/50"
   },
   {
     id: "text_ok",
     title: "Texto OK",
-    accentColor: "bg-blue-500",
-    badgeColor: "bg-blue-500"
+    accentColor: "bg-sky-500",
+    badgeColor: "bg-sky-500"
   },
   {
     id: "art_ok",
     title: "Arte OK",
-    accentColor: "bg-green-500",
-    badgeColor: "bg-green-500"
+    accentColor: "bg-emerald-500",
+    badgeColor: "bg-emerald-500"
   },
   {
     id: "done",
     title: "Finalizado",
-    accentColor: "bg-purple-500",
-    badgeColor: "bg-purple-500"
+    accentColor: "bg-primary",
+    badgeColor: "bg-primary"
   },
   {
     id: "published",

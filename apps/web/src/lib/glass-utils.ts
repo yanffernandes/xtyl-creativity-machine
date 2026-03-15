@@ -83,7 +83,7 @@ export const glassItemClasses = cn(
   "bg-white/[0.04] dark:bg-white/[0.02]",
   "border border-white/[0.08]",
   "hover:bg-white/[0.08] hover:border-primary/30",
-  "hover:shadow-[0_4px_16px_-4px_rgba(91,141,239,0.2)]",
+  "hover:shadow-[0_4px_16px_-4px_rgba(200,107,42,0.15)]",
   "transition-all duration-200"
 );
 

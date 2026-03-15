@@ -129,44 +129,50 @@ export class VisualAssetsService {
 
   async listAssets(projectId: string, options: ListOptions = {}) {
     const { classification, limit = 100, offset = 0 } = options;
-
-    let query = this.db
-      .select()
-      .from(documents)
-      .where(
-        and(
-          eq(documents.projectId, projectId),
-          eq(documents.isReferenceAsset, true),
-          isNull(documents.deletedAt),
-        ),
-      );
+    const conditions = [
+      eq(documents.projectId, projectId),
+      eq(documents.isReferenceAsset, true),
+      isNull(documents.deletedAt),
+    ];
 
     if (classification) {
-      query = query.where(eq(documents.assetCategory, classification));
+      conditions.push(eq(documents.assetCategory, classification));
     }
 
-    query = query.orderBy(desc(documents.createdAt)).limit(limit).offset(offset);
-
-    const assets = await query;
+    const assets = await this.db
+      .select()
+      .from(documents)
+      .where(and(...conditions))
+      .orderBy(desc(documents.createdAt))
+      .limit(limit)
+      .offset(offset);
 
     // Count total
     const [{ count: total }] = await this.db
       .select({ count: sql<number>`count(*)` })
       .from(documents)
-      .where(
-        and(
-          eq(documents.projectId, projectId),
-          eq(documents.isReferenceAsset, true),
-          isNull(documents.deletedAt),
-          classification ? eq(documents.assetCategory, classification) : undefined,
-        ),
-      );
+      .where(and(...conditions));
 
     return {
       assets,
       total: Number(total),
       limit,
       offset,
+    };
+  }
+
+  async getAssetsSummary(projectId: string) {
+    const assets = await this.listAssets(projectId, { limit: 500, offset: 0 });
+    const byCategory: Record<string, number> = {};
+
+    for (const asset of assets.assets) {
+      const category = asset.assetCategory || 'Unclassified';
+      byCategory[category] = (byCategory[category] || 0) + 1;
+    }
+
+    return {
+      total: assets.total,
+      by_category: byCategory,
     };
   }
 

@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Send, Bot, User as UserIcon, Settings, FileText, ChevronDown, ChevronUp, Trash2, Check, ChevronsUpDown, Paperclip, RotateCcw, Sparkles, Folder, Search, X, History, ExternalLink, Image, MoreVertical, Plus, Loader2, Mic, Square, Brain } from "lucide-react"
+import { Send, Bot, User as UserIcon, Settings, FileText, ChevronDown, ChevronUp, Trash2, Check, ChevronsUpDown, Paperclip, RotateCcw, Sparkles, Folder, Search, X, History, ExternalLink, Image, MoreVertical, Plus, Loader2, Mic, Square, PanelRightClose } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/components/ui/use-toast"
 import ReactMarkdown from "react-markdown"
@@ -29,12 +29,12 @@ import {
     TooltipProvider,
     TooltipTrigger,
 } from "@/components/ui/tooltip"
-import { Switch } from "@/components/ui/switch"
 import { cn } from "@/lib/utils"
 import { motion } from "framer-motion"
 import ToolExecutionCard from "@/components/ToolExecutionCard"
 import TaskListCard, { TaskItem } from "@/components/TaskListCard"
 import { useUserPreferences } from "@/hooks/useUserPreferences"
+import { buildApiUrl } from "@/lib/env"
 import ConversationsList from "@/components/ConversationsList"
 import { conversationService } from "@/lib/supabase/conversations"
 import VisualContextSelector from "@/components/visual-assets/VisualContextSelector"
@@ -42,7 +42,6 @@ import { TemplateSelector, TemplateForm } from "@/components/templates"
 import { startChatFromTemplate, transcribeAudio } from "@/lib/api"
 import { useVoiceRecording } from "@/hooks/useVoiceRecording"
 import { AnimatePresence } from "framer-motion"
-import { MemoryDrawer } from "@/components/memory/MemoryDrawer"
 import { useImageVariations } from "@/hooks/useImageVariations"
 import { ImageVariationGrid } from "@/components/chat/ImageVariationGrid"
 import type { ImageVariation } from "@/types/image-variations"
@@ -135,6 +134,7 @@ interface ChatSidebarProps {
     availableModels?: string[]
     defaultModel?: string
     className?: string
+    onCollapsedChange?: (collapsed: boolean) => void
 }
 
 export default function ChatSidebar({
@@ -151,7 +151,8 @@ export default function ChatSidebar({
     onNavigateToDocument,
     availableModels = [],
     defaultModel,
-    className
+    className,
+    onCollapsedChange
 }: ChatSidebarProps) {
     const [messages, setMessages] = useState<Message[]>([])
     const [input, setInput] = useState("")
@@ -179,13 +180,13 @@ export default function ChatSidebar({
     const [taskList, setTaskList] = useState<TaskItem[]>([])
     const [iterationInfo, setIterationInfo] = useState<{ current: number; max: number } | null>(null)
 
+    // Sidebar collapsed state
+    const [isCollapsed, setIsCollapsed] = useState(false)
+
     // Conversation history states
     const [showConversationsList, setShowConversationsList] = useState(false)
     const [currentConversationId, setCurrentConversationId] = useState<string | null>(null)
     const [createdDocuments, setCreatedDocuments] = useState<CreatedDocument[]>([])
-
-    // Memory drawer state (Feature 024)
-    const [memoryDrawerOpen, setMemoryDrawerOpen] = useState(false)
 
     // Image variations state (Feature 026)
     const imageVariations = useImageVariations()
@@ -203,7 +204,7 @@ export default function ChatSidebar({
     const tMemory = useTranslations("memory")
 
     // User preferences for autonomous mode
-    const { preferences, updatePreference, isLoading: preferencesLoading } = useUserPreferences(token)
+    const { preferences } = useUserPreferences(token)
 
     // Supabase hooks for folders and templates
     const { data: foldersData } = useFolders(projectId || '')
@@ -693,6 +694,8 @@ export default function ChatSidebar({
             const contextData: any = {
                 messages: messagesWithAttachments,
                 model: selectedModel,
+                workspace_id: workspaceId,
+                conversation_id: currentConversationId,
                 project_id: projectId,
                 active_board_id: currentBoardId || null,
                 use_rag: useRag,
@@ -720,7 +723,7 @@ export default function ChatSidebar({
             }
 
             // Use streaming endpoint
-            const apiUrl = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/chat/completion-stream`
+            const apiUrl = buildApiUrl("/chat/completion-stream")
 
             // Create AbortController for cancellation support
             abortControllerRef.current = new AbortController()
@@ -747,6 +750,7 @@ export default function ChatSidebar({
             let localToolExecutions: ToolExecution[] = []
             let localTaskList: TaskItem[] = []
             let streamDone = false
+            let activeConversationId = currentConversationId
 
             if (!reader) throw new Error("No reader available")
 
@@ -770,6 +774,13 @@ export default function ChatSidebar({
                             switch (event.type) {
                                 case 'status':
                                     setStreamingStatus({ status: event.message })
+                                    break
+
+                                case 'conversation_created':
+                                    if (event.conversation_id) {
+                                        activeConversationId = event.conversation_id
+                                        setCurrentConversationId(event.conversation_id)
+                                    }
                                     break
 
                                 case 'iteration':
@@ -891,12 +902,29 @@ export default function ChatSidebar({
 
                                     // Add tool execution card only if one doesn't already exist (from approval)
                                     {
-                                        const exists = localToolExecutions.some(exec =>
-                                            exec.tool === event.tool && exec.status === "executing"
+                                        const matchingIndex = localToolExecutions.findIndex(exec =>
+                                            exec.id === event.tool_call_id ||
+                                            (exec.tool === event.tool && (exec.status === "pending" || exec.status === "executing"))
                                         )
-                                        if (!exists) {
+
+                                        if (matchingIndex >= 0) {
+                                            localToolExecutions = localToolExecutions.map((exec, index) =>
+                                                index === matchingIndex
+                                                    ? {
+                                                        ...exec,
+                                                        id: event.tool_call_id || exec.id,
+                                                        args: event.args,
+                                                        status: "executing",
+                                                        timestamp: exec.timestamp || new Date().toISOString(),
+                                                        index: event.index,
+                                                        total: event.total
+                                                    }
+                                                    : exec
+                                            )
+                                            setToolExecutions(localToolExecutions)
+                                        } else {
                                             const newExecution: ToolExecution = {
-                                                id: `${event.tool}-${Date.now()}-${event.index || 0}`,
+                                                id: event.tool_call_id || `${event.tool}-${Date.now()}-${event.index || 0}`,
                                                 tool: event.tool,
                                                 args: event.args,
                                                 status: "executing",
@@ -919,10 +947,13 @@ export default function ChatSidebar({
 
                                     // Update tool execution card
                                     localToolExecutions = localToolExecutions.map(exec => {
-                                        // Match by tool name and executing status (to update the most recent one)
-                                        if (exec.tool === event.tool && exec.status === "executing") {
+                                        if (
+                                            (event.tool_call_id && exec.id === event.tool_call_id) ||
+                                            (!event.tool_call_id && exec.tool === event.tool && exec.status === "executing")
+                                        ) {
                                             return {
                                                 ...exec,
+                                                id: event.tool_call_id || exec.id,
                                                 status: "completed",
                                                 result: event.result,
                                                 duration: event.duration_ms
@@ -992,9 +1023,13 @@ export default function ChatSidebar({
                                 case 'tool_error':
                                     // Update tool execution card with error
                                     localToolExecutions = localToolExecutions.map(exec => {
-                                        if (exec.tool === event.tool && exec.status === "executing") {
+                                        if (
+                                            (event.tool_call_id && exec.id === event.tool_call_id) ||
+                                            (!event.tool_call_id && exec.tool === event.tool && exec.status === "executing")
+                                        ) {
                                             return {
                                                 ...exec,
+                                                id: event.tool_call_id || exec.id,
                                                 status: "error",
                                                 result: event.error || "Unknown error"
                                             }
@@ -1048,8 +1083,8 @@ export default function ChatSidebar({
                                         // Fire and forget - don't block UI
                                         ;(async () => {
                                             try {
-                                                if (currentConversationId) {
-                                                    await conversationService.update(currentConversationId, {
+                                                if (activeConversationId) {
+                                                    await conversationService.update(activeConversationId, {
                                                         messages_json: chatMessages,
                                                         model_used: selectedModel,
                                                         message_count: chatMessages.length,
@@ -1070,6 +1105,7 @@ export default function ChatSidebar({
                                                         last_message_at: new Date().toISOString()
                                                     })
                                                     if (!error && data) {
+                                                        activeConversationId = data.id
                                                         setCurrentConversationId(data.id)
                                                     }
                                                 }
@@ -1179,17 +1215,13 @@ export default function ChatSidebar({
         }
     }
 
-    // Floating glass effect classes - Apple style
     const floatingGlassClasses = cn(
-        "flex flex-col w-[400px]",
-        // Floating glass effect - Apple style
-        "bg-white/[0.03] dark:bg-white/[0.02]",
-        "backdrop-blur-2xl backdrop-saturate-150",
-        "border border-white/[0.1]",
-        "rounded-2xl",
-        "overflow-hidden", // Prevents child elements from showing outside rounded corners
-        "shadow-[0_8px_32px_-8px_rgba(0,0,0,0.15),0_0_0_1px_rgba(255,255,255,0.05)_inset]",
-        "dark:shadow-[0_8px_32px_-8px_rgba(0,0,0,0.4),0_0_0_1px_rgba(255,255,255,0.03)_inset]",
+        "flex flex-col w-[320px]",
+        "bg-surface-secondary dark:bg-surface-secondary",
+        "border border-border/60",
+        "rounded-xl",
+        "overflow-hidden",
+        "shadow-sm",
         className
     )
 
@@ -1207,155 +1239,71 @@ export default function ChatSidebar({
         )
     }
 
+    // Collapsed state — only the button floats; no bar, content shows behind
+    if (isCollapsed) {
+        return (
+            <div className={cn("absolute right-0 top-0 bottom-0 flex items-center justify-center pointer-events-none", className)}>
+                <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className="h-9 w-9 rounded-xl border border-border/60 bg-surface-secondary shadow-sm pointer-events-auto"
+                    onClick={() => { setIsCollapsed(false); onCollapsedChange?.(false) }}
+                    title="Expandir chat"
+                >
+                    <Bot className="h-4 w-4" />
+                </Button>
+            </div>
+        )
+    }
+
     return (
         <div className={floatingGlassClasses}>
-            <div className="p-4 border-b border-white/[0.06] flex flex-col gap-4 bg-gradient-to-b from-white/[0.04] to-transparent">
-                <div className="flex justify-between items-center">
-                    <h2 className="text-sm font-semibold flex items-center gap-2">
-                        <Bot className="h-4 w-4" /> {t("title")}
-                    </h2>
-                    <div className="flex items-center gap-1">
-                        <Popover open={openModelSelect} onOpenChange={setOpenModelSelect}>
-                            <PopoverTrigger asChild>
-                                <Button
-                                    variant="outline"
-                                    role="combobox"
-                                    aria-expanded={openModelSelect}
-                                    className="w-[180px] justify-between text-xs h-8"
-                                    title={models.find((model) => model.id === selectedModel)?.name || selectedModel}
-                                >
-                                    <span className="truncate">
-                                        {selectedModel
-                                            ? models.find((model) => model.id === selectedModel)?.name || selectedModel.split('/').pop()
-                                            : t("model")}
-                                    </span>
-                                    <ChevronsUpDown className="ml-1 h-3 w-3 shrink-0 opacity-50" />
-                                </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-[220px] p-0" align="end">
-                                <Command>
-                                    <CommandInput placeholder={t("searchModels")} />
-                                    <CommandList>
-                                        <CommandEmpty>{t("noModelsFound")}</CommandEmpty>
-
-                                        {/* Loading state when models haven't loaded yet */}
-                                        {models.length === 0 ? (
-                                            <div className="py-6 text-center text-sm text-muted-foreground">
-                                                <Loader2 className="h-4 w-4 animate-spin mx-auto mb-2" />
-                                                {t("loadingModels")}
-                                            </div>
-                                        ) : (
-                                            <>
-                                                {/* Recommended Models (Available in Workspace) */}
-                                                {availableModels.length > 0 && (
-                                                    <>
-                                                        <CommandGroup heading={t("recommended")}>
-                                                            {models
-                                                                .filter(model => availableModels.includes(model.id))
-                                                                .map((model) => (
-                                                                    <CommandItem
-                                                                        key={model.id}
-                                                                        value={model.name}
-                                                                        onSelect={() => {
-                                                                            userSelectedModelRef.current = true
-                                                                            setSelectedModel(model.id)
-                                                                            setOpenModelSelect(false)
-                                                                        }}
-                                                                    >
-                                                                        <Check
-                                                                            className={cn(
-                                                                                "mr-2 h-4 w-4",
-                                                                                selectedModel === model.id ? "opacity-100" : "opacity-0"
-                                                                            )}
-                                                                        />
-                                                                        {model.name}
-                                                                    </CommandItem>
-                                                                ))}
-                                                        </CommandGroup>
-                                                        <CommandSeparator />
-                                                    </>
-                                                )}
-
-                                                {/* All Other Models */}
-                                                <CommandGroup heading={availableModels.length > 0 ? t("allModels") : undefined}>
-                                                    {models
-                                                        .filter(model => !availableModels.includes(model.id))
-                                                        .map((model) => (
-                                                            <CommandItem
-                                                                key={model.id}
-                                                                value={model.name}
-                                                                onSelect={() => {
-                                                                    userSelectedModelRef.current = true
-                                                                    setSelectedModel(model.id)
-                                                                    setOpenModelSelect(false)
-                                                                }}
-                                                            >
-                                                                <Check
-                                                                    className={cn(
-                                                                        "mr-2 h-4 w-4",
-                                                                        selectedModel === model.id ? "opacity-100" : "opacity-0"
-                                                                    )}
-                                                                />
-                                                                {model.name}
-                                                            </CommandItem>
-                                                        ))}
-                                                </CommandGroup>
-                                            </>
-                                        )}
-                                    </CommandList>
-                                </Command>
-                            </PopoverContent>
-                            </Popover>
-
-                            {/* Menu dropdown */}
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="h-8 w-8"
-                                    >
-                                        <MoreVertical className="h-4 w-4" />
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                    <DropdownMenuItem onClick={handleClearChat}>
-                                        <Plus className="h-4 w-4 mr-2" />
-                                        {t("newConversation")}
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => setShowConversationsList(true)}>
-                                        <History className="h-4 w-4 mr-2" />
-                                        {t("conversationHistory")}
-                                    </DropdownMenuItem>
-                                    <DropdownMenuSeparator />
-                                    <DropdownMenuItem onClick={() => setMemoryDrawerOpen(true)}>
-                                        <Brain className="h-4 w-4 mr-2" />
-                                        {t("memories")}
-                                    </DropdownMenuItem>
-                                </DropdownMenuContent>
-                            </DropdownMenu>
-                    </div>
+            {/* Header — single line */}
+            <div className="px-3 py-2.5 border-b border-border/50 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                    <Bot className="h-3.5 w-3.5 text-primary/70 shrink-0" />
+                    <span className="text-xs font-semibold tracking-wide text-foreground/80">{t("title")}</span>
                 </div>
-
-                {/* Modo Autônomo Toggle */}
-                <div className="flex items-center justify-between px-1">
-                    <div className="flex items-center gap-2">
-                        <span className="text-xs font-medium text-muted-foreground">{t("autonomousMode")}</span>
-                        {preferences?.autonomous_mode && (
-                            <Badge variant="secondary" className="text-[10px] h-4 px-1.5 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
-                                {t("active")}
-                            </Badge>
-                        )}
-                    </div>
-                    <Switch
-                        checked={preferences?.autonomous_mode ?? false}
-                        onCheckedChange={(checked) => updatePreference('autonomous_mode', checked)}
-                        disabled={preferencesLoading || isLoading}
-                        className="scale-75"
-                    />
+                <div className="flex items-center gap-0.5">
+                    {/* Menu dropdown */}
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                            >
+                                <MoreVertical className="h-3.5 w-3.5" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={handleClearChat}>
+                                <Plus className="h-4 w-4 mr-2" />
+                                {t("newConversation")}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setShowConversationsList(true)}>
+                                <History className="h-4 w-4 mr-2" />
+                                {t("conversationHistory")}
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                    {/* Collapse button */}
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                        onClick={() => { setIsCollapsed(true); onCollapsedChange?.(true) }}
+                        title="Recolher chat"
+                    >
+                        <PanelRightClose className="h-3.5 w-3.5" />
+                    </Button>
                 </div>
+            </div>
 
-                {/* Context Selection */}
+            {/* Context Selection */}
+            <div className="px-3 py-2 border-b border-border/50">
                 <div ref={contextRef} className="border rounded-lg p-2 bg-muted/30">
                     <div
                         className="flex items-center justify-between cursor-pointer"
@@ -1414,14 +1362,14 @@ export default function ChatSidebar({
                                             <div className="flex items-center gap-2 text-xs p-1 bg-background rounded border border-primary/20">
                                                 <FileText className="h-3 w-3 text-primary" />
                                                 <span className="font-medium truncate flex-1">{currentDocument.title}</span>
-                                                <Badge variant="secondary" className="text-[10px] h-4 px-1">{t("currentDocument")}</Badge>
+                                                <Badge variant="secondary" className="text-[11px] h-4 px-1">{t("currentDocument")}</Badge>
                                             </div>
                                         )}
 
                                         {/* Folders section */}
                                         {filteredFolders.length > 0 && (
                                             <>
-                                                <div className="text-[10px] text-muted-foreground mt-2 mb-1 px-1 font-medium">{t("foldersSection")}</div>
+                                                <div className="text-[11px] text-muted-foreground mt-2 mb-1 px-1 font-medium">{t("foldersSection")}</div>
                                                 {filteredFolders.map(folder => (
                                                     <div key={folder.id} className="flex items-center gap-2 text-xs px-1 hover:bg-muted/50 rounded">
                                                         <input
@@ -1441,7 +1389,7 @@ export default function ChatSidebar({
                                         )}
 
                                         {/* Documents section */}
-                                        <div className="text-[10px] text-muted-foreground mt-2 mb-1 px-1 font-medium">{t("documentsSection")}</div>
+                                        <div className="text-[11px] text-muted-foreground mt-2 mb-1 px-1 font-medium">{t("documentsSection")}</div>
                                         {filteredDocuments.map(doc => (
                                             <div key={doc.id} className="flex items-center gap-2 text-xs px-1 hover:bg-muted/50 rounded">
                                                 <input
@@ -1476,7 +1424,7 @@ export default function ChatSidebar({
                         </div>
                     )}
                 </div>
-            </div >
+            </div>
 
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
                 {messages.map((msg, idx) => (
@@ -1543,23 +1491,17 @@ export default function ChatSidebar({
                 {/* Thinking Block - Always visible when loading */}
                 {isLoading && (
                     <div className="flex gap-2">
-                        <div className="bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/30 p-4 rounded-lg max-w-[85%] space-y-3 shadow-sm">
+                        <div className="bg-primary/5 border border-primary/20 p-4 rounded-xl max-w-[85%] space-y-3">
                             {/* Header with animated icon */}
                             <div className="flex items-center gap-2 text-sm font-medium">
-                                <div className="relative">
-                                    <Bot className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                                    <div className="absolute inset-0 animate-ping">
-                                        <Bot className="h-4 w-4 text-blue-600/50 dark:text-blue-400/50" />
-                                    </div>
-                                </div>
-                                <span className="text-blue-700 dark:text-blue-300">
+                                <Bot className="h-4 w-4 text-primary animate-pulse shrink-0" />
+                                <span className="text-text-primary">
                                     {streamingStatus?.tool
                                         ? `${t("executing")} ${streamingStatus.tool}`
                                         : streamingStatus?.status || t("generatingResponse")}
                                 </span>
-                                {/* Iteration counter */}
                                 {iterationInfo && (
-                                    <Badge variant="outline" className="ml-auto text-[10px] px-1.5 py-0.5">
+                                    <Badge variant="outline" className="ml-auto text-[11px] px-1.5 py-0.5">
                                         {iterationInfo.current}/{iterationInfo.max}
                                     </Badge>
                                 )}
@@ -1571,8 +1513,7 @@ export default function ChatSidebar({
                                     <ReactMarkdown remarkPlugins={[remarkGfm]}>
                                         {currentStreamingContent}
                                     </ReactMarkdown>
-                                    {/* Blinking cursor */}
-                                    <span className="inline-block w-2 h-4 bg-blue-600 dark:bg-blue-400 animate-pulse ml-1 align-middle" />
+                                    <span className="inline-block w-1.5 h-4 bg-primary animate-pulse ml-1 align-middle rounded-sm" />
                                 </div>
                             )}
 
@@ -1640,7 +1581,7 @@ export default function ChatSidebar({
                                             <span className="font-mono font-medium">{streamingStatus.tool}</span>
                                         </div>
                                         {streamingStatus.index && streamingStatus.total && (
-                                            <Badge variant="secondary" className="text-[10px] h-5 px-1.5">
+                                            <Badge variant="secondary" className="text-[11px] h-5 px-1.5">
                                                 {streamingStatus.index}/{streamingStatus.total}
                                             </Badge>
                                         )}
@@ -1648,7 +1589,7 @@ export default function ChatSidebar({
 
                                     {/* Tool arguments preview */}
                                     {streamingStatus.args && (
-                                        <div className="text-[10px] text-muted-foreground font-mono bg-background/40 p-1.5 rounded border border-border/30">
+                                        <div className="text-[11px] text-muted-foreground font-mono bg-background/40 p-1.5 rounded border border-border/30">
                                             {JSON.stringify(streamingStatus.args).slice(0, 100)}
                                             {JSON.stringify(streamingStatus.args).length > 100 && "..."}
                                         </div>
@@ -1665,9 +1606,9 @@ export default function ChatSidebar({
                                 </div>
                             )}
 
-                            {/* Progress pulse animation */}
-                            <div className="h-1 w-full bg-background/30 rounded-full overflow-hidden">
-                                <div className="h-full w-1/3 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full animate-pulse"></div>
+                            {/* Progress indicator */}
+                            <div className="h-0.5 w-full bg-border/60 rounded-full overflow-hidden">
+                                <div className="h-full w-1/3 bg-primary/50 rounded-full animate-pulse" />
                             </div>
                         </div>
                     </div>
@@ -1690,7 +1631,7 @@ export default function ChatSidebar({
                                         <FileText className="h-4 w-4 text-amber-600" />
                                         <span className="font-mono font-medium">{pendingApproval.tool}</span>
                                         {pendingApproval.index && pendingApproval.total && (
-                                            <Badge variant="secondary" className="text-[10px] h-5 px-1.5 ml-auto">
+                                            <Badge variant="secondary" className="text-[11px] h-5 px-1.5 ml-auto">
                                                 {pendingApproval.index}/{pendingApproval.total}
                                             </Badge>
                                         )}
@@ -1703,7 +1644,7 @@ export default function ChatSidebar({
                                             <>
                                                 <p className="text-muted-foreground mb-1">{t("documentLabel")} <span className="font-medium">{pendingApproval.args.title || 'Sem título'}</span></p>
                                                 <div className="bg-background/40 p-3 rounded border max-h-40 overflow-y-auto">
-                                                    <p className="text-muted-foreground mb-1 text-[10px]">{t("newContent")}</p>
+                                                    <p className="text-muted-foreground mb-1 text-[11px]">{t("newContent")}</p>
                                                     <div className="prose prose-xs dark:prose-invert max-w-none">
                                                         {pendingApproval.args.content.substring(0, 300)}
                                                         {pendingApproval.args.content.length > 300 && '...'}
@@ -1713,7 +1654,7 @@ export default function ChatSidebar({
                                         ) : (
                                             <>
                                                 <p className="text-muted-foreground mb-1">{t("parameters")}</p>
-                                                <div className="font-mono bg-background/40 p-2 rounded border text-[10px] max-h-20 overflow-y-auto">
+                                                <div className="font-mono bg-background/40 p-2 rounded border text-[11px] max-h-20 overflow-y-auto">
                                                     <pre className="whitespace-pre-wrap">{JSON.stringify(pendingApproval.args, null, 2)}</pre>
                                                 </div>
                                             </>
@@ -1749,24 +1690,24 @@ export default function ChatSidebar({
                 {/* Created Documents Navigation */}
                 {createdDocuments.length > 0 && !isLoading && (
                     <div className="flex flex-col gap-2 px-2">
-                        <div className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">
+                        <div className="text-xs font-medium text-muted-foreground">
                             {t("createdDocuments")}
                         </div>
                         {createdDocuments.map((doc, index) => (
                             <motion.div
                                 key={doc.id}
-                                initial={{ opacity: 0, y: 5 }}
+                                initial={{ opacity: 0, y: 4 }}
                                 animate={{ opacity: 1, y: 0 }}
-                                transition={{ delay: index * 0.1 }}
-                                className="flex items-center gap-2 bg-gradient-to-r from-primary/5 to-primary/10 border border-primary/20 rounded-lg px-3 py-2"
+                                transition={{ delay: Math.min(index * 0.06, 0.18) }}
+                                className="flex items-center gap-2 bg-primary/5 border border-primary/20 rounded-lg px-3 py-2"
                             >
                                 {doc.type === "image" ? (
-                                    <Image className="h-4 w-4 text-purple-500 flex-shrink-0" />
+                                    <Image className="h-4 w-4 text-primary/70 flex-shrink-0" />
                                 ) : (
-                                    <FileText className="h-4 w-4 text-blue-500 flex-shrink-0" />
+                                    <FileText className="h-4 w-4 text-primary/70 flex-shrink-0" />
                                 )}
                                 <div className="flex flex-col min-w-0 flex-1">
-                                    <span className="text-[10px] text-muted-foreground">
+                                    <span className="text-[11px] text-muted-foreground">
                                         {doc.type === "image" ? t("imageCreated") : t("documentCreated")}
                                     </span>
                                     <span className="text-xs font-medium truncate">
@@ -1778,7 +1719,7 @@ export default function ChatSidebar({
                                         variant="secondary"
                                         size="sm"
                                         onClick={() => onNavigateToDocument(doc.id)}
-                                        className="gap-1 h-6 text-[10px] px-2"
+                                        className="gap-1 h-6 text-[11px] px-2"
                                     >
                                         <ExternalLink className="h-3 w-3" />
                                         {t("view")}
@@ -1792,7 +1733,7 @@ export default function ChatSidebar({
                 <div ref={messagesEndRef} />
             </div>
 
-            <div className="p-4 border-t border-white/[0.06] bg-gradient-to-t from-white/[0.02] to-transparent">
+            <div className="p-4 border-t border-border/50">
                 {/* Attachments preview */}
                 {attachments.length > 0 && (
                     <div className="mb-2 flex flex-wrap gap-2">
@@ -1800,7 +1741,7 @@ export default function ChatSidebar({
                             <div key={index} className="flex items-center gap-2 bg-muted px-3 py-1.5 rounded-lg text-xs">
                                 <FileText className="h-3 w-3" />
                                 <span className="max-w-[150px] truncate">{att.filename}</span>
-                                <Badge variant="secondary" className="text-[10px] h-4 px-1">
+                                <Badge variant="secondary" className="text-[11px] h-4 px-1">
                                     {att.type}
                                 </Badge>
                                 <Button
@@ -1943,6 +1884,62 @@ export default function ChatSidebar({
 
                             <div className="flex-1" />
 
+                            {/* Model selector — subtle, bottom bar */}
+                            <Popover open={openModelSelect} onOpenChange={setOpenModelSelect}>
+                                <PopoverTrigger asChild>
+                                    <button
+                                        type="button"
+                                        className="flex items-center gap-1 px-1.5 py-1 rounded text-[11px] text-muted-foreground hover:text-foreground hover:bg-white/[0.06] transition-colors max-w-[90px]"
+                                        title={models.find(m => m.id === selectedModel)?.name || selectedModel}
+                                    >
+                                        <span className="truncate">
+                                            {selectedModel
+                                                ? (models.find(m => m.id === selectedModel)?.name || selectedModel.split('/').pop())
+                                                : t("model")}
+                                        </span>
+                                        <ChevronsUpDown className="h-2.5 w-2.5 shrink-0 opacity-50" />
+                                    </button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-[220px] p-0" align="end" side="top">
+                                    <Command>
+                                        <CommandInput placeholder={t("searchModels")} />
+                                        <CommandList>
+                                            <CommandEmpty>{t("noModelsFound")}</CommandEmpty>
+                                            {models.length === 0 ? (
+                                                <div className="py-6 text-center text-sm text-muted-foreground">
+                                                    <Loader2 className="h-4 w-4 animate-spin mx-auto mb-2" />
+                                                    {t("loadingModels")}
+                                                </div>
+                                            ) : (
+                                                <>
+                                                    {availableModels.length > 0 && (
+                                                        <>
+                                                            <CommandGroup heading={t("recommended")}>
+                                                                {models.filter(m => availableModels.includes(m.id)).map(m => (
+                                                                    <CommandItem key={m.id} value={m.name} onSelect={() => { userSelectedModelRef.current = true; setSelectedModel(m.id); setOpenModelSelect(false) }}>
+                                                                        <Check className={cn("mr-2 h-4 w-4", selectedModel === m.id ? "opacity-100" : "opacity-0")} />
+                                                                        {m.name}
+                                                                    </CommandItem>
+                                                                ))}
+                                                            </CommandGroup>
+                                                            <CommandSeparator />
+                                                        </>
+                                                    )}
+                                                    <CommandGroup heading={availableModels.length > 0 ? t("allModels") : undefined}>
+                                                        {models.filter(m => !availableModels.includes(m.id)).map(m => (
+                                                            <CommandItem key={m.id} value={m.name} onSelect={() => { userSelectedModelRef.current = true; setSelectedModel(m.id); setOpenModelSelect(false) }}>
+                                                                <Check className={cn("mr-2 h-4 w-4", selectedModel === m.id ? "opacity-100" : "opacity-0")} />
+                                                                {m.name}
+                                                            </CommandItem>
+                                                        ))}
+                                                    </CommandGroup>
+                                                </>
+                                            )}
+                                        </CommandList>
+                                    </Command>
+                                </PopoverContent>
+                            </Popover>
+
                             {/* Botão enviar/cancelar à direita */}
                             {isLoading ? (
                                 <Button
@@ -1990,14 +1987,6 @@ export default function ChatSidebar({
                 isSubmitting={isStartingFromTemplate}
             />
 
-            {/* Memory Drawer (Feature 024) */}
-            {projectId && (
-                <MemoryDrawer
-                    open={memoryDrawerOpen}
-                    onOpenChange={setMemoryDrawerOpen}
-                    projectId={projectId}
-                />
-            )}
         </div >
     )
 }

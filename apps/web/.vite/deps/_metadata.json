@@ -1,0 +1,37 @@
+{
+  "hash": "c6ba2134",
+  "configHash": "7c626fcf",
+  "lockfileHash": "f521a7c9",
+  "browserHash": "08124ba8",
+  "optimized": {
+    "react/jsx-dev-runtime": {
+      "src": "../../node_modules/react/jsx-dev-runtime.js",
+      "file": "react_jsx-dev-runtime.js",
+      "fileHash": "991221de",
+      "needsInterop": true
+    },
+    "react": {
+      "src": "../../node_modules/react/index.js",
+      "file": "react.js",
+      "fileHash": "7040c9d0",
+      "needsInterop": true
+    },
+    "react-dom/client": {
+      "src": "../../node_modules/react-dom/client.js",
+      "file": "react-dom_client.js",
+      "fileHash": "7ca454a3",
+      "needsInterop": true
+    },
+    "next-intl": {
+      "src": "../../node_modules/next-intl/dist/esm/development/index.react-client.js",
+      "file": "next-intl.js",
+      "fileHash": "fc0c89c5",
+      "needsInterop": false
+    }
+  },
+  "chunks": {
+    "chunk-OBOR3357": {
+      "file": "chunk-OBOR3357.js"
+    }
+  }
+}

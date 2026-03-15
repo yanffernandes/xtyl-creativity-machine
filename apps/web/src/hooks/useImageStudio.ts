@@ -142,6 +142,28 @@ export function useImageStudio({
   const [currentBatchVariations, setCurrentBatchVariations] = useState<GeneratedImage[]>([]);
   const currentBatchIdRef = useRef<string | null>(null);
 
+  useEffect(() => {
+    if (!defaultModel) {
+      return;
+    }
+
+    setModel((currentModel) => {
+      if (currentModel === defaultModel) {
+        return currentModel;
+      }
+
+      const currentModelExists =
+        imageModels.length === 0 ||
+        imageModels.some((availableModel) => availableModel.id === currentModel);
+
+      if (currentModel !== DEFAULT_MODEL && currentModelExists) {
+        return currentModel;
+      }
+
+      return defaultModel;
+    });
+  }, [defaultModel, imageModels]);
+
   // Cleanup SSE on unmount
   useEffect(() => {
     return () => {

@@ -9,7 +9,7 @@ import { http, HttpResponse, delay } from 'msw';
 import { setupServer } from 'msw/node';
 
 // Base API URL (matches the application's API base)
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || '/api';
 
 // ============================================================================
 // Mock Data

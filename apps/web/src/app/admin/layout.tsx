@@ -59,7 +59,8 @@ export default function AdminLayout({
     };
 
     verifyAdminAccess();
-  }, [user, authLoading, router]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, authLoading]);
 
   // Loading state
   if (authLoading || isVerifying) {

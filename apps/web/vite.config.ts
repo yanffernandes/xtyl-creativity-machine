@@ -20,12 +20,23 @@ export default defineConfig(({ mode }) => {
     },
     define: {
       'process.env.NODE_ENV': JSON.stringify(mode),
-      'process.env.NEXT_PUBLIC_API_URL': JSON.stringify(env.NEXT_PUBLIC_API_URL || env.VITE_API_URL || 'http://localhost:8000'),
+      'process.env.NEXT_PUBLIC_API_URL': JSON.stringify(env.NEXT_PUBLIC_API_URL || env.VITE_API_URL || '/api'),
       'process.env.NEXT_PUBLIC_SUPABASE_URL': JSON.stringify(env.NEXT_PUBLIC_SUPABASE_URL || env.VITE_SUPABASE_URL || ''),
       'process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY': JSON.stringify(env.NEXT_PUBLIC_SUPABASE_ANON_KEY || env.VITE_SUPABASE_ANON_KEY || ''),
     },
     server: {
-      port: 3000,
+      port: 5173,
+      proxy: {
+        '/api': {
+          target: env.API_PROXY_TARGET || 'http://localhost:3000',
+          changeOrigin: true,
+          configure: (proxy) => {
+            proxy.on('error', (err: any) => {
+              if (err.code === 'ECONNREFUSED') return // suppress "API offline" noise
+            })
+          },
+        },
+      },
     },
   }
 })

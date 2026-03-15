@@ -13,6 +13,39 @@ import axios, { AxiosInstance } from 'axios';
 
 export type ModelType = 'text-to-image' | 'image-to-image';
 
+export interface NormalizedModelSchema {
+  supportsMask: boolean;
+  maxImages: number;
+  parameters: NormalizedParameter[];
+}
+
+export interface NormalizedParameter {
+  name: string;
+  type: 'select' | 'number' | 'boolean' | 'string';
+  label: string;
+  description?: string;
+  options?: { value: string; label: string }[];
+  default: string | number | boolean;
+  min?: number;
+  max?: number;
+  step?: number;
+}
+
+/**
+ * A model returned by the fal.ai platform /models API.
+ */
+export interface FalPlatformModel {
+  endpoint_id: string;
+  metadata?: {
+    display_name?: string;
+    category?: string;
+    description?: string;
+    status?: string;
+    tags?: string[];
+    thumbnail_url?: string;
+  };
+}
+
 /**
  * Configuration for a single fal.ai model.
  * Mirrors the Python `ModelConfig` dataclass from fal_ai_service.py.
@@ -200,7 +233,7 @@ const DEFAULT_EDIT_MODEL = IMAGE_TO_IMAGE_MODELS[0]; // GPT-Image 1.5 Edit
  * Ported from backend/services/fal_ai_service.py.
  *
  * Environment variables:
- *   - FAL_KEY  (required) -- the fal.ai API key
+ *   - FAL_KEY or FAL_API_KEY (required) -- the fal.ai API key
  */
 @Injectable()
 export class FalAiService implements OnModuleDestroy {
@@ -208,6 +241,7 @@ export class FalAiService implements OnModuleDestroy {
   private readonly client: AxiosInstance;
 
   private static readonly QUEUE_BASE_URL = 'https://queue.fal.run';
+  private static readonly PLATFORM_API_URL = 'https://api.fal.ai/v1';
   // Synchronous endpoint -- reserved for future non-queued requests:
   // private static readonly SYNC_BASE_URL = 'https://fal.run';
 
@@ -224,7 +258,7 @@ export class FalAiService implements OnModuleDestroy {
       headers: this.buildHeaders(),
     });
 
-    if (!process.env.FAL_KEY) {
+    if (!this.getApiKey()) {
       this.logger.warn('FAL_KEY is not set. fal.ai operations will fail.');
     }
   }
@@ -382,10 +416,37 @@ export class FalAiService implements OnModuleDestroy {
   }
 
   /**
-   * Return the catalogue of supported fal.ai models.
+   * Return the hardcoded catalogue of supported fal.ai models.
    */
   listModels(): ModelConfig[] {
     return ALL_MODELS;
+  }
+
+  /**
+   * Fetch all available models from the fal.ai platform API.
+   * GET https://fal.ai/api/v1/models
+   *
+   * Authentication is optional but grants higher rate limits.
+   * Falls back to empty array on error.
+   */
+  async listAvailableModels(params?: {
+    q?: string;
+    category?: string;
+    status?: string;
+    page?: number;
+    pageSize?: number;
+  }): Promise<FalPlatformModel[]> {
+    try {
+      const response = await this.client.get(`${FalAiService.PLATFORM_API_URL}/models`, {
+        params,
+        timeout: 15_000,
+      });
+      // Response shape: { models: [...], page, pageSize, total }
+      return (response.data?.models ?? []) as FalPlatformModel[];
+    } catch (error) {
+      this.logger.error(`Failed to fetch fal.ai platform models: ${error}`);
+      return [];
+    }
   }
 
   /**
@@ -402,16 +463,151 @@ export class FalAiService implements OnModuleDestroy {
     return MODEL_BY_ID.get(modelId)?.supportsMask ?? false;
   }
 
+  /**
+   * Fetch and normalize the OpenAPI schema for a given fal.ai model.
+   * Returns a normalized schema describing parameters, mask support, and max images.
+   * Falls back to a safe default on any error.
+   */
+  async getModelSchema(modelId: string): Promise<NormalizedModelSchema> {
+    try {
+      const response = await this.client.get(
+        `${FalAiService.PLATFORM_API_URL}/models`,
+        {
+          params: { endpoint_id: modelId, expand: 'openapi-3.0' },
+          timeout: 15_000,
+        },
+      );
+      const openapi = response.data?.models?.[0]?.openapi;
+      return this.normalizeOpenApiSchema(openapi);
+    } catch (error) {
+      this.logger.warn(`Failed to fetch schema for model ${modelId}: ${error}`);
+      return { supportsMask: false, maxImages: 4, parameters: [] };
+    }
+  }
+
   // ---------------------------------------------------------------------------
   // Private helpers
   // ---------------------------------------------------------------------------
 
+  private toLabel(name: string): string {
+    return name
+      .split('_')
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  }
+
+  private normalizeOpenApiSchema(openapi: any): NormalizedModelSchema {
+    const SKIP = new Set(['prompt', 'image_url', 'image_urls', 'mask_image_url', 'sync_mode']);
+
+    const fallback: NormalizedModelSchema = { supportsMask: false, maxImages: 4, parameters: [] };
+
+    try {
+      const paths = openapi?.paths;
+      if (!paths) return fallback;
+
+      const firstPath = Object.values(paths)[0] as any;
+      const schema =
+        firstPath?.post?.requestBody?.content?.['application/json']?.schema;
+
+      const properties: Record<string, any> = schema?.properties;
+      if (!properties) return fallback;
+
+      const supportsMask = 'mask_image_url' in properties;
+      let maxImages = 4;
+      const parameters: NormalizedParameter[] = [];
+
+      for (const [name, prop] of Object.entries(properties)) {
+        if (SKIP.has(name)) continue;
+
+        const label = this.toLabel(name);
+        const description: string | undefined = prop.description;
+
+        if (name === 'num_images') {
+          const min = prop.minimum ?? 1;
+          const max = prop.maximum ?? 4;
+          maxImages = max;
+          parameters.push({
+            name,
+            type: 'number',
+            label,
+            description,
+            default: prop.default ?? min,
+            min,
+            max,
+            step: 1,
+          });
+          continue;
+        }
+
+        if (prop.type === 'boolean') {
+          parameters.push({
+            name,
+            type: 'boolean',
+            label,
+            description,
+            default: prop.default ?? false,
+          });
+          continue;
+        }
+
+        // String with enum, or anyOf containing enum
+        const enumValues: string[] | undefined =
+          prop.enum ??
+          prop.anyOf?.find((s: any) => Array.isArray(s.enum))?.enum;
+
+        if (enumValues) {
+          parameters.push({
+            name,
+            type: 'select',
+            label,
+            description,
+            options: enumValues.map((v) => ({ value: v, label: v })),
+            default: prop.default ?? enumValues[0] ?? '',
+          });
+          continue;
+        }
+
+        if (prop.type === 'integer' || prop.type === 'number') {
+          parameters.push({
+            name,
+            type: 'number',
+            label,
+            description,
+            default: prop.default ?? prop.minimum ?? 0,
+            min: prop.minimum,
+            max: prop.maximum,
+            step: prop.type === 'integer' ? 1 : undefined,
+          });
+          continue;
+        }
+
+        // Default: string
+        parameters.push({
+          name,
+          type: 'string',
+          label,
+          description,
+          default: prop.default ?? '',
+        });
+      }
+
+      return { supportsMask, maxImages, parameters };
+    } catch (error) {
+      this.logger.warn(`Failed to normalize OpenAPI schema: ${error}`);
+      return fallback;
+    }
+  }
+
   private buildHeaders(): Record<string, string> {
-    const apiKey = process.env.FAL_KEY ?? '';
+    const apiKey = this.getApiKey();
     return {
       Authorization: `Key ${apiKey}`,
       'Content-Type': 'application/json',
     };
+  }
+
+  private getApiKey(): string {
+    return process.env.FAL_KEY ?? process.env.FAL_API_KEY ?? '';
   }
 
   /**

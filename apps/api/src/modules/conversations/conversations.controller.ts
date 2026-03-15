@@ -1,11 +1,8 @@
 import {
   Controller,
-  Get,
-  Delete,
+  Post,
   Param,
   Query,
-  HttpCode,
-  HttpStatus,
 } from '@nestjs/common';
 import { ConversationsService } from './conversations.service';
 import { CurrentUser } from '../../common/decorators';
@@ -14,38 +11,16 @@ import { CurrentUser } from '../../common/decorators';
 export class ConversationsController {
   constructor(private readonly conversationsService: ConversationsService) {}
 
-  @Get()
-  async listConversations(
+  @Post(':conversationId/add-document')
+  async addCreatedDocument(
     @CurrentUser('id') userId: string,
-    @Query('project_id') projectId?: string,
-    @Query('limit') limit?: string,
-    @Query('offset') offset?: string,
+    @Param('conversationId') conversationId: string,
+    @Query('document_id') documentId: string,
   ) {
-    const parsedLimit = limit ? parseInt(limit, 10) : 50;
-    const parsedOffset = offset ? parseInt(offset, 10) : 0;
-
-    return this.conversationsService.listConversations(
+    return this.conversationsService.addCreatedDocument(
       userId,
-      projectId,
-      parsedLimit,
-      parsedOffset,
+      conversationId,
+      documentId,
     );
-  }
-
-  @Get(':conversationId')
-  async getConversation(
-    @CurrentUser('id') userId: string,
-    @Param('conversationId') conversationId: string,
-  ) {
-    return this.conversationsService.getConversation(userId, conversationId);
-  }
-
-  @Delete(':conversationId')
-  @HttpCode(HttpStatus.NO_CONTENT)
-  async deleteConversation(
-    @CurrentUser('id') userId: string,
-    @Param('conversationId') conversationId: string,
-  ) {
-    await this.conversationsService.deleteConversation(userId, conversationId);
   }
 }

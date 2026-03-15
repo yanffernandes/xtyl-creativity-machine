@@ -32,7 +32,8 @@ export default function WorkspacePage() {
             router.push("/login")
             return
         }
-    }, [session, authLoading, router])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [session, authLoading])
 
     const handleCreateProject = async (e: React.FormEvent) => {
         e.preventDefault()

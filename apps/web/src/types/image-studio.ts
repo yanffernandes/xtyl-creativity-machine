@@ -50,6 +50,34 @@ export interface AvailableModel {
 }
 
 // ============================================================================
+// IMAGE GENERATION MODELS (fal.ai — from /image-generation/models endpoint)
+// ============================================================================
+
+export interface ModelParameter {
+  name: string;
+  type: 'select' | 'number' | 'boolean' | 'string';
+  label: string;
+  description?: string;
+  options?: { value: string; label: string }[];
+  default: string | number | boolean;
+  min?: number;
+  max?: number;
+  step?: number;
+}
+
+export interface ImageModel {
+  id: string;
+  name: string;
+  description?: string;
+  top_provider?: string;
+  model_type: 'text-to-image' | 'image-to-image';
+  supports_mask: boolean;
+  max_images: number;
+  default_params?: Record<string, unknown>;
+  parameters: ModelParameter[];
+}
+
+// ============================================================================
 // VISUAL ASSET (from bootstrap)
 // ============================================================================
 

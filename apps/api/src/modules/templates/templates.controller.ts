@@ -46,6 +46,13 @@ interface UpdateTemplateDto {
   tags?: string[];
 }
 
+interface StartChatFromTemplateDto {
+  template_id: string;
+  variables: Record<string, string>;
+  project_id?: string;
+  title?: string;
+}
+
 @Controller('templates')
 export class TemplatesController {
   constructor(private readonly templatesService: TemplatesService) {}
@@ -129,5 +136,13 @@ export class TemplatesController {
     @CurrentUser('id') userId?: string,
   ) {
     return this.templatesService.deleteTemplate(templateId, userId);
+  }
+
+  @Post('start-chat')
+  async startChatFromTemplate(
+    @Body() dto: StartChatFromTemplateDto,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.templatesService.startChatFromTemplate(dto, userId);
   }
 }

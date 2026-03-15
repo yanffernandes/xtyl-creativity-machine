@@ -32,7 +32,8 @@ export class StorageService implements OnModuleInit {
 
   constructor() {
     this.endpoint = process.env.R2_ENDPOINT ?? '';
-    this.bucketName = process.env.R2_BUCKET_NAME ?? 'xtyl-storage';
+    this.bucketName =
+      process.env.R2_BUCKET_NAME ?? process.env.R2_BUCKET ?? 'xtyl-storage';
     this.publicUrl = process.env.R2_PUBLIC_URL ?? '';
   }
 
@@ -41,8 +42,10 @@ export class StorageService implements OnModuleInit {
   // ---------------------------------------------------------------------------
 
   onModuleInit() {
-    const accessKeyId = process.env.R2_ACCESS_KEY_ID ?? '';
-    const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY ?? '';
+    const accessKeyId =
+      process.env.R2_ACCESS_KEY_ID ?? process.env.R2_ACCESS_KEY ?? '';
+    const secretAccessKey =
+      process.env.R2_SECRET_ACCESS_KEY ?? process.env.R2_SECRET_KEY ?? '';
 
     if (!this.endpoint || !accessKeyId || !secretAccessKey) {
       this.logger.warn(

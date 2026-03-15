@@ -2,13 +2,17 @@ import { Injectable, Inject, NotFoundException, BadRequestException } from '@nes
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { Observable } from 'rxjs';
-import { eq, and, isNull } from 'drizzle-orm';
+import { eq, and, isNull, sql } from 'drizzle-orm';
+import type Redis from 'ioredis';
 import { DATABASE } from '../../database/database.module';
-import { documents, creativeConcepts, projects } from '../../database/drizzle/schema';
+import { documents, creativeConcepts, projects, systemConfig } from '../../database/drizzle/schema';
 import { FalAiService } from '../../integrations/fal-ai/fal-ai.service';
 import { StorageService } from '../storage/storage.service';
 import { PromptEnrichmentService } from './prompt-enrichment.service';
+import { IMAGE_GEN_REDIS } from './image-generation.constants';
 import { randomUUID } from 'crypto';
+
+const BATCH_TTL = 3600; // seconds
 
 /**
  * Image Generation Service
@@ -20,136 +24,81 @@ import { randomUUID } from 'crypto';
  */
 @Injectable()
 export class ImageGenerationService {
-  private batchProgressStore = new Map<string, any>(); // In-memory fallback for batch progress
-
   constructor(
     @Inject(DATABASE) private readonly db: any,
     private readonly falAiService: FalAiService,
     private readonly storageService: StorageService,
     private readonly promptEnrichmentService: PromptEnrichmentService,
     @InjectQueue('image-generation') private readonly imageQueue: Queue,
+    @Inject(IMAGE_GEN_REDIS) private readonly redis: Redis,
   ) {}
 
+  private redisKey(batchId: string) {
+    return `image-batch:${batchId}`;
+  }
+
+  private async getProgress(batchId: string): Promise<any | null> {
+    const raw = await this.redis.get(this.redisKey(batchId));
+    return raw ? JSON.parse(raw) : null;
+  }
+
+  private async setProgress(batchId: string, progress: any): Promise<void> {
+    await this.redis.set(this.redisKey(batchId), JSON.stringify(progress), 'EX', BATCH_TTL);
+  }
+
   /**
-   * List available image generation models.
-   * Returns hardcoded fal.ai models (follows CLAUDE.md "No Hardcoded Data" principle
-   * but these are API endpoints, not dynamic data).
+   * List available image generation models, filtered by admin-configured visibility.
+   * Supports both new format (array of objects with id field) and old format (string[]).
    */
   async listModels(modelType?: string) {
-    const allModels = [
-      // Text-to-image models
-      {
-        id: 'fal-ai/flux-pro/v1.1',
-        name: 'FLUX Pro 1.1',
-        description: 'State-of-the-art image generation with best quality',
-        top_provider: 'fal.ai',
-        model_type: 'text-to-image',
-        supports_mask: false,
-        max_images: 4,
-        default_params: { aspect_ratio: '1:1' },
-      },
-      {
-        id: 'fal-ai/flux-pro/v1.1-ultra',
-        name: 'FLUX Pro 1.1 Ultra',
-        description: 'Ultra-high quality image generation',
-        top_provider: 'fal.ai',
-        model_type: 'text-to-image',
-        supports_mask: false,
-        max_images: 4,
-        default_params: { aspect_ratio: '1:1' },
-      },
-      {
-        id: 'fal-ai/flux/dev',
-        name: 'FLUX Dev',
-        description: 'Fast and efficient open-source image generation',
-        top_provider: 'fal.ai',
-        model_type: 'text-to-image',
-        supports_mask: false,
-        max_images: 4,
-        default_params: { aspect_ratio: '1:1' },
-      },
-      {
-        id: 'fal-ai/flux/schnell',
-        name: 'FLUX Schnell',
-        description: 'Ultra-fast image generation (4 steps)',
-        top_provider: 'fal.ai',
-        model_type: 'text-to-image',
-        supports_mask: false,
-        max_images: 4,
-        default_params: { aspect_ratio: '1:1' },
-      },
-      // Image-to-image / editing models
-      {
-        id: 'fal-ai/flux-pro/v1/fill',
-        name: 'FLUX Fill Pro',
-        description: 'Precise inpainting with mask-based editing',
-        top_provider: 'fal.ai',
-        model_type: 'image-to-image',
-        supports_mask: true,
-        max_images: 1,
-        default_params: {},
-      },
-      {
-        id: 'fal-ai/flux-pro/kontext',
-        name: 'FLUX Kontext',
-        description: 'Natural language image editing',
-        top_provider: 'fal.ai',
-        model_type: 'image-to-image',
-        supports_mask: false,
-        max_images: 1,
-        default_params: {},
-      },
-      {
-        id: 'fal-ai/gpt-image-1.5/edit',
-        name: 'GPT-Image 1.5 Edit',
-        description: 'Instruction-based image editing (supports mask)',
-        top_provider: 'fal.ai',
-        model_type: 'image-to-image',
-        supports_mask: true,
-        max_images: 1,
-        default_params: {},
-      },
-      {
-        id: 'fal-ai/flux-realism',
-        name: 'FLUX Realism',
-        description: 'Photorealistic image generation',
-        top_provider: 'fal.ai',
-        model_type: 'text-to-image',
-        supports_mask: false,
-        max_images: 4,
-        default_params: { aspect_ratio: '1:1' },
-      },
-      // Utility models
-      {
-        id: 'fal-ai/bria-rmbg-2.0',
-        name: 'BRIA RMBG 2.0',
-        description: 'State-of-the-art background removal',
-        top_provider: 'fal.ai',
-        model_type: 'utility',
-        supports_mask: false,
-        max_images: 1,
-        default_params: {},
-      },
-      {
-        id: 'fal-ai/clarity-upscaler',
-        name: 'Clarity Upscaler',
-        description: 'High-quality image upscaling up to 4x',
-        top_provider: 'fal.ai',
-        model_type: 'utility',
-        supports_mask: false,
-        max_images: 1,
-        default_params: {},
-      },
-    ];
+    const [configRow] = await this.db
+      .select()
+      .from(systemConfig)
+      .where(sql`${systemConfig.key} = 'visible_image_models'`)
+      .limit(1);
 
-    // Filter by model type if specified
-    if (modelType === 'text-to-image') {
-      return allModels.filter((m) => m.model_type === 'text-to-image');
-    } else if (modelType === 'image-to-image') {
-      return allModels.filter((m) => m.model_type === 'image-to-image');
+    const stored: any[] = Array.isArray(configRow?.value) ? configRow.value : [];
+
+    // New format: array of objects with id field
+    if (stored.length > 0 && typeof stored[0] === 'object' && stored[0]?.id) {
+      const mapped = stored.map((m: any) => ({
+        id: m.id,
+        name: m.name ?? m.id,
+        description: m.description ?? '',
+        top_provider: m.provider ?? m.top_provider ?? 'fal-ai',
+        model_type: m.modelType ?? m.model_type ?? 'text-to-image',
+        supports_mask: m.supportsMask ?? m.supports_mask ?? false,
+        max_images: m.maxImages ?? m.max_images ?? 4,
+        default_params: m.defaultParams ?? m.default_params ?? {},
+        parameters: m.parameters ?? [],
+      }));
+
+      if (modelType === 'text-to-image') return mapped.filter((m) => m.model_type === 'text-to-image');
+      if (modelType === 'image-to-image') return mapped.filter((m) => m.model_type === 'image-to-image');
+      return mapped;
     }
 
-    return allModels;
+    // Fallback: old string[] format or empty — use hardcoded catalogue
+    const visibleIds: string[] = stored.filter((s) => typeof s === 'string');
+    const allModels = this.falAiService.listModels().map((m) => ({
+      id: m.id,
+      name: m.name,
+      description: m.description,
+      top_provider: m.provider,
+      model_type: m.modelType,
+      supports_mask: m.supportsMask,
+      max_images: m.maxImages,
+      default_params: m.defaultParams,
+      parameters: [],
+    }));
+
+    const filtered = visibleIds.length > 0
+      ? allModels.filter((m) => visibleIds.includes(m.id))
+      : allModels;
+
+    if (modelType === 'text-to-image') return filtered.filter((m) => m.model_type === 'text-to-image');
+    if (modelType === 'image-to-image') return filtered.filter((m) => m.model_type === 'image-to-image');
+    return filtered;
   }
 
   /**
@@ -160,7 +109,7 @@ export class ImageGenerationService {
     const {
       prompt,
       project_id,
-      model = 'fal-ai/flux-pro/v1.1',
+      model = 'fal-ai/gpt-image-1.5',
       aspect_ratio = '1:1',
       quality = 'standard',
       creative_concept_id
@@ -263,7 +212,7 @@ export class ImageGenerationService {
       prompt,
       project_id,
       count = 4,
-      model = 'fal-ai/flux-pro/v1.1',
+      model = 'fal-ai/gpt-image-1.5',
       aspect_ratio = '1:1',
       creativity = 0.5,
       creative_concept,
@@ -288,14 +237,15 @@ export class ImageGenerationService {
     // Generate batch ID
     const batchId = randomUUID();
 
-    // Initialize batch progress in memory
-    this.batchProgressStore.set(batchId, {
+    // Initialize batch progress in Redis
+    await this.setProgress(batchId, {
       batch_id: batchId,
       total: count,
       completed: 0,
       failed: 0,
       images: [],
       errors: [],
+      events: [],
       status: 'processing',
     });
 
@@ -304,6 +254,7 @@ export class ImageGenerationService {
       await this.imageQueue.add('generate-variation', {
         batchId,
         variationIndex: i,
+        count,
         prompt,
         project_id,
         model,
@@ -328,46 +279,70 @@ export class ImageGenerationService {
 
   /**
    * Stream batch generation progress via SSE.
+   * Polls Redis every 500ms so both API and worker processes can share state.
    */
   streamBatchProgress(batchId: string, _token: string): Observable<any> {
     return new Observable((subscriber) => {
-      const interval = setInterval(() => {
-        const progress = this.batchProgressStore.get(batchId);
+      let emittedEvents = 0;
+      let notFoundRetries = 0;
+      const MAX_NOT_FOUND_RETRIES = 10; // 5s wait for batch to appear in Redis
 
-        if (!progress) {
-          subscriber.next({ data: { type: 'error', message: 'Batch not found' } });
-          subscriber.complete();
-          clearInterval(interval);
-          return;
-        }
+      const interval = setInterval(async () => {
+        try {
+          const progress = await this.getProgress(batchId);
 
-        // Send progress update
-        subscriber.next({
-          data: {
-            type: 'progress',
-            batch_id: batchId,
-            total: progress.total,
-            completed: progress.completed,
-            failed: progress.failed,
-          },
-        });
+          if (!progress) {
+            notFoundRetries++;
+            if (notFoundRetries >= MAX_NOT_FOUND_RETRIES) {
+              subscriber.next({ data: { type: 'error', message: 'Batch not found' } });
+              subscriber.complete();
+              clearInterval(interval);
+            }
+            return;
+          }
+          notFoundRetries = 0;
 
-        // Check if complete
-        if (progress.completed + progress.failed >= progress.total) {
+          const pendingEvents = Array.isArray(progress.events)
+            ? progress.events.slice(emittedEvents)
+            : [];
+
+          for (const event of pendingEvents) {
+            subscriber.next({ data: event });
+            emittedEvents += 1;
+          }
+
+          // Send progress update
           subscriber.next({
             data: {
-              type: 'batch_complete',
+              type: 'progress',
               batch_id: batchId,
               total: progress.total,
               completed: progress.completed,
               failed: progress.failed,
-              images: progress.images,
             },
           });
-          subscriber.complete();
-          clearInterval(interval);
-          // Clean up
-          this.batchProgressStore.delete(batchId);
+
+          // Check if complete
+          if (progress.completed + progress.failed >= progress.total) {
+            subscriber.next({
+              data: {
+                type: 'batch_complete',
+                data: {
+                  batch_id: batchId,
+                  total: progress.total,
+                  completed: progress.completed,
+                  failed: progress.failed,
+                  images: progress.images,
+                },
+              },
+            });
+            subscriber.complete();
+            clearInterval(interval);
+            // Clean up Redis key immediately (TTL handles eventual cleanup)
+            await this.redis.del(this.redisKey(batchId));
+          }
+        } catch (err) {
+          console.error('SSE polling error:', err);
         }
       }, 500); // Poll every 500ms
 
@@ -380,7 +355,7 @@ export class ImageGenerationService {
    * Get batch status (polling alternative to SSE).
    */
   async getBatchStatus(batchId: string, _userId: string) {
-    const progress = this.batchProgressStore.get(batchId);
+    const progress = await this.getProgress(batchId);
 
     if (!progress) {
       throw new NotFoundException('Batch not found or already completed');
@@ -398,7 +373,7 @@ export class ImageGenerationService {
       prompt,
       count = 3,
       project_id,
-      model = 'fal-ai/flux-pro/kontext',
+      model = 'fal-ai/gpt-image-1.5/edit',
     } = params;
 
     // Similar to generate() but with image_urls parameter
@@ -449,7 +424,7 @@ export class ImageGenerationService {
       image_url,
       prompt,
       project_id,
-      model = 'fal-ai/flux-pro/kontext',
+      model = 'fal-ai/gpt-image-1.5/edit',
       guidance_scale = 7.5,
     } = params;
 
@@ -732,6 +707,175 @@ export class ImageGenerationService {
     };
   }
 
+  async listFalModels(category?: string) {
+    const models = await this.listModels();
+    const mappedModels = models.map((model: any) => ({
+      id: model.id,
+      name: model.name,
+      description: model.description,
+      model_type: model.model_type,
+      top_provider: model.top_provider,
+      supports_mask: model.supports_mask,
+      max_images: model.max_images,
+      default_params: model.default_params,
+    }));
+
+    const filteredModels =
+      category === 'generation'
+        ? mappedModels.filter((model) => model.model_type === 'text-to-image')
+        : category === 'editing'
+          ? mappedModels.filter((model) => model.model_type === 'image-to-image')
+          : category === 'utility'
+            ? mappedModels.filter((model) => model.model_type === 'utility')
+            : mappedModels;
+
+    return {
+      models: filteredModels,
+      categories: ['generation', 'editing', 'utility'],
+    };
+  }
+
+  async generateUnified(params: any, userId: string) {
+    const {
+      prompt,
+      project_id,
+      model,
+      image_urls = [],
+      mask_url,
+      params: modelParams = {},
+    } = params;
+
+    if (!Array.isArray(image_urls) || image_urls.length === 0) {
+      const result = await this.generate(
+        {
+          prompt,
+          project_id,
+          model,
+          ...modelParams,
+        },
+        userId,
+      );
+
+      return {
+        success: true,
+        document_id: result.document_id,
+        file_url: result.file_url,
+        thumbnail_url: result.thumbnail_url,
+        title: result.title,
+        model_used: model || 'default',
+        model_type: 'text-to-image',
+        supports_mask: false,
+        processing_time_ms: 0,
+        generation_metadata: result.generation_metadata || {},
+      };
+    }
+
+    const startTime = Date.now();
+    const result = await this.falAiService.generateImage({
+      prompt,
+      modelId: model,
+      imageUrls: image_urls,
+      maskUrl: mask_url,
+      params: modelParams,
+    });
+
+    const resultImageUrl = this.extractImageUrl(result);
+    if (!resultImageUrl) {
+      throw new BadRequestException('No image returned from fal.ai');
+    }
+
+    const fileUrl = await this.downloadAndStoreImage(
+      resultImageUrl,
+      project_id,
+      mask_url ? 'inpaint' : 'edit',
+    );
+
+    const documentId = randomUUID();
+    const processingTime = Date.now() - startTime;
+    const title = `${mask_url ? 'Inpaint' : 'Edit'}: ${prompt.substring(0, 50)}`;
+
+    await this.db.insert(documents).values({
+      id: documentId,
+      title,
+      content: prompt,
+      mediaType: 'image',
+      status: 'art_ok',
+      projectId: project_id,
+      fileUrl,
+      thumbnailUrl: fileUrl,
+      generationMetadata: {
+        prompt,
+        model,
+        operation_type: mask_url ? 'inpaint' : 'edit',
+        mask_url: mask_url || null,
+        processing_time_ms: processingTime,
+        ...modelParams,
+      },
+    });
+
+    return {
+      success: true,
+      document_id: documentId,
+      file_url: fileUrl,
+      thumbnail_url: fileUrl,
+      title,
+      model_used: model || 'default',
+      model_type: 'image-to-image',
+      supports_mask: Boolean(mask_url),
+      processing_time_ms: processingTime,
+      generation_metadata: {
+        prompt,
+        model,
+        operation_type: mask_url ? 'inpaint' : 'edit',
+        ...modelParams,
+      },
+    };
+  }
+
+  async refine(params: any, userId: string) {
+    const [document] = await this.db
+      .select()
+      .from(documents)
+      .where(and(eq(documents.id, params.document_id), isNull(documents.deletedAt)))
+      .limit(1);
+
+    if (!document) {
+      throw new NotFoundException('Source image not found');
+    }
+
+    if (document.mediaType !== 'image' || !document.fileUrl) {
+      throw new BadRequestException('Document is not an image');
+    }
+
+    return this.editImage(
+      {
+        image_url: document.fileUrl,
+        prompt: params.refinement_prompt,
+        project_id: document.projectId,
+        model: params.model,
+        guidance_scale: params.guidance_scale,
+      },
+      userId,
+    );
+  }
+
+  async inpaint(params: any, userId: string) {
+    return this.generateUnified(
+      {
+        prompt: params.prompt,
+        project_id: params.project_id,
+        model: params.model,
+        image_urls: [params.image_url],
+        mask_url: params.mask_url,
+        params: {
+          guidance_scale: params.guidance_scale,
+          num_inference_steps: params.num_inference_steps,
+        },
+      },
+      userId,
+    );
+  }
+
   /**
    * Get single creative concept.
    */
@@ -782,12 +926,19 @@ export class ImageGenerationService {
 
   /**
    * Update batch progress (called by processor).
+   * Async: reads from Redis, updates, writes back.
    */
-  updateBatchProgress(
+  async updateBatchProgress(
     batchId: string,
-    update: { completed?: number; failed?: number; image?: any; error?: string },
+    update: {
+      started?: any;
+      completed?: number;
+      failed?: number;
+      image?: any;
+      error?: string | { index?: number; error: string };
+    },
   ) {
-    const progress = this.batchProgressStore.get(batchId);
+    const progress = await this.getProgress(batchId);
     if (!progress) return;
 
     if (update.completed !== undefined) {
@@ -798,9 +949,33 @@ export class ImageGenerationService {
     }
     if (update.image) {
       progress.images.push(update.image);
+      progress.events.push({
+        type: 'variation_complete',
+        data: update.image,
+      });
+    }
+    if (update.started) {
+      progress.events.push({
+        type: 'variation_started',
+        data: update.started,
+      });
     }
     if (update.error) {
-      progress.errors.push(update.error);
+      const errorPayload =
+        typeof update.error === 'string'
+          ? { error: update.error }
+          : update.error;
+      progress.errors.push(errorPayload.error);
+      progress.events.push({
+        type: 'variation_failed',
+        data: {
+          index:
+            typeof errorPayload.index === 'number'
+              ? errorPayload.index
+              : progress.completed + progress.failed - 1,
+          error: errorPayload.error,
+        },
+      });
     }
 
     // Update status
@@ -808,6 +983,6 @@ export class ImageGenerationService {
       progress.status = 'completed';
     }
 
-    this.batchProgressStore.set(batchId, progress);
+    await this.setProgress(batchId, progress);
   }
 }

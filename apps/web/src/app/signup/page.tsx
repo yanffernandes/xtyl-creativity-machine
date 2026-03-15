@@ -54,7 +54,8 @@ function SignupForm() {
         if (emailParam) {
             setEmail(emailParam)
         }
-    }, [searchParams, router])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [searchParams])
 
     const validateInvite = async (token: string) => {
         setValidatingInvite(true)

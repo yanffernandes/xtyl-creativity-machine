@@ -236,6 +236,12 @@ export default function ProjectTreeItem({
     else router.push(url)
   }
 
+  const handleFolderClick = (folderId: string) => {
+    const url = `/workspace/${workspaceId}/project/${project.id}?folder=${folderId}`
+    if (onDocumentNavigate) onDocumentNavigate(url)
+    else router.push(url)
+  }
+
   const handleAssetClick = (assetId: string) => {
     const url = `/workspace/${workspaceId}/project/${project.id}?tab=assets&assetId=${assetId}`
     if (onDocumentNavigate) onDocumentNavigate(url)
@@ -324,13 +330,24 @@ export default function ProjectTreeItem({
   }
 
   const handleDeleteBoard = async (boardId: string) => {
+    if (boards.length <= 1) {
+      toast({
+        title: "Não é possível remover",
+        description: "O projeto precisa ter pelo menos um quadro. Crie outro quadro antes de remover este.",
+        variant: "destructive",
+      })
+      return
+    }
     try {
       await boardsApi.delete(boardId)
       toast({ title: "Sucesso", description: "Quadro removido" })
       await loadBoards()
       onRefresh?.()
-    } catch {
-      toast({ title: "Erro", description: "Falha ao remover quadro", variant: "destructive" })
+    } catch (err: any) {
+      const msg = err?.message?.includes?.("cannot_archive_last_board") || err?.message?.includes?.("pelo menos um quadro")
+        ? "O projeto precisa ter pelo menos um quadro."
+        : "Falha ao remover quadro"
+      toast({ title: "Erro", description: msg, variant: "destructive" })
     }
   }
 
@@ -411,10 +428,10 @@ export default function ProjectTreeItem({
               onClick={() => {
                 setExpandedFolders((prev) => {
                   const next = new Set(prev)
-                  if (next.has(folder.id)) next.delete(folder.id)
-                  else next.add(folder.id)
+                  if (!next.has(folder.id)) next.add(folder.id)
                   return next
                 })
+                handleFolderClick(folder.id)
               }}
               onDragOver={(e) => {
                 if (!draggedBoardId) return
@@ -613,7 +630,7 @@ export default function ProjectTreeItem({
 
               {visualAssets.length > 0 && (
                 <div className="ml-3 mt-2 border-t pt-2 overflow-hidden">
-                  <div className="flex items-center gap-2 px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider w-full overflow-hidden">
+                  <div className="flex items-center gap-2 px-2 py-1.5 text-xs font-medium text-muted-foreground w-full overflow-hidden">
                     <ImageIcon className="h-3.5 w-3.5 flex-shrink-0" />
                     <span className="truncate w-0 flex-1">Assets Visuais</span>
                     <span className="flex-shrink-0 bg-secondary px-1.5 py-0.5 rounded text-xs">{visualAssets.length}</span>
@@ -639,7 +656,7 @@ export default function ProjectTreeItem({
                             }}
                           >
                             <ChevronRight className={cn("h-3.5 w-3.5 text-muted-foreground transition-transform flex-shrink-0", isExpanded && "rotate-90")} />
-                            <Icon className="h-3.5 w-3.5 text-purple-500 flex-shrink-0" />
+                            <Icon className="h-3.5 w-3.5 text-primary/60 flex-shrink-0" />
                             <span className="truncate w-0 flex-1 text-sm">{typeInfo.label}</span>
                             <span className="flex-shrink-0 text-xs text-muted-foreground bg-secondary px-1.5 py-0.5 rounded">{assets.length}</span>
                           </div>

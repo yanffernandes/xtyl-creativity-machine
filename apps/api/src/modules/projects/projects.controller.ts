@@ -9,7 +9,9 @@ import {
   Query,
   UseGuards,
   BadRequestException,
+  Req,
 } from '@nestjs/common';
+import { FastifyRequest } from 'fastify';
 import { ProjectAccessGuard } from '../../common/guards';
 import { CurrentUser } from '../../common/decorators';
 import { ProjectsService } from './projects.service';
@@ -19,6 +21,7 @@ import type {
   AssetColorExtractionRequest,
   DeleteProjectResponse,
   BootstrapData,
+  ProjectBootstrapQuery,
 } from './projects.dto';
 
 interface User {
@@ -69,42 +72,57 @@ export class ProjectsController {
 
   /**
    * POST /projects/:projectId/extract-colors
-   * Extract dominant colors from an uploaded image (STUB)
+   * Extract dominant colors from an uploaded image
    */
   @Post(':projectId/extract-colors')
   async extractColors(
-    @Param('projectId') _projectId: string,
-    @Query('n_colors') _nColors: number = 6,
+    @Param('projectId') projectId: string,
+    @Req() req: FastifyRequest,
+    @Query('n_colors') nColors: number = 6,
   ) {
-    // TODO: Implement file upload handling
-    // For now, return stub response
+    const data = await (req as any).file();
+    if (!data) {
+      throw new BadRequestException('No file uploaded');
+    }
+
+    const fileContent = Buffer.from(await data.toBuffer());
+    const result = await this.projectsService.extractColors(
+      projectId,
+      fileContent,
+      Number(nColors) || 6,
+    );
+
     return {
-      colors: [],
-      source_filename: '',
-      processing_time_ms: 0,
-      message: 'Color extraction not yet implemented',
+      colors: result.colors,
+      source_filename: data.filename || '',
+      processing_time_ms: result.processing_time_ms,
+      message: result.message || null,
     };
   }
 
   /**
    * POST /projects/:projectId/extract-colors-from-asset
-   * Extract dominant colors from an existing visual asset (STUB)
+   * Extract dominant colors from an existing visual asset
    */
   @Post(':projectId/extract-colors-from-asset')
   async extractColorsFromAsset(
-    @Param('projectId') _projectId: string,
+    @Param('projectId') projectId: string,
     @Body() request: AssetColorExtractionRequest,
-    @Query('n_colors') _nColors: number = 6,
+    @Query('n_colors') nColors: number = 6,
   ) {
-    // TODO: Implement color extraction from asset
-    // For now, return stub response
+    const result = await this.projectsService.extractColorsFromAsset(
+      projectId,
+      request.asset_id,
+      Number(nColors) || 6,
+    );
+
     return {
-      colors: [],
-      source_filename: '',
-      processing_time_ms: 0,
-      message: 'Color extraction from asset not yet implemented',
+      colors: result.colors,
+      source_filename: result.asset_name,
+      processing_time_ms: result.processing_time_ms,
+      message: result.message || null,
       source_asset_id: request.asset_id,
-      source_asset_name: '',
+      source_asset_name: result.asset_name,
     };
   }
 
@@ -118,9 +136,6 @@ export class ProjectsController {
     @Param('projectId') projectId: string,
     @CurrentUser() user: User,
   ): Promise<DeleteProjectResponse> {
-    // TODO: Add authorization check (workspace owner/admin)
-    // For now, allow any authenticated user with project access
-
     const result = await this.projectsService.deleteProject(projectId, user.id);
 
     return {
@@ -140,7 +155,8 @@ export class ProjectsController {
   async getBootstrap(
     @Param('projectId') projectId: string,
     @CurrentUser() user: User,
+    @Query() query: ProjectBootstrapQuery,
   ): Promise<BootstrapData> {
-    return this.projectsService.getBootstrap(projectId, user.id);
+    return this.projectsService.getBootstrap(projectId, user.id, query);
   }
 }

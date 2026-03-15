@@ -16,7 +16,8 @@ export default function Home() {
         } else {
             router.push("/login")
         }
-    }, [session, isLoading, router])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [session, isLoading])
 
     return null
 }

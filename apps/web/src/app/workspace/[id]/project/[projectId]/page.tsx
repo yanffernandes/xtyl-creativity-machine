@@ -47,6 +47,8 @@ import {
 import ChatSidebar from "@/components/ChatSidebar"
 import SmartEditor from "@/components/SmartEditor"
 import KanbanBoard from "@/components/KanbanBoard"
+import FolderDashboard from "@/components/FolderDashboard"
+import ProjectDashboard from "@/components/ProjectDashboard"
 import WorkspaceSidebar from "@/components/WorkspaceSidebar"
 import CommandPalette from "@/components/CommandPalette"
 import Breadcrumbs from "@/components/Breadcrumbs"
@@ -160,6 +162,7 @@ export default function ProjectPage() {
     const params = useParams()
     const searchParams = useSearchParams()
     const activeBoardId = searchParams.get('board')
+    const activeFolderId = searchParams.get('folder')
     const requestedView = searchParams.get('view')
     const workspaceId = params.id as string
     const projectId = params.projectId as string
@@ -177,6 +180,7 @@ export default function ProjectPage() {
     const [tempTitle, setTempTitle] = useState("")
     const [isLoading, setIsLoading] = useState(true)
     const [autoApplyEdits, setAutoApplyEdits] = useState(false)
+    const [isChatCollapsed, setIsChatCollapsed] = useState(false)
     const [projectName, setProjectName] = useState("")
     const [workspaceName, setWorkspaceName] = useState("")
     const [activeBoardName, setActiveBoardName] = useState<string | null>(null)
@@ -416,7 +420,8 @@ export default function ProjectPage() {
             return
         }
         // Documents and context files are now loaded automatically via hooks
-    }, [session, authLoading, projectId, router])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [session, authLoading, projectId])
 
     // Handle ?doc= query parameter to auto-select document from sidebar
     useEffect(() => {
@@ -721,6 +726,7 @@ export default function ProjectPage() {
             status: "draft",
             type: "creation",
             is_context: false,
+            board_id: activeBoardId || null,
             created_at: new Date().toISOString()
         }
 
@@ -736,11 +742,26 @@ export default function ProjectPage() {
             const newDocData = {
                 title: "Nova Criação",
                 content: "",
-                status: "draft"
+                status: "draft",
+                board_id: activeBoardId || null,
             }
 
             const response = await api.post(`/documents/projects/${projectId}/documents`, newDocData)
-            const newDoc = { ...response.data, type: "creation" as const, is_context: false }
+            // API returns camelCase (Drizzle), normalize to snake_case for frontend consistency
+            const d = response.data
+            const newDoc = {
+                ...d,
+                project_id: d.projectId ?? d.project_id,
+                folder_id: d.folderId ?? d.folder_id,
+                board_id: d.boardId ?? d.board_id,
+                board_column_id: d.boardColumnId ?? d.board_column_id,
+                is_context: d.isContext ?? d.is_context ?? false,
+                is_reference_asset: d.isReferenceAsset ?? d.is_reference_asset ?? false,
+                media_type: d.mediaType ?? d.media_type,
+                created_at: d.createdAt ?? d.created_at,
+                updated_at: d.updatedAt ?? d.updated_at,
+                type: "creation" as const,
+            }
 
             // Replace temp doc with real doc in list
             setCreations(prev => prev.map(d => d.id === tempId ? newDoc : d))
@@ -1202,6 +1223,29 @@ export default function ProjectPage() {
                             </div>
                         </div>
                         )
+                    ) : activeFolderId ? (
+                        <FolderDashboard
+                            folderId={activeFolderId}
+                            projectId={projectId}
+                            workspaceId={workspaceId}
+                            allDocuments={creations}
+                            onNavigateToBoard={(boardId) => {
+                                router.push(`/workspace/${workspaceId}/project/${projectId}?board=${boardId}&view=kanban`)
+                            }}
+                        />
+                    ) : !activeBoardId && requestedView !== 'kanban' ? (
+                        <ProjectDashboard
+                            projectId={projectId}
+                            projectName={projectName}
+                            workspaceId={workspaceId}
+                            allDocuments={creations}
+                            onNavigateToBoard={(boardId) => {
+                                router.push(`/workspace/${workspaceId}/project/${projectId}?board=${boardId}&view=kanban`)
+                            }}
+                            onNavigateToFolder={(folderId) => {
+                                router.push(`/workspace/${workspaceId}/project/${projectId}?folder=${folderId}`)
+                            }}
+                        />
                     ) : (
                         <div className="h-full overflow-hidden">
                             <div className="h-full flex flex-col gap-6">
@@ -1289,8 +1333,8 @@ export default function ProjectPage() {
                 </div>
                 </MultiSelectProvider>
 
-                {/* FAB - Floating Action Button (only visible in Kanban view) */}
-                {!selectedDoc && (
+                {/* FAB - Floating Action Button (only in kanban/board view) */}
+                {!selectedDoc && !activeFolderId && (activeBoardId || requestedView === 'kanban') && (
                     <Button
                         onClick={handleCreateCreation}
                         disabled={isCreatingDocument}
@@ -1311,8 +1355,8 @@ export default function ProjectPage() {
                 )}
             </div>
 
-            {/* Floating chat sidebar container */}
-            <div className="p-3 pl-0">
+            {/* Floating chat sidebar container — when collapsed, no width so content goes full width; only the button floats */}
+            <div className={isChatCollapsed ? "absolute right-0 top-0 bottom-0 w-0 overflow-visible z-10" : "p-3 pl-0"}>
                 <ChatSidebar
                     workspaceId={workspaceId}
                     projectId={projectId}
@@ -1342,6 +1386,7 @@ export default function ProjectPage() {
                     availableModels={availableModels}
                     defaultModel={defaultTextModel}
                     className="h-[calc(100vh-24px)]"
+                    onCollapsedChange={setIsChatCollapsed}
                 />
             </div>
 

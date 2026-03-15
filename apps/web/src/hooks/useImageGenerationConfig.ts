@@ -10,8 +10,9 @@ import type {
   ImageGenerationConfig,
   ImageGenerationConfigUpdate,
 } from "@/types/image-variations";
+import { API_BASE_URL } from "@/lib/env";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_BASE = API_BASE_URL;
 
 /**
  * Fetch current image generation config

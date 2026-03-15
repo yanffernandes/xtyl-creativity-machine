@@ -33,43 +33,40 @@ export default function TaskListCard({
 }: TaskListCardProps) {
     const [isExpanded, setIsExpanded] = useState(true)
 
-    // Calculate progress
     const completedTasks = tasks.filter(t => t.status === "completed").length
     const failedTasks = tasks.filter(t => t.status === "failed").length
     const progressPercent = tasks.length > 0 ? Math.round((completedTasks / tasks.length) * 100) : 0
 
-    // Get status icon for each task
     const getStatusIcon = (status: TaskItem["status"]) => {
         switch (status) {
             case "completed":
-                return <Check className="h-3.5 w-3.5 text-green-600 dark:text-green-400" />
+                return <Check className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
             case "in_progress":
-                return <Loader2 className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400 animate-spin" />
+                return <Loader2 className="h-3.5 w-3.5 text-primary animate-spin" />
             case "failed":
-                return <X className="h-3.5 w-3.5 text-red-600 dark:text-red-400" />
+                return <X className="h-3.5 w-3.5 text-destructive" />
             case "skipped":
-                return <Circle className="h-3.5 w-3.5 text-gray-400" />
+                return <Circle className="h-3.5 w-3.5 text-muted-foreground/50" />
             default:
-                return <Circle className="h-3.5 w-3.5 text-gray-300 dark:text-gray-600" />
+                return <Circle className="h-3.5 w-3.5 text-muted-foreground/30" />
         }
     }
 
-    // Get status colors
     const getStatusColors = (status: TaskItem["status"]) => {
         switch (status) {
             case "completed":
-                return "bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800"
+                return "bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200/60 dark:border-emerald-800/40"
             case "in_progress":
-                return "bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800"
+                return "bg-primary/5 border-primary/20"
             case "failed":
-                return "bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800"
+                return "bg-destructive/5 border-destructive/20"
             default:
-                return "bg-gray-50 dark:bg-gray-950/20 border-gray-200 dark:border-gray-800"
+                return "bg-muted/30 border-border/40"
         }
     }
 
     return (
-        <Card className="p-3 border-purple-200 dark:border-purple-800/50 bg-gradient-to-br from-purple-50/50 to-indigo-50/50 dark:from-purple-950/20 dark:to-indigo-950/20">
+        <Card className="p-3 border-border/60 bg-surface-secondary">
             <div className="space-y-3">
                 {/* Header */}
                 <div
@@ -77,14 +74,18 @@ export default function TaskListCard({
                     onClick={() => setIsExpanded(!isExpanded)}
                 >
                     <div className="flex items-center gap-2">
-                        <div className="flex items-center justify-center w-7 h-7 rounded-full bg-purple-100 dark:bg-purple-900/30">
-                            <ListTodo className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                        <div className="flex items-center justify-center w-6 h-6 rounded-lg bg-primary/10">
+                            <ListTodo className="h-3.5 w-3.5 text-primary" />
                         </div>
                         <div className="flex flex-col">
                             <span className="text-sm font-medium">{title}</span>
                             <span className="text-xs text-muted-foreground">
                                 {completedTasks}/{tasks.length} tarefas completas
-                                {failedTasks > 0 && <span className="text-red-500 ml-1">({failedTasks} falha{failedTasks > 1 ? 's' : ''})</span>}
+                                {failedTasks > 0 && (
+                                    <span className="text-destructive ml-1">
+                                        ({failedTasks} falha{failedTasks > 1 ? 's' : ''})
+                                    </span>
+                                )}
                             </span>
                         </div>
                     </div>
@@ -94,30 +95,29 @@ export default function TaskListCard({
                             variant="secondary"
                             className={cn(
                                 "text-xs px-2 py-0.5",
-                                progressPercent === 100 && "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
-                                progressPercent > 0 && progressPercent < 100 && "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+                                progressPercent === 100 && "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
+                                progressPercent > 0 && progressPercent < 100 && "bg-primary/10 text-primary"
                             )}
                         >
                             {progressPercent}%
                         </Badge>
-                        {isExpanded ? (
-                            <ChevronUp className="h-4 w-4 text-muted-foreground" />
-                        ) : (
-                            <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                        )}
+                        {isExpanded
+                            ? <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                            : <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                        }
                     </div>
                 </div>
 
                 {/* Progress bar */}
-                <div className="h-1.5 w-full bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                <div className="h-1.5 w-full bg-border/60 rounded-full overflow-hidden">
                     <motion.div
                         className={cn(
                             "h-full rounded-full",
-                            failedTasks > 0 ? "bg-gradient-to-r from-green-500 to-red-500" : "bg-gradient-to-r from-purple-500 to-indigo-500"
+                            failedTasks > 0 ? "bg-gradient-to-r from-emerald-500 to-destructive" : "bg-primary"
                         )}
                         initial={{ width: 0 }}
                         animate={{ width: `${progressPercent}%` }}
-                        transition={{ duration: 0.5, ease: "easeOut" }}
+                        transition={{ duration: 0.4, ease: "easeOut" }}
                     />
                 </div>
 
@@ -134,44 +134,37 @@ export default function TaskListCard({
                             {tasks.map((task, index) => (
                                 <motion.div
                                     key={task.id}
-                                    initial={{ opacity: 0, x: -10 }}
+                                    initial={{ opacity: 0, x: -8 }}
                                     animate={{ opacity: 1, x: 0 }}
-                                    transition={{ delay: index * 0.05 }}
+                                    transition={{ delay: Math.min(index * 0.04, 0.15) }}
                                     className={cn(
                                         "flex items-start gap-2 p-2 rounded-lg border transition-all",
                                         getStatusColors(task.status)
                                     )}
                                 >
-                                    {/* Status icon with animation */}
-                                    <motion.div
-                                        className="flex items-center justify-center w-5 h-5 mt-0.5 rounded-full shrink-0"
-                                        animate={task.status === "completed" ? { scale: [1, 1.2, 1] } : {}}
-                                        transition={{ duration: 0.3 }}
-                                    >
+                                    <div className="flex items-center justify-center w-5 h-5 mt-0.5 shrink-0">
                                         {getStatusIcon(task.status)}
-                                    </motion.div>
+                                    </div>
 
-                                    {/* Task description */}
                                     <div className="flex-1 min-w-0">
                                         <p className={cn(
                                             "text-xs",
-                                            task.status === "completed" && "text-green-700 dark:text-green-300",
-                                            task.status === "in_progress" && "text-blue-700 dark:text-blue-300 font-medium",
-                                            task.status === "failed" && "text-red-700 dark:text-red-300",
-                                            task.status === "pending" && "text-gray-600 dark:text-gray-400",
-                                            task.status === "skipped" && "text-gray-400 line-through"
+                                            task.status === "completed" && "text-emerald-700 dark:text-emerald-300",
+                                            task.status === "in_progress" && "text-primary font-medium",
+                                            task.status === "failed" && "text-destructive",
+                                            task.status === "pending" && "text-muted-foreground",
+                                            task.status === "skipped" && "text-muted-foreground/60 line-through"
                                         )}>
                                             {task.description}
                                         </p>
                                         {task.tool_name && (
-                                            <p className="text-[10px] text-muted-foreground mt-0.5 font-mono">
+                                            <p className="text-[11px] text-muted-foreground mt-0.5 font-mono">
                                                 {task.tool_name}
                                             </p>
                                         )}
                                     </div>
 
-                                    {/* Task number */}
-                                    <span className="text-[10px] text-muted-foreground shrink-0">
+                                    <span className="text-[11px] text-muted-foreground shrink-0">
                                         #{index + 1}
                                     </span>
                                 </motion.div>

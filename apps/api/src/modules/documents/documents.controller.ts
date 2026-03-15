@@ -17,9 +17,10 @@ import {
   Query,
   UseGuards,
   Req,
+  Res,
   BadRequestException,
 } from '@nestjs/common';
-import { FastifyRequest } from 'fastify';
+import { FastifyReply, FastifyRequest } from 'fastify';
 import { ProjectAccessGuard } from '../../common/guards/project-access.guard';
 import { DocumentAccessGuard } from '../../common/guards/document-access.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -42,7 +43,6 @@ export class DocumentsController {
   // 1. Upload file (multipart/form-data)
   // ─────────────────────────────────────────────
   // Note: Requires @fastify/multipart to be registered in main.ts
-  // TODO: Register multipart in bootstrap: app.register(multipartPlugin)
 
   @Post('upload')
   async uploadDocument(
@@ -80,6 +80,35 @@ export class DocumentsController {
     };
   }
 
+  @Post('upload/:projectId')
+  async uploadDocumentLegacy(
+    @Param('projectId') projectId: string,
+    @Req() request: FastifyRequest,
+    @Query('is_context') isContext?: string,
+  ) {
+    const data = await (request as any).file();
+
+    if (!data) {
+      throw new BadRequestException('No file uploaded');
+    }
+
+    const buffer = await data.toBuffer();
+    const document = await this.documentsService.uploadFile(
+      projectId,
+      buffer,
+      data.filename,
+      data.mimetype,
+      isContext === 'true',
+    );
+
+    return {
+      id: document.id,
+      status: document.status,
+      is_context: document.isContext,
+      message: 'Document uploaded and processing started',
+    };
+  }
+
   // ─────────────────────────────────────────────
   // 2. List documents with filtering
   // ─────────────────────────────────────────────
@@ -100,6 +129,29 @@ export class DocumentsController {
     @Body() dto: DocumentCreateDto,
   ) {
     return this.documentsService.create(projectId, dto);
+  }
+
+  @Post('projects/:projectId/documents')
+  @UseGuards(ProjectAccessGuard)
+  async createDocumentLegacy(
+    @Param('projectId') projectId: string,
+    @Body() dto: DocumentCreateDto,
+  ) {
+    return this.documentsService.create(projectId, dto);
+  }
+
+  @Get('projects/:projectId/documents')
+  @UseGuards(ProjectAccessGuard)
+  async listProjectDocuments(
+    @Param('projectId') projectId: string,
+    @Query('page') page = '1',
+    @Query('limit') limit = '100',
+  ) {
+    return this.documentsService.list({
+      project_id: projectId,
+      page: parseInt(page, 10) || 1,
+      limit: parseInt(limit, 10) || 100,
+    });
   }
 
   // ─────────────────────────────────────────────
@@ -192,20 +244,20 @@ export class DocumentsController {
   async exportDocument(
     @Param('documentId') documentId: string,
     @Param('format') format: string,
+    @Res() reply: FastifyReply,
   ) {
-    // Stub implementation - export functionality to be implemented later
-    const document = await this.documentsService.findById(documentId);
-
-    if (document.mediaType !== 'text') {
-      throw new Error('Only text documents can be exported');
-    }
-
-    // TODO: Implement actual export logic (PDF, DOCX, MD)
-    return {
-      message: `Export to ${format} not yet implemented`,
-      document_id: documentId,
+    const exported = await this.documentsService.exportDocument(
+      documentId,
       format,
-    };
+    );
+
+    reply.header('Content-Type', exported.contentType);
+    reply.header(
+      'Content-Disposition',
+      `attachment; filename="${exported.filename}"`,
+    );
+
+    return reply.send(exported.buffer);
   }
 
   // ─────────────────────────────────────────────
@@ -325,6 +377,19 @@ export class DocumentsController {
   @Get('project/:projectId/media')
   @UseGuards(ProjectAccessGuard)
   async listProjectMedia(
+    @Param('projectId') projectId: string,
+    @Query('page') page = '1',
+    @Query('limit') limit = '20',
+  ) {
+    const pageNum = parseInt(page, 10) || 1;
+    const limitNum = parseInt(limit, 10) || 20;
+
+    return this.documentsService.listProjectMedia(projectId, pageNum, limitNum);
+  }
+
+  @Get('projects/:projectId/media')
+  @UseGuards(ProjectAccessGuard)
+  async listProjectMediaLegacy(
     @Param('projectId') projectId: string,
     @Query('page') page = '1',
     @Query('limit') limit = '20',

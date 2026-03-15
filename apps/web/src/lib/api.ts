@@ -1,9 +1,10 @@
 import axios from 'axios';
 import { supabase } from './supabase';
 import { getCachedSession, invalidateSessionCache } from './session-cache';
+import { API_BASE_URL } from './env';
 
 const api = axios.create({
-    baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000',
+    baseURL: API_BASE_URL,
     headers: {
         'Content-Type': 'application/json',
     },
@@ -254,12 +255,12 @@ export interface VisualContextResponse {
 // Asset Classification API
 export async function classifyAsset(assetId: string, force: boolean = false): Promise<AssetClassificationResult> {
     // AI classification can take time, especially with vision models - use 60s timeout
-    const response = await api.post(`/assets/${assetId}/classify?force=${force}`, {}, { timeout: 60000 });
+    const response = await api.post(`/visual-assets/${assetId}/classify?force=${force}`, {}, { timeout: 60000 });
     return response.data;
 }
 
 export async function updateAssetMetadata(assetId: string, metadata: AssetMetadataUpdate): Promise<VisualAsset> {
-    const response = await api.patch(`/assets/${assetId}/metadata`, metadata);
+    const response = await api.put(`/visual-assets/${assetId}/metadata`, metadata);
     return response.data;
 }
 
@@ -287,7 +288,7 @@ export async function getVisualAssetsSummary(projectId: string): Promise<VisualA
  * @deprecated Use visualAssetService from lib/supabase/visual-assets.ts instead
  */
 export async function getVisualSettings(projectId: string): Promise<AssistantVisualSettings> {
-    const response = await api.get(`/projects/${projectId}/assistant/visual-settings`);
+    const response = await api.get(`/projects/${projectId}/visual-context/settings`);
     return response.data;
 }
 
@@ -298,7 +299,7 @@ export async function updateVisualSettings(
     projectId: string,
     update: AssistantVisualSettingsUpdate
 ): Promise<AssistantVisualSettings> {
-    const response = await api.put(`/projects/${projectId}/assistant/visual-settings`, update);
+    const response = await api.put(`/projects/${projectId}/visual-context/settings`, update);
     return response.data;
 }
 
@@ -307,7 +308,7 @@ export async function updateVisualSettings(
  * @deprecated Use visualAssetService from lib/supabase/visual-assets.ts instead
  */
 export async function getAssetSelections(projectId: string): Promise<AssetSelectionList> {
-    const response = await api.get(`/projects/${projectId}/assistant/visual-settings/selections`);
+    const response = await api.get(`/projects/${projectId}/visual-context/selections`);
     return response.data;
 }
 
@@ -315,7 +316,7 @@ export async function getAssetSelections(projectId: string): Promise<AssetSelect
  * @deprecated Use visualAssetService from lib/supabase/visual-assets.ts instead
  */
 export async function updateAssetSelections(projectId: string, assetIds: string[]): Promise<AssetSelectionList> {
-    const response = await api.put(`/projects/${projectId}/assistant/visual-settings/selections`, {
+    const response = await api.put(`/projects/${projectId}/visual-context/selections`, {
         asset_ids: assetIds
     });
     return response.data;
@@ -326,7 +327,7 @@ export async function updateAssetSelections(projectId: string, assetIds: string[
  * @deprecated Use visualAssetService from lib/supabase/visual-assets.ts instead
  */
 export async function getVisualContext(projectId: string, limit: number = 5): Promise<VisualContextResponse> {
-    const response = await api.get(`/projects/${projectId}/assistant/visual-context?limit=${limit}`);
+    const response = await api.get(`/projects/${projectId}/visual-context/resolve?limit=${limit}`);
     return response.data;
 }
 
@@ -338,7 +339,7 @@ export async function recordAssetUsage(
     assetIds: string[],
     generationId?: string
 ): Promise<{ message: string; count: number }> {
-    const response = await api.post(`/projects/${projectId}/assistant/visual-context/record-usage`, {
+    const response = await api.post(`/projects/${projectId}/visual-context/usage`, {
         asset_ids: assetIds,
         generation_id: generationId
     });
@@ -568,100 +569,6 @@ export async function transcribeAudio(
 }
 
 // ============================================================================
-// User Memory API (Feature 024 - User Memory System)
-// ============================================================================
-
-import { UserMemory, MemoryCategory, MemoryListResponse, MemorySearchResponse } from '@/types/memory';
-
-export interface CreateMemoryRequest {
-    content: string;
-    category?: MemoryCategory;
-}
-
-export interface UpdateMemoryRequest {
-    content?: string;
-    category?: MemoryCategory;
-}
-
-export interface SearchMemoriesRequest {
-    query: string;
-    limit?: number;
-    category?: MemoryCategory;
-}
-
-/**
- * Get all memories for a project (paginated)
- * @deprecated Use memoryService from lib/supabase/memories.ts instead
- */
-export async function getMemories(
-    projectId: string,
-    params?: { limit?: number; offset?: number; category?: MemoryCategory }
-): Promise<MemoryListResponse> {
-    const response = await api.get(`/projects/${projectId}/memories`, { params });
-    return response.data;
-}
-
-/**
- * Get a single memory by ID
- * @deprecated Use memoryService from lib/supabase/memories.ts instead
- */
-export async function getMemory(projectId: string, memoryId: string): Promise<UserMemory> {
-    const response = await api.get(`/projects/${projectId}/memories/${memoryId}`);
-    return response.data;
-}
-
-/**
- * Create a new memory (manual)
- * @deprecated Use memoryService from lib/supabase/memories.ts instead
- */
-export async function createMemory(projectId: string, data: CreateMemoryRequest): Promise<UserMemory> {
-    const response = await api.post(`/projects/${projectId}/memories`, data);
-    return response.data;
-}
-
-/**
- * Update an existing memory
- * @deprecated Use memoryService from lib/supabase/memories.ts instead
- */
-export async function updateMemory(
-    projectId: string,
-    memoryId: string,
-    data: UpdateMemoryRequest
-): Promise<UserMemory> {
-    const response = await api.put(`/projects/${projectId}/memories/${memoryId}`, data);
-    return response.data;
-}
-
-/**
- * Delete a single memory
- * @deprecated Use memoryService from lib/supabase/memories.ts instead
- */
-export async function deleteMemory(projectId: string, memoryId: string): Promise<void> {
-    await api.delete(`/projects/${projectId}/memories/${memoryId}`);
-}
-
-/**
- * Delete all memories for a project
- * @deprecated Use memoryService from lib/supabase/memories.ts instead
- */
-export async function deleteAllMemories(projectId: string): Promise<{ deleted_count: number }> {
-    const response = await api.delete(`/projects/${projectId}/memories`);
-    return response.data;
-}
-
-/**
- * Search memories using semantic similarity
- * NOTE: This function is kept in the API as it requires pgvector operations on the backend
- */
-export async function searchMemories(
-    projectId: string,
-    data: SearchMemoriesRequest
-): Promise<MemorySearchResponse> {
-    const response = await api.post(`/projects/${projectId}/memories/search`, data);
-    return response.data;
-}
-
-// ============================================================================
 // Project Bootstrap API (Feature 027 - Visual Generation Studio)
 // ============================================================================
 
@@ -670,6 +577,7 @@ import type {
     BootstrapData,
     CreativeConceptList,
     AvailableModel,
+    ImageModel,
     Document as StudioDocument,
 } from '@/types/image-studio';
 
@@ -677,12 +585,11 @@ import type {
  * Get all bootstrap data for a project in a single request.
  * Replaces 8+ individual API calls with 1 optimized endpoint.
  *
- * Returns: project, settings, models, visual_context, memories, recent_documents, creative_concepts
+ * Returns: project, settings, models, visual_context, recent_documents, creative_concepts
  */
 export interface ProjectBootstrapOptions {
     include_models?: boolean;
     include_visual_context?: boolean;
-    include_memories?: boolean;
     include_recent_copies?: boolean;
     include_recent_media?: boolean;
     include_copy_content?: boolean;
@@ -690,7 +597,6 @@ export interface ProjectBootstrapOptions {
     recent_copies_limit?: number;
     recent_media_limit?: number;
     visual_context_limit?: number;
-    memories_limit?: number;
 }
 
 export async function getProjectBootstrap(
@@ -714,7 +620,7 @@ export async function getDocumentById(documentId: string): Promise<StudioDocumen
  * Returns a flat list of creative concepts.
  */
 export async function getCreativeConcepts(): Promise<CreativeConceptList> {
-    const response = await api.get('/image-generation/creative-concepts');
+    const response = await api.get('/image-generation/concepts');
     return response.data;
 }
 
@@ -753,7 +659,7 @@ export interface ImageBatchResponse {
  * Returns a batch_id for tracking progress via SSE.
  */
 export async function generateImageBatch(request: ImageBatchRequest): Promise<ImageBatchResponse> {
-    const response = await api.post('/image-generation/generate-batch', request);
+    const response = await api.post('/image-generation/batch', request);
     return response.data;
 }
 
@@ -977,13 +883,12 @@ export interface FalModelListResponse {
 }
 
 /**
- * Fetch available fal.ai image models
- * Feature 029: Returns comprehensive model catalog (FLUX, Gemini, GPT-Image)
+ * Fetch available image generation models from the API.
  *
- * @param capability - Optional filter by capability (e.g., "inpainting", "generation", "editing")
+ * @param modelType - Optional filter by model type (e.g. "text-to-image", "image-to-image")
  */
-export async function getImageModels(capability?: string): Promise<AvailableModel[]> {
-    const params = capability ? { capability } : {};
+export async function getImageModels(modelType?: string): Promise<ImageModel[]> {
+    const params = modelType ? { model_type: modelType } : {};
     const response = await api.get('/image-generation/models', { params });
     return response.data;
 }
@@ -1070,7 +975,7 @@ export interface RemoveBackgroundRequest {
  * Returns PNG with alpha channel transparency
  */
 export async function removeBackground(request: RemoveBackgroundRequest): Promise<ImageOperationResponse> {
-    const response = await api.post('/image-generation/remove-background', request);
+    const response = await api.post('/image-generation/remove-bg', request);
     return response.data;
 }
 

@@ -76,25 +76,6 @@ export const queryKeys = {
     detail: (id: string) => [...queryKeys.conversations.all, 'detail', id] as const,
   },
 
-  workflows: {
-    all: ['workflows'] as const,
-    byProject: (projectId: string) => [...queryKeys.workflows.all, 'project', projectId] as const,
-    detail: (id: string) => [...queryKeys.workflows.all, 'detail', id] as const,
-    executions: (workflowId: string) => [...queryKeys.workflows.all, 'executions', workflowId] as const,
-  },
-
-  // Feature 024: User Memory System
-  memories: {
-    all: (projectId: string) => ['memories', 'project', projectId] as const,
-    lists: (projectId: string) => [...queryKeys.memories.all(projectId), 'list'] as const,
-    list: (projectId: string, options?: Record<string, unknown>) =>
-      [...queryKeys.memories.lists(projectId), options] as const,
-    detail: (projectId: string, memoryId: string) =>
-      [...queryKeys.memories.all(projectId), 'detail', memoryId] as const,
-    search: (projectId: string, query: string) =>
-      [...queryKeys.memories.all(projectId), 'search', query] as const,
-  },
-
   // Feature 027: Visual Generation Studio
   bootstrap: {
     all: ['bootstrap'] as const,
@@ -166,9 +147,6 @@ export const queryKeys = {
       [...queryKeys.campaigns.all, 'detail', projectId, campaignId] as const,
   },
 }
-
-// Export memory keys separately for easier import
-export const memoryKeys = queryKeys.memories
 
 /**
  * Document Keys (Legacy Pattern)

@@ -3,10 +3,16 @@ import {
   Inject,
   NotFoundException,
   ForbiddenException,
+  BadRequestException,
 } from '@nestjs/common';
 import { eq, and, or, ilike, desc, count } from 'drizzle-orm';
 import { DATABASE } from '../../database/database.module';
-import { templates } from '../../database/drizzle/schema';
+import { randomUUID } from 'crypto';
+import {
+  chatConversations,
+  projects,
+  templates,
+} from '../../database/drizzle/schema';
 
 interface TemplateVariable {
   key: string;
@@ -43,9 +49,40 @@ interface UpdateTemplateDto {
   tags?: string[];
 }
 
+interface StartChatFromTemplateDto {
+  template_id: string;
+  variables: Record<string, string>;
+  project_id?: string;
+  title?: string;
+}
+
 @Injectable()
 export class TemplatesService {
   constructor(@Inject(DATABASE) private readonly db: any) {}
+
+  private substituteVariables(
+    text: string | null | undefined,
+    variables: Record<string, string>,
+  ): string {
+    if (!text) {
+      return '';
+    }
+
+    const withConditionals = text.replace(
+      /\{\{#if\s+(\w+)\}\}(.*?)\{\{\/if\}\}/gs,
+      (_match, variableName: string, content: string) =>
+        variables[variableName]
+          ? this.substituteVariables(content, variables)
+          : '',
+    );
+
+    let output = withConditionals;
+    for (const [key, value] of Object.entries(variables)) {
+      output = output.replaceAll(`{{${key}}}`, value || '');
+    }
+
+    return output;
+  }
 
   async listTemplates(options: {
     category?: string;
@@ -306,5 +343,94 @@ export class TemplatesService {
     await this.db.delete(templates).where(eq(templates.id, templateId));
 
     return { success: true, message: 'Template deleted' };
+  }
+
+  async startChatFromTemplate(
+    dto: StartChatFromTemplateDto,
+    userId: string,
+  ) {
+    const [template] = await this.db
+      .select()
+      .from(templates)
+      .where(and(eq(templates.id, dto.template_id), eq(templates.isActive, true)))
+      .limit(1);
+
+    if (!template) {
+      throw new NotFoundException('Template not found');
+    }
+
+    if (!template.isSystem && template.userId !== userId) {
+      throw new ForbiddenException('Access denied to this template');
+    }
+
+    const templateVariables = (template.variables as any[]) || [];
+    for (const variable of templateVariables) {
+      if (
+        variable?.required !== false &&
+        variable?.key &&
+        !dto.variables?.[variable.key]
+      ) {
+        throw new BadRequestException(
+          `Missing required variable: ${variable.key} (${variable.label || variable.key})`,
+        );
+      }
+    }
+
+    if (!dto.project_id) {
+      throw new BadRequestException('project_id is required');
+    }
+
+    const [project] = await this.db
+      .select()
+      .from(projects)
+      .where(eq(projects.id, dto.project_id))
+      .limit(1);
+
+    if (!project) {
+      throw new NotFoundException('Project not found');
+    }
+
+    const customizedPrompt = this.substituteVariables(
+      template.prompt,
+      dto.variables || {},
+    );
+    const customizedInitialMessage = template.initialMessage
+      ? this.substituteVariables(template.initialMessage, dto.variables || {})
+      : null;
+
+    const firstVariableValue = Object.values(dto.variables || {}).find(Boolean);
+    const title =
+      dto.title ||
+      (firstVariableValue && firstVariableValue.length <= 50
+        ? `${template.name}: ${firstVariableValue}`
+        : template.name);
+
+    const conversationId = randomUUID();
+    await this.db.insert(chatConversations).values({
+      id: conversationId,
+      userId,
+      projectId: dto.project_id,
+      workspaceId: project.workspaceId,
+      title,
+      messagesJson: [{ role: 'system', content: customizedPrompt }],
+      messageCount: 1,
+      lastMessageAt: new Date(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    await this.db
+      .update(templates)
+      .set({
+        usageCount: (template.usageCount || 0) + 1,
+        updatedAt: new Date(),
+      })
+      .where(eq(templates.id, template.id));
+
+    return {
+      conversation_id: conversationId,
+      title,
+      first_message: customizedInitialMessage,
+    };
   }
 }

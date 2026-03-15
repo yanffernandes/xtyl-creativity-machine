@@ -27,14 +27,16 @@ export default function DashboardPage() {
             router.push("/login")
             return
         }
-    }, [session, authLoading, router])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [session, authLoading])
 
     // Auto-redirect if only one workspace
     useEffect(() => {
         if (!workspacesLoading && workspaces && workspaces.length === 1) {
             router.push(`/workspace/${workspaces[0].id}`)
         }
-    }, [workspaces, workspacesLoading, router])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [workspaces, workspacesLoading])
 
     const handleCreateWorkspace = async (e: React.FormEvent) => {
         e.preventDefault()

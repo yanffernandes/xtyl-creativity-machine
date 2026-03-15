@@ -3,9 +3,10 @@ import { AdminController } from './admin.controller';
 import { AdminService } from './admin.service';
 import { DatabaseModule } from '../../database/database.module';
 import { OpenRouterModule } from '../../integrations/openrouter/openrouter.module';
+import { FalAiModule } from '../../integrations/fal-ai/fal-ai.module';
 
 @Module({
-  imports: [DatabaseModule, OpenRouterModule],
+  imports: [DatabaseModule, OpenRouterModule, FalAiModule],
   controllers: [AdminController],
   providers: [AdminService],
   exports: [AdminService],

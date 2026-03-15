@@ -26,7 +26,6 @@ import {
   nodeOutputs,
   templates,
   aiUsageLog,
-  userMemories,
   assistantVisualSettings,
   assistantAssetSelection,
   assetUsageHistory,
@@ -157,7 +156,7 @@ export const activityLogRelations = relations(activityLog, ({ one }) => ({
 // 3. Chat Domain
 // ─────────────────────────────────────────────
 
-export const chatConversationsRelations = relations(chatConversations, ({ one, many }) => ({
+export const chatConversationsRelations = relations(chatConversations, ({ one }) => ({
   user: one(users, {
     fields: [chatConversations.userId],
     references: [users.id],
@@ -170,7 +169,6 @@ export const chatConversationsRelations = relations(chatConversations, ({ one, m
     fields: [chatConversations.workspaceId],
     references: [workspaces.id],
   }),
-  extractedMemories: many(userMemories),
 }));
 
 // ─────────────────────────────────────────────
@@ -255,21 +253,6 @@ export const aiUsageLogRelations = relations(aiUsageLog, ({ one }) => ({
   project: one(projects, {
     fields: [aiUsageLog.projectId],
     references: [projects.id],
-  }),
-}));
-
-export const userMemoriesRelations = relations(userMemories, ({ one }) => ({
-  user: one(users, {
-    fields: [userMemories.userId],
-    references: [users.id],
-  }),
-  project: one(projects, {
-    fields: [userMemories.projectId],
-    references: [projects.id],
-  }),
-  sourceConversation: one(chatConversations, {
-    fields: [userMemories.sourceConversationId],
-    references: [chatConversations.id],
   }),
 }));
 

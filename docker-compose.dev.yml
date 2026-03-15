@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   redis:
     image: redis:7-alpine
@@ -14,6 +12,19 @@ services:
       interval: 10s
       timeout: 5s
       retries: 3
+
+  agno:
+    build:
+      context: .
+      dockerfile: apps/agno/Dockerfile
+    container_name: xtyl-agno
+    ports:
+      - '7777:7777'
+    env_file:
+      - .env
+    depends_on:
+      redis:
+        condition: service_healthy
 
 volumes:
   redis-data:

@@ -6,6 +6,7 @@ import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import { Card } from "@/components/ui/card"
 import { Loader2, Lock, Calendar, FileText } from "lucide-react"
+import { buildApiUrl } from "@/lib/env"
 
 interface SharedDocument {
     id: string
@@ -28,8 +29,7 @@ export default function SharedDocumentPage() {
     useEffect(() => {
         const fetchDocument = async () => {
             try {
-                const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
-                const response = await fetch(`${backendUrl}/documents/shared/${token}`)
+                const response = await fetch(buildApiUrl(`/documents/shared/${token}`))
 
                 if (!response.ok) {
                     if (response.status === 404) {

@@ -17,6 +17,7 @@ initSentry({
 
 import { NestFactory } from '@nestjs/core';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
+import multipart from '@fastify/multipart';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
@@ -36,12 +37,17 @@ async function bootstrap() {
     },
   );
 
+  await app.register(multipart as any);
+
   // Global prefix
   app.setGlobalPrefix('api', { exclude: ['health'] });
 
   // CORS
   app.enableCors({
-    origin: process.env.ALLOWED_ORIGINS?.split(',') ?? ['http://localhost:5173'],
+    origin: process.env.ALLOWED_ORIGINS?.split(',') ?? [
+      'http://localhost:5173',
+      'http://localhost:5174',
+    ],
     credentials: true,
   });
 

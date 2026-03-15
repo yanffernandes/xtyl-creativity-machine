@@ -193,7 +193,7 @@ export default function ConversationsList({
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, x: -20 }}
-                transition={{ delay: index * 0.03 }}
+                transition={{ delay: Math.min(index * 0.03, 0.12) }}
                 onClick={() => onSelectConversation(conversation.id)}
                 className="p-4 border-b hover:bg-muted/50 cursor-pointer transition-colors group"
               >
@@ -211,20 +211,20 @@ export default function ConversationsList({
                       </p>
                     )}
                     <div className="flex items-center gap-3 mt-2 ml-6">
-                      <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                      <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
                         <Clock className="h-3 w-3" />
                         {formatDate(conversation.last_message_at || conversation.created_at)}
                       </div>
                       <Badge
                         variant="secondary"
-                        className="text-[10px] h-4 px-1.5"
+                        className="text-[11px] h-4 px-1.5"
                       >
                         {conversation.message_count} msgs
                       </Badge>
                       {conversation.model_used && (
                         <Badge
                           variant="outline"
-                          className="text-[10px] h-4 px-1.5"
+                          className="text-[11px] h-4 px-1.5"
                         >
                           {conversation.model_used.split("/").pop()}
                         </Badge>

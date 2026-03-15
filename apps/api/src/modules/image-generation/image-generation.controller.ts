@@ -44,37 +44,6 @@ export class ImageGenerationController {
   }
 
   /**
-   * POST /image-generation/generate
-   *
-   * Generate a single image from text prompt.
-   * Creates a document record with media_type='image'.
-   *
-   * Body:
-   * - prompt: string (required)
-   * - project_id: string (required)
-   * - model?: string (default: fal-ai/flux-pro/v1.1)
-   * - aspect_ratio?: string (default: '1:1')
-   * - quality?: string (default: 'standard')
-   * - creative_concept_id?: string (optional)
-   * - reference_assets?: string[] (asset IDs for visual context)
-   * - skip_visual_context?: boolean (skip auto visual context injection)
-   *
-   * Response:
-   * - document_id: string
-   * - file_url: string
-   * - thumbnail_url: string
-   * - title: string
-   * - generation_metadata: object
-   */
-  @Post('generate')
-  async generate(
-    @Body() body: any,
-    @CurrentUser('id') userId: string,
-  ) {
-    return this.imageGenerationService.generate(body, userId);
-  }
-
-  /**
    * POST /image-generation/batch
    *
    * Generate multiple image variations in parallel (async).
@@ -132,46 +101,6 @@ export class ImageGenerationController {
   }
 
   /**
-   * GET /image-generation/batch/:batchId/status
-   *
-   * Get current batch generation status (polling alternative to SSE).
-   *
-   * Response:
-   * - batch_id: string
-   * - progress: { total, completed, failed, status }
-   * - images: Array<{ index, document_id, file_url, thumbnail_url }>
-   */
-  @Get('batch/:batchId/status')
-  async getBatchStatus(
-    @Param('batchId') batchId: string,
-    @CurrentUser('id') userId: string,
-  ) {
-    return this.imageGenerationService.getBatchStatus(batchId, userId);
-  }
-
-  /**
-   * POST /image-generation/variations
-   *
-   * Generate variations of an existing image (image-to-image).
-   *
-   * Body:
-   * - image_url: string (base image URL)
-   * - prompt: string (variation instructions)
-   * - count: number (default: 3)
-   * - project_id: string
-   * - model?: string
-   *
-   * Response: Same as /generate
-   */
-  @Post('variations')
-  async generateVariations(
-    @Body() body: any,
-    @CurrentUser('id') userId: string,
-  ) {
-    return this.imageGenerationService.generateVariations(body, userId);
-  }
-
-  /**
    * POST /image-generation/edit
    *
    * Edit image using natural language instructions (no mask needed).
@@ -198,6 +127,22 @@ export class ImageGenerationController {
     @CurrentUser('id') userId: string,
   ) {
     return this.imageGenerationService.editImage(body, userId);
+  }
+
+  @Post('generate-unified')
+  async generateUnified(
+    @Body() body: any,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.imageGenerationService.generateUnified(body, userId);
+  }
+
+  @Post('inpaint')
+  async inpaintImage(
+    @Body() body: any,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.imageGenerationService.inpaint(body, userId);
   }
 
   /**
@@ -265,48 +210,6 @@ export class ImageGenerationController {
   }
 
   /**
-   * GET /image-generation/status/:jobId
-   *
-   * Get generation job status (for single async jobs).
-   *
-   * Response:
-   * - job_id: string
-   * - status: 'pending' | 'processing' | 'completed' | 'failed'
-   * - result?: { document_id, file_url, thumbnail_url }
-   * - error?: string
-   */
-  @Get('status/:jobId')
-  async getJobStatus(
-    @Param('jobId') jobId: string,
-    @CurrentUser('id') userId: string,
-  ) {
-    return this.imageGenerationService.getJobStatus(jobId, userId);
-  }
-
-  /**
-   * POST /image-generation/generate-with-concept
-   *
-   * Generate image with creative concept (compositional template).
-   * Applies concept's prompt_modifier to enrich the user prompt.
-   *
-   * Body:
-   * - prompt: string
-   * - concept_id: string (creative concept UUID)
-   * - project_id: string
-   * - model?: string
-   * - aspect_ratio?: string
-   *
-   * Response: Same as /generate
-   */
-  @Post('generate-with-concept')
-  async generateWithConcept(
-    @Body() body: any,
-    @CurrentUser('id') userId: string,
-  ) {
-    return this.imageGenerationService.generateWithConcept(body, userId);
-  }
-
-  /**
    * GET /image-generation/concepts
    *
    * List all active creative concepts (compositional templates).
@@ -321,15 +224,9 @@ export class ImageGenerationController {
     return this.imageGenerationService.listConcepts();
   }
 
-  /**
-   * GET /image-generation/concepts/:conceptId
-   *
-   * Get single creative concept by ID.
-   *
-   * Response: CreativeConcept object
-   */
-  @Get('concepts/:conceptId')
-  async getConcept(@Param('conceptId') conceptId: string) {
-    return this.imageGenerationService.getConcept(conceptId);
+  @Get('fal-models')
+  async listFalModels(@Query('category') category?: string) {
+    return this.imageGenerationService.listFalModels(category);
   }
+
 }

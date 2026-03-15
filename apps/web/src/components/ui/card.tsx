@@ -3,17 +3,7 @@ import * as React from "react"
 import { cn } from "@/lib/utils"
 
 /**
- * Ethereal Blue Card Component with Liquid Glass
- *
- * Updated with glassmorphism and depth:
- * - Soft rounded corners (12px - rounded-xl)
- * - Glass effect variant available
- * - Premium spacing (24px padding - space-lg)
- * - Multi-layer shadows for depth
- * - Ethereal Blue accents
- *
- * @version 2.0.0
- * @feature 001-premium-visual-redesign
+ * Card component — Terra palette, clean surfaces.
  */
 
 interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
@@ -29,15 +19,11 @@ const Card = React.forwardRef<HTMLDivElement, CardProps>(
                 "rounded-xl border text-text-primary shadow-md",
                 "transition-all duration-base",
                 glass
-                    ? "border-white/10 bg-white/40 backdrop-blur-2xl dark:bg-white/[0.03] dark:border-white/10 shadow-glass-md hover:shadow-glass-lg"
-                    : "border-border-primary bg-surface-secondary shadow-md hover:shadow-lg",
+                    ? "border-border/40 bg-surface-secondary/80 dark:bg-surface-secondary/60 shadow-sm hover:shadow-md"
+                    : "border-border-primary bg-surface-secondary shadow-sm hover:shadow-md",
                 clickable && "cursor-pointer hover:-translate-y-1 hover:scale-[1.01] active:scale-[0.99]",
                 className
             )}
-            style={glass ? {
-                backdropFilter: 'blur(24px) saturate(180%)',
-                WebkitBackdropFilter: 'blur(24px) saturate(180%)',
-            } : undefined}
             {...props}
         />
     )

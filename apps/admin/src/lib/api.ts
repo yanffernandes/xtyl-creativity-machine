@@ -14,7 +14,7 @@ import { supabase } from '@/lib/supabase';
  * - Response error handler with automatic session refresh on 401
  */
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3000',
+  baseURL: import.meta.env.VITE_API_URL || '',
   headers: {
     'Content-Type': 'application/json',
   },
@@ -144,6 +144,7 @@ export interface ListUsersParams {
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
   isBlocked?: boolean;
+  status?: string;
 }
 
 export interface UserListItem {
@@ -244,12 +245,34 @@ export interface WorkspaceDetails {
 // ============================================================================
 
 export interface ModelConfig {
-  defaultTextModel: string;
-  defaultImageModel: string;
-  enabledTextModels: string[];
-  enabledImageModels: string[];
-  maxTokensPerRequest: number;
-  maxImagesPerRequest: number;
+  defaults: {
+    chat?: string;
+    vision?: string;
+    image_generation?: string;
+    document?: string;
+    embedding?: string;
+    image_naming?: string;
+    prompt_enrichment?: string;
+  };
+  fallbacks: Record<string, string>;
+  visibleTextModels: string[];
+  visibleImageModels: any[];
+}
+
+export interface ModelSchema {
+  supportsMask: boolean;
+  maxImages: number;
+  parameters: Array<{
+    name: string;
+    type: 'select' | 'number' | 'boolean' | 'string';
+    label: string;
+    description?: string;
+    options?: { value: string; label: string }[];
+    default: string | number | boolean;
+    min?: number;
+    max?: number;
+    step?: number;
+  }>;
 }
 
 export interface AvailableModel {
@@ -257,6 +280,7 @@ export interface AvailableModel {
   name: string;
   provider: string;
   type: 'text' | 'image';
+  hasVision: boolean;
   contextLength: number | null;
   pricing: {
     prompt: number;
@@ -305,35 +329,6 @@ export interface CreateSystemMessage {
   endsAt?: string | null;
 }
 
-// ============================================================================
-// Interfaces: Memories
-// ============================================================================
-
-export interface ListMemoriesParams {
-  page?: number;
-  limit?: number;
-  userId?: string;
-  search?: string;
-  sortBy?: string;
-  sortOrder?: 'asc' | 'desc';
-}
-
-export interface MemoryItem {
-  id: string;
-  userId: string;
-  userEmail: string;
-  content: string;
-  category: string;
-  createdAt: string;
-}
-
-export interface MemoryListResponse {
-  memories: MemoryItem[];
-  total: number;
-  page: number;
-  limit: number;
-  totalPages: number;
-}
 
 // ============================================================================
 // Interfaces: Audit Log
@@ -396,7 +391,7 @@ export interface AiUsageByEntity {
 // ============================================================================
 
 export async function verifyAdmin(): Promise<{ is_admin: boolean }> {
-  const response = await api.get('/api/admin/verify');
+  const response = await api.get('/admin/verify');
   return response.data;
 }
 
@@ -407,7 +402,7 @@ export async function verifyAdmin(): Promise<{ is_admin: boolean }> {
 export async function getDashboardStats(
   periodDays?: number,
 ): Promise<DashboardStats> {
-  const response = await api.get('/api/admin/dashboard', {
+  const response = await api.get('/admin/dashboard', {
     params: periodDays !== undefined ? { periodDays } : undefined,
   });
   return response.data;
@@ -416,14 +411,14 @@ export async function getDashboardStats(
 export async function getDashboardActivity(
   periodDays?: number,
 ): Promise<ActivityTrend[]> {
-  const response = await api.get('/api/admin/dashboard/activity', {
+  const response = await api.get('/admin/dashboard/activity', {
     params: periodDays !== undefined ? { periodDays } : undefined,
   });
   return response.data;
 }
 
 export async function getRecentActivity(): Promise<RecentActivity> {
-  const response = await api.get('/api/admin/dashboard/recent-activity');
+  const response = await api.get('/admin/dashboard/recent-activity');
   return response.data;
 }
 
@@ -434,12 +429,14 @@ export async function getRecentActivity(): Promise<RecentActivity> {
 export async function listUsers(
   params: ListUsersParams,
 ): Promise<UserListResponse> {
-  const response = await api.get('/api/admin/users', { params });
+  const { page, limit = 20, ...rest } = params;
+  const offset = page !== undefined ? (page - 1) * limit : 0;
+  const response = await api.get('/admin/users', { params: { ...rest, limit, offset } });
   return response.data;
 }
 
 export async function getUserDetails(userId: string): Promise<UserDetails> {
-  const response = await api.get(`/api/admin/users/${userId}`);
+  const response = await api.get(`/admin/users/${userId}`);
   return response.data;
 }
 
@@ -447,15 +444,15 @@ export async function updateUser(
   userId: string,
   data: UpdateUserData,
 ): Promise<void> {
-  await api.put(`/api/admin/users/${userId}`, data);
+  await api.put(`/admin/users/${userId}`, data);
 }
 
 export async function blockUser(userId: string): Promise<void> {
-  await api.post(`/api/admin/users/${userId}/block`);
+  await api.post(`/admin/users/${userId}/block`);
 }
 
 export async function unblockUser(userId: string): Promise<void> {
-  await api.post(`/api/admin/users/${userId}/unblock`);
+  await api.post(`/admin/users/${userId}/unblock`);
 }
 
 // ============================================================================
@@ -465,14 +462,16 @@ export async function unblockUser(userId: string): Promise<void> {
 export async function listWorkspaces(
   params: ListWorkspacesParams,
 ): Promise<WorkspaceListResponse> {
-  const response = await api.get('/api/admin/workspaces', { params });
+  const { page, limit = 20, ...rest } = params;
+  const offset = page !== undefined ? (page - 1) * limit : 0;
+  const response = await api.get('/admin/workspaces', { params: { ...rest, limit, offset } });
   return response.data;
 }
 
 export async function getWorkspaceDetails(
   workspaceId: string,
 ): Promise<WorkspaceDetails> {
-  const response = await api.get(`/api/admin/workspaces/${workspaceId}`);
+  const response = await api.get(`/admin/workspaces/${workspaceId}`);
   return response.data;
 }
 
@@ -480,7 +479,7 @@ export async function transferWorkspace(
   workspaceId: string,
   newOwnerId: string,
 ): Promise<void> {
-  await api.post(`/api/admin/workspaces/${workspaceId}/transfer`, {
+  await api.post(`/admin/workspaces/${workspaceId}/transfer`, {
     newOwnerId,
   });
 }
@@ -492,16 +491,27 @@ export { transferWorkspace as transferWorkspaceOwnership };
 // ============================================================================
 
 export async function getModelConfig(): Promise<ModelConfig> {
-  const response = await api.get('/api/admin/models/config');
+  const response = await api.get('/admin/models/config');
   return response.data;
 }
 
-export async function updateModelConfig(config: Partial<ModelConfig>): Promise<void> {
-  await api.put('/api/admin/models/config', config);
+export async function updateModelConfig(config: {
+  defaults?: ModelConfig['defaults'];
+  fallbacks?: Record<string, string>;
+  visibleTextModels?: string[];
+  visibleImageModels?: string[];
+}): Promise<ModelConfig> {
+  const response = await api.put('/admin/models/config', config);
+  return response.data;
 }
 
 export async function getAvailableModels(): Promise<AvailableModel[]> {
-  const response = await api.get('/api/admin/available-models');
+  const response = await api.get('/admin/available-models');
+  return response.data;
+}
+
+export async function getModelSchema(modelId: string): Promise<ModelSchema> {
+  const response = await api.get('/admin/models/schema', { params: { modelId } });
   return response.data;
 }
 
@@ -510,14 +520,14 @@ export async function getAvailableModels(): Promise<AvailableModel[]> {
 // ============================================================================
 
 export async function getSystemSettings(): Promise<SystemSetting[]> {
-  const response = await api.get('/api/admin/system/settings');
+  const response = await api.get('/admin/system/settings');
   return response.data;
 }
 
 export async function updateSystemSettings(
   settings: Record<string, string>,
 ): Promise<void> {
-  await api.put('/api/admin/system/settings', settings);
+  await api.put('/admin/system/settings', settings);
 }
 
 // ============================================================================
@@ -525,14 +535,14 @@ export async function updateSystemSettings(
 // ============================================================================
 
 export async function listSystemMessages(): Promise<SystemMessage[]> {
-  const response = await api.get('/api/admin/system-messages');
+  const response = await api.get('/admin/system-messages');
   return response.data;
 }
 
 export async function createSystemMessage(
   data: CreateSystemMessage,
 ): Promise<SystemMessage> {
-  const response = await api.post('/api/admin/system-messages', data);
+  const response = await api.post('/admin/system-messages', data);
   return response.data;
 }
 
@@ -540,27 +550,12 @@ export async function updateSystemMessage(
   id: string,
   data: Partial<CreateSystemMessage>,
 ): Promise<SystemMessage> {
-  const response = await api.put(`/api/admin/system-messages/${id}`, data);
+  const response = await api.put(`/admin/system-messages/${id}`, data);
   return response.data;
 }
 
 export async function deleteSystemMessage(id: string): Promise<void> {
-  await api.delete(`/api/admin/system-messages/${id}`);
-}
-
-// ============================================================================
-// API Functions: Memories
-// ============================================================================
-
-export async function listMemories(
-  params: ListMemoriesParams,
-): Promise<MemoryListResponse> {
-  const response = await api.get('/api/admin/memories', { params });
-  return response.data;
-}
-
-export async function deleteMemory(id: string): Promise<void> {
-  await api.delete(`/api/admin/memories/${id}`);
+  await api.delete(`/admin/system-messages/${id}`);
 }
 
 // ============================================================================
@@ -570,7 +565,7 @@ export async function deleteMemory(id: string): Promise<void> {
 export async function getAuditLog(
   params: AuditLogParams,
 ): Promise<AuditLogResponse> {
-  const response = await api.get('/api/admin/audit-log', { params });
+  const response = await api.get('/admin/audit-log', { params });
   return response.data;
 }
 
@@ -581,7 +576,7 @@ export async function getAuditLog(
 export async function getAiUsageSummary(
   periodDays?: number,
 ): Promise<AiUsageSummary> {
-  const response = await api.get('/api/admin/ai-usage/summary', {
+  const response = await api.get('/admin/ai-usage/summary', {
     params: periodDays !== undefined ? { periodDays } : undefined,
   });
   return response.data;
@@ -590,7 +585,7 @@ export async function getAiUsageSummary(
 export async function getAiUsageByUser(
   periodDays?: number,
 ): Promise<AiUsageByEntity[]> {
-  const response = await api.get('/api/admin/ai-usage/by-user', {
+  const response = await api.get('/admin/ai-usage/by-user', {
     params: periodDays !== undefined ? { periodDays } : undefined,
   });
   return response.data;
@@ -599,7 +594,7 @@ export async function getAiUsageByUser(
 export async function getAiUsageByModel(
   periodDays?: number,
 ): Promise<AiUsageByEntity[]> {
-  const response = await api.get('/api/admin/ai-usage/by-model', {
+  const response = await api.get('/admin/ai-usage/by-model', {
     params: periodDays !== undefined ? { periodDays } : undefined,
   });
   return response.data;

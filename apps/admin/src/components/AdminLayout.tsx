@@ -8,7 +8,6 @@ import {
   Building2,
   Cpu,
   MessageSquare,
-  Brain,
   Settings,
   LogOut,
 } from 'lucide-react';
@@ -25,7 +24,6 @@ const navItems: NavItem[] = [
   { label: 'Workspaces', href: '/workspaces', icon: Building2 },
   { label: 'Models', href: '/models', icon: Cpu },
   { label: 'Messages', href: '/messages', icon: MessageSquare },
-  { label: 'Memory', href: '/memory', icon: Brain },
   { label: 'Settings', href: '/settings', icon: Settings },
 ];
 
@@ -45,12 +43,12 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   }
 
   return (
-    <div className="flex h-screen bg-background">
+    <div className="flex h-screen" style={{ backgroundColor: 'var(--surface-primary)' }}>
       {/* Sidebar */}
-      <aside className="flex w-64 flex-col border-r bg-card">
+      <aside className="flex w-64 flex-col" style={{ backgroundColor: 'var(--surface-secondary)', borderRight: '1px solid var(--border-primary)' }}>
         {/* Logo / Brand */}
-        <div className="flex h-14 items-center border-b px-6">
-          <h1 className="text-lg font-bold tracking-tight">XTYL Admin</h1>
+        <div className="flex h-14 items-center px-6" style={{ borderBottom: '1px solid var(--border-primary)' }}>
+          <h1 className="text-lg font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>XTYL Admin</h1>
         </div>
 
         {/* Navigation */}
@@ -65,10 +63,15 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                 to={item.href}
                 className={cn(
                   'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
-                  active
-                    ? 'bg-primary text-primary-foreground'
-                    : 'text-muted-foreground hover:bg-muted hover:text-foreground',
                 )}
+                style={active ? {
+                  backgroundColor: 'var(--accent-primary)',
+                  color: '#fff',
+                } : {
+                  color: 'var(--text-secondary)',
+                }}
+                onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.backgroundColor = 'var(--surface-tertiary)'; }}
+                onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.backgroundColor = ''; }}
               >
                 <Icon className="h-4 w-4" />
                 {item.label}
@@ -78,10 +81,11 @@ export function AdminLayout({ children }: AdminLayoutProps) {
         </nav>
 
         {/* Logout */}
-        <div className="border-t p-3">
+        <div className="p-3" style={{ borderTop: '1px solid var(--border-primary)' }}>
           <Button
             variant="ghost"
-            className="w-full justify-start gap-3 text-muted-foreground"
+            className="w-full justify-start gap-3"
+            style={{ color: 'var(--text-secondary)' }}
           >
             <LogOut className="h-4 w-4" />
             Logout
@@ -90,7 +94,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
       </aside>
 
       {/* Main content */}
-      <main className="flex-1 overflow-auto">
+      <main className="flex-1 overflow-auto scrollbar-thin p-8">
         {children}
       </main>
     </div>

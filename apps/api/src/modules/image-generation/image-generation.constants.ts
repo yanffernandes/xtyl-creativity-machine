@@ -1,0 +1,1 @@
+export const IMAGE_GEN_REDIS = 'IMAGE_GEN_REDIS';

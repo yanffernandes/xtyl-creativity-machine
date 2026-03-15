@@ -1,12 +1,10 @@
 /**
- * XTYL Design Tokens - Ethereal Blue + Liquid Glass (2025)
+ * XTYL Design Tokens - Terra (2025)
  *
- * Centralized design system tokens inspired by Raycast, Apple Liquid Glass,
- * and modern UI/UX trends. Replaces the previous Emerald Fresh palette.
+ * Warm terracotta palette built for a creative production tool.
+ * Replaces the generic Ethereal Blue / Liquid Glass palette.
  *
- * @version 2.0.0
- * @feature 001-premium-visual-redesign
- * @date 2025-11-25
+ * @version 3.0.0
  * @wcagLevel AA
  */
 
@@ -15,27 +13,27 @@
 // ============================================================================
 
 export const colors = {
-  // Accent Colors - Ethereal Blue (Professional & Trustworthy)
+  // Accent Colors - Terra (Warm, Creative, Non-SaaS)
   accent: {
     primary: {
-      light: '#5B8DEF', // Ethereal Blue
-      dark: '#5B8DEF',  // Same in dark mode
+      light: '#C86B2A', // Terra — burnt sienna
+      dark: '#D4833F',  // Lighter for dark mode legibility
     },
     secondary: {
-      light: '#4A7AD9', // Darker Blue
-      dark: '#4A7AD9',
+      light: '#A8541E', // Darker terra
+      dark: '#C86B2A',
     },
     tertiary: {
-      light: '#7AA5F5', // Lighter Blue
-      dark: '#7AA5F5',
+      light: '#E8924E', // Lighter terra
+      dark: '#E8924E',
     },
     hover: {
-      light: '#4A7AD9',
-      dark: '#7AA5F5',
+      light: '#A8541E',
+      dark: '#E8924E',
     },
     active: {
-      light: '#3B6BC8',
-      dark: '#8AB4F7',
+      light: '#8C4016',
+      dark: '#F0A870',
     },
   },
 
@@ -57,17 +55,17 @@ export const colors = {
     dark: '#60A5FA',  // Blue 400
   },
 
-  // Surface Colors - Light Mode
+  // Surface Colors
   surface: {
     light: {
-      primary: '#FFFFFF',
-      secondary: '#F9FAFB',
-      tertiary: '#F5F8FB',
+      primary: '#FAF8F5',
+      secondary: '#F5F0EA',
+      tertiary: '#EDE6DC',
     },
     dark: {
-      primary: '#0A0E14',
-      secondary: '#151A23',
-      tertiary: '#1E232D',
+      primary: '#141210',
+      secondary: '#1E1A16',
+      tertiary: '#28221C',
     },
   },
 
@@ -98,38 +96,38 @@ export const colors = {
   // Text Colors
   text: {
     light: {
-      primary: '#0A0E14',
-      secondary: '#4A5568',
-      tertiary: '#718096',
-      muted: '#A0AEC0',
+      primary: '#1A1410',
+      secondary: '#5C4E3D',
+      tertiary: '#8C7B6A',
+      muted: '#B8A898',
     },
     dark: {
-      primary: '#F5F7FA',
-      secondary: '#A0AEC0',
-      tertiary: '#718096',
-      muted: '#4A5568',
+      primary: '#F0EAE2',
+      secondary: '#A89880',
+      tertiary: '#7A6A58',
+      muted: '#5A4A38',
     },
   },
 
   // Border Colors
   border: {
     light: {
-      primary: '#E7E5E4',
-      secondary: '#F5F5F4',
-      accent: 'rgba(91, 141, 239, 0.2)',
+      primary: '#E0D8CE',
+      secondary: '#EDE8E0',
+      accent: 'rgba(200, 107, 42, 0.2)',
     },
     dark: {
-      primary: '#3F3F46',
-      secondary: '#27272A',
-      accent: 'rgba(91, 141, 239, 0.3)',
+      primary: '#3A3028',
+      secondary: '#2A2218',
+      accent: 'rgba(200, 107, 42, 0.25)',
     },
   },
 
-  // Gradient Orbs (Animated Background Elements)
+  // Gradient Orbs (subtle warm tones, not blue)
   orbs: {
-    primary: 'rgba(91, 141, 239, 0.3)',
-    secondary: 'rgba(122, 165, 245, 0.3)',
-    tertiary: 'rgba(74, 122, 217, 0.2)',
+    primary: 'rgba(200, 107, 42, 0.15)',
+    secondary: 'rgba(212, 131, 63, 0.12)',
+    tertiary: 'rgba(168, 84, 30, 0.08)',
   },
 } as const
 

@@ -47,7 +47,8 @@ export default function ProfilePage() {
             setUser(res.data)
             setFullName(res.data.full_name || "")
         }).catch(console.error)
-    }, [session, authLoading, router])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [session, authLoading])
 
     const handleSave = async () => {
         try {

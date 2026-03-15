@@ -11,7 +11,8 @@
  * - Model selector, format, and variations
  */
 
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -34,12 +35,8 @@ import { ModelParameters } from './ModelParameters';
 import { VariationsSelector } from './VariationsSelector';
 import { ReferenceAssetSelector, type SelectedAsset, type AssetMode } from './ReferenceAssetSelector';
 import { useBrushCanvas } from '@/hooks/useBrushCanvas';
-import { uploadMaskFromDataUrl, generateImageUnified } from '@/lib/api';
+import { uploadMaskFromDataUrl, generateImageUnified, getImageModels } from '@/lib/api';
 import type { GeneratedImage } from '@/types/image-studio';
-import {
-  IMAGE_TO_IMAGE_MODELS,
-  getModelById,
-} from '@/lib/modelConfig';
 
 interface EditModeProps {
   projectId: string;
@@ -89,14 +86,37 @@ export function EditMode({
   const [contextAssets, setContextAssets] = useState<SelectedAsset[]>([]);
   const [assetMode, setAssetMode] = useState<AssetMode>('compose');
 
-  // Get model config
-  const modelConfig = getModelById(selectedModel);
-  const supportsMask = modelConfig?.supportsMask ?? false;
-  const maxImages = modelConfig?.maxImages ?? 4;
+  // Fetch visible image-to-image models from API (admin-filtered)
+  const { data: apiModels = [] } = useQuery({
+    queryKey: ['image-models', 'image-to-image'],
+    queryFn: () => getImageModels('image-to-image'),
+    staleTime: 1000 * 60 * 5,
+  });
+
+  // Build the model list from API response (visibility + parameters)
+  const availableModels = useMemo(
+    () =>
+      apiModels.map((m: any) => ({
+        id: m.id,
+        name: m.name,
+        description: m.description,
+        top_provider: m.top_provider,
+        model_type: m.model_type,
+        supports_mask: m.supports_mask,
+        max_images: m.max_images,
+      })),
+    [apiModels],
+  );
+
+  // Get model config from API data
+  const currentApiModel = apiModels.find((m: any) => m.id === selectedModel);
+  const supportsMask = currentApiModel?.supports_mask ?? false;
+  const maxImages = currentApiModel?.max_images ?? 4;
+  const modelParameters = currentApiModel?.parameters ?? [];
 
   // Format type based on model
-  const hasAspectRatio = modelConfig?.parameters.some((p) => p.name === 'aspect_ratio');
-  const hasImageSize = modelConfig?.parameters.some((p) => p.name === 'image_size');
+  const hasAspectRatio = modelParameters.some((p: any) => p.name === 'aspect_ratio');
+  const hasImageSize = modelParameters.some((p: any) => p.name === 'image_size');
 
   // Current values
   const currentFormat = hasAspectRatio
@@ -115,15 +135,15 @@ export function EditMode({
 
   // Reset params when model changes
   useEffect(() => {
-    const model = getModelById(selectedModel);
-    if (model) {
-      const defaults = model.parameters.reduce((acc, param) => {
+    const model = apiModels.find((m: any) => m.id === selectedModel);
+    if (model?.parameters?.length) {
+      const defaults = model.parameters.reduce((acc: Record<string, unknown>, param: any) => {
         acc[param.name] = param.default;
         return acc;
-      }, {} as Record<string, unknown>);
+      }, {});
       setModelParams(defaults);
     }
-  }, [selectedModel]);
+  }, [selectedModel, apiModels]);
 
   // Calculate canvas size based on image
   useEffect(() => {
@@ -265,16 +285,6 @@ export function EditMode({
 
   const isDisabled = isLoading || isProcessing;
 
-  const availableModels = IMAGE_TO_IMAGE_MODELS.map((m) => ({
-    id: m.id,
-    name: m.name,
-    description: m.description,
-    top_provider: m.provider,
-    model_type: m.type,
-    supports_mask: m.supportsMask,
-    max_images: m.maxImages,
-  }));
-
   // Parameters to exclude (handled separately)
   const excludedParams = ['num_images', 'aspect_ratio', 'image_size'];
 
@@ -337,7 +347,8 @@ export function EditMode({
 
         {/* Other model parameters */}
         <ModelParameters
-          modelId={selectedModel}
+          parameters={modelParameters}
+          modelName={currentApiModel?.name}
           values={modelParams}
           onChange={setModelParams}
           disabled={isProcessing}

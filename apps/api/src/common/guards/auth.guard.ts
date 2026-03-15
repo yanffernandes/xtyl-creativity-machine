@@ -65,9 +65,14 @@ export class AuthGuard implements CanActivate {
 
   private extractToken(request: any): string | null {
     const auth = request.headers?.authorization;
-    if (!auth) return null;
-    const [type, token] = auth.split(' ');
-    return type === 'Bearer' ? token : null;
+    if (auth) {
+      const [type, token] = auth.split(' ');
+      if (type === 'Bearer' && token) return token;
+    }
+    // SSE connections can't send headers; fall back to ?token= query param
+    const queryToken = request.query?.token;
+    if (typeof queryToken === 'string' && queryToken) return queryToken;
+    return null;
   }
 
   private async getUser(userId: string) {
