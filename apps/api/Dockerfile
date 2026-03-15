@@ -12,7 +12,7 @@ COPY bun.lockb bunfig.toml package.json ./
 COPY apps/api/package.json apps/api/
 COPY packages/shared/package.json packages/shared/
 COPY packages/observability/package.json packages/observability/
-RUN bun install --frozen-lockfile
+RUN bun install
 
 # Build shared packages and API
 FROM deps AS build

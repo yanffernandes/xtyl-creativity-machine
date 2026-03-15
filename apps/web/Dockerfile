@@ -14,7 +14,7 @@ COPY apps/api/package.json apps/api/
 COPY apps/admin/package.json apps/admin/
 COPY packages/shared/package.json packages/shared/
 COPY packages/observability/package.json packages/observability/
-RUN bun install --frozen-lockfile
+RUN bun install
 
 # Build static assets with Bun
 FROM deps AS build
