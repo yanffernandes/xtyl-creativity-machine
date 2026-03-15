@@ -49,7 +49,7 @@ import { ConceptSelector } from '@/components/image-studio/ConceptSelector';
 import { ModelSelector } from '@/components/image-studio/ModelSelector';
 import { VariationGrid } from '@/components/image-studio/VariationGrid';
 import { VisualContextPreview } from '@/components/image-studio/VisualContextPreview';
-import type { GeneratedImage, AspectRatioId } from '@/types/image-studio';
+import type { GeneratedImage, AspectRatioId, ImageModel } from '@/types/image-studio';
 
 // Format options for aspect_ratio models
 const ASPECT_RATIO_OPTIONS = [
@@ -125,7 +125,7 @@ export default function StudioPage() {
   // Fetch bootstrap data (models, presets, etc.)
   const { data } = useProjectBootstrap(projectId, bootstrapOptions);
   const bootstrapData = data as BootstrapData | undefined;
-  const { data: imageModels = [], isLoading: isLoadingImageModels } = useQuery({
+  const { data: imageModels = [], isLoading: isLoadingImageModels } = useQuery<ImageModel[]>({
     queryKey: ['image-models', 'text-to-image'],
     queryFn: () => getImageModels('text-to-image'),
     staleTime: 1000 * 60 * 5,
