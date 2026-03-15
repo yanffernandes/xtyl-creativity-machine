@@ -860,7 +860,7 @@ export class DocumentsService {
     const hasMore = offset + items.length < total;
 
     return {
-      items: items.map((doc) => ({
+      items: items.map((doc: any) => ({
         id: doc.id,
         title: doc.title,
         content: doc.content,
