@@ -25,6 +25,7 @@ services:
       REDIS_PORT: 6379
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:5173}
       FAL_KEY: ${FAL_KEY:-}
+      SUPABASE_URL: ${SUPABASE_URL:-}
       AGNO_API_URL: ${AGNO_API_URL:-http://agno:7777}
       AGNO_SHARED_SECRET: ${AGNO_SHARED_SECRET:-local-agno-secret}
     depends_on:
