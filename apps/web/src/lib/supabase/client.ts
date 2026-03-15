@@ -30,26 +30,13 @@ export function getSupabaseClient(): SupabaseClient {
   // During SSG build, env vars may not be available - return a placeholder
   // that will be replaced at runtime
   if (!supabaseUrl || !supabaseAnonKey) {
-    // Only warn in browser context, not during build
     if (typeof window !== 'undefined') {
-      console.warn(
-        'Supabase environment variables not set. CRUD operations will not work.',
-        'Required: NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY'
-      )
+      console.warn('Supabase env vars not set (VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY). Auth will not work.')
     }
-    // Create with placeholder URL to avoid build errors
-    // This client won't work but allows build to complete
-    supabaseClient = createClient(
-      'https://placeholder.supabase.co',
-      'placeholder-key',
-      {
-        auth: {
-          persistSession: false,
-          autoRefreshToken: false,
-        },
-      }
-    )
-    return supabaseClient
+    // Do NOT cache the placeholder — allow retry on next call once env.js loads
+    return createClient('https://placeholder.supabase.co', 'placeholder-key', {
+      auth: { persistSession: false, autoRefreshToken: false },
+    })
   }
 
   supabaseClient = createClient(
