@@ -10,6 +10,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { useQuery } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import {
@@ -21,9 +22,8 @@ import {
   Wand2,
   FileText,
   Zap,
-  Edit3,
-  Sliders,
   Video,
+  Palette,
 } from 'lucide-react';
 import { useAuthStore } from '@/lib/store';
 import { useProjectBootstrap } from '@/hooks/useProjectBootstrap';
@@ -42,19 +42,14 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
-import { getDocumentById } from '@/lib/api';
+import { getDocumentById, getImageModels } from '@/lib/api';
 
 // Image Studio Components
 import { ConceptSelector } from '@/components/image-studio/ConceptSelector';
+import { ModelSelector } from '@/components/image-studio/ModelSelector';
 import { VariationGrid } from '@/components/image-studio/VariationGrid';
 import { VisualContextPreview } from '@/components/image-studio/VisualContextPreview';
 import type { GeneratedImage, AspectRatioId } from '@/types/image-studio';
-import {
-  TEXT_TO_IMAGE_MODELS,
-  IMAGE_TO_IMAGE_MODELS,
-  getModelById,
-  type ModelConfig,
-} from '@/lib/modelConfig';
 
 // Format options for aspect_ratio models
 const ASPECT_RATIO_OPTIONS = [
@@ -84,26 +79,15 @@ const SEEDREAM_IMAGE_SIZE_OPTIONS = [
   { value: 'portrait_16_9', label: '9:16' },
 ];
 
-type TabValue = 'criar' | 'editar' | 'ajustar' | 'video';
+type TabValue = 'criar' | 'video';
 
 const TABS = [
   { id: 'criar' as TabValue, label: 'Criar', icon: Wand2 },
-  { id: 'editar' as TabValue, label: 'Editar', icon: Edit3 },
-  { id: 'ajustar' as TabValue, label: 'Ajustar', icon: Sliders },
   { id: 'video' as TabValue, label: 'Vídeo', icon: Video, disabled: true },
 ];
 
-const EditMode = lazy(() =>
-  import('@/components/image-studio/EditMode').then((mod) => ({ default: mod.EditMode }))
-);
-const AdjustMode = lazy(() =>
-  import('@/components/image-studio/AdjustMode').then((mod) => ({ default: mod.AdjustMode }))
-);
 const ImageExpandModal = lazy(() =>
   import('@/components/image-studio/ImageExpandModal').then((mod) => ({ default: mod.ImageExpandModal }))
-);
-const AssetPickerModal = lazy(() =>
-  import('@/components/image-studio/AssetPickerModal').then((mod) => ({ default: mod.AssetPickerModal }))
 );
 
 export default function StudioPage() {
@@ -115,8 +99,6 @@ export default function StudioPage() {
   const { session, isLoading: authLoading } = useAuthStore();
   const [expandedImage, setExpandedImage] = useState<GeneratedImage | null>(null);
   const [activeTab, setActiveTab] = useState<TabValue>('criar');
-  const [selectedImageForEdit, setSelectedImageForEdit] = useState<GeneratedImage | null>(null);
-  const [showAssetPicker, setShowAssetPicker] = useState(false);
 
   // Infinite scroll ref
   const loadMoreRef = useRef<HTMLDivElement>(null);
@@ -143,6 +125,12 @@ export default function StudioPage() {
   // Fetch bootstrap data (models, presets, etc.)
   const { data } = useProjectBootstrap(projectId, bootstrapOptions);
   const bootstrapData = data as BootstrapData | undefined;
+  const { data: imageModels = [], isLoading: isLoadingImageModels } = useQuery({
+    queryKey: ['image-models', 'text-to-image'],
+    queryFn: () => getImageModels('text-to-image'),
+    staleTime: 1000 * 60 * 5,
+    enabled: !!projectId,
+  });
 
   // Get creative concepts
   const concepts = bootstrapData?.creative_concepts || [];
@@ -161,11 +149,12 @@ export default function StudioPage() {
   });
 
   // Image studio state management (no initialHistory - we use infinite scroll now)
-  const defaultImageModel = bootstrapData?.models?.default_image_model || bootstrapData?.models?.image?.[0]?.id;
+  const defaultImageModel =
+    bootstrapData?.models?.default_image_model || imageModels[0]?.id;
   const studio = useImageStudio({
     projectId,
     defaultModel: defaultImageModel,
-    imageModels: bootstrapData?.models?.image || [],
+    imageModels,
     concepts,
   });
 
@@ -193,7 +182,8 @@ export default function StudioPage() {
     if (!authLoading && !session) {
       router.push('/login');
     }
-  }, [authLoading, session, router]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authLoading, session]);
 
   // Infinite scroll - auto-load more when scrolling to bottom
   useEffect(() => {
@@ -296,30 +286,13 @@ export default function StudioPage() {
   }, [selectedDocumentId]);
 
   // Handlers for edit/adjust operations
-  const handleEditComplete = (result: GeneratedImage) => {
-    studio.addVariation(result);
-    toast.success('Edição concluída!');
-  };
-
-  const handleAdjustComplete = (result: GeneratedImage) => {
-    studio.addVariation(result);
-    toast.success('Ajuste concluído!');
-  };
-
-  // Handler for "Refinar" button - goes to Edit tab with image pre-selected
-  const handleRefine = useCallback((image: GeneratedImage) => {
-    setSelectedImageForEdit(image);
-    setActiveTab('editar');
-    toast.info('Imagem selecionada para edição');
-  }, []);
-
   // Loading state
   if (authLoading) {
     return (
-      <div className="h-screen w-screen flex items-center justify-center bg-gradient-to-br from-gray-50 via-blue-50/30 to-purple-50/20 dark:from-gray-950 dark:via-blue-950/20 dark:to-purple-950/10">
+      <div className="h-screen w-screen flex items-center justify-center bg-surface-primary">
         <div className="flex flex-col items-center gap-4">
-          <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
-          <span className="text-gray-500 dark:text-gray-400">Carregando sessão...</span>
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <span className="text-muted-foreground">Carregando sessão...</span>
         </div>
       </div>
     );
@@ -327,9 +300,9 @@ export default function StudioPage() {
 
   return (
     <TooltipProvider>
-      <div className="h-screen w-screen flex flex-col bg-gradient-to-br from-gray-50 via-blue-50/30 to-purple-50/20 dark:from-gray-950 dark:via-blue-950/20 dark:to-purple-950/10">
+      <div className="h-screen w-screen flex flex-col bg-surface-primary">
         {/* Header */}
-        <header className="flex-shrink-0 h-16 border-b border-gray-200/50 dark:border-gray-800/50 backdrop-blur-xl bg-white/70 dark:bg-gray-900/70">
+        <header className="flex-shrink-0 h-16 border-b border-border/60 bg-surface-secondary">
           <div className="h-full max-w-[1800px] mx-auto px-6 flex items-center justify-between">
             {/* Left side */}
             <div className="flex items-center gap-4">
@@ -337,20 +310,20 @@ export default function StudioPage() {
                 variant="ghost"
                 size="icon"
                 onClick={handleBack}
-                className="hover:bg-gray-100 dark:hover:bg-gray-800"
+                className="hover:bg-muted/50"
               >
                 <ArrowLeft className="h-5 w-5" />
               </Button>
 
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center shadow-lg shadow-blue-500/25">
+                <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center shadow-sm">
                   <ImageIcon className="w-5 h-5 text-white" />
                 </div>
                 <div>
-                  <h1 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                  <h1 className="text-lg font-semibold">
                     Estúdio Visual
                   </h1>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                  <p className="text-xs text-muted-foreground">
                     {bootstrapData?.project?.name || 'Projeto'}
                   </p>
                 </div>
@@ -364,7 +337,7 @@ export default function StudioPage() {
                   variant="ghost"
                   size="sm"
                   onClick={studio.clearVariations}
-                  className="text-gray-500 hover:text-red-500"
+                  className="text-muted-foreground hover:text-destructive"
                 >
                   <Trash2 className="h-4 w-4 mr-1" />
                   Limpar
@@ -372,7 +345,7 @@ export default function StudioPage() {
               )}
 
               {studio.isGenerating && (
-                <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400">
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 text-primary">
                   <motion.div
                     animate={{ rotate: 360 }}
                     transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
@@ -390,9 +363,9 @@ export default function StudioPage() {
         <main className="flex-1 overflow-hidden">
           <div className="h-full max-w-[1800px] mx-auto flex">
             {/* Left panel - Controls with tabs */}
-            <div className="w-[420px] flex-shrink-0 border-r border-gray-200/50 dark:border-gray-800/50 flex flex-col">
+            <div className="w-[420px] flex-shrink-0 border-r border-border/60 flex flex-col">
               {/* Tabs */}
-              <div className="flex-shrink-0 border-b border-gray-200/50 dark:border-gray-800/50 bg-white/50 dark:bg-gray-900/50">
+              <div className="flex-shrink-0 border-b border-border/60 bg-surface-secondary">
                 <div className="flex">
                   {TABS.map((tab) => {
                     const Icon = tab.icon;
@@ -404,10 +377,10 @@ export default function StudioPage() {
                         className={cn(
                           'flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium transition-colors border-b-2',
                           activeTab === tab.id
-                            ? 'border-blue-500 text-blue-600 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-900/10'
+                            ? 'border-primary text-primary bg-primary/5'
                             : tab.disabled
-                            ? 'border-transparent text-gray-400 cursor-not-allowed'
-                            : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800/50'
+                            ? 'border-transparent text-muted-foreground/40 cursor-not-allowed'
+                            : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/50'
                         )}
                       >
                         <Icon className="h-4 w-4" />
@@ -432,7 +405,7 @@ export default function StudioPage() {
                     >
                       {/* 1. FONTE DO PROMPT */}
                       <div className="space-y-3">
-                        <div className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                        <div className="flex items-center gap-2 text-sm font-medium text-foreground">
                           <FileText className="w-4 h-4" />
                           <span>Fonte do Prompt</span>
                         </div>
@@ -444,7 +417,7 @@ export default function StudioPage() {
                             setSelectedDocumentId(value || null);
                           }}
                         >
-                          <SelectTrigger className="w-full bg-white dark:bg-gray-800">
+                          <SelectTrigger className="w-full">
                             <SelectValue placeholder="Selecione uma copy..." />
                           </SelectTrigger>
                           <SelectContent>
@@ -457,8 +430,8 @@ export default function StudioPage() {
                         </Select>
 
                         {selectedDocument && (
-                          <div className="p-3 rounded-lg bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
-                            <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2">
+                          <div className="p-3 rounded-lg bg-muted/50 border border-border/60">
+                            <p className="text-xs text-muted-foreground line-clamp-2">
                               {isLoadingSelectedDocument
                                 ? 'Carregando conteúdo...'
                                 : selectedDocumentPreview || 'Sem conteúdo'}
@@ -482,7 +455,7 @@ export default function StudioPage() {
                             promptGenerator.isGenerating ||
                             studio.isGenerating
                           }
-                          className="w-full gap-2 bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600"
+                          className="w-full gap-2"
                         >
                           {promptGenerator.isGenerating ? (
                             <Loader2 className="h-4 w-4 animate-spin" />
@@ -494,16 +467,16 @@ export default function StudioPage() {
                       </div>
 
                       {/* Divider */}
-                      <div className="border-t border-gray-200 dark:border-gray-700" />
+                      <div className="border-t border-border/60" />
 
                       {/* 2. PROMPT EDITÁVEL */}
                       <div className="space-y-3">
                         <div className="flex items-center justify-between">
-                          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                          <span className="text-sm font-medium text-foreground">
                             Prompt
                           </span>
                           {studio.prompt && (
-                            <span className="text-xs text-gray-400">
+                            <span className="text-xs text-muted-foreground">
                               {studio.prompt.length} caracteres
                             </span>
                           )}
@@ -513,80 +486,25 @@ export default function StudioPage() {
                           value={studio.prompt}
                           onChange={(e) => studio.setPrompt(e.target.value)}
                           placeholder="Descreva a imagem que você quer criar..."
-                          className="min-h-[120px] resize-none bg-white dark:bg-gray-800"
+                          className="min-h-[120px] resize-none"
                           disabled={studio.isGenerating}
                         />
                       </div>
 
                       {/* Divider */}
-                      <div className="border-t border-gray-200 dark:border-gray-700" />
+                      <div className="border-t border-border/60" />
 
                       {/* 2.5. MODELO - Movido para cima */}
-                      <div className="space-y-2">
-                        <label className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-2">
-                          <Sparkles className="w-3.5 h-3.5" />
-                          Modelo
-                        </label>
-                        <Select
-                          value={studio.model}
-                          onValueChange={studio.setModel}
-                          disabled={studio.isGenerating}
-                        >
-                          <SelectTrigger className="w-full bg-white dark:bg-gray-800">
-                            <SelectValue placeholder="Selecione um modelo">
-                              {(() => {
-                                const selectedModel = TEXT_TO_IMAGE_MODELS.find(m => m.id === studio.model);
-                                if (selectedModel) {
-                                  return (
-                                    <span className="flex items-center gap-2">
-                                      <span className="truncate">{selectedModel.name}</span>
-                                      <span className="text-xs text-gray-400">
-                                        ({selectedModel.provider})
-                                      </span>
-                                    </span>
-                                  );
-                                }
-                                return null;
-                              })()}
-                            </SelectValue>
-                          </SelectTrigger>
-                          <SelectContent>
-                            {/* Group by provider */}
-                            {(() => {
-                              const grouped: Record<string, typeof TEXT_TO_IMAGE_MODELS> = {};
-                              TEXT_TO_IMAGE_MODELS.forEach((model) => {
-                                const provider = model.provider || 'Other';
-                                if (!grouped[provider]) grouped[provider] = [];
-                                grouped[provider].push(model);
-                              });
-                              return Object.entries(grouped).map(([provider, models]) => (
-                                <div key={provider}>
-                                  <div className="px-2 py-1.5 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                                    {provider}
-                                  </div>
-                                  {models.map((model) => (
-                                    <SelectItem
-                                      key={model.id}
-                                      value={model.id}
-                                      className="cursor-pointer"
-                                    >
-                                      <div className="flex flex-col gap-0.5">
-                                        <span className="font-medium">{model.name}</span>
-                                        <span className="text-xs text-gray-500 dark:text-gray-400 line-clamp-1">
-                                          {model.description}
-                                        </span>
-                                      </div>
-                                    </SelectItem>
-                                  ))}
-                                </div>
-                              ));
-                            })()}
-                          </SelectContent>
-                        </Select>
-                      </div>
+                      <ModelSelector
+                        models={imageModels}
+                        value={studio.model}
+                        onChange={studio.setModel}
+                        disabled={studio.isGenerating}
+                        isLoading={isLoadingImageModels}
+                      />
 
                       {/* Divider */}
-                      <div className="border-t border-gray-200 dark:border-gray-700" />
+                      <div className="border-t border-border/60" />
 
                       {/* 3. REFERÊNCIAS VISUAIS */}
                       <VisualContextPreview
@@ -601,11 +519,76 @@ export default function StudioPage() {
                       />
 
                       {/* Divider */}
-                      <div className="border-t border-gray-200 dark:border-gray-700" />
+                      <div className="border-t border-border/60" />
+
+                      {/* 4. BRAND CONTEXT TOGGLE */}
+                      {(() => {
+                        const settings = bootstrapData?.settings as Record<string, any> | null;
+                        const brandIdentity = settings?.brand_identity as Record<string, any> | undefined;
+                        const clientName: string = settings?.client_name || '';
+                        const colors: string[] = Array.isArray(brandIdentity?.color_palette) ? brandIdentity.color_palette : [];
+                        const brandVoice: string = settings?.brand_voice_custom || settings?.brand_voice || '';
+                        const hasBrandContext = !!(clientName || colors.length > 0 || brandVoice);
+
+                        if (!hasBrandContext) return null;
+
+                        return (
+                          <div className="space-y-2">
+                            <button
+                              type="button"
+                              onClick={() => studio.setApplyBrandContext(!studio.applyBrandContext)}
+                              disabled={studio.isGenerating}
+                              className={cn(
+                                'w-full flex items-center justify-between px-3 py-2.5 rounded-lg border transition-colors text-left',
+                                studio.applyBrandContext
+                                  ? 'border-primary/40 bg-primary/5'
+                                  : 'border-border/60 bg-muted/30 opacity-60'
+                              )}
+                            >
+                              <div className="flex items-center gap-2">
+                                <Palette className={cn('h-4 w-4 flex-shrink-0', studio.applyBrandContext ? 'text-primary' : 'text-muted-foreground')} />
+                                <div>
+                                  <p className="text-xs font-medium text-foreground leading-none">
+                                    Identidade de Marca
+                                  </p>
+                                  {clientName && (
+                                    <p className="text-xs text-muted-foreground mt-0.5">{clientName}</p>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2 flex-shrink-0">
+                                {colors.length > 0 && studio.applyBrandContext && (
+                                  <div className="flex gap-1">
+                                    {colors.slice(0, 4).map((color, i) => (
+                                      <div
+                                        key={i}
+                                        className="w-3 h-3 rounded-full border border-white/20 ring-1 ring-black/10"
+                                        style={{ backgroundColor: color }}
+                                      />
+                                    ))}
+                                  </div>
+                                )}
+                                <div className={cn(
+                                  'w-8 h-4 rounded-full transition-colors relative flex-shrink-0',
+                                  studio.applyBrandContext ? 'bg-primary' : 'bg-muted'
+                                )}>
+                                  <div className={cn(
+                                    'absolute top-0.5 w-3 h-3 rounded-full bg-white shadow transition-transform',
+                                    studio.applyBrandContext ? 'translate-x-4' : 'translate-x-0.5'
+                                  )} />
+                                </div>
+                              </div>
+                            </button>
+                          </div>
+                        );
+                      })()}
+
+                      {/* Divider */}
+                      <div className="border-t border-border/60" />
 
                       {/* 5. CONFIGURAÇÕES INLINE */}
                       <div className="space-y-3">
-                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        <span className="text-sm font-medium text-foreground">
                           Configurações
                         </span>
 
@@ -613,17 +596,19 @@ export default function StudioPage() {
                         <div className="grid grid-cols-2 gap-3">
                           {/* Format selector - adapts to model */}
                           <div>
-                            <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">
+                            <label className="text-xs text-muted-foreground mb-1 block">
                               Formato
                             </label>
                             {(() => {
-                              const currentModel = getModelById(studio.model);
-                              const hasImageSize = currentModel?.parameters.some((p) => p.name === 'image_size');
                               const isSeedream = studio.model.includes('seedream');
+                              const isGptImage = studio.model.includes('gpt-image');
+                              const hasImageSize = isSeedream || isGptImage;
 
-                              // Use appropriate format options based on model
-                              const formatOptions = hasImageSize
-                                ? (isSeedream ? SEEDREAM_IMAGE_SIZE_OPTIONS : IMAGE_SIZE_OPTIONS)
+                              // Use appropriate format options based on model ID
+                              const formatOptions = isSeedream
+                                ? SEEDREAM_IMAGE_SIZE_OPTIONS
+                                : isGptImage
+                                ? IMAGE_SIZE_OPTIONS
                                 : ASPECT_RATIO_OPTIONS;
 
                               // Get current format value with model-specific defaults
@@ -649,8 +634,8 @@ export default function StudioPage() {
                                       className={cn(
                                         'px-2 py-1.5 text-xs font-medium rounded-md transition-colors',
                                         currentFormat === format.value
-                                          ? 'bg-blue-500 text-white'
-                                          : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
+                                          ? 'bg-primary text-primary-foreground'
+                                          : 'bg-muted text-muted-foreground hover:bg-muted/80'
                                       )}
                                     >
                                       {format.label}
@@ -663,12 +648,12 @@ export default function StudioPage() {
 
                           {/* Variation count selector */}
                           <div>
-                            <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">
+                            <label className="text-xs text-muted-foreground mb-1 block">
                               Variações
                             </label>
                             {(() => {
-                              const currentModel = getModelById(studio.model);
-                              const maxImages = currentModel?.maxImages ?? 4;
+                              const currentModel = imageModels.find((m) => m.id === studio.model);
+                              const maxImages = currentModel?.max_images ?? 4;
                               return (
                                 <div className="flex gap-1">
                                   {Array.from({ length: maxImages }, (_, i) => i + 1).map((count) => (
@@ -679,8 +664,8 @@ export default function StudioPage() {
                                       className={cn(
                                         'flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-colors',
                                         studio.variationCount === count
-                                          ? 'bg-blue-500 text-white'
-                                          : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
+                                          ? 'bg-primary text-primary-foreground'
+                                          : 'bg-muted text-muted-foreground hover:bg-muted/80'
                                       )}
                                     >
                                       {count}
@@ -694,13 +679,13 @@ export default function StudioPage() {
                       </div>
 
                       {/* Divider */}
-                      <div className="border-t border-gray-200 dark:border-gray-700" />
+                      <div className="border-t border-border/60" />
 
                       {/* 6. BOTÃO GERAR */}
                       <Button
                         onClick={studio.generate}
                         disabled={!studio.prompt.trim() || studio.isGenerating}
-                        className="w-full h-12 gap-2 text-base font-semibold bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 shadow-lg shadow-blue-500/25"
+                        className="w-full h-12 gap-2 text-base font-semibold shadow-sm"
                       >
                         {studio.isGenerating ? (
                           <>
@@ -717,58 +702,7 @@ export default function StudioPage() {
                     </motion.div>
                   )}
 
-                  {activeTab === 'editar' && (
-                    <motion.div
-                      key="editar"
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: 20 }}
-                      transition={{ duration: 0.2 }}
-                      className="p-6"
-                    >
-                      <Suspense
-                        fallback={
-                          <div className="py-10 flex justify-center">
-                            <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
-                          </div>
-                        }
-                      >
-                        <EditMode
-                          projectId={projectId}
-                          selectedImage={selectedImageForEdit}
-                          onSelectImage={() => setShowAssetPicker(true)}
-                          onEditComplete={handleEditComplete}
-                          isLoading={false}
-                        />
-                      </Suspense>
-                    </motion.div>
-                  )}
 
-                  {activeTab === 'ajustar' && (
-                    <motion.div
-                      key="ajustar"
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: 20 }}
-                      transition={{ duration: 0.2 }}
-                      className="p-6"
-                    >
-                      <Suspense
-                        fallback={
-                          <div className="py-10 flex justify-center">
-                            <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
-                          </div>
-                        }
-                      >
-                        <AdjustMode
-                          projectId={projectId}
-                          selectedImage={selectedImageForEdit}
-                          onSelectImage={() => setShowAssetPicker(true)}
-                          onOperationComplete={handleAdjustComplete}
-                        />
-                      </Suspense>
-                    </motion.div>
-                  )}
 
                   {activeTab === 'video' && (
                     <motion.div
@@ -779,13 +713,13 @@ export default function StudioPage() {
                       transition={{ duration: 0.2 }}
                       className="p-12 flex flex-col items-center justify-center text-center"
                     >
-                      <div className="w-16 h-16 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center mb-4">
-                        <Video className="w-8 h-8 text-gray-400" />
+                      <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
+                        <Video className="w-8 h-8 text-muted-foreground/60" />
                       </div>
-                      <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
+                      <h3 className="text-lg font-semibold mb-2">
                         Geração de Vídeo
                       </h3>
-                      <p className="text-sm text-gray-500 dark:text-gray-400 max-w-md">
+                      <p className="text-sm text-muted-foreground max-w-md">
                         Em breve você poderá criar vídeos com IA usando modelos como Veo 3.1, Kling 2.6, e LTX-2.
                       </p>
                     </motion.div>
@@ -806,8 +740,8 @@ export default function StudioPage() {
                     exit={{ opacity: 0 }}
                     className="h-full flex flex-col items-center justify-center"
                   >
-                    <Loader2 className="h-8 w-8 animate-spin text-blue-500 mb-4" />
-                    <span className="text-gray-500 dark:text-gray-400">Carregando imagens...</span>
+                    <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
+                    <span className="text-muted-foreground">Carregando imagens...</span>
                   </motion.div>
                 ) : allVariations.length === 0 && !studio.isGenerating ? (
                   // Empty state
@@ -818,16 +752,14 @@ export default function StudioPage() {
                     exit={{ opacity: 0 }}
                     className="h-full flex flex-col items-center justify-center"
                   >
-                    <div className="w-32 h-32 rounded-full bg-gradient-to-br from-blue-100 to-purple-100 dark:from-blue-900/30 dark:to-purple-900/30 flex items-center justify-center mb-6">
-                      <Wand2 className="w-12 h-12 text-blue-500" />
+                    <div className="w-32 h-32 rounded-full bg-primary/10 flex items-center justify-center mb-6">
+                      <Wand2 className="w-12 h-12 text-primary" />
                     </div>
-                    <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-2">
+                    <h2 className="text-2xl font-semibold mb-2">
                       Crie imagens incríveis
                     </h2>
-                    <p className="text-gray-500 dark:text-gray-400 text-center max-w-md mb-8">
+                    <p className="text-muted-foreground text-center max-w-md mb-8">
                       {activeTab === 'criar' && 'Selecione uma copy, gere um prompt e clique em "Gerar Imagem".'}
-                      {activeTab === 'editar' && 'Selecione uma imagem e use o pincel ou instruções para editá-la.'}
-                      {activeTab === 'ajustar' && 'Selecione uma imagem e aplique ajustes rápidos.'}
                     </p>
                   </motion.div>
                 ) : (
@@ -843,8 +775,6 @@ export default function StudioPage() {
                       isGenerating={studio.isGenerating}
                       pendingCount={studio.pendingCount}
                       onExpand={handleExpand}
-                      onSave={studio.save}
-                      onRefine={handleRefine}
                       onAttach={handleAttachImage}
                       canAttach={!!selectedDocumentId}
                     />
@@ -856,14 +786,14 @@ export default function StudioPage() {
                         className="flex justify-center py-8"
                       >
                         {isFetchingNextPage ? (
-                          <div className="flex items-center gap-2 text-gray-500">
+                          <div className="flex items-center gap-2 text-muted-foreground">
                             <Loader2 className="h-5 w-5 animate-spin" />
                             <span className="text-sm">Carregando mais...</span>
                           </div>
                         ) : (
                           <button
                             onClick={() => fetchNextPage()}
-                            className="text-sm text-blue-500 hover:text-blue-600 font-medium"
+                            className="text-sm text-primary hover:text-primary/80 font-medium"
                           >
                             Carregar mais imagens
                           </button>
@@ -900,32 +830,6 @@ export default function StudioPage() {
             images={studio.variations.filter((v) => v.success)}
             isOpen={!!expandedImage}
             onClose={handleCloseExpand}
-            onSave={studio.save}
-            onRefine={studio.refine}
-          />
-        </Suspense>
-
-        {/* Asset picker modal for selecting images to edit/adjust */}
-        <Suspense fallback={null}>
-          <AssetPickerModal
-            mode="single"
-            projectId={projectId}
-            isOpen={showAssetPicker}
-            onClose={() => setShowAssetPicker(false)}
-            onSelect={(asset) => {
-              const generatedImage: GeneratedImage = {
-                success: true,
-                index: 0,
-                document_id: asset.id,
-                file_url: asset.file_url || undefined,
-                thumbnail_url: asset.thumbnail_url || undefined,
-                title: asset.name || 'Imagem selecionada',
-              };
-              setSelectedImageForEdit(generatedImage);
-              setShowAssetPicker(false);
-            }}
-            title="Selecionar Imagem"
-            description="Escolha uma imagem da galeria para editar ou ajustar"
           />
         </Suspense>
       </div>

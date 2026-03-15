@@ -22,8 +22,6 @@ interface VariationGridProps {
   isGenerating: boolean;
   pendingCount?: number;
   onExpand: (variation: GeneratedImage) => void;
-  onSave: (variation: GeneratedImage) => void;
-  onRefine: (variation: GeneratedImage) => void;
   onAttach?: (variation: GeneratedImage) => void;
   canAttach?: boolean;
   className?: string;
@@ -54,8 +52,6 @@ export function VariationGrid({
   isGenerating,
   pendingCount = 0,
   onExpand,
-  onSave,
-  onRefine,
   onAttach,
   canAttach = false,
   className,
@@ -185,8 +181,6 @@ export function VariationGrid({
                     index={idx}
                     isGenerating={isGenerating && !variation.success && !variation.error}
                     onExpand={onExpand}
-                    onSave={onSave}
-                    onRefine={onRefine}
                     onAttach={onAttach}
                     canAttach={canAttach}
                   />
@@ -215,8 +209,6 @@ export function VariationGrid({
                   index={idx}
                   isGenerating={true}
                   onExpand={onExpand}
-                  onSave={onSave}
-                  onRefine={onRefine}
                   onAttach={onAttach}
                   canAttach={canAttach}
                 />

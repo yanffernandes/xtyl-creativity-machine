@@ -13,6 +13,15 @@ import {
 } from '@nestjs/common';
 import { eq, and, isNull, like, or, desc, sql } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
+import {
+  AlignmentType,
+  Document as DocxDocument,
+  HeadingLevel,
+  Packer,
+  Paragraph,
+  TextRun,
+} from 'docx';
+import { PDFFont, PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 import { DATABASE } from '../../database/database.module';
 import {
   documents,
@@ -56,6 +65,7 @@ export class DocumentsService {
         thumbnailUrl: dto.thumbnail_url,
         generationMetadata: dto.generation_metadata ?? {},
         folderId: dto.folder_id,
+        boardId: dto.board_id ?? null,
         isContext: dto.is_context ?? false,
         isReferenceAsset: dto.is_reference_asset ?? false,
         assetType: dto.asset_type,
@@ -240,6 +250,9 @@ export class DocumentsService {
     if (dto.generation_metadata !== undefined)
       updateData.generationMetadata = dto.generation_metadata;
     if (dto.folder_id !== undefined) updateData.folderId = dto.folder_id;
+    if (dto.board_id !== undefined) updateData.boardId = dto.board_id;
+    if (dto.board_column_id !== undefined) updateData.boardColumnId = dto.board_column_id;
+    if (dto.board_position !== undefined) updateData.boardPosition = dto.board_position;
     if (dto.is_context !== undefined) updateData.isContext = dto.is_context;
     if (dto.is_reference_asset !== undefined)
       updateData.isReferenceAsset = dto.is_reference_asset;
@@ -354,6 +367,52 @@ export class DocumentsService {
     }
 
     return restored;
+  }
+
+  /**
+   * Export text document as PDF, DOCX or Markdown
+   */
+  async exportDocument(documentId: string, format: string) {
+    const normalizedFormat = format.toLowerCase();
+    if (!['pdf', 'docx', 'md'].includes(normalizedFormat)) {
+      throw new BadRequestException(
+        'Unsupported export format. Use pdf, docx or md',
+      );
+    }
+
+    const document = await this.findById(documentId);
+    if (document.mediaType !== 'text') {
+      throw new BadRequestException(
+        `Only text documents can be exported to ${normalizedFormat.toUpperCase()}`,
+      );
+    }
+
+    const title = (document.title || 'document').trim() || 'document';
+    const safeTitle = this.sanitizeFilename(title);
+    const content = document.content || '';
+
+    if (normalizedFormat === 'md') {
+      return {
+        buffer: Buffer.from(this.buildMarkdownExport(title, content), 'utf-8'),
+        contentType: 'text/markdown; charset=utf-8',
+        filename: `${safeTitle}.md`,
+      };
+    }
+
+    if (normalizedFormat === 'docx') {
+      return {
+        buffer: await this.createDocxExport(title, content),
+        contentType:
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        filename: `${safeTitle}.docx`,
+      };
+    }
+
+    return {
+      buffer: await this.createPdfExport(title, content),
+      contentType: 'application/pdf',
+      filename: `${safeTitle}.pdf`,
+    };
   }
 
   // ─────────────────────────────────────────────
@@ -801,7 +860,19 @@ export class DocumentsService {
     const hasMore = offset + items.length < total;
 
     return {
-      items,
+      items: items.map((doc) => ({
+        id: doc.id,
+        title: doc.title,
+        content: doc.content,
+        media_type: doc.mediaType,
+        file_url: doc.fileUrl,
+        thumbnail_url: doc.thumbnailUrl,
+        generation_metadata: doc.generationMetadata,
+        created_at: doc.createdAt,
+        updated_at: doc.updatedAt,
+        project_id: doc.projectId,
+        folder_id: doc.folderId,
+      })),
       total,
       page,
       limit,
@@ -812,6 +883,437 @@ export class DocumentsService {
   // ─────────────────────────────────────────────
   // Helpers
   // ─────────────────────────────────────────────
+
+  private buildMarkdownExport(title: string, content: string): string {
+    return `# ${title}\n\n${content}`.trimEnd() + '\n';
+  }
+
+  private async createDocxExport(
+    title: string,
+    content: string,
+  ): Promise<Buffer> {
+    const doc = new DocxDocument({
+      sections: [
+        {
+          children: this.buildDocxParagraphs(title, content),
+        },
+      ],
+    });
+
+    const buffer = await Packer.toBuffer(doc);
+    return Buffer.from(buffer);
+  }
+
+  private buildDocxParagraphs(title: string, content: string): Paragraph[] {
+    const paragraphs: Paragraph[] = [
+      new Paragraph({
+        text: title,
+        heading: HeadingLevel.TITLE,
+        spacing: { after: 240 },
+      }),
+    ];
+
+    const lines = content.split(/\r?\n/);
+    let inCodeBlock = false;
+    let codeBlockLines: string[] = [];
+
+    const flushCodeBlock = () => {
+      if (codeBlockLines.length === 0) {
+        return;
+      }
+      paragraphs.push(
+        new Paragraph({
+          children: [
+            new TextRun({
+              text: codeBlockLines.join('\n'),
+              font: 'Courier New',
+              size: 18,
+            }),
+          ],
+          spacing: { before: 120, after: 120 },
+        }),
+      );
+      codeBlockLines = [];
+    };
+
+    for (const rawLine of lines) {
+      const line = rawLine ?? '';
+      const trimmed = line.trim();
+
+      if (trimmed.startsWith('```')) {
+        if (inCodeBlock) {
+          flushCodeBlock();
+        }
+        inCodeBlock = !inCodeBlock;
+        continue;
+      }
+
+      if (inCodeBlock) {
+        codeBlockLines.push(line);
+        continue;
+      }
+
+      if (trimmed.length === 0) {
+        paragraphs.push(new Paragraph({ text: '' }));
+        continue;
+      }
+
+      const headingMatch = trimmed.match(/^(#{1,6})\s+(.+)$/);
+      if (headingMatch) {
+        paragraphs.push(
+          new Paragraph({
+            text: headingMatch[2],
+            heading: this.mapHeadingLevel(headingMatch[1].length),
+            spacing: { before: 120, after: 80 },
+          }),
+        );
+        continue;
+      }
+
+      const unorderedListMatch = trimmed.match(/^[-*+]\s+(.+)$/);
+      if (unorderedListMatch) {
+        paragraphs.push(
+          new Paragraph({
+            children: this.parseInlineMarkdown(`• ${unorderedListMatch[1]}`),
+            spacing: { after: 60 },
+          }),
+        );
+        continue;
+      }
+
+      const orderedListMatch = trimmed.match(/^(\d+)\.\s+(.+)$/);
+      if (orderedListMatch) {
+        paragraphs.push(
+          new Paragraph({
+            children: this.parseInlineMarkdown(
+              `${orderedListMatch[1]}. ${orderedListMatch[2]}`,
+            ),
+            spacing: { after: 60 },
+          }),
+        );
+        continue;
+      }
+
+      const quoteMatch = trimmed.match(/^>\s?(.+)$/);
+      if (quoteMatch) {
+        paragraphs.push(
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: quoteMatch[1],
+                italics: true,
+                color: '666666',
+              }),
+            ],
+            indent: { left: 360 },
+            spacing: { before: 60, after: 60 },
+          }),
+        );
+        continue;
+      }
+
+      if (trimmed === '---' || trimmed === '***' || trimmed === '___') {
+        paragraphs.push(
+          new Paragraph({
+            text: '________________________________________',
+            alignment: AlignmentType.CENTER,
+            spacing: { before: 120, after: 120 },
+          }),
+        );
+        continue;
+      }
+
+      paragraphs.push(
+        new Paragraph({
+          children: this.parseInlineMarkdown(line),
+          spacing: { after: 120 },
+        }),
+      );
+    }
+
+    if (inCodeBlock) {
+      flushCodeBlock();
+    }
+
+    return paragraphs;
+  }
+
+  private parseInlineMarkdown(text: string): TextRun[] {
+    const runs: TextRun[] = [];
+    const pattern =
+      /(\*\*[^*]+\*\*|__[^_]+__|`[^`]+`|\*[^*\n]+\*|_[^_\n]+_)/g;
+    let lastIndex = 0;
+
+    for (const match of text.matchAll(pattern)) {
+      const fullMatch = match[0];
+      const index = match.index ?? 0;
+
+      if (index > lastIndex) {
+        runs.push(new TextRun({ text: text.slice(lastIndex, index) }));
+      }
+
+      if (
+        (fullMatch.startsWith('**') && fullMatch.endsWith('**')) ||
+        (fullMatch.startsWith('__') && fullMatch.endsWith('__'))
+      ) {
+        runs.push(
+          new TextRun({
+            text: fullMatch.slice(2, -2),
+            bold: true,
+          }),
+        );
+      } else if (fullMatch.startsWith('`') && fullMatch.endsWith('`')) {
+        runs.push(
+          new TextRun({
+            text: fullMatch.slice(1, -1),
+            font: 'Courier New',
+            size: 18,
+            color: 'B91C1C',
+          }),
+        );
+      } else {
+        runs.push(
+          new TextRun({
+            text: fullMatch.slice(1, -1),
+            italics: true,
+          }),
+        );
+      }
+
+      lastIndex = index + fullMatch.length;
+    }
+
+    if (lastIndex < text.length) {
+      runs.push(new TextRun({ text: text.slice(lastIndex) }));
+    }
+
+    return runs.length > 0 ? runs : [new TextRun({ text })];
+  }
+
+  private mapHeadingLevel(
+    level: number,
+  ): (typeof HeadingLevel)[keyof typeof HeadingLevel] {
+    switch (level) {
+      case 1:
+        return HeadingLevel.HEADING_1;
+      case 2:
+        return HeadingLevel.HEADING_2;
+      case 3:
+        return HeadingLevel.HEADING_3;
+      case 4:
+        return HeadingLevel.HEADING_4;
+      case 5:
+        return HeadingLevel.HEADING_5;
+      default:
+        return HeadingLevel.HEADING_6;
+    }
+  }
+
+  private async createPdfExport(
+    title: string,
+    content: string,
+  ): Promise<Buffer> {
+    const pdfDoc = await PDFDocument.create();
+    const regularFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
+    const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+
+    const pageWidth = 595.28;
+    const pageHeight = 841.89;
+    const margin = 50;
+    const lineGap = 6;
+
+    let page = pdfDoc.addPage([pageWidth, pageHeight]);
+    let cursorY = pageHeight - margin;
+
+    const ensureSpace = (lineHeight: number) => {
+      if (cursorY - lineHeight < margin) {
+        page = pdfDoc.addPage([pageWidth, pageHeight]);
+        cursorY = pageHeight - margin;
+      }
+    };
+
+    const drawWrappedText = (
+      text: string,
+      fontSize: number,
+      font: typeof regularFont,
+      options?: { color?: ReturnType<typeof rgb>; extraAfter?: number },
+    ) => {
+      const lines = this.wrapPdfText(
+        text,
+        pageWidth - margin * 2,
+        font,
+        fontSize,
+      );
+      for (const line of lines) {
+        const lineHeight = fontSize + lineGap;
+        ensureSpace(lineHeight);
+        page.drawText(line, {
+          x: margin,
+          y: cursorY,
+          size: fontSize,
+          font,
+          color: options?.color ?? rgb(0.13, 0.13, 0.13),
+        });
+        cursorY -= lineHeight;
+      }
+      cursorY -= options?.extraAfter ?? 4;
+    };
+
+    drawWrappedText(title, 22, boldFont, {
+      color: rgb(0.05, 0.05, 0.05),
+      extraAfter: 12,
+    });
+
+    const lines = content.split(/\r?\n/);
+    let inCodeBlock = false;
+
+    for (const rawLine of lines) {
+      const trimmed = rawLine.trim();
+
+      if (trimmed.startsWith('```')) {
+        inCodeBlock = !inCodeBlock;
+        continue;
+      }
+
+      if (trimmed.length === 0) {
+        cursorY -= 10;
+        continue;
+      }
+
+      if (inCodeBlock) {
+        drawWrappedText(rawLine, 10, regularFont, {
+          color: rgb(0.1, 0.1, 0.1),
+          extraAfter: 2,
+        });
+        continue;
+      }
+
+      const headingMatch = trimmed.match(/^(#{1,6})\s+(.+)$/);
+      if (headingMatch) {
+        const size = Math.max(13, 20 - headingMatch[1].length * 2);
+        drawWrappedText(headingMatch[2], size, boldFont, {
+          color: rgb(0.08, 0.08, 0.08),
+          extraAfter: 8,
+        });
+        continue;
+      }
+
+      const unorderedListMatch = trimmed.match(/^[-*+]\s+(.+)$/);
+      if (unorderedListMatch) {
+        drawWrappedText(
+          `• ${this.stripInlineMarkdown(unorderedListMatch[1])}`,
+          11,
+          regularFont,
+        );
+        continue;
+      }
+
+      const orderedListMatch = trimmed.match(/^(\d+)\.\s+(.+)$/);
+      if (orderedListMatch) {
+        drawWrappedText(
+          `${orderedListMatch[1]}. ${this.stripInlineMarkdown(orderedListMatch[2])}`,
+          11,
+          regularFont,
+        );
+        continue;
+      }
+
+      const quoteMatch = trimmed.match(/^>\s?(.+)$/);
+      if (quoteMatch) {
+        drawWrappedText(this.stripInlineMarkdown(quoteMatch[1]), 11, regularFont, {
+          color: rgb(0.35, 0.35, 0.35),
+        });
+        continue;
+      }
+
+      if (trimmed === '---' || trimmed === '***' || trimmed === '___') {
+        drawWrappedText(
+          '________________________________________',
+          11,
+          regularFont,
+          {
+            color: rgb(0.5, 0.5, 0.5),
+            extraAfter: 8,
+          },
+        );
+        continue;
+      }
+
+      drawWrappedText(this.stripInlineMarkdown(rawLine), 11, regularFont);
+    }
+
+    return Buffer.from(await pdfDoc.save());
+  }
+
+  private wrapPdfText(
+    text: string,
+    maxWidth: number,
+    font: PDFFont,
+    fontSize: number,
+  ): string[] {
+    const normalized = text.replace(/\s+/g, ' ').trim();
+    if (!normalized) {
+      return [''];
+    }
+
+    const words = normalized.split(' ');
+    const lines: string[] = [];
+    let currentLine = '';
+
+    for (const word of words) {
+      const candidate = currentLine ? `${currentLine} ${word}` : word;
+      if (font.widthOfTextAtSize(candidate, fontSize) <= maxWidth) {
+        currentLine = candidate;
+        continue;
+      }
+
+      if (currentLine) {
+        lines.push(currentLine);
+        currentLine = word;
+        continue;
+      }
+
+      let chunk = '';
+      for (const character of word) {
+        const candidateChunk = `${chunk}${character}`;
+        if (font.widthOfTextAtSize(candidateChunk, fontSize) <= maxWidth) {
+          chunk = candidateChunk;
+          continue;
+        }
+        if (chunk) {
+          lines.push(chunk);
+        }
+        chunk = character;
+      }
+      currentLine = chunk;
+    }
+
+    if (currentLine) {
+      lines.push(currentLine);
+    }
+
+    return lines;
+  }
+
+  private stripInlineMarkdown(text: string): string {
+    return text
+      .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '$1')
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1 ($2)')
+      .replace(/(\*\*|__)(.*?)\1/g, '$2')
+      .replace(/(`)(.*?)\1/g, '$2')
+      .replace(/(^|[^*])\*(?!\s)([^*]+?)\*(?!\*)/g, '$1$2')
+      .replace(/(^|[^_])_(?!\s)([^_]+?)_(?!_)/g, '$1$2');
+  }
+
+  private sanitizeFilename(name: string): string {
+    return name
+      .normalize('NFKD')
+      .replace(/[^\w\s.-]/g, '')
+      .replace(/\s+/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '')
+      .slice(0, 120) || 'document';
+  }
 
   private extractObjectKey(url: string): string | null {
     if (!url) return null;

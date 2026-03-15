@@ -66,30 +66,42 @@ export class PromptEnrichmentService {
       }
 
       const settings = project[0].settings || {};
+      const brandIdentity = (settings.brand_identity as any) || {};
 
-      // Extract brand-related fields
-      const brandColors = settings.brand_colors;
-      const brandVoice = settings.brand_voice;
-      const targetAudience = settings.target_audience;
-      const industry = settings.industry;
+      // Extract brand-related fields from correct schema paths
+      const colorPalette: string[] = Array.isArray(brandIdentity.color_palette) ? brandIdentity.color_palette : [];
+      const typography = brandIdentity.typography || {};
+      const brandVoice: string = (settings.brand_voice_custom as string) || (settings.brand_voice as string) || '';
+      const targetAudience: string = (settings.target_audience as string) || '';
+      const clientName: string = (settings.client_name as string) || '';
+      const description: string = (settings.description as string) || '';
 
       // Build context string
       const contextParts: string[] = [];
 
-      if (brandColors && Array.isArray(brandColors) && brandColors.length > 0) {
-        contextParts.push(`Brand colors: ${brandColors.join(', ')}`);
+      if (clientName) {
+        contextParts.push(`Brand: ${clientName}`);
+      }
+
+      if (colorPalette.length > 0) {
+        contextParts.push(`Brand colors: ${colorPalette.join(', ')}`);
+      }
+
+      const fonts = [typography.primary, typography.secondary].filter(Boolean);
+      if (fonts.length > 0) {
+        contextParts.push(`Typography: ${fonts.join(', ')}`);
       }
 
       if (brandVoice) {
-        contextParts.push(`Brand voice: ${brandVoice}`);
+        contextParts.push(`Visual style: ${brandVoice}`);
       }
 
       if (targetAudience) {
         contextParts.push(`Target audience: ${targetAudience}`);
       }
 
-      if (industry) {
-        contextParts.push(`Industry: ${industry}`);
+      if (description) {
+        contextParts.push(`Brand context: ${description}`);
       }
 
       if (contextParts.length === 0) {

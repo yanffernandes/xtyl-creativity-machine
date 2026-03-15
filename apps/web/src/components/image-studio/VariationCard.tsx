@@ -14,8 +14,6 @@ import Image from 'next/image';
 import {
   Download,
   Expand,
-  Save,
-  RefreshCw,
   Check,
   AlertCircle,
   Loader2,
@@ -35,8 +33,6 @@ interface VariationCardProps {
   index: number;
   isGenerating?: boolean;
   onExpand: (variation: GeneratedImage) => void;
-  onSave: (variation: GeneratedImage) => void;
-  onRefine: (variation: GeneratedImage) => void;
   onAttach?: (variation: GeneratedImage) => void;
   canAttach?: boolean;
   className?: string;
@@ -51,28 +47,13 @@ export const VariationCard = memo(function VariationCard({
   index,
   isGenerating = false,
   onExpand,
-  onSave,
-  onRefine,
   onAttach,
   canAttach = false,
   className,
 }: VariationCardProps) {
   const [isHovered, setIsHovered] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const [isSaved, setIsSaved] = useState(false);
   const [isAttaching, setIsAttaching] = useState(false);
   const [isAttached, setIsAttached] = useState(false);
-
-  const handleSave = async () => {
-    setIsSaving(true);
-    try {
-      await onSave(variation);
-      setIsSaved(true);
-      setTimeout(() => setIsSaved(false), 2000);
-    } finally {
-      setIsSaving(false);
-    }
-  };
 
   const handleAttach = async () => {
     if (!onAttach) return;
@@ -249,37 +230,6 @@ export const VariationCard = memo(function VariationCard({
             <TooltipContent>Baixar</TooltipContent>
           </Tooltip>
 
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className={cn(
-                  'h-8 w-8 text-white',
-                  isSaved
-                    ? 'bg-green-500/50 hover:bg-green-500/70'
-                    : 'bg-black/30 hover:bg-black/50'
-                )}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleSave();
-                }}
-                disabled={isSaving || isSaved}
-              >
-                {isSaving ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : isSaved ? (
-                  <Check className="h-4 w-4" />
-                ) : (
-                  <Save className="h-4 w-4" />
-                )}
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              {isSaved ? 'Salvo!' : 'Salvar no projeto'}
-            </TooltipContent>
-          </Tooltip>
-
           {/* Attach to document button - only shows when canAttach is true */}
           {canAttach && onAttach && (
             <Tooltip>
@@ -315,26 +265,6 @@ export const VariationCard = memo(function VariationCard({
           )}
         </div>
 
-        {/* Refine button */}
-        <div className="absolute bottom-2 right-2">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 px-2 bg-black/30 hover:bg-black/50 text-white gap-1"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onRefine(variation);
-                }}
-              >
-                <RefreshCw className="h-3 w-3" />
-                <span className="text-xs">Refinar</span>
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Gerar variações desta imagem</TooltipContent>
-          </Tooltip>
-        </div>
       </motion.div>
 
       {/* Variation index badge */}

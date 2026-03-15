@@ -14,12 +14,8 @@ import Image from 'next/image';
 import {
   X,
   Download,
-  Save,
-  RefreshCw,
   ChevronLeft,
   ChevronRight,
-  ZoomIn,
-  ZoomOut,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -30,8 +26,6 @@ interface ImageExpandModalProps {
   images: GeneratedImage[];
   isOpen: boolean;
   onClose: () => void;
-  onSave: (image: GeneratedImage) => void;
-  onRefine: (image: GeneratedImage) => void;
 }
 
 export function ImageExpandModal({
@@ -39,8 +33,6 @@ export function ImageExpandModal({
   images,
   isOpen,
   onClose,
-  onSave,
-  onRefine,
 }: ImageExpandModalProps) {
   const currentIndex = image ? images.findIndex((i) => i.document_id === image.document_id) : -1;
   const hasPrev = currentIndex > 0;
@@ -151,27 +143,6 @@ export function ImageExpandModal({
                   onClick={handleDownload}
                 >
                   <Download className="h-5 w-5" />
-                </Button>
-
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="text-white/70 hover:text-white hover:bg-white/10"
-                  onClick={() => onSave(image)}
-                >
-                  <Save className="h-5 w-5" />
-                </Button>
-
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="text-white/70 hover:text-white hover:bg-white/10"
-                  onClick={() => {
-                    onRefine(image);
-                    onClose();
-                  }}
-                >
-                  <RefreshCw className="h-5 w-5" />
                 </Button>
 
                 <div className="w-px h-6 bg-white/20 mx-2" />
