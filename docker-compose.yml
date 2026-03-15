@@ -1,4 +1,12 @@
 services:
+  # Legacy Python worker kept disabled during the Bun/Nest migration.
+  # `scale: 0` ensures compose removes any existing celery-worker container
+  # while keeping the service defined if an external override still references it.
+  celery-worker:
+    image: busybox:1.36
+    command: ['sh', '-c', 'echo legacy celery-worker disabled']
+    scale: 0
+
   backend:
     build:
       context: .

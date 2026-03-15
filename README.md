@@ -88,10 +88,10 @@ postgresql://postgres.[PROJECT_REF]:[PASSWORD]@aws-0-us-east-1.pooler.supabase.c
 - Verify credentials in Cloudflare Dashboard > R2
 - Check bucket permissions for public access
 
-### Redis/Celery
+### Redis/Queue Worker
 ```bash
 docker exec xtyl-redis redis-cli ping  # Should return PONG
-docker-compose logs celery-worker
+docker compose logs api-worker
 ```
 
 ### Complete Rebuild
