@@ -24,6 +24,10 @@ import type {
   ProjectBootstrapQuery,
 } from './projects.dto';
 
+type VisibleImageModelConfig = {
+  id?: unknown;
+};
+
 @Injectable()
 export class ProjectsService {
   constructor(
@@ -527,6 +531,28 @@ export class ProjectsService {
     let defaultImageModel: string | undefined;
     let visibleTextModels: string[] = [];
     let visibleImageModels: string[] = [];
+    const extractVisibleImageModelIds = (value: unknown): string[] => {
+      if (!Array.isArray(value)) {
+        return [];
+      }
+
+      return value.reduce<string[]>((ids, entry) => {
+        if (typeof entry === 'string') {
+          ids.push(entry);
+          return ids;
+        }
+
+        if (
+          entry &&
+          typeof entry === 'object' &&
+          typeof (entry as VisibleImageModelConfig).id === 'string'
+        ) {
+          ids.push((entry as VisibleImageModelConfig).id as string);
+        }
+
+        return ids;
+      }, []);
+    };
 
     for (const config of configs) {
       if (config.key === 'ai_models') {
@@ -553,9 +579,7 @@ export class ProjectsService {
         config.key === 'visible_image_models' &&
         Array.isArray(config.value)
       ) {
-        visibleImageModels = config.value.filter(
-          (modelId: unknown): modelId is string => typeof modelId === 'string',
-        );
+        visibleImageModels = extractVisibleImageModelIds(config.value);
       }
     }
 

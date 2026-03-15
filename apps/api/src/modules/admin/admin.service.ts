@@ -16,6 +16,16 @@ import {
   aiUsageLog,
 } from '../../database/drizzle/schema';
 
+type VisibleImageModelConfig = {
+  id: string;
+  name?: string;
+  provider?: string;
+  modelType?: 'text-to-image' | 'image-to-image';
+  supportsMask?: boolean;
+  maxImages?: number;
+  parameters?: unknown[];
+};
+
 @Injectable()
 export class AdminService {
   constructor(
@@ -510,7 +520,7 @@ export class AdminService {
       defaults?: Record<string, string>;
       fallbacks?: Record<string, string>;
       visibleTextModels?: string[];
-      visibleImageModels?: any[];
+      visibleImageModels?: Array<string | VisibleImageModelConfig>;
     },
   ) {
     const upsert = async (key: string, value: any) => {

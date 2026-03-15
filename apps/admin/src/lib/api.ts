@@ -244,6 +244,18 @@ export interface WorkspaceDetails {
 // Interfaces: Models
 // ============================================================================
 
+export interface VisibleImageModelConfig {
+  id: string;
+  name?: string;
+  provider?: string;
+  modelType?: 'text-to-image' | 'image-to-image';
+  supportsMask?: boolean;
+  maxImages?: number;
+  parameters?: ModelSchema['parameters'];
+}
+
+export type VisibleImageModelValue = string | VisibleImageModelConfig;
+
 export interface ModelConfig {
   defaults: {
     chat?: string;
@@ -256,7 +268,7 @@ export interface ModelConfig {
   };
   fallbacks: Record<string, string>;
   visibleTextModels: string[];
-  visibleImageModels: any[];
+  visibleImageModels: VisibleImageModelValue[];
 }
 
 export interface ModelSchema {
@@ -499,7 +511,7 @@ export async function updateModelConfig(config: {
   defaults?: ModelConfig['defaults'];
   fallbacks?: Record<string, string>;
   visibleTextModels?: string[];
-  visibleImageModels?: string[];
+  visibleImageModels?: VisibleImageModelConfig[];
 }): Promise<ModelConfig> {
   const response = await api.put('/admin/models/config', config);
   return response.data;

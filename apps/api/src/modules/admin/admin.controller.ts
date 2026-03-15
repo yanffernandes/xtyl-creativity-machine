@@ -15,6 +15,16 @@ import { AuthGuard } from '../../common/guards/auth.guard';
 import { AdminGuard } from '../../common/guards/admin.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 
+type VisibleImageModelConfig = {
+  id: string;
+  name?: string;
+  provider?: string;
+  modelType?: 'text-to-image' | 'image-to-image';
+  supportsMask?: boolean;
+  maxImages?: number;
+  parameters?: unknown[];
+};
+
 @Controller('admin')
 @UseGuards(AuthGuard, AdminGuard)
 export class AdminController {
@@ -153,7 +163,7 @@ export class AdminController {
       fallbacks?: Record<string, string>;
       visibleModels?: string[];
       visibleTextModels?: string[];
-      visibleImageModels?: string[];
+      visibleImageModels?: Array<string | VisibleImageModelConfig>;
     },
   ) {
     return this.adminService.updateModelConfig(adminId, data);

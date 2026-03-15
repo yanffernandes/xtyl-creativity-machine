@@ -10,7 +10,13 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { getModelConfig, getAvailableModels, updateModelConfig, getModelSchema } from '@/lib/api';
-import type { AvailableModel, ModelConfig, ModelSchema } from '@/lib/api';
+import type {
+  AvailableModel,
+  ModelConfig,
+  ModelSchema,
+  VisibleImageModelConfig,
+  VisibleImageModelValue,
+} from '@/lib/api';
 
 export const Route = createFileRoute('/models')({
   component: ModelsPage,
@@ -20,7 +26,7 @@ function ModelsPage() {
   const queryClient = useQueryClient();
   const [defaults, setDefaults] = useState<ModelConfig['defaults']>({});
   const [visibleTextModels, setVisibleTextModels] = useState<Set<string>>(new Set());
-  const [enabledImageModels, setEnabledImageModels] = useState<Map<string, object>>(new Map());
+  const [enabledImageModels, setEnabledImageModels] = useState<Map<string, VisibleImageModelConfig>>(new Map());
   const [loadingModelSchema, setLoadingModelSchema] = useState<string | null>(null);
   const [hasChanges, setHasChanges] = useState(false);
   const [textSearch, setTextSearch] = useState('');
@@ -44,12 +50,12 @@ function ModelsPage() {
       setVisibleTextModels(new Set(config.visibleTextModels ?? []));
 
       // Populate enabledImageModels from stored config
-      const stored: any[] = config.visibleImageModels ?? [];
-      const map = new Map<string, object>();
+      const stored = config.visibleImageModels ?? [];
+      const map = new Map<string, VisibleImageModelConfig>();
       for (const item of stored) {
         if (typeof item === 'string') {
           map.set(item, { id: item });
-        } else if (item && typeof item === 'object' && item.id) {
+        } else if (isVisibleImageModelConfig(item)) {
           map.set(item.id, item);
         }
       }
@@ -107,7 +113,7 @@ function ModelsPage() {
       try {
         const schema: ModelSchema = await getModelSchema(model.id);
         const modelType = model.id.includes('/edit') ? 'image-to-image' : 'text-to-image';
-        const fullConfig = {
+        const fullConfig: VisibleImageModelConfig = {
           id: model.id,
           name: model.name,
           provider: model.provider,
@@ -313,6 +319,10 @@ function ModelsPage() {
       </div>
     </AdminLayout>
   );
+}
+
+function isVisibleImageModelConfig(value: VisibleImageModelValue): value is VisibleImageModelConfig {
+  return typeof value === 'object' && value !== null && 'id' in value && typeof value.id === 'string';
 }
 
 // ── Sub-components ──────────────────────────────────────────
