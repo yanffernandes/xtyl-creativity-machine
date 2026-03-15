@@ -86,7 +86,7 @@ function loadStorage(): SidebarCacheStorage {
     // Version mismatch - clear cache for clean migration
     if (parsed.version !== CURRENT_VERSION) {
       // T029: Development mode warning
-      if (process.env.NODE_ENV === 'development') {
+      if (import.meta.env.DEV) {
         console.warn(`[sidebar-cache] Version mismatch: found ${parsed.version}, expected ${CURRENT_VERSION}. Clearing cache.`)
       }
       localStorage.removeItem(CACHE_KEY)
@@ -96,7 +96,7 @@ function loadStorage(): SidebarCacheStorage {
     return parsed
   } catch (error) {
     // T029: Development mode warning for corruption
-    if (process.env.NODE_ENV === 'development') {
+    if (import.meta.env.DEV) {
       console.warn('[sidebar-cache] Cache corrupted, clearing:', error)
     }
     // Corrupted cache - clear it
@@ -127,7 +127,7 @@ function saveStorage(storage: SidebarCacheStorage): void {
   } catch (e) {
     // T004: Quota exceeded handling with graceful degradation
     if (e instanceof DOMException && e.name === 'QuotaExceededError') {
-      if (process.env.NODE_ENV === 'development') {
+      if (import.meta.env.DEV) {
         console.warn('[sidebar-cache] Quota exceeded, clearing oldest entries')
       }
 
@@ -143,7 +143,7 @@ function saveStorage(storage: SidebarCacheStorage): void {
         }))
       } catch {
         // Give up - clear everything
-        if (process.env.NODE_ENV === 'development') {
+        if (import.meta.env.DEV) {
           console.warn('[sidebar-cache] Failed to save even after eviction, clearing all')
         }
         localStorage.removeItem(CACHE_KEY)

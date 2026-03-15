@@ -1,4 +1,3 @@
-'use client';
 
 /**
  * AdjustMode Component

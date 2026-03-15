@@ -1,4 +1,3 @@
-'use client';
 
 /**
  * fal.ai Models Explorer

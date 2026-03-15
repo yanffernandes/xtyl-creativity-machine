@@ -72,7 +72,7 @@ function loadStorage(): DocumentsCacheStorage {
     const parsed = JSON.parse(raw)
 
     if (parsed.version !== CURRENT_VERSION) {
-      if (process.env.NODE_ENV === 'development') {
+      if (import.meta.env.DEV) {
         console.warn(`[documents-cache] Version mismatch, clearing cache`)
       }
       localStorage.removeItem(CACHE_KEY)
@@ -81,7 +81,7 @@ function loadStorage(): DocumentsCacheStorage {
 
     return parsed
   } catch (error) {
-    if (process.env.NODE_ENV === 'development') {
+    if (import.meta.env.DEV) {
       console.warn('[documents-cache] Cache corrupted, clearing:', error)
     }
     localStorage.removeItem(CACHE_KEY)

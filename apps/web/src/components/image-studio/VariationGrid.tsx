@@ -1,4 +1,3 @@
-'use client';
 
 /**
  * VariationGrid Component

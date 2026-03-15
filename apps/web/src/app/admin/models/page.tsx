@@ -1,4 +1,3 @@
-'use client';
 
 // Prevent static generation - requires runtime environment variables
 export const dynamic = 'force-dynamic';

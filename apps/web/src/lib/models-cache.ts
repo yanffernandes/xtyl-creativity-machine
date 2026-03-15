@@ -42,7 +42,7 @@ function loadStorage(): ModelsCacheStorage | null {
     const parsed = JSON.parse(raw)
 
     if (parsed.version !== CURRENT_VERSION) {
-      if (process.env.NODE_ENV === 'development') {
+      if (import.meta.env.DEV) {
         console.warn(`[models-cache] Version mismatch, clearing cache`)
       }
       localStorage.removeItem(CACHE_KEY)
@@ -51,7 +51,7 @@ function loadStorage(): ModelsCacheStorage | null {
 
     return parsed
   } catch (error) {
-    if (process.env.NODE_ENV === 'development') {
+    if (import.meta.env.DEV) {
       console.warn('[models-cache] Cache corrupted, clearing:', error)
     }
     localStorage.removeItem(CACHE_KEY)
@@ -65,7 +65,7 @@ function saveStorage(storage: ModelsCacheStorage): void {
   try {
     localStorage.setItem(CACHE_KEY, JSON.stringify(storage))
   } catch (e) {
-    if (process.env.NODE_ENV === 'development') {
+    if (import.meta.env.DEV) {
       console.warn('[models-cache] Failed to save:', e)
     }
   }

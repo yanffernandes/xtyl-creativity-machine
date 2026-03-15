@@ -1,4 +1,3 @@
-'use client';
 
 import { useAuthStore } from '@/lib/store';
 import { Bell, Search, LogOut } from 'lucide-react';

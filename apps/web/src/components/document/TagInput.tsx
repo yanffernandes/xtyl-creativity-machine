@@ -1,4 +1,3 @@
-'use client';
 
 /**
  * TagInput Component

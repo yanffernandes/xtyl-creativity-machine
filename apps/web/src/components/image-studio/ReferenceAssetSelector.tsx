@@ -1,4 +1,3 @@
-'use client';
 
 /**
  * ReferenceAssetSelector Component
