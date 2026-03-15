@@ -1,1 +1,0 @@
-export { TriggersPage } from './TriggersPage'

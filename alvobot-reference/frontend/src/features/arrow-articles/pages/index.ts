@@ -1,1 +1,0 @@
-export { ArrowArticlesPage } from './ArrowArticlesPage'

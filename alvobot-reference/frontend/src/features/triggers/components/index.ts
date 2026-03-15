@@ -1,1 +1,0 @@
-export { TriggerModal } from './TriggerModal'

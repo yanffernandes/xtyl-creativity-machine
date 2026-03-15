@@ -1,1 +1,0 @@
-export { GoogleAdsTransparencyPage } from './GoogleAdsTransparencyPage'

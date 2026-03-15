@@ -1,1 +1,0 @@
-export { AdminProtectedRoute } from './AdminProtectedRoute'

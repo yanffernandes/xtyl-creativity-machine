@@ -1,1 +1,0 @@
-export { CreateBaseArticleModal } from './CreateBaseArticleModal'

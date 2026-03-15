@@ -1,1 +1,0 @@
-export { AdCard } from './AdCard'
