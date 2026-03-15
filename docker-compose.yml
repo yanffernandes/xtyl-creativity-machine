@@ -1,11 +1,11 @@
 services:
   # Legacy Python worker kept disabled during the Bun/Nest migration.
-  # `scale: 0` ensures compose removes any existing celery-worker container
-  # while keeping the service defined if an external override still references it.
+  # This service is intentionally never started in the default profile.
   celery-worker:
     image: busybox:1.36
-    command: ['sh', '-c', 'echo legacy celery-worker disabled']
-    scale: 0
+    command: ['sh', '-c', 'exit 0']
+    profiles: ['legacy']
+    restart: 'no'
 
   backend:
     build:
@@ -68,6 +68,11 @@ services:
     build:
       context: .
       dockerfile: apps/web/Dockerfile
+      args:
+        VITE_SUPABASE_URL: ${VITE_SUPABASE_URL:-}
+        VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY:-}
+        VITE_API_URL: ${VITE_API_URL:-/api}
+        VITE_SENTRY_DSN: ${VITE_SENTRY_DSN:-}
     container_name: xtyl-frontend
     restart: always
     expose:

@@ -22,10 +22,10 @@ export function getSupabaseClient(): SupabaseClient {
     return supabaseClient
   }
 
-  // Runtime injection (Docker/Easypanel) takes priority over build-time vars
-  const env = (typeof window !== 'undefined' && (window as any).__ENV__) || {}
-  const supabaseUrl = env.VITE_SUPABASE_URL || import.meta.env.VITE_SUPABASE_URL
-  const supabaseAnonKey = env.VITE_SUPABASE_ANON_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY
+  // Priority: runtime injection (window.__ENV__) → build-time baking (import.meta.env)
+  const runtimeEnv = (typeof window !== 'undefined' && (window as any).__ENV__) || {}
+  const supabaseUrl = runtimeEnv.VITE_SUPABASE_URL || import.meta.env.VITE_SUPABASE_URL
+  const supabaseAnonKey = runtimeEnv.VITE_SUPABASE_ANON_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY
 
   // During SSG build, env vars may not be available - return a placeholder
   // that will be replaced at runtime
