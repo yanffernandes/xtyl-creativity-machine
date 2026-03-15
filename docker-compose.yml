@@ -22,6 +22,10 @@ services:
     depends_on:
       redis:
         condition: service_healthy
+    networks:
+      default:
+        aliases:
+          - api
     healthcheck:
       test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:3000/health']
       interval: 30s

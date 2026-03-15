@@ -19,6 +19,10 @@ services:
     depends_on:
       redis:
         condition: service_healthy
+    networks:
+      default:
+        aliases:
+          - backend
     deploy:
       resources:
         limits:
