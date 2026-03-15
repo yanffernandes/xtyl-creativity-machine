@@ -1,5 +1,5 @@
 services:
-  api:
+  backend:
     build:
       context: .
       dockerfile: apps/api/Dockerfile
@@ -49,7 +49,7 @@ services:
     depends_on:
       redis:
         condition: service_healthy
-      api:
+      backend:
         condition: service_healthy
 
   agno:
@@ -80,7 +80,7 @@ services:
     expose:
       - '80'
     depends_on:
-      api:
+      backend:
         condition: service_healthy
     environment:
       NODE_ENV: production
@@ -104,7 +104,7 @@ services:
     expose:
       - '80'
     depends_on:
-      api:
+      backend:
         condition: service_healthy
 
   redis:
