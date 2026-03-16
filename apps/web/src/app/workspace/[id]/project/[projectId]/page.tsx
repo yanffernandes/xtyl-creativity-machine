@@ -1395,7 +1395,7 @@ export default function ProjectPage() {
                 {/* FAB - Floating Action Button (only in kanban/board view) */}
                 {!selectedDoc && !activeFolderId && (activeBoardId || requestedView === 'kanban') && (
                     <Button
-                        onClick={handleCreateCreation}
+                        onClick={() => handleCreateCreation()}
                         disabled={isCreatingDocument}
                         className="fixed bottom-8 right-[420px] z-40 gap-2 shadow-2xl hover:shadow-xl transition-all hover:scale-105"
                     >
