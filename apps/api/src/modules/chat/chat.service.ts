@@ -303,7 +303,8 @@ export class ChatService {
       type: 'function',
       function: {
         name: 'list_board_columns',
-        description: 'List columns of a Kanban board (e.g. Backlog, Em Progresso, Concluido). Use this to get column IDs before assigning a document to a column.',
+        description:
+          'List columns of a Kanban board together with the documents (cards) inside each column. Returns column IDs, names, and for each column: document id, title, status, and a content preview. Use this to understand what is already on the board before creating or editing content.',
         parameters: {
           type: 'object',
           properties: {
@@ -354,23 +355,42 @@ export class ChatService {
    */
   async listModels() {
     try {
-      // Get visible models from system config
-      const [config] = await this.db
+      const configs = await this.db
         .select()
         .from(systemConfig)
-        .where(eq(systemConfig.key, 'visible_text_models'))
-        .limit(1);
+        .where(
+          or(
+            eq(systemConfig.key, 'visible_text_models'),
+            eq(systemConfig.key, 'ai_models'),
+          ),
+        );
 
-      const visibleModelIds = config?.value || [];
+      let visibleModelIds: string[] = [];
+      let defaultModel: string | null = null;
 
-      // Format models for display
-      return visibleModelIds.map((modelId: string) => ({
+      for (const config of configs) {
+        if (config.key === 'visible_text_models') {
+          visibleModelIds = config.value || [];
+        } else if (config.key === 'ai_models') {
+          defaultModel = (config.value as any)?.defaults?.chat ?? null;
+        }
+      }
+
+      const models = visibleModelIds.map((modelId: string) => ({
         id: modelId,
         name: this.formatModelName(modelId),
       }));
+
+      // If admin didn't set a default or it's not in the visible list, use the first visible model
+      const resolvedDefault =
+        defaultModel && visibleModelIds.includes(defaultModel)
+          ? defaultModel
+          : (visibleModelIds[0] ?? null);
+
+      return { models, defaultModel: resolvedDefault };
     } catch (error) {
       this.logger.error('Error fetching visible models', error);
-      return [];
+      return { models: [], defaultModel: null };
     }
   }
 
@@ -890,7 +910,7 @@ ${selectedFolders
       messages.unshift({ role: 'system', content: systemPrompt });
     }
 
-    const maxIterations = 6;
+    const maxIterations = 20;
 
     for (let iteration = 1; iteration <= maxIterations; iteration += 1) {
       yield { type: 'iteration', current: iteration, max: maxIterations };
@@ -1257,11 +1277,70 @@ ${selectedFolders
       durationMs: Date.now() - startedAt,
     });
 
+    // Generate a graceful closing message so the user always gets a proper response
+    try {
+      messages.push({
+        role: 'user',
+        content:
+          'Você atingiu o limite de iterações para esta resposta. Resuma brevemente o que foi feito até agora e pergunte ao usuário se deseja continuar a partir deste ponto.',
+      });
+      const limitResponse = await this.openRouterService.chatCompletion(
+        messages,
+        request.model,
+        { temperature: 0.5, maxTokens: 2048 },
+      );
+      const limitContent = String(
+        limitResponse.choices?.[0]?.message?.content || '',
+      );
+      totalPromptTokens += limitResponse.usage?.prompt_tokens ?? 0;
+      totalCompletionTokens += limitResponse.usage?.completion_tokens ?? 0;
+      if (limitContent) {
+        finalAssistantContent = limitContent;
+        yield* this.emitMessageChunks(limitContent);
+      }
+    } catch {
+      // If the graceful call fails, fall back to a static message
+      const fallback =
+        'Atingi o limite de iterações nesta resposta. Posso continuar de onde parei — é só me pedir!';
+      finalAssistantContent = fallback;
+      yield* this.emitMessageChunks(fallback);
+    }
+
+    const limitConversationId = await this.persistConversationState(
+      request,
+      user,
+      {
+        content: finalAssistantContent,
+        toolExecutions: toolExecutionSnapshot,
+        taskList: taskListSnapshot,
+      },
+      Array.from(createdDocumentIds),
+    );
+
+    if (limitConversationId && !request.conversation_id) {
+      yield { type: 'conversation_created', conversation_id: limitConversationId };
+    }
+
+    await this.logChatUsage({
+      request,
+      user,
+      model: lastResponseModel,
+      provider: 'openrouter',
+      usage: {
+        prompt_tokens: totalPromptTokens,
+        completion_tokens: totalCompletionTokens,
+        total_tokens: totalPromptTokens + totalCompletionTokens,
+      },
+      assistantContent: finalAssistantContent,
+      toolCalls: toolExecutionSnapshot.map((tool) => tool.tool),
+      durationMs: Date.now() - startedAt,
+    });
+
     yield {
       type: 'iteration_limit',
       current: maxIterations,
       max: maxIterations,
-      message: 'Limite de iteracoes atingido. Encerrando a execucao.',
+      message: 'Limite de iterações atingido.',
     };
     yield { type: 'done' };
   }
@@ -1710,13 +1789,52 @@ ${selectedFolders
           .where(eq(boardColumns.boardId, toolArgs.board_id))
           .orderBy(asc(boardColumns.position), asc(boardColumns.createdAt));
 
+        const cards = await this.db
+          .select({
+            id: documents.id,
+            title: documents.title,
+            status: documents.status,
+            content: documents.content,
+            boardColumnId: documents.boardColumnId,
+            boardPosition: documents.boardPosition,
+            mediaType: documents.mediaType,
+          })
+          .from(documents)
+          .where(
+            and(
+              eq(documents.boardId, toolArgs.board_id),
+              isNull(documents.deletedAt),
+            ),
+          )
+          .orderBy(asc(documents.boardPosition), asc(documents.createdAt));
+
+        const cardsByColumn = new Map<string, any[]>();
+        for (const card of cards) {
+          const colId = card.boardColumnId ?? '__unassigned__';
+          if (!cardsByColumn.has(colId)) cardsByColumn.set(colId, []);
+          cardsByColumn.get(colId)!.push({
+            id: card.id,
+            title: card.title,
+            status: card.status,
+            media_type: card.mediaType,
+            content_preview: card.content
+              ? card.content.slice(0, 300) + (card.content.length > 300 ? '...' : '')
+              : null,
+            board_position: card.boardPosition,
+          });
+        }
+
         return {
           columns: rows.map((c: any) => ({
             id: c.id,
             name: c.name,
             color: c.color,
             position: c.position,
+            cards: cardsByColumn.get(c.id) ?? [],
+            card_count: (cardsByColumn.get(c.id) ?? []).length,
           })),
+          unassigned_cards: cardsByColumn.get('__unassigned__') ?? [],
+          total_cards: cards.length,
           count: rows.length,
         };
       }

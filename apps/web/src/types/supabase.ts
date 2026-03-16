@@ -278,6 +278,7 @@ export interface Database {
           name: string
           color: string | null
           position: number
+          is_default: boolean
           created_at: string
           updated_at: string | null
         }
@@ -287,6 +288,7 @@ export interface Database {
           name: string
           color?: string | null
           position?: number
+          is_default?: boolean
           created_at?: string
           updated_at?: string | null
         }
@@ -296,6 +298,7 @@ export interface Database {
           name?: string
           color?: string | null
           position?: number
+          is_default?: boolean
           created_at?: string
           updated_at?: string | null
         }

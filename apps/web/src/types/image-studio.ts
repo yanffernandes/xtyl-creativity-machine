@@ -132,6 +132,8 @@ export interface Document {
   asset_type: string | null;
   asset_metadata: Record<string, unknown> | null;
   is_context: boolean;
+  board_column_id: string | null;
+  board_column_name: string | null;
   created_at: string;
   updated_at: string | null;
 }
@@ -159,6 +161,7 @@ export interface BootstrapData {
     text: AvailableModel[];
     image: AvailableModel[];
     default_image_model?: string | null;
+    default_prompt_enrichment_model?: string | null;
   };
   visual_context: VisualAsset[];
   memories: Memory[];

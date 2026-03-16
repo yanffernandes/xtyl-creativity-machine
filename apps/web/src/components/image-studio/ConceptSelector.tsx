@@ -109,8 +109,7 @@ export function ConceptSelector({
             disabled={disabled}
             className={cn(
               'w-full justify-between h-10 font-normal',
-              'bg-white dark:bg-gray-800',
-              'border-gray-200 dark:border-gray-700',
+              'bg-background border-input',
               !selectedConcept && 'text-muted-foreground'
             )}
           >
@@ -155,7 +154,8 @@ export function ConceptSelector({
                   {group.concepts.map((concept) => (
                     <CommandItem
                       key={concept.slug}
-                      value={`${concept.name_pt} ${concept.name} ${concept.description || ''}`}
+                      value={concept.slug}
+                      keywords={[concept.name_pt || '', concept.name || '', concept.description || '']}
                       onSelect={() => handleSelect(concept.slug)}
                       className="gap-2"
                     >

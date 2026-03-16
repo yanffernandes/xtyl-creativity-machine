@@ -109,7 +109,7 @@ export default function AssetSelectorModal({
     const fetchAssets = async () => {
         try {
             setIsLoading(true)
-            const response = await api.get(`/projects/${projectId}/assets`)
+            const response = await api.get(`/projects/${projectId}/visual-assets`)
             setAssets(response.data.assets)
             setFilteredAssets(response.data.assets)
         } catch (error: any) {

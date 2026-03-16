@@ -5,6 +5,7 @@ import { DATABASE } from '../../database/database.module';
 import {
   projects,
   documents,
+  boardColumns,
   workflowTemplates,
   creativeConcepts,
   workspaceUsers,
@@ -287,11 +288,30 @@ export class ProjectsService {
       }));
     }
 
-    let recentCopies: any[] = [];
+    let recentCopiesRaw: any[] = [];
     if (options.include_recent_copies && options.recent_copies_limit > 0) {
-      recentCopies = await this.db
-        .select()
+      recentCopiesRaw = await this.db
+        .select({
+          id: documents.id,
+          title: documents.title,
+          content: documents.content,
+          status: documents.status,
+          projectId: documents.projectId,
+          folderId: documents.folderId,
+          mediaType: documents.mediaType,
+          fileUrl: documents.fileUrl,
+          thumbnailUrl: documents.thumbnailUrl,
+          generationMetadata: documents.generationMetadata,
+          isReferenceAsset: documents.isReferenceAsset,
+          assetType: documents.assetType,
+          boardColumnId: documents.boardColumnId,
+          createdAt: documents.createdAt,
+          updatedAt: documents.updatedAt,
+          deletedAt: documents.deletedAt,
+          boardColumnName: boardColumns.name,
+        })
         .from(documents)
+        .leftJoin(boardColumns, eq(documents.boardColumnId, boardColumns.id))
         .where(
           and(
             eq(documents.projectId, projectId),
@@ -330,9 +350,24 @@ export class ProjectsService {
         .orderBy(creativeConcepts.sortOrder);
     }
 
-    const mappedCopies = this.mapDocuments(recentCopies).map((doc) =>
-      options.include_copy_content ? doc : { ...doc, content: null },
-    );
+    const mappedCopies = recentCopiesRaw.map((d: any) => ({
+      id: d.id,
+      title: d.title,
+      content: options.include_copy_content ? d.content : null,
+      status: d.status,
+      project_id: d.projectId,
+      folder_id: d.folderId,
+      media_type: d.mediaType,
+      file_url: d.fileUrl,
+      thumbnail_url: d.thumbnailUrl,
+      generation_metadata: d.generationMetadata,
+      is_reference_asset: d.isReferenceAsset,
+      asset_type: d.assetType,
+      board_column_id: d.boardColumnId,
+      board_column_name: d.boardColumnName || null,
+      created_at: d.createdAt,
+      updated_at: d.updatedAt,
+    }));
     const mappedMedia = this.mapDocuments(recentMedia);
 
     return {
@@ -354,10 +389,14 @@ export class ProjectsService {
       ],
       creative_concepts: concepts.map((c: any) => ({
         id: c.id,
+        slug: c.slug,
         name: c.name,
+        name_pt: c.namePt,
         description: c.description,
+        icon: c.icon,
         thumbnail_url: c.thumbnailUrl,
         prompt_template: c.promptTemplate,
+        prompt_modifier: c.promptModifier,
         category: c.category,
         tags: c.tags || [],
         is_active: c.isActive,
@@ -529,6 +568,7 @@ export class ProjectsService {
       );
 
     let defaultImageModel: string | undefined;
+    let defaultPromptEnrichmentModel: string | undefined;
     let visibleTextModels: string[] = [];
     let visibleImageModels: string[] = [];
     const extractVisibleImageModelIds = (value: unknown): string[] => {
@@ -560,6 +600,9 @@ export class ProjectsService {
         if (typeof defaults?.image_generation === 'string') {
           defaultImageModel = defaults.image_generation;
         }
+        if (typeof defaults?.prompt_enrichment === 'string') {
+          defaultPromptEnrichmentModel = defaults.prompt_enrichment;
+        }
       } else if (config.key === 'model_defaults') {
         const defaults = config.value as Record<string, unknown>;
         if (
@@ -588,6 +631,7 @@ export class ProjectsService {
         text: [],
         image: [],
         default_image_model: defaultImageModel,
+        default_prompt_enrichment_model: defaultPromptEnrichmentModel,
       };
     }
 
@@ -636,6 +680,7 @@ export class ProjectsService {
       text: textModels,
       image: imageModels,
       default_image_model: defaultImageModel || imageModels[0]?.id,
+      default_prompt_enrichment_model: defaultPromptEnrichmentModel,
     };
   }
 

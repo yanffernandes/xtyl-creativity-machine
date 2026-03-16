@@ -90,6 +90,7 @@ export interface ModelsConfig {
   text: AvailableModel[];
   image: AvailableModel[];
   default_image_model?: string;
+  default_prompt_enrichment_model?: string;
 }
 
 export interface ProjectBootstrapQuery {

@@ -31,16 +31,16 @@ interface Document {
   title: string
   status: string
   board_id?: string | null
+  board_column_id?: string | null
   media_type?: string
   is_context?: boolean
 }
 
-const STATUS_LABELS: Record<string, { label: string; color: string }> = {
-  draft:     { label: "Rascunho",  color: "bg-gray-400" },
-  text_ok:   { label: "Texto OK",  color: "bg-blue-400" },
-  art_ok:    { label: "Arte OK",   color: "bg-violet-400" },
-  done:      { label: "Pronto",    color: "bg-emerald-400" },
-  published: { label: "Publicado", color: "bg-green-500" },
+interface ColumnInfo {
+  id: string
+  name: string
+  color: string | null
+  position: number
 }
 
 type StatFilter = "all" | "done" | "in_progress"
@@ -64,6 +64,7 @@ export default function ProjectDashboard({
 }: ProjectDashboardProps) {
   const [allFolders, setAllFolders] = useState<FolderType[]>([])
   const [allBoards, setAllBoards] = useState<BoardType[]>([])
+  const [columnsByBoard, setColumnsByBoard] = useState<Record<string, ColumnInfo[]>>({})
   const [loading, setLoading] = useState(true)
   const [activeFilter, setActiveFilter] = useState<StatFilter>("all")
 
@@ -73,11 +74,26 @@ export default function ProjectDashboard({
     Promise.all([
       foldersApi.list(projectId),
       boardsApi.list(projectId),
-    ]).then(([folders, boards]) => {
+    ]).then(async ([folders, boards]) => {
       if (cancelled) return
       setAllFolders(folders)
       setAllBoards(boards)
-      setLoading(false)
+
+      // Load columns for all boards in parallel
+      const colResults = await Promise.all(
+        boards.map(async (b) => {
+          try {
+            const cols = await boardsApi.listColumns(b.id)
+            return [b.id, cols] as [string, ColumnInfo[]]
+          } catch {
+            return [b.id, []] as [string, ColumnInfo[]]
+          }
+        })
+      )
+      if (!cancelled) {
+        setColumnsByBoard(Object.fromEntries(colResults))
+        setLoading(false)
+      }
     }).catch(() => {
       if (!cancelled) setLoading(false)
     })
@@ -110,7 +126,23 @@ export default function ProjectDashboard({
     [allDocuments]
   )
 
-  const doneDocs = textDocs.filter(d => d.status === 'done' || d.status === 'published')
+  // A doc is "done" when it sits in the last column of its board
+  const lastColByBoard = useMemo(() => {
+    const map: Record<string, string> = {}
+    for (const [boardId, cols] of Object.entries(columnsByBoard)) {
+      if (cols.length === 0) continue
+      const last = [...cols].sort((a, b) => b.position - a.position)[0]
+      map[boardId] = last.id
+    }
+    return map
+  }, [columnsByBoard])
+
+  const isDocDone = (doc: Document) => {
+    if (!doc.board_id || !doc.board_column_id) return false
+    return lastColByBoard[doc.board_id] === doc.board_column_id
+  }
+
+  const doneDocs = textDocs.filter(isDocDone)
   const inProgressDocs = textDocs.length - doneDocs.length
 
   const docsInFolder = (folderId: string): number => {
@@ -125,11 +157,11 @@ export default function ProjectDashboard({
     if (activeFilter === "all") return rootBoards
     return rootBoards.filter(b => {
       const docs = docsByBoard[b.id] || []
-      if (activeFilter === "done") return docs.some(d => d.status === 'done' || d.status === 'published')
-      if (activeFilter === "in_progress") return docs.some(d => d.status !== 'done' && d.status !== 'published')
+      if (activeFilter === "done") return docs.some(isDocDone)
+      if (activeFilter === "in_progress") return docs.some(d => !isDocDone(d))
       return true
     })
-  }, [rootBoards, docsByBoard, activeFilter])
+  }, [rootBoards, docsByBoard, activeFilter, lastColByBoard])
 
   if (loading) {
     return <ProjectDashboardSkeleton />
@@ -234,10 +266,14 @@ export default function ProjectDashboard({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {visibleRootBoards.map((board, i) => {
                 const boardDocs = docsByBoard[board.id] || []
-                const statusCounts = boardDocs.reduce<Record<string, number>>((acc, doc) => {
-                  acc[doc.status] = (acc[doc.status] || 0) + 1
+                const cols = columnsByBoard[board.id] ?? []
+                // Count docs per column
+                const colCounts = boardDocs.reduce<Record<string, number>>((acc, doc) => {
+                  const key = doc.board_column_id ?? "__unassigned__"
+                  acc[key] = (acc[key] || 0) + 1
                   return acc
                 }, {})
+
                 return (
                   <motion.div
                     key={board.id}
@@ -264,31 +300,33 @@ export default function ProjectDashboard({
                       <span>{boardDocs.length} criação{boardDocs.length !== 1 ? 'ões' : ''}</span>
                     </div>
 
-                    {boardDocs.length > 0 && (
+                    {boardDocs.length > 0 && cols.length > 0 && (
                       <div className="space-y-1.5">
+                        {/* Column-based progress bar */}
                         <div className="flex h-2 rounded-full overflow-hidden gap-0.5">
-                          {Object.entries(STATUS_LABELS).map(([status, meta]) => {
-                            const count = statusCounts[status] || 0
+                          {cols.map((col) => {
+                            const count = colCounts[col.id] || 0
                             if (count === 0) return null
                             const pct = Math.round((count / boardDocs.length) * 100)
                             return (
                               <div
-                                key={status}
-                                className={cn("rounded-full", meta.color)}
-                                style={{ width: `${pct}%` }}
-                                title={`${meta.label}: ${count}`}
+                                key={col.id}
+                                className="rounded-full"
+                                style={{ width: `${pct}%`, backgroundColor: col.color ?? "#64748b" }}
+                                title={`${col.name}: ${count}`}
                               />
                             )
                           })}
                         </div>
+                        {/* Column legend */}
                         <div className="flex flex-wrap gap-1.5">
-                          {Object.entries(STATUS_LABELS).map(([status, meta]) => {
-                            const count = statusCounts[status] || 0
+                          {cols.map((col) => {
+                            const count = colCounts[col.id] || 0
                             if (count === 0) return null
                             return (
-                              <span key={status} className="inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded-full bg-muted/60">
-                                <span className={cn("w-1.5 h-1.5 rounded-full", meta.color)} />
-                                {meta.label} · {count}
+                              <span key={col.id} className="inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded-full bg-muted/60">
+                                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: col.color ?? "#64748b" }} />
+                                {col.name} · {count}
                               </span>
                             )
                           })}

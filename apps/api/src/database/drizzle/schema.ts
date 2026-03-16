@@ -170,6 +170,7 @@ export const boardColumns = pgTable('board_columns', {
   name: varchar('name').notNull(),
   color: varchar('color'),
   position: integer('position').notNull().default(0),
+  isDefault: boolean('is_default').notNull().default(false),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }),
 });

@@ -646,6 +646,7 @@ export interface ImageBatchRequest {
     campaign_id?: string;
     tags?: string[];
     channel?: string;
+    negative_prompt?: string;
 }
 
 export interface ImageBatchResponse {
@@ -660,6 +661,21 @@ export interface ImageBatchResponse {
  */
 export async function generateImageBatch(request: ImageBatchRequest): Promise<ImageBatchResponse> {
     const response = await api.post('/image-generation/batch', request);
+    return response.data;
+}
+
+/**
+ * Preview the enriched prompt without generating an image (debug mode).
+ * Runs enrichment + LLM refinement and returns the composed prompt.
+ */
+export async function previewImagePrompt(params: {
+    prompt: string;
+    project_id: string;
+    creativity?: number;
+    creative_concept?: string | null;
+    apply_brand_context?: boolean;
+}): Promise<{ enriched_prompt: string; raw_prompt: string }> {
+    const response = await api.post('/image-generation/preview-prompt', params);
     return response.data;
 }
 

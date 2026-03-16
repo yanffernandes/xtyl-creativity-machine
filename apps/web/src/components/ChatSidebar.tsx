@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useMemo } from "react"
 import { useTranslations } from "next-intl"
 import { useAuthStore } from "@/lib/store"
 import api from "@/lib/api"
-import { getModelsCache, setModelsCache, isModelsCacheStale, type CachedModel } from "@/lib/models-cache"
+import type { CachedModel } from "@/lib/models-cache"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -158,8 +158,7 @@ export default function ChatSidebar({
     const [input, setInput] = useState("")
     const [isLoading, setIsLoading] = useState(false)
     const [models, setModels] = useState<Model[]>([])
-    // SSR-safe: Start with defaultModel or empty, load from cache after mount
-    const [selectedModel, setSelectedModel] = useState(defaultModel || "")
+    const [selectedModel, setSelectedModel] = useState("")
     const [useRag, setUseRag] = useState(true)
     const [openModelSelect, setOpenModelSelect] = useState(false)
     const [isContextExpanded, setIsContextExpanded] = useState(false)
@@ -232,28 +231,13 @@ export default function ChatSidebar({
         })
     })
 
-    // SSR-safe: Load models from cache after mount, then refresh if stale
-    const [hasMounted, setHasMounted] = useState(false)
     const [isModelsRefreshing, setIsModelsRefreshing] = useState(false)
 
+    // Fetch models on mount once token is ready
     useEffect(() => {
-        // Load cached models immediately after mount (client-only)
-        const cached = getModelsCache()
-        if (cached && cached.length > 0) {
-            setModels(cached)
-        }
-        setHasMounted(true)
-    }, [])
-
-    // Fetch fresh models after mount if cache is stale or empty
-    useEffect(() => {
-        if (!hasMounted || authLoading || !token) return
-
-        const shouldRefresh = isModelsCacheStale() || models.length === 0
-        if (shouldRefresh) {
-            fetchModels()
-        }
-    }, [hasMounted, token, authLoading])
+        if (authLoading || !token) return
+        fetchModels()
+    }, [token, authLoading])
 
     // Scroll to bottom when messages change
     useEffect(() => {
@@ -267,18 +251,6 @@ export default function ChatSidebar({
         }
     }, [currentStreamingContent, toolExecutions, isLoading])
 
-    // Update selected model when defaultModel prop changes or when models load
-    // Only auto-set if user hasn't manually selected a model
-    useEffect(() => {
-        if (userSelectedModelRef.current) return // User has manually selected, don't override
-
-        if (defaultModel && defaultModel !== selectedModel) {
-            setSelectedModel(defaultModel)
-        } else if (!selectedModel && models.length > 0) {
-            // If no model selected and models are available, select the first one
-            setSelectedModel(models[0].id)
-        }
-    }, [defaultModel, models])
 
     // Close context dropdown when clicking outside
     useEffect(() => {
@@ -301,10 +273,11 @@ export default function ChatSidebar({
         setIsModelsRefreshing(true)
         try {
             const response = await api.get("/chat/models")
-            const fetchedModels: CachedModel[] = response.data
+            const { models: fetchedModels, defaultModel: apiDefault } = response.data
             setModels(fetchedModels)
-            // Save to localStorage cache
-            setModelsCache(fetchedModels)
+            if (!userSelectedModelRef.current && apiDefault) {
+                setSelectedModel(apiDefault)
+            }
         } catch (error) {
             console.error("Failed to fetch models", error)
         } finally {
@@ -789,11 +762,6 @@ export default function ChatSidebar({
 
                                 case 'iteration_limit':
                                     setIterationInfo({ current: event.current, max: event.max })
-                                    toast({
-                                        title: "Limite de iterações atingido",
-                                        description: event.message,
-                                        variant: "default"
-                                    })
                                     break
 
                                 case 'task_list':

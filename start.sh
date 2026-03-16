@@ -84,10 +84,15 @@ check_prereqs() {
     info "Checking prerequisites..."
 
     local required_missing=0
-    local required_cmds=("bun" "uv")
+    local required_cmds=("bun")
 
     if [ "$MODE" = "legacy" ]; then
         required_cmds+=("python3")
+    fi
+
+    # uv is only needed if apps/agno exists
+    if [ -d "$PROJECT_ROOT/apps/agno" ]; then
+        required_cmds+=("uv")
     fi
 
     for cmd in "${required_cmds[@]}"; do
@@ -135,8 +140,13 @@ load_env() {
 
     set -a
     while IFS='=' read -r key value; do
+        # Skip empty lines and comments
         [[ -z "$key" || "$key" =~ ^[[:space:]]*# ]] && continue
         key=$(echo "$key" | xargs)
+        # Strip inline comments (# preceded by space)
+        value=$(echo "$value" | sed 's/[[:space:]]*#.*$//')
+        # Strip surrounding quotes (' or ")
+        value=$(echo "$value" | sed "s/^['\"]//;s/['\"]$//")
         [[ "$key" =~ ^[a-zA-Z_][a-zA-Z0-9_]*$ ]] && export "$key=$value"
     done < "$PROJECT_ROOT/.env"
     set +a

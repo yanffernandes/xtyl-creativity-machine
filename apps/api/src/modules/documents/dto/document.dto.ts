@@ -14,6 +14,7 @@ export interface DocumentCreateDto {
   generation_metadata?: Record<string, any>;
   folder_id?: string;
   board_id?: string | null;
+  board_column_id?: string | null;
   is_context?: boolean;
   is_reference_asset?: boolean;
   asset_type?: string;

@@ -224,6 +224,23 @@ export class ImageGenerationController {
     return this.imageGenerationService.listConcepts();
   }
 
+  /**
+   * POST /image-generation/preview-prompt
+   *
+   * Debug mode: run the full enrichment + LLM refinement pipeline and return the
+   * composed prompt WITHOUT calling fal.ai. Used for prompt inspection.
+   *
+   * Body: same subset as /batch (prompt, project_id, creativity, creative_concept, apply_brand_context)
+   * Response: { enriched_prompt: string; raw_prompt: string }
+   */
+  @Post('preview-prompt')
+  async previewPrompt(
+    @Body() body: any,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.imageGenerationService.previewPrompt(body, userId);
+  }
+
   @Get('fal-models')
   async listFalModels(@Query('category') category?: string) {
     return this.imageGenerationService.listFalModels(category);

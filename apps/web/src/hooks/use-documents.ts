@@ -90,7 +90,11 @@ export function useDocuments(projectId: string) {
             file_url: doc.file_url || undefined,
             image_url: (doc as any).image_url || undefined,
             // V3: Include attachments for kanban card previews
-            attachments: attachments?.length ? attachments : undefined
+            attachments: attachments?.length ? attachments : undefined,
+            // V4: Board column assignment
+            board_id: doc.board_id || null,
+            board_column_id: doc.board_column_id || null,
+            board_position: (doc as any).board_position ?? null,
           }
         })
         setDocumentsCache(projectId, toCache)

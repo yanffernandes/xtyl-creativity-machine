@@ -42,6 +42,24 @@ export const boardsApi = {
     return data || []
   },
 
+  createColumn: async (column: { board_id: string; name: string; color?: string | null; position?: number; is_default?: boolean }) => {
+    const { data, error } = await boardService.createColumn(column)
+    if (error) throw error
+    return data
+  },
+
+  updateColumn: async (id: string, payload: { name?: string; color?: string | null; position?: number; is_default?: boolean }) => {
+    const { data, error } = await boardService.updateColumn(id, payload)
+    if (error) throw error
+    return data
+  },
+
+  deleteColumn: async (id: string, moveCardsToColumnId?: string | null) => {
+    const { error } = await boardService.deleteColumn(id, moveCardsToColumnId)
+    if (error) throw error
+    return { success: true }
+  },
+
   assignDocument: async (
     documentId: string,
     boardId: string | null,

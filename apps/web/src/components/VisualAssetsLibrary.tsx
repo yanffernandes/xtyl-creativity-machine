@@ -158,7 +158,7 @@ export default function VisualAssetsLibrary({ projectId }: VisualAssetsLibraryPr
             } else {
                 setIsLoading(true)
             }
-            const response = await api.get(`/projects/${projectId}/assets?limit=${LIMIT}&offset=${offset}`)
+            const response = await api.get(`/projects/${projectId}/visual-assets?limit=${LIMIT}&offset=${offset}`)
             const newAssets = response.data.assets
 
             setTotalAssets(response.data.total)
@@ -297,7 +297,7 @@ export default function VisualAssetsLibrary({ projectId }: VisualAssetsLibraryPr
                 formData.append("asset_type", assetType)
                 formData.append("name", file.name)
 
-                await api.post(`/projects/${projectId}/assets/upload`, formData, {
+                await api.post(`/projects/${projectId}/visual-assets/upload`, formData, {
                     headers: {
                         "Content-Type": "multipart/form-data",
                     },
@@ -327,7 +327,7 @@ export default function VisualAssetsLibrary({ projectId }: VisualAssetsLibraryPr
         if (!assetToDelete) return
 
         try {
-            await api.delete(`/projects/${projectId}/assets/${assetToDelete.id}`)
+            await api.delete(`/visual-assets/${assetToDelete.id}`)
 
             toast({
                 title: "Asset arquivado",
@@ -359,7 +359,7 @@ export default function VisualAssetsLibrary({ projectId }: VisualAssetsLibraryPr
                 formData.append("asset_type", editAssetType)
             }
 
-            await api.put(`/projects/${projectId}/assets/${editingAsset.id}`, formData, {
+            await api.put(`/visual-assets/${editingAsset.id}`, formData, {
                 headers: {
                     "Content-Type": "multipart/form-data",
                 },
@@ -460,7 +460,7 @@ export default function VisualAssetsLibrary({ projectId }: VisualAssetsLibraryPr
 
         for (const assetId of selectedAssetIds) {
             try {
-                await api.delete(`/projects/${projectId}/assets/${assetId}`)
+                await api.delete(`/visual-assets/${assetId}`)
                 successCount++
             } catch (error) {
                 console.error(`Failed to delete asset ${assetId}:`, error)
