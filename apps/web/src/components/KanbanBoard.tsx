@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback, useRef } from "react"
+import { useState, useCallback } from "react"
 import {
   DndContext,
   DragOverlay,
@@ -14,22 +14,21 @@ import {
   DragEndEvent,
   DragOverEvent,
   CollisionDetection,
-  getFirstCollision,
 } from "@dnd-kit/core"
-import { arrayMove, SortableContext, sortableKeyboardCoordinates } from "@dnd-kit/sortable"
+import { SortableContext, sortableKeyboardCoordinates } from "@dnd-kit/sortable"
 import { Card, CardContent } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Trash2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import KanbanCard from "./KanbanCard"
 import KanbanColumn from "./KanbanColumn"
-import api from "@/lib/api"
+import boardsApi from "@/lib/boards-api"
 import { useToast } from "@/components/ui/use-toast"
+import type { BoardColumn } from "@/types/supabase"
 
 interface Document {
   id: string
   title: string
   status: string
+  board_column_id?: string | null
   created_at: string
   type: "creation" | "context"
   content?: string
@@ -37,119 +36,84 @@ interface Document {
 }
 
 interface KanbanBoardProps {
+  boardId: string
+  columns: BoardColumn[]
   documents: Document[]
   onSelectDocument: (doc: Document) => void
   onDelete?: (e: React.MouseEvent, doc: Document) => void
-  onStatusChange?: (docId: string, newStatus: string) => void
-  /** Feature 028 T031: Add document to copy library */
+  onColumnChange?: (docId: string, newColumnId: string) => void
   onAddToLibrary?: (doc: Document) => void
-  /** Feature 028 T015: Multi-select support */
+  onCreateInColumn?: (columnId: string) => void
   selectedIds?: Set<string>
   onMultiSelect?: (doc: Document, e: React.MouseEvent) => void
 }
 
-const COLUMNS = [
-  {
-    id: "draft",
-    title: "Rascunho",
-    accentColor: "bg-muted-foreground/40",
-    badgeColor: "bg-muted-foreground/50"
-  },
-  {
-    id: "text_ok",
-    title: "Texto OK",
-    accentColor: "bg-sky-500",
-    badgeColor: "bg-sky-500"
-  },
-  {
-    id: "art_ok",
-    title: "Arte OK",
-    accentColor: "bg-emerald-500",
-    badgeColor: "bg-emerald-500"
-  },
-  {
-    id: "done",
-    title: "Finalizado",
-    accentColor: "bg-primary",
-    badgeColor: "bg-primary"
-  },
-  {
-    id: "published",
-    title: "Publicado",
-    accentColor: "bg-amber-500",
-    badgeColor: "bg-amber-500"
-  },
-]
-
 export default function KanbanBoard({
+  boardId,
+  columns,
   documents,
   onSelectDocument,
   onDelete,
-  onStatusChange,
+  onColumnChange,
   onAddToLibrary,
+  onCreateInColumn,
   selectedIds,
-  onMultiSelect
+  onMultiSelect,
 }: KanbanBoardProps) {
   const [activeId, setActiveId] = useState<string | null>(null)
   const [overId, setOverId] = useState<string | null>(null)
-  const lastOverId = useRef<string | null>(null)
   const { toast } = useToast()
 
+  const columnIds = columns.map((c) => c.id)
+
   const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 5,
-      },
-    }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   )
 
-  const getDocsByStatus = (status: string) => {
-    return documents.filter(doc =>
-      (doc.status || "draft") === status && !doc.is_reference_asset
-    )
-  }
+  const getDocsByColumn = useCallback(
+    (columnId: string) =>
+      documents.filter(
+        (doc) => doc.board_column_id === columnId && !doc.is_reference_asset
+      ),
+    [documents]
+  )
 
-  const findContainer = useCallback((id: string) => {
-    // Check if id is a column
-    if (COLUMNS.find(col => col.id === id)) {
-      return id
-    }
+  const getUnassignedDocs = useCallback(
+    () =>
+      documents.filter(
+        (doc) =>
+          !doc.board_column_id && !doc.is_reference_asset
+      ),
+    [documents]
+  )
 
-    // Otherwise find which column contains the document
-    const doc = documents.find(d => d.id === id)
-    return doc?.status || "draft"
-  }, [documents])
+  const findContainer = useCallback(
+    (id: string): string | null => {
+      if (columnIds.includes(id) || id === "__unassigned__") return id
+      const doc = documents.find((d) => d.id === id)
+      return doc?.board_column_id ?? "__unassigned__"
+    },
+    [columnIds, documents]
+  )
 
-  // Custom collision detection that prioritizes columns
   const collisionDetectionStrategy: CollisionDetection = useCallback(
     (args) => {
-      // First, check if we're over a droppable column using pointerWithin
       const pointerCollisions = pointerWithin(args)
-      const columnCollision = pointerCollisions.find(
-        collision => COLUMNS.some(col => col.id === collision.id)
+      const colCollision = pointerCollisions.find(
+        (c) => columnIds.includes(c.id as string) || c.id === "__unassigned__"
       )
+      if (colCollision) return [colCollision]
 
-      if (columnCollision) {
-        return [columnCollision]
-      }
-
-      // Fallback to rectangle intersection for better detection
       const rectCollisions = rectIntersection(args)
-      const rectColumnCollision = rectCollisions.find(
-        collision => COLUMNS.some(col => col.id === collision.id)
+      const rectColCollision = rectCollisions.find(
+        (c) => columnIds.includes(c.id as string) || c.id === "__unassigned__"
       )
+      if (rectColCollision) return [rectColCollision]
 
-      if (rectColumnCollision) {
-        return [rectColumnCollision]
-      }
-
-      // Return any collision found
       return pointerCollisions.length > 0 ? pointerCollisions : rectCollisions
     },
-    []
+    [columnIds]
   )
 
   const handleDragStart = (event: DragStartEvent) => {
@@ -158,56 +122,39 @@ export default function KanbanBoard({
 
   const handleDragOver = (event: DragOverEvent) => {
     const { over } = event
-    const overId = over?.id as string | undefined
-
-    if (overId) {
-      const container = findContainer(overId)
+    if (over?.id) {
+      const container = findContainer(over.id as string)
       setOverId(container)
-      lastOverId.current = container
     }
   }
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event
-
     setOverId(null)
 
-    if (!over) {
-      setActiveId(null)
-      return
-    }
+    if (!over) { setActiveId(null); return }
 
     const activeContainer = findContainer(active.id as string)
-    // Use the over id to find the container, prioritizing columns
-    const overContainer = COLUMNS.find(col => col.id === over.id)?.id || findContainer(over.id as string)
+    const overContainer =
+      columnIds.includes(over.id as string) || over.id === "__unassigned__"
+        ? (over.id as string)
+        : findContainer(over.id as string)
 
-    if (activeContainer !== overContainer) {
-      const doc = documents.find(d => d.id === active.id)
+    if (activeContainer !== overContainer && overContainer && overContainer !== "__unassigned__") {
+      const doc = documents.find((d) => d.id === active.id)
       if (doc) {
-        // OPTIMISTIC UPDATE: Notify parent immediately for instant UI response
-        if (onStatusChange) {
-          onStatusChange(doc.id, overContainer)
-        }
+        // Optimistic update
+        onColumnChange?.(doc.id, overContainer)
 
-        // API call in background - no await
-        api.put(`/documents/${doc.id}`, { status: overContainer })
+        boardsApi.assignDocument(doc.id, boardId, overContainer)
           .then(() => {
-            toast({
-              title: "Status atualizado",
-              description: `"${doc.title}" movido para ${COLUMNS.find(c => c.id === overContainer)?.title}`,
-            })
+            const colName = columns.find((c) => c.id === overContainer)?.name ?? overContainer
+            toast({ title: "Card movido", description: `"${doc.title}" → ${colName}` })
           })
-          .catch((error) => {
-            console.error("Failed to update document status", error)
-            // Revert the optimistic update on error
-            if (onStatusChange) {
-              onStatusChange(doc.id, activeContainer)
-            }
-            toast({
-              title: "Erro",
-              description: "Falha ao atualizar status do documento. Revertendo...",
-              variant: "destructive"
-            })
+          .catch(() => {
+            // Revert
+            onColumnChange?.(doc.id, activeContainer ?? doc.board_column_id ?? "")
+            toast({ title: "Erro", description: "Falha ao mover o card. Revertendo...", variant: "destructive" })
           })
       }
     }
@@ -220,9 +167,8 @@ export default function KanbanBoard({
     setOverId(null)
   }
 
-  const activeDocument = activeId ? documents.find(d => d.id === activeId) : null
-
-  const hasSelection = selectedIds && selectedIds.size > 0
+  const activeDocument = activeId ? documents.find((d) => d.id === activeId) : null
+  const unassignedDocs = getUnassignedDocs()
 
   return (
     <DndContext
@@ -234,22 +180,35 @@ export default function KanbanBoard({
       onDragCancel={handleDragCancel}
     >
       <div className="flex gap-4 h-full overflow-x-auto pb-4 scrollbar-thin">
-        {COLUMNS.map((column) => {
-          const columnDocs = getDocsByStatus(column.id)
+        {/* Real columns from board_columns table */}
+        {columns.map((column) => (
+          <KanbanColumn
+            key={column.id}
+            column={column}
+            documents={getDocsByColumn(column.id)}
+            isOver={overId === column.id}
+            onSelectDocument={onSelectDocument}
+            onDelete={onDelete}
+            onAddToLibrary={onAddToLibrary}
+            onCreateInColumn={onCreateInColumn}
+            selectedIds={selectedIds}
+            onMultiSelect={onMultiSelect}
+          />
+        ))}
 
-          return (
-            <KanbanColumn
-              key={column.id}
-              column={column}
-              documents={columnDocs}
-              onSelectDocument={onSelectDocument}
-              onDelete={onDelete}
-              onAddToLibrary={onAddToLibrary}
-              selectedIds={selectedIds}
-              onMultiSelect={onMultiSelect}
-            />
-          )
-        })}
+        {/* Unassigned bucket — shown only when there are unassigned docs */}
+        {unassignedDocs.length > 0 && (
+          <KanbanColumn
+            column={{ id: "__unassigned__", board_id: boardId, name: "Sem Coluna", color: "#94a3b8", position: -1, is_default: false, created_at: "", updated_at: null }}
+            documents={unassignedDocs}
+            isOver={overId === "__unassigned__"}
+            onSelectDocument={onSelectDocument}
+            onDelete={onDelete}
+            onAddToLibrary={onAddToLibrary}
+            selectedIds={selectedIds}
+            onMultiSelect={onMultiSelect}
+          />
+        )}
       </div>
 
       <DragOverlay>

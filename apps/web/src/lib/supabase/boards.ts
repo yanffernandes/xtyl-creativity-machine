@@ -189,6 +189,25 @@ export const boardService = {
     }
   },
 
+  async deleteColumn(id: string, moveCardsToColumnId?: string | null): Promise<ServiceResult<void>> {
+    try {
+      if (moveCardsToColumnId) {
+        await supabase
+          .from('documents')
+          .update({ board_column_id: moveCardsToColumnId, updated_at: new Date().toISOString() })
+          .eq('board_column_id', id)
+      }
+      const { error } = await supabase
+        .from('board_columns')
+        .delete()
+        .eq('id', id)
+      if (error) throw error
+      return { data: null, error: null }
+    } catch (error) {
+      return { data: null, error: error as Error }
+    }
+  },
+
   async moveToFolder(boardId: string, folderId: string | null): Promise<ServiceResult<Board>> {
     try {
       const { data, error } = await supabase
