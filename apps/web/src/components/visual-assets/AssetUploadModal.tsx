@@ -94,7 +94,7 @@ export default function AssetUploadModal({
             formData.append("name", file.name)
 
             const uploadResponse = await api.post(
-                `/projects/${projectId}/assets/upload`,
+                `/projects/${projectId}/visual-assets/upload`,
                 formData,
                 {
                     headers: { "Content-Type": "multipart/form-data" }

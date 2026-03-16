@@ -161,7 +161,6 @@ export class AdminController {
     data: {
       defaults?: Record<string, string>;
       fallbacks?: Record<string, string>;
-      visibleModels?: string[];
       visibleTextModels?: string[];
       visibleImageModels?: Array<string | VisibleImageModelConfig>;
     },

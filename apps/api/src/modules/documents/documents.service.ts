@@ -66,6 +66,7 @@ export class DocumentsService {
         generationMetadata: dto.generation_metadata ?? {},
         folderId: dto.folder_id,
         boardId: dto.board_id ?? null,
+        boardColumnId: dto.board_column_id ?? null,
         isContext: dto.is_context ?? false,
         isReferenceAsset: dto.is_reference_asset ?? false,
         assetType: dto.asset_type,

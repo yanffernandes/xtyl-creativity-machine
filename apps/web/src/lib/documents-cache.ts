@@ -7,8 +7,8 @@
  * Feature: 013-sidebar-cache (extension)
  */
 
-const CACHE_KEY = 'documents-cache-v3'
-const CURRENT_VERSION = 3
+const CACHE_KEY = 'documents-cache-v4'
+const CURRENT_VERSION = 4
 const MAX_PROJECTS = 20
 
 // ============================================================================
@@ -43,6 +43,10 @@ export interface CachedDocument {
   image_url?: string
   // V3: Add attachments for kanban card previews
   attachments?: CachedAttachment[]
+  // V4: Board column assignment
+  board_id?: string | null
+  board_column_id?: string | null
+  board_position?: number | null
 }
 
 export interface DocumentsCacheEntry {

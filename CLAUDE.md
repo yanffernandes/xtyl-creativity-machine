@@ -41,6 +41,8 @@ Auto-generated from all feature plans. Last updated: 2025-11-28
 - Supabase PostgreSQL, Cloudflare R2 (thumbnails) (031-creative-concepts-migration)
 - TypeScript 5.7 (all apps and packages) (032-full-stack-migration)
 - Supabase PostgreSQL 16 (existing, no schema changes) + Cloudflare R2 (S3-compatible, existing) + Redis 7.x (cache + BullMQ) (032-full-stack-migration)
+- TypeScript 5.7 (NestJS 10 backend + Vite/React 19 frontend) + BullMQ (job processor), fal.ai SDK, NestJS, TanStack Query, Framer Motion (033-studio-image-quality-improvements)
+- Supabase PostgreSQL — no schema changes needed (033-studio-image-quality-improvements)
 
 ### Core Stack (Post-Migration 032)
 - **Runtime**: **Bun 1.x** (3-4x faster than Node.js, native TypeScript)
@@ -143,10 +145,9 @@ TypeScript 5.x (Frontend), Node.js 20+ (Build tools): Follow standard convention
 - Follow mobile-first responsive design
 
 ## Recent Changes
+- 033-studio-image-quality-improvements: Added TypeScript 5.7 (NestJS 10 backend + Vite/React 19 frontend) + BullMQ (job processor), fal.ai SDK, NestJS, TanStack Query, Framer Motion
 - 032-full-stack-migration: **MIGRATED TO BUN** 🚀 - 10x faster installs, 3-4x faster runtime, native TypeScript
 - 032-full-stack-migration: Added TypeScript 5.7 monorepo (NestJS backend + Vite frontend + Turborepo)
-- 031-creative-concepts-migration: Added Python 3.11 (Backend), TypeScript 5.x (Frontend) + FastAPI, SQLAlchemy, Pydantic (Backend); Next.js 14, React 18, Shadcn/UI (Frontend)
-- 029-fal-ai-migration: Added Python 3.11 (Backend), TypeScript 5.x (Frontend) + FastAPI, SQLAlchemy, httpx, tenacity (Backend); Next.js 14, React 18, Shadcn/UI, HTML5 Canvas API (Frontend)
 
 ## Bun Migration (2026-02-16)
 **CRITICAL**: This project uses **Bun** instead of Node.js/npm/pnpm.

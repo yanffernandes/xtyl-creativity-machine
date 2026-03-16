@@ -10,6 +10,8 @@ import { useProjects } from "@/hooks/use-projects"
 import { useDocuments } from "@/hooks/use-documents"
 import { documentService } from "@/lib/supabase/documents"
 import { boardService } from "@/lib/supabase/boards"
+import boardsApi from "@/lib/boards-api"
+import type { BoardColumn } from "@/types/supabase"
 import { foldersApi } from "@/lib/folders-api"
 import { useContextFiles } from "@/hooks/use-context-files"
 import { useCreateCopy } from "@/hooks/useCopyLibrary"
@@ -20,7 +22,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Card } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { useToast } from "@/components/ui/use-toast"
-import { Loader2, Plus, Upload, FileText, MoreHorizontal, Trash, X, FolderOpen, Folder, Home, Sparkles, Download, FileType, Share2, ArrowRight, Settings, History, Archive, LayoutDashboard } from "lucide-react"
+import { Loader2, Plus, Upload, FileText, MoreHorizontal, Trash, X, FolderOpen, Folder, Home, Sparkles, Download, FileType, Share2, ArrowRight, Settings, History, Archive, LayoutDashboard, Columns } from "lucide-react"
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -76,6 +78,10 @@ const VisualAssetsLibrary = dynamic(() => import("@/components/VisualAssetsLibra
     loading: () => <div className="flex items-center justify-center p-8"><Loader2 className="h-6 w-6 animate-spin" /></div>
 })
 const AttachImageModal = dynamic(() => import("@/components/document/AttachImageModal"))
+const BoardColumnManager = dynamic(() => import("@/components/BoardColumnManager"), {
+    loading: () => null,
+    ssr: false,
+})
 const ProjectSettingsForm = dynamic(() => import("@/components/project/ProjectSettingsForm"), {
     loading: () => <div className="flex items-center justify-center p-8"><Loader2 className="h-6 w-6 animate-spin" /></div>
 })
@@ -98,19 +104,25 @@ interface DocumentAttachment {
  * Feature 028 T015-T016: Wrapper component that connects KanbanBoard to multi-select context
  */
 function KanbanBoardWithMultiSelect({
+    boardId,
+    columns,
     documents,
     onSelectDocument,
     onDelete,
-    onStatusChange,
+    onColumnChange,
     onAddToLibrary,
+    onCreateInColumn,
     workspaceId,
     projectId
 }: {
+    boardId: string
+    columns: BoardColumn[]
     documents: Document[]
     onSelectDocument: (doc: Document) => void
     onDelete?: (e: React.MouseEvent, doc: Document) => void
-    onStatusChange?: (docId: string, newStatus: string) => void
+    onColumnChange?: (docId: string, newColumnId: string) => void
     onAddToLibrary?: (doc: Document) => void
+    onCreateInColumn?: (columnId: string) => void
     workspaceId: string
     projectId: string
 }) {
@@ -124,11 +136,14 @@ function KanbanBoardWithMultiSelect({
     return (
         <>
             <KanbanBoard
+                boardId={boardId}
+                columns={columns}
                 documents={documents}
                 onSelectDocument={onSelectDocument}
                 onDelete={onDelete}
-                onStatusChange={onStatusChange}
+                onColumnChange={onColumnChange}
                 onAddToLibrary={onAddToLibrary}
+                onCreateInColumn={onCreateInColumn}
                 selectedIds={selectedIds}
                 onMultiSelect={handleMultiSelect}
             />
@@ -202,6 +217,8 @@ export default function ProjectPage() {
     const [attachmentsRefreshKey, setAttachmentsRefreshKey] = useState(0)
     const [isSavingDocument, setIsSavingDocument] = useState(false)
     const [isCreatingDocument, setIsCreatingDocument] = useState(false)
+    const [boardColumns, setBoardColumns] = useState<BoardColumn[]>([])
+    const [showColumnManager, setShowColumnManager] = useState(false)
 
     const { session, isLoading: authLoading } = useAuthStore()
     const router = useRouter()
@@ -446,6 +463,16 @@ export default function ProjectPage() {
             setDefaultTextModel((workspace as any).default_text_model || '')
         }
     }, [workspace])
+
+    // Load columns for the active board
+    useEffect(() => {
+        if (!activeBoardId) { setBoardColumns([]); return }
+        let cancelled = false
+        boardsApi.listColumns(activeBoardId).then((cols) => {
+            if (!cancelled) setBoardColumns(cols)
+        }).catch(() => {})
+        return () => { cancelled = true }
+    }, [activeBoardId])
 
     // Nome do quadro ativo quando ?board= está na URL
     useEffect(() => {
@@ -712,10 +739,16 @@ export default function ProjectPage() {
         }
     }
 
-    const handleCreateCreation = async () => {
+    const handleCreateCreation = async (targetColumnId?: string | null) => {
         // Prevent multiple clicks with debounce
         if (isCreatingDocument) return
         setIsCreatingDocument(true)
+
+        // Resolve which column to place the new document in
+        const resolvedColumnId = targetColumnId
+            ?? boardColumns.find((c) => c.is_default)?.id
+            ?? boardColumns[0]?.id
+            ?? null
 
         // Generate a temporary ID for optimistic UI
         const tempId = `temp-${Date.now()}`
@@ -727,6 +760,7 @@ export default function ProjectPage() {
             type: "creation",
             is_context: false,
             board_id: activeBoardId || null,
+            board_column_id: resolvedColumnId,
             created_at: new Date().toISOString()
         }
 
@@ -744,6 +778,7 @@ export default function ProjectPage() {
                 content: "",
                 status: "draft",
                 board_id: activeBoardId || null,
+                board_column_id: resolvedColumnId,
             }
 
             const response = await api.post(`/documents/projects/${projectId}/documents`, newDocData)
@@ -999,6 +1034,17 @@ export default function ProjectPage() {
                             )}
                         </div>
                         <div className="flex items-center gap-2 flex-shrink-0">
+                            {activeBoardId && (
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setShowColumnManager(true)}
+                                    className="gap-2"
+                                >
+                                    <Columns className="h-4 w-4" />
+                                    Colunas
+                                </Button>
+                            )}
                             <Button
                                 variant="outline"
                                 size="sm"
@@ -1275,15 +1321,18 @@ export default function ProjectPage() {
                                             />
                                         ) : viewMode === "kanban" ? (
                                             <KanbanBoardWithMultiSelect
+                                                boardId={activeBoardId!}
+                                                columns={boardColumns}
                                                 documents={kanbanDocuments}
                                                 onSelectDocument={handleSelectDocument}
                                                 onDelete={handleDelete}
-                                                onStatusChange={(docId, newStatus) => {
+                                                onColumnChange={(docId, newColumnId) => {
                                                     setCreations(prev => prev.map(d =>
-                                                        d.id === docId ? { ...d, status: newStatus } : d
+                                                        d.id === docId ? { ...d, board_column_id: newColumnId } : d
                                                     ))
                                                 }}
                                                 onAddToLibrary={handleAddToLibrary}
+                                                onCreateInColumn={(columnId) => handleCreateCreation(columnId)}
                                                 workspaceId={workspaceId}
                                                 projectId={projectId}
                                             />
@@ -1332,6 +1381,16 @@ export default function ProjectPage() {
                     )}
                 </div>
                 </MultiSelectProvider>
+
+                {/* Board Column Manager */}
+                {activeBoardId && showColumnManager && (
+                    <BoardColumnManager
+                        boardId={activeBoardId}
+                        columns={boardColumns}
+                        onClose={() => setShowColumnManager(false)}
+                        onColumnsChange={setBoardColumns}
+                    />
+                )}
 
                 {/* FAB - Floating Action Button (only in kanban/board view) */}
                 {!selectedDoc && !activeFolderId && (activeBoardId || requestedView === 'kanban') && (
