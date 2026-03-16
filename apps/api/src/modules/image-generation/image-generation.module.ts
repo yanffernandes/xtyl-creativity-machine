@@ -9,6 +9,7 @@ import { DatabaseModule } from '../../database/database.module';
 import { FalAiModule } from '../../integrations/fal-ai/fal-ai.module';
 import { StorageModule } from '../storage/storage.module';
 import { OpenRouterModule } from '../../integrations/openrouter/openrouter.module';
+import { AdminModule } from '../admin/admin.module';
 import { IMAGE_GEN_REDIS } from './image-generation.constants';
 
 export { IMAGE_GEN_REDIS };
@@ -35,6 +36,7 @@ export { IMAGE_GEN_REDIS };
     StorageModule,
     FalAiModule,
     OpenRouterModule,
+    AdminModule,
     // Register BullMQ queue for async batch image generation
     BullModule.registerQueue({
       name: 'image-generation',

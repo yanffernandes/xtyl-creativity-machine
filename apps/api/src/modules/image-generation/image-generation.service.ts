@@ -217,10 +217,12 @@ export class ImageGenerationService {
       creativity = 0.5,
       creative_concept,
       reference_assets = [],
+      reference_asset_modes = [],
       apply_brand_context = true,
       campaign_id,
       tags = [],
       channel,
+      negative_prompt,
     } = params;
 
     // Verify project exists
@@ -262,11 +264,13 @@ export class ImageGenerationService {
         creativity,
         creative_concept,
         reference_assets,
+        reference_asset_modes,
         apply_brand_context,
         campaign_id,
         tags,
         channel,
         userId,
+        negative_prompt,
       });
     }
 
@@ -692,6 +696,64 @@ export class ImageGenerationService {
   }
 
   /**
+   * Preview the final enriched prompt without generating an image.
+   * Runs the full enrichment pipeline (brand context + global rules + LLM refinement)
+   * and returns the composed prompt for debug/inspection purposes.
+   */
+  async previewPrompt(params: any, _userId: string): Promise<{ enriched_prompt: string; raw_prompt: string }> {
+    const {
+      prompt,
+      project_id,
+      creativity = 50,
+      creative_concept,
+      apply_brand_context = true,
+    } = params;
+
+    // Step 1: Enrich prompt
+    // creative_concept is a slug string (not a UUID) — look up by slug
+    let conceptObj: any = null;
+    if (creative_concept) {
+      const concepts = await this.db
+        .select()
+        .from(creativeConcepts)
+        .where(eq(creativeConcepts.slug, creative_concept))
+        .limit(1);
+      if (concepts?.length > 0) conceptObj = concepts[0];
+    }
+
+    let enrichedPrompt = prompt;
+    if (apply_brand_context) {
+      enrichedPrompt = await this.promptEnrichmentService.enrichPrompt(prompt, project_id, conceptObj);
+    }
+
+    // Step 2: Apply style modifier (index=0 — show first variation style)
+    const creativityBucket = Math.min(3, Math.floor(((creativity as number) / 100) * 4));
+    const modifierMatrix: string[][] = [
+      ['faithful to the original concept, exact style match', 'faithful composition with subtle color variation', 'faithful style with minor framing adjustment', 'true to the original with mood adaptation only'],
+      ['faithful composition with a subtle creative flourish', 'largely faithful with expressive lighting treatment', 'moderate stylistic variation on the core concept', 'faithful base with artistic color grading'],
+      ['creative interpretation with strong visual identity', 'bold composition maintaining concept intent', 'expressive stylistic approach with artistic freedom', 'experimental color grade and framing'],
+      ['bold creative reimagination of the concept', 'avant-garde composition with full artistic license', 'dramatic stylistic departure, abstract expression', 'radical artistic reinterpretation'],
+    ];
+    const styleModifier = (modifierMatrix[creativityBucket] ?? modifierMatrix[1])[0];
+    const rawPrompt = `${enrichedPrompt}. ${styleModifier}`;
+
+    // Step 3: LLM refinement if prompt_enrichment model is configured
+    const [configRow] = await this.db
+      .select()
+      .from(systemConfig)
+      .where(sql`${systemConfig.key} = 'ai_models'`)
+      .limit(1);
+    const enrichmentModelId: string = configRow?.value?.defaults?.prompt_enrichment || '';
+
+    let finalPrompt = rawPrompt;
+    if (enrichmentModelId) {
+      finalPrompt = await this.promptEnrichmentService.refineWithLLM(rawPrompt, enrichmentModelId);
+    }
+
+    return { enriched_prompt: finalPrompt, raw_prompt: rawPrompt };
+  }
+
+  /**
    * List all active creative concepts.
    */
   async listConcepts() {
@@ -935,7 +997,9 @@ export class ImageGenerationService {
       completed?: number;
       failed?: number;
       image?: any;
+      enriched_prompt?: string;
       error?: string | { index?: number; error: string };
+      model_switched?: { index: number; original_model: string; new_model: string };
     },
   ) {
     const progress = await this.getProgress(batchId);
@@ -951,13 +1015,22 @@ export class ImageGenerationService {
       progress.images.push(update.image);
       progress.events.push({
         type: 'variation_complete',
-        data: update.image,
+        data: {
+          ...update.image,
+          ...(update.enriched_prompt && { enriched_prompt: update.enriched_prompt }),
+        },
       });
     }
     if (update.started) {
       progress.events.push({
         type: 'variation_started',
         data: update.started,
+      });
+    }
+    if (update.model_switched) {
+      progress.events.push({
+        type: 'model_switched',
+        data: update.model_switched,
       });
     }
     if (update.error) {

@@ -13,6 +13,7 @@ import type { CreativeConcept } from '@/types/image-studio';
 
 interface UseCreativePromptGeneratorOptions {
   projectId: string;
+  model?: string | null;
   onPromptGenerated?: (prompt: string) => void;
 }
 
@@ -22,8 +23,6 @@ interface UseCreativePromptGeneratorReturn {
   error: string | null;
 }
 
-const CREATIVE_PROMPT_MODEL = 'google/gemini-2.0-flash-001';
-
 /**
  * Builds a system prompt from a CreativeConcept's data.
  * Uses description, prompt_modifier, and prompt_template_json to guide the AI.
@@ -31,20 +30,39 @@ const CREATIVE_PROMPT_MODEL = 'google/gemini-2.0-flash-001';
 function buildSystemPrompt(concept: CreativeConcept | null | undefined, content: string): string {
   if (!concept) {
     // No concept selected - generic prompt generation
-    return `Você é um especialista em criar prompts para IA de geração de imagem (como Flux, Ideogram, DALL-E).
+    return `Você é um especialista sênior em prompt engineering para IA de geração de imagem (Flux, Ideogram, DALL-E, Stable Diffusion).
 
 Baseado nesta copy de marketing:
 
 ${content}
 
-Gere um PROMPT DE IMAGEM que descreva visualmente uma cena impactante para anúncio digital.
-Extraia o benefício principal e a emoção central da copy.
-Descreva composição, iluminação, estilo e elementos visuais.
+Gere um PROMPT DE IMAGEM profissional e altamente detalhado. O prompt deve cobrir OBRIGATORIAMENTE estas 6 seções:
 
-REGRA DE IDIOMA: Se o criativo incluir texto visível (headlines, frases, CTAs, números), esse texto DEVE estar no MESMO IDIOMA da copy acima. A descrição visual ao redor fica em inglês.
+1. SUBJECT & ACTION: O elemento principal e o que está acontecendo na cena
+2. COMPOSITION & FRAMING: Tipo de plano (close-up, wide shot, overhead, eye-level), regra dos terços, espaço negativo
+3. LIGHTING: Tipo (natural/studio/dramatic/cinematic), direção (front/side/back), temperatura de cor (warm/cool/neutral)
+4. ATMOSPHERE & MOOD: Tom emocional, hora do dia, sensação geral
+5. VISUAL STYLE: Photography vs illustration, film grain, color palette, color grading, texture, material
+6. TYPOGRAPHY (se houver texto na imagem): Font weight (bold/regular), size emphasis (headlines mín 48pt equiv.), contrast with background
 
-FORMATO DO PROMPT: Descreva a CENA VISUAL em inglês, mas qualquer texto que apareça NA IMAGEM deve estar no idioma original da copy.
-Máximo 100 palavras. Responda APENAS com o prompt.`;
+GLOBAL VISUAL QUALITY RULES (MUST FOLLOW):
+- All text in image must be large enough to read on mobile at 350px display width
+- Headlines minimum 48pt equivalent, body text minimum 28pt equivalent
+- Strong contrast between text and background (minimum 4.5:1 ratio)
+- One dominant visual element — clear foreground/midground/background separation
+- Maximum 3 focal elements; use negative space purposefully
+- Single consistent aesthetic — no mixing photography with flat design
+- AVOID in the final image: blurry edges, watermarks, text artifacts, oversaturation, unrealistic proportions
+
+STRICT RESTRICTIONS — NEVER include these in the output:
+- Brand logos, wordmarks, or brand marks of any kind — they are provided as separate reference images and must NOT be described or placed via text instructions
+- Target audience demographics, professions, age groups, or personas — completely irrelevant to image generation
+- Marketing objectives, business context, platform specs, or product descriptions
+- Instructions like "designed for X" or "as a marketing asset for Y" — pure visual description only
+
+LANGUAGE RULE: Write the visual scene description in English. Any text that appears INSIDE the image (headlines, CTAs, phrases, numbers) MUST be in the SAME LANGUAGE as the copy above.
+
+FORMAT: 250 to 350 words. Reply ONLY with the prompt, no introduction or explanation.`;
   }
 
   // Build concept-guided prompt using all available data
@@ -74,33 +92,51 @@ Referência visual: ${json.visual_description}`;
     }
   }
 
-  return `Você é um especialista em criar prompts para IA de geração de imagem (como Flux, Ideogram, DALL-E).
+  return `Você é um especialista sênior em prompt engineering para IA de geração de imagem (Flux, Ideogram, DALL-E, Stable Diffusion).
 
-CONCEITO CRIATIVO: "${conceptName}"
+CREATIVE CONCEPT: "${conceptName}"
 ${conceptDesc}
 ${compositionGuide}
 
-REFERÊNCIA DE PROMPT DO CONCEITO:
+CONCEPT STYLE REFERENCE:
 ${promptModifier}
 
 Baseado nesta copy de marketing:
 
 ${content}
 
-Sua tarefa: Gere um PROMPT DE IMAGEM que combine o conceito criativo "${conceptName}" com o conteúdo da copy acima.
-- Use o conceito como guia de composição e estilo visual
-- Extraia headlines, benefícios ou dados relevantes da copy para incorporar na imagem
-- Mantenha fidelidade ao estilo visual do conceito
-- Adapte o prompt_modifier de referência ao conteúdo específico da copy
+Gere um PROMPT DE IMAGEM profissional que combine o conceito "${conceptName}" com a copy acima. O prompt deve cobrir OBRIGATORIAMENTE estas 6 seções:
 
-REGRA DE IDIOMA: Se o criativo incluir texto visível (headlines, frases, CTAs, números), esse texto DEVE estar no MESMO IDIOMA da copy acima. A descrição visual ao redor fica em inglês.
+1. SUBJECT & ACTION: Elemento principal alinhado ao conceito criativo e à copy
+2. COMPOSITION & FRAMING: Layout e enquadramento específicos do conceito
+3. LIGHTING: Iluminação que reforce o mood do conceito e da copy
+4. ATMOSPHERE & MOOD: Tom emocional extraído da copy e do conceito
+5. VISUAL STYLE: Estilo fiel ao conceito, paleta de cores, textura, acabamento
+6. TYPOGRAPHY (se houver): Peso, tamanho (headlines mín 48pt equiv.) e contraste
 
-FORMATO DO PROMPT: Descreva a CENA VISUAL em inglês, mas qualquer texto que apareça NA IMAGEM deve estar no idioma original da copy.
-Máximo 120 palavras. Responda APENAS com o prompt.`;
+GLOBAL VISUAL QUALITY RULES (MUST FOLLOW):
+- All text in image must be large enough to read on mobile at 350px display width
+- Headlines minimum 48pt equivalent, body text minimum 28pt equivalent
+- Strong contrast between text and background (minimum 4.5:1 ratio)
+- One dominant visual element — clear foreground/midground/background separation
+- Maximum 3 focal elements; use negative space purposefully
+- Single consistent aesthetic — no mixing photography with flat design
+- AVOID in the final image: blurry edges, watermarks, text artifacts, oversaturation, unrealistic proportions
+
+STRICT RESTRICTIONS — NEVER include these in the output:
+- Brand logos, wordmarks, or brand marks of any kind — they are provided as separate reference images and must NOT be described or placed via text instructions
+- Target audience demographics, professions, age groups, or personas — completely irrelevant to image generation
+- Marketing objectives, business context, platform specs, or product descriptions
+- Instructions like "designed for X" or "as a marketing asset for Y" — pure visual description only
+
+LANGUAGE RULE: Write the visual scene description in English. Any text INSIDE the image MUST be in the SAME LANGUAGE as the copy above.
+
+FORMAT: 250 to 350 words. Reply ONLY with the prompt, no introduction or explanation.`;
 }
 
 export function useCreativePromptGenerator({
   projectId,
+  model,
   onPromptGenerated,
 }: UseCreativePromptGeneratorOptions): UseCreativePromptGeneratorReturn {
   const [isGenerating, setIsGenerating] = useState(false);
@@ -113,6 +149,11 @@ export function useCreativePromptGenerator({
         return '';
       }
 
+      if (!model) {
+        setError('Modelo de enriquecimento de prompt não configurado. Configure em Admin → Modelos → Prompt enrichment.');
+        return '';
+      }
+
       setIsGenerating(true);
       setError(null);
 
@@ -121,7 +162,7 @@ export function useCreativePromptGenerator({
 
         const response = await api.post('/chat/completion', {
           project_id: projectId,
-          model: CREATIVE_PROMPT_MODEL,
+          model,
           messages: [
             {
               role: 'user',
@@ -129,6 +170,7 @@ export function useCreativePromptGenerator({
             },
           ],
           stream: false,
+          temperature: 0.3,
         });
 
         const generatedPrompt =
@@ -151,7 +193,7 @@ export function useCreativePromptGenerator({
         setIsGenerating(false);
       }
     },
-    [projectId, onPromptGenerated]
+    [projectId, model, onPromptGenerated]
   );
 
   return {

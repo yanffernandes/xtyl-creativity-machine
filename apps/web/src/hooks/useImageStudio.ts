@@ -13,7 +13,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { generateImageBatch, getBatchStreamUrl, attachImageToDocument } from '@/lib/api';
+import { generateImageBatch, getBatchStreamUrl, attachImageToDocument, previewImagePrompt } from '@/lib/api';
 import { queryKeys, documentKeys } from '@/lib/query-keys';
 import { useAuthStore } from '@/lib/store';
 import type {
@@ -71,9 +71,16 @@ interface UseImageStudioReturn extends ImageStudioState {
   updateSelectedAssets: (assets: SelectedAssetWithMode[]) => void;
   // Feature 028: Brand context toggle
   setApplyBrandContext: (apply: boolean) => void;
+  // Feature 033: Negative prompt
+  negativePrompt: string;
+  setNegativePrompt: (value: string) => void;
+  // Feature 033: Last enriched prompt (from SSE variation_complete event or debug preview)
+  lastEnrichedPrompt: string;
+  isPreviewingPrompt: boolean;
 
   // Actions
   generate: () => Promise<void>;
+  previewPrompt: () => Promise<void>;
   refine: (image: GeneratedImage) => void;
   save: (image: GeneratedImage, folderId?: string) => Promise<void>;
   attach: (image: GeneratedImage, documentId: string) => Promise<void>;
@@ -136,6 +143,10 @@ export function useImageStudio({
   const [isGenerating, setIsGenerating] = useState(false);
   const [batchId, setBatchId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Feature 033: Negative prompt, last enriched prompt, and preview state
+  const [negativePrompt, setNegativePrompt] = useState<string>('');
+  const [lastEnrichedPrompt, setLastEnrichedPrompt] = useState<string>('');
+  const [isPreviewingPrompt, setIsPreviewingPrompt] = useState(false);
 
   // Track current batch variations separately (for prepending to history)
   const [currentBatchVariations, setCurrentBatchVariations] = useState<GeneratedImage[]>([]);
@@ -207,7 +218,18 @@ export function useImageStudio({
             case 'variation_started':
               break;
 
+            case 'model_switched': {
+              const newModelId: string = data.data?.new_model ?? '';
+              const friendlyName = newModelId.split('/').slice(-2).join('/');
+              toast.info(`Modelo alterado para ${friendlyName} para aplicar os assets visuais selecionados`);
+              break;
+            }
+
             case 'variation_complete':
+              // Feature 033: capture enriched_prompt from the first completed variation
+              if (data.data?.enriched_prompt) {
+                setLastEnrichedPrompt(data.data.enriched_prompt);
+              }
               setPendingCount((prev) => Math.max(0, prev - 1));
               const completedImage: GeneratedImage = {
                 success: true,
@@ -335,6 +357,8 @@ export function useImageStudio({
         reference_asset_modes: assetsForApi,
         // Feature 028: Brand context toggle
         apply_brand_context: applyBrandContext,
+        // Feature 033: Negative prompt
+        negative_prompt: negativePrompt || undefined,
       });
 
       if (response.status === 'processing' && response.batch_id) {
@@ -376,9 +400,32 @@ export function useImageStudio({
     assetMode,
     selectedAssetsWithModes,
     applyBrandContext,
+    negativePrompt,
     setupSSE,
     getAccessToken,
   ]);
+
+  // Debug mode: preview the enriched prompt without generating
+  const previewPrompt = useCallback(async () => {
+    if (!prompt.trim() || isPreviewingPrompt) return;
+    setIsPreviewingPrompt(true);
+    try {
+      const result = await previewImagePrompt({
+        prompt: prompt.trim(),
+        project_id: projectId,
+        creativity: creativity / 100,
+        creative_concept: conceptSlug,
+        apply_brand_context: applyBrandContext,
+      });
+      setLastEnrichedPrompt(result.enriched_prompt);
+      toast.info('Prompt enriquecido carregado (modo debug)');
+    } catch (err) {
+      console.error('Failed to preview prompt:', err);
+      toast.error('Falha ao gerar preview do prompt');
+    } finally {
+      setIsPreviewingPrompt(false);
+    }
+  }, [prompt, isPreviewingPrompt, projectId, creativity, conceptSlug, applyBrandContext]);
 
   // Refine an existing image (use it as reference)
   const refine = useCallback((image: GeneratedImage) => {
@@ -436,6 +483,9 @@ export function useImageStudio({
     setAssetMode('style');
     setSelectedAssetsWithModes([]);
     setApplyBrandContext(true);
+    setNegativePrompt('');
+    setLastEnrichedPrompt('');
+    setIsPreviewingPrompt(false);
     setVariations([]);
     setCurrentBatchVariations([]);
     setIsGenerating(false);
@@ -493,9 +543,15 @@ export function useImageStudio({
     setAssetMode,
     updateSelectedAssets,
     setApplyBrandContext,
+    // Feature 033: Negative prompt
+    negativePrompt,
+    setNegativePrompt,
+    lastEnrichedPrompt,
+    isPreviewingPrompt,
 
     // Actions
     generate,
+    previewPrompt,
     refine,
     save,
     attach,

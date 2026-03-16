@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { getModelConfig, getAvailableModels, updateModelConfig, getModelSchema } from '@/lib/api';
+import { getModelConfig, getAvailableModels, updateModelConfig, getModelSchema, deriveCapabilitiesFromSchema } from '@/lib/api';
 import type {
   AvailableModel,
   ModelConfig,
@@ -112,15 +112,21 @@ function ModelsPage() {
       setLoadingModelSchema(model.id);
       try {
         const schema: ModelSchema = await getModelSchema(model.id);
-        const modelType = model.id.includes('/edit') ? 'image-to-image' : 'text-to-image';
+        const isEditModel = model.id.includes('/edit');
+        const modelType = isEditModel ? 'image-to-image' : 'text-to-image';
+        // Derive edit model ID by convention: text-to-image models get an editModelId pointing to their /edit counterpart
+        const editModelId = isEditModel ? undefined : `${model.id}/edit`;
+        const capabilities = deriveCapabilitiesFromSchema(schema.parameters);
         const fullConfig: VisibleImageModelConfig = {
           id: model.id,
           name: model.name,
           provider: model.provider,
           modelType,
+          ...(editModelId && { editModelId }),
           supportsMask: schema.supportsMask,
           maxImages: schema.maxImages,
           parameters: schema.parameters,
+          ...capabilities,
         };
         setEnabledImageModels((prev) => {
           const next = new Map(prev);
@@ -202,7 +208,7 @@ function ModelsPage() {
               <CardHeader>
                 <CardTitle>Default Models</CardTitle>
                 <CardDescription>
-                  Models used by default for each function in the chat interface
+                  Models used by default for each function in the system
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -220,6 +226,35 @@ function ModelsPage() {
                   models={visionModels}
                   onChange={(v) => setDefault('vision', v)}
                   badge="vision"
+                />
+                <DefaultRow
+                  label="Document analysis"
+                  description="Model used to analyze and extract content from documents"
+                  value={defaults.document ?? ''}
+                  models={textModels}
+                  onChange={(v) => setDefault('document', v)}
+                />
+                <DefaultRow
+                  label="Embeddings"
+                  description="Model used to generate vector embeddings for RAG/search"
+                  value={defaults.embedding ?? ''}
+                  models={textModels}
+                  onChange={(v) => setDefault('embedding', v)}
+                  badge="embedding"
+                />
+                <DefaultRow
+                  label="Image naming"
+                  description="Model used to auto-generate names for generated images"
+                  value={defaults.image_naming ?? ''}
+                  models={textModels}
+                  onChange={(v) => setDefault('image_naming', v)}
+                />
+                <DefaultRow
+                  label="Prompt enrichment"
+                  description="Model used to enrich and improve image generation prompts"
+                  value={defaults.prompt_enrichment ?? ''}
+                  models={textModels}
+                  onChange={(v) => setDefault('prompt_enrichment', v)}
                 />
               </CardContent>
             </Card>

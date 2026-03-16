@@ -249,12 +249,42 @@ export interface VisibleImageModelConfig {
   name?: string;
   provider?: string;
   modelType?: 'text-to-image' | 'image-to-image';
+  editModelId?: string; // ID of the image-to-image counterpart (derived by convention, stored in system_config)
   supportsMask?: boolean;
   maxImages?: number;
   parameters?: ModelSchema['parameters'];
+  supportsQuality?: boolean;
+  qualityValue?: 'low' | 'medium' | 'high';
+  supportsResolution?: boolean;
+  resolutionValue?: string;
+  supportsNegativePrompt?: boolean;
 }
 
 export type VisibleImageModelValue = string | VisibleImageModelConfig;
+
+export function deriveCapabilitiesFromSchema(
+  parameters: ModelSchema['parameters']
+): Pick<VisibleImageModelConfig, 'supportsQuality' | 'qualityValue' | 'supportsResolution' | 'resolutionValue' | 'supportsNegativePrompt'> {
+  const paramNames = parameters.map((p) => p.name.toLowerCase());
+
+  const supportsQuality = paramNames.includes('quality');
+  const supportsResolution = paramNames.includes('resolution');
+  const supportsNegativePrompt = paramNames.includes('negative_prompt');
+
+  // Derive quality value from parameter options if available
+  const qualityValue: 'high' | undefined = supportsQuality ? 'high' : undefined;
+
+  // Derive resolution value from parameter options if available
+  const resolutionValue: string | undefined = supportsResolution ? '2K' : undefined;
+
+  return {
+    supportsQuality,
+    ...(qualityValue && { qualityValue }),
+    supportsResolution,
+    ...(resolutionValue && { resolutionValue }),
+    supportsNegativePrompt,
+  };
+}
 
 export interface ModelConfig {
   defaults: {
@@ -304,6 +334,24 @@ export interface AvailableModel {
 // Interfaces: System Settings
 // ============================================================================
 
+export interface SystemSettings {
+  limits: {
+    max_workspaces_per_user?: number;
+    max_members_per_workspace?: number;
+    max_projects_per_workspace?: number;
+    max_documents_per_project?: number;
+    max_file_size_mb?: number;
+  };
+  features: {
+    enable_image_generation?: boolean;
+    enable_document_analysis?: boolean;
+    enable_rag?: boolean;
+    enable_workflows?: boolean;
+    enable_public_sharing?: boolean;
+  };
+}
+
+/** @deprecated use SystemSettings */
 export interface SystemSetting {
   key: string;
   value: string;
@@ -531,15 +579,16 @@ export async function getModelSchema(modelId: string): Promise<ModelSchema> {
 // API Functions: System Settings
 // ============================================================================
 
-export async function getSystemSettings(): Promise<SystemSetting[]> {
+export async function getSystemSettings(): Promise<SystemSettings> {
   const response = await api.get('/admin/system/settings');
   return response.data;
 }
 
 export async function updateSystemSettings(
-  settings: Record<string, string>,
-): Promise<void> {
-  await api.put('/admin/system/settings', settings);
+  settings: Record<string, any>,
+): Promise<SystemSettings> {
+  const response = await api.put('/admin/system/settings', settings);
+  return response.data;
 }
 
 // ============================================================================

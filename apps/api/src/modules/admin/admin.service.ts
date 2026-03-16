@@ -21,9 +21,15 @@ type VisibleImageModelConfig = {
   name?: string;
   provider?: string;
   modelType?: 'text-to-image' | 'image-to-image';
+  editModelId?: string; // ID of the image-to-image counterpart, derived by convention and stored in system_config
   supportsMask?: boolean;
   maxImages?: number;
   parameters?: unknown[];
+  supportsQuality?: boolean;
+  qualityValue?: 'low' | 'medium' | 'high';
+  supportsResolution?: boolean;
+  resolutionValue?: string;
+  supportsNegativePrompt?: boolean;
 };
 
 @Injectable()
@@ -512,6 +518,38 @@ export class AdminService {
 
   async getModelSchema(modelId: string) {
     return this.falAiService.getModelSchema(modelId);
+  }
+
+  /**
+   * Reads the `visible_image_models` entry from system_config and returns the
+   * stored VisibleImageModelConfig for the given modelId, or null if not found.
+   *
+   * Used by ImageGenerationProcessor to read capability flags (supportsQuality,
+   * supportsResolution, supportsNegativePrompt, etc.) without hardcoding them.
+   */
+  async getEnabledImageModelConfig(modelId: string): Promise<VisibleImageModelConfig | null> {
+    const [configRow] = await this.db
+      .select()
+      .from(systemConfig)
+      .where(sql`${systemConfig.key} = 'visible_image_models'`)
+      .limit(1);
+
+    const stored: any[] = Array.isArray(configRow?.value) ? configRow.value : [];
+
+    const match = stored.find((item: any) => {
+      if (typeof item === 'string') return item === modelId;
+      if (typeof item === 'object' && item !== null) return item.id === modelId;
+      return false;
+    });
+
+    if (!match) return null;
+
+    // Normalise string entries (legacy format) to a minimal config object
+    if (typeof match === 'string') {
+      return { id: match };
+    }
+
+    return match as VisibleImageModelConfig;
   }
 
   async updateModelConfig(

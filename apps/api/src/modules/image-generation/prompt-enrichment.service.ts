@@ -2,6 +2,7 @@ import { Injectable, Inject } from '@nestjs/common';
 import { eq } from 'drizzle-orm';
 import { DATABASE } from '../../database/database.module';
 import { projects } from '../../database/drizzle/schema';
+import { OpenRouterService } from '../../integrations/openrouter';
 
 /**
  * Prompt Enrichment Service
@@ -13,7 +14,27 @@ import { projects } from '../../database/drizzle/schema';
  */
 @Injectable()
 export class PromptEnrichmentService {
-  constructor(@Inject(DATABASE) private readonly db: any) {}
+  /**
+   * Global visual quality rules appended to every enriched prompt.
+   * Rule 3 (CONTRAST) intentionally references strong contrast generically —
+   * brand colors are already injected via the brand context section of the
+   * prompt (see getBrandContext), so T013 is covered without duplication.
+   */
+  private static readonly GLOBAL_VISUAL_RULES = `
+
+GLOBAL VISUAL QUALITY RULES:
+1. HIGH QUALITY: Sharp details, professional photography or illustration quality, no artifacts.
+2. TYPOGRAPHY: Any text in the image must be legible on mobile (min 48pt headlines, 28pt body). When in doubt, make text BIGGER.
+3. CONTRAST: Text must contrast strongly against background. Dark text on light bg or vice versa.
+4. HIERARCHY: One clear dominant element. Intentional foreground/midground/background separation.
+5. NO CLUTTER: Maximum 3 focal elements. Use negative space purposefully.
+6. STYLE UNITY: Single consistent aesthetic. No mixing photography with flat design.
+7. AVOID: blurry edges, watermarks, text artifacts, oversaturation, unrealistic proportions.`;
+
+  constructor(
+    @Inject(DATABASE) private readonly db: any,
+    private readonly openRouterService: OpenRouterService,
+  ) {}
 
   /**
    * Enrich prompt with creative concept and brand context.
@@ -30,9 +51,10 @@ export class PromptEnrichmentService {
   ): Promise<string> {
     let enrichedPrompt = prompt;
 
-    // 1. Add creative concept modifier if provided
-    if (concept && concept.promptModifier) {
-      enrichedPrompt = `${concept.promptModifier}. ${prompt}`;
+    // 1. Add creative concept directive if provided
+    if (concept) {
+      const conceptDirective = this.buildConceptDirective(concept);
+      enrichedPrompt = `${conceptDirective} ${prompt}`;
     }
 
     // 2. Add brand context if project is provided
@@ -43,7 +65,51 @@ export class PromptEnrichmentService {
       }
     }
 
+    // Always append global visual quality rules
+    enrichedPrompt = `${enrichedPrompt}${PromptEnrichmentService.GLOBAL_VISUAL_RULES}`;
+
     return enrichedPrompt;
+  }
+
+  /**
+   * Refine a raw assembled prompt through an LLM to produce coherent, high-quality prose.
+   * Falls back to the original prompt if the LLM call fails.
+   *
+   * @param rawPrompt - The concatenated prompt with brand context, global rules, etc.
+   * @param modelId - OpenRouter model ID to use for refinement
+   * @returns Refined prompt string
+   */
+  async refineWithLLM(rawPrompt: string, modelId: string): Promise<string> {
+    const systemPrompt = `You are an expert image generation prompt engineer. Your task is to take a raw assembled image generation brief and rewrite it as a single, fluent, highly descriptive paragraph optimized for AI image generation.
+
+Rules:
+- Preserve ALL brand colors, typography rules, visual requirements, and creative directives
+- Combine fragmented instructions into natural, flowing prose
+- Keep ALL technical quality directives (contrast, hierarchy, typography sizes, etc.)
+- Preserve negative quality indicators (things to avoid) if present
+- Output ONLY the refined prompt, no explanations, no preamble, no labels
+- Maximum 400 words
+
+STRICT — remove or do NOT introduce:
+- Brand logo, wordmark, or brand mark instructions of any kind (logos are passed as reference images, not described in text)
+- Target audience demographics, professions, or age groups
+- Marketing objectives, business context, or platform descriptions`;
+
+    try {
+      const result = await this.openRouterService.chatCompletion(
+        [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: rawPrompt },
+        ],
+        modelId,
+        { temperature: 0.3, maxTokens: 600 },
+      );
+      const refined = result.choices[0]?.message?.content;
+      return refined && refined.trim() ? refined.trim() : rawPrompt;
+    } catch (error) {
+      console.error('LLM prompt refinement failed, using raw prompt:', error);
+      return rawPrompt;
+    }
   }
 
   /**
@@ -113,6 +179,101 @@ export class PromptEnrichmentService {
       console.error('Failed to get brand context:', error);
       return null;
     }
+  }
+
+  /**
+   * Build a structured concept directive from a creative concept object.
+   * Extracts fields from `prompt_template_json` (composition, requirements,
+   * visual_description) as explicit directives. Falls back to plain
+   * `promptModifier` / `prompt_modifier` when JSON data is not available.
+   *
+   * @param concept - Creative concept object (any shape, snake_case or camelCase)
+   * @returns Formatted directive string
+   */
+  private buildConceptDirective(concept: any): string {
+    const parts: string[] = [];
+
+    if (concept.name) {
+      parts.push(`Concept: "${concept.name}".`);
+    }
+
+    const json = (concept.prompt_template_json ?? concept.promptTemplateJson) as Record<string, unknown> | null;
+
+    if (json?.composition) {
+      const c = json.composition as Record<string, unknown>;
+      const compParts = [
+        c.layout && `layout: ${c.layout}`,
+        c.style && `style: ${c.style}`,
+        c.main_element && `main element: ${c.main_element}`,
+      ].filter(Boolean);
+      if (compParts.length) parts.push(`Composition (${compParts.join(', ')}).`);
+    }
+
+    if (Array.isArray(json?.requirements) && (json.requirements as string[]).length > 0) {
+      parts.push(`Visual requirements: ${(json.requirements as string[]).join(', ')}.`);
+    }
+
+    if (json?.visual_description) {
+      parts.push(`Visual reference: ${json.visual_description}.`);
+    }
+
+    // Fallback to plain modifier if no JSON data was found
+    if (parts.length <= 1 && (concept.promptModifier || concept.prompt_modifier)) {
+      return `${concept.promptModifier ?? concept.prompt_modifier}.`;
+    }
+
+    if (concept.promptModifier || concept.prompt_modifier) {
+      parts.push(`Style: ${concept.promptModifier ?? concept.prompt_modifier}.`);
+    }
+
+    return parts.join(' ');
+  }
+
+  /**
+   * Build a prompt addition describing how visual context assets should be applied.
+   *
+   * @param assets - Array of assets with their mode and metadata
+   * @returns Prompt addition string, or empty string if no assets
+   */
+  buildVisualContextAddition(
+    assets: Array<{
+      title?: string | null;
+      assetCategory?: string | null;
+      aiDescription?: string | null;
+      assetTags?: string[] | null;
+      mode: 'style' | 'compose' | 'base';
+    }>,
+  ): string {
+    if (!assets.length) return '';
+
+    const parts: string[] = [];
+
+    const baseAssets = assets.filter((a) => a.mode === 'base');
+    const composeAssets = assets.filter((a) => a.mode === 'compose');
+    const styleAssets = assets.filter((a) => a.mode === 'style');
+
+    if (baseAssets.length > 0) {
+      parts.push('Build upon and refine the provided base image(s) as the starting point');
+    }
+
+    for (const asset of composeAssets) {
+      const label = asset.title || 'element';
+      const category = asset.assetCategory ? ` (${asset.assetCategory})` : '';
+      const desc = asset.aiDescription ? `: ${asset.aiDescription}` : '';
+      parts.push(
+        `Include the provided ${label}${category} exactly as shown in the reference image${desc}`,
+      );
+    }
+
+    for (const asset of styleAssets) {
+      const label = asset.title || 'reference';
+      const desc = asset.aiDescription ? `. Description: ${asset.aiDescription}` : '';
+      const tags =
+        asset.assetTags?.length ? `. Style tags: ${asset.assetTags.join(', ')}` : '';
+      parts.push(`Use the visual style and aesthetic of the provided ${label}${desc}${tags}`);
+    }
+
+    return parts.join('. ');
   }
 
   /**

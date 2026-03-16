@@ -1,0 +1,135 @@
+openapi: "3.1.0"
+info:
+  title: Image Generation API — Quality Improvements
+  version: "033"
+  description: >
+    Changes to existing image generation endpoints for feature 033.
+    Only modified/new fields are documented here — all other fields remain unchanged.
+
+paths:
+  /image-generation/batch:
+    post:
+      summary: Generate image batch (modified)
+      description: >
+        Existing endpoint. New field: `negative_prompt`.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/GenerateImageBatchDtoBase'
+                - $ref: '#/components/schemas/GenerateImageBatchDtoExtensions'
+      responses:
+        "202":
+          description: Batch accepted and queued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchStartedResponse'
+
+components:
+  schemas:
+    GenerateImageBatchDtoBase:
+      description: Existing fields (unchanged)
+      type: object
+      required:
+        - prompt
+        - project_id
+      properties:
+        prompt:
+          type: string
+          description: User's image generation prompt (will be enriched on backend)
+        project_id:
+          type: string
+          format: uuid
+        model:
+          type: string
+          default: "fal-ai/gpt-image-1.5"
+          example: "fal-ai/gpt-image-1.5"
+        aspect_ratio:
+          type: string
+          default: "1:1"
+          example: "16:9"
+        creativity:
+          type: number
+          minimum: 0
+          maximum: 100
+          default: 50
+          description: 0=faithful, 100=bold creative reinterpretation
+        count:
+          type: integer
+          minimum: 1
+          maximum: 6
+          default: 1
+        creative_concept:
+          type: string
+          nullable: true
+          description: Concept slug to apply during enrichment
+        apply_brand_context:
+          type: boolean
+          default: true
+        reference_assets:
+          type: array
+          items:
+            type: string
+          nullable: true
+        reference_asset_modes:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              mode:
+                type: string
+                enum: [base, compose, style]
+
+    GenerateImageBatchDtoExtensions:
+      description: NEW fields added in feature 033
+      type: object
+      properties:
+        negative_prompt:
+          type: string
+          maxLength: 500
+          nullable: true
+          description: >
+            Elements to exclude from the image. Only forwarded to models that
+            support it (e.g., Seedream). A default quality-guard string is used
+            when this is empty/null.
+          example: "blurry, watermark, low quality, distorted, text artifacts"
+
+    BatchStartedResponse:
+      type: object
+      properties:
+        batch_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [processing]
+        variation_count:
+          type: integer
+
+  examples:
+    BatchRequestWithNegativePrompt:
+      summary: Full batch request with negative prompt
+      value:
+        prompt: "A confident entrepreneur presenting at a startup conference, modern stage"
+        project_id: "b3f2a1c4-0000-4000-a000-000000000001"
+        model: "fal-ai/bytedance/seedream/v4.5/text-to-image"
+        aspect_ratio: "16:9"
+        creativity: 60
+        count: 3
+        negative_prompt: "blurry, low quality, watermark, ugly, distorted face"
+        apply_brand_context: true
+
+    BatchRequestGptHighQuality:
+      summary: GPT Image 1.5 — quality:high sent automatically
+      value:
+        prompt: "Premium luxury watch on marble surface, editorial photography"
+        project_id: "b3f2a1c4-0000-4000-a000-000000000001"
+        model: "fal-ai/gpt-image-1.5"
+        aspect_ratio: "1:1"
+        creativity: 20
+        count: 2
+        # quality: 'high' is set automatically by the processor's MODEL_CAPABILITIES map

@@ -23,6 +23,7 @@ import {
   Zap,
   Video,
   Palette,
+  ChevronDown,
 } from 'lucide-react';
 import { useAuthStore } from '@/lib/store';
 import { useProjectBootstrap } from '@/hooks/useProjectBootstrap';
@@ -31,15 +32,28 @@ import { useImageStudio } from '@/hooks/useImageStudio';
 import { useCreativePromptGenerator } from '@/hooks/useCreativePromptGenerator';
 import { useProjectMedia } from '@/hooks/useProjectMedia';
 import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command';
+import { Check, ChevronsUpDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getDocumentById, getImageModels } from '@/lib/api';
 
@@ -106,6 +120,7 @@ export default function StudioPage() {
   const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(null);
   const [selectedDocumentContent, setSelectedDocumentContent] = useState<string | null>(null);
   const [isLoadingSelectedDocument, setIsLoadingSelectedDocument] = useState(false);
+  const [openDocumentCombobox, setOpenDocumentCombobox] = useState(false);
   const bootstrapOptions = useMemo(
     () => ({
       include_models: false,
@@ -170,6 +185,7 @@ export default function StudioPage() {
   // Creative prompt generator
   const promptGenerator = useCreativePromptGenerator({
     projectId,
+    model: bootstrapData?.models?.default_prompt_enrichment_model,
     onPromptGenerated: (prompt) => {
       studio.setPrompt(prompt);
       toast.success('Prompt criativo gerado!');
@@ -183,6 +199,22 @@ export default function StudioPage() {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading, session]);
+
+  // Track L key held state for debug prompt preview mode
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'l' || e.key === 'L') (window as any).__studioLKeyHeld = true;
+    };
+    const onKeyUp = (e: KeyboardEvent) => {
+      if (e.key === 'l' || e.key === 'L') (window as any).__studioLKeyHeld = false;
+    };
+    window.addEventListener('keydown', onKeyDown);
+    window.addEventListener('keyup', onKeyUp);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('keyup', onKeyUp);
+    };
+  }, []);
 
   // Infinite scroll - auto-load more when scrolling to bottom
   useEffect(() => {
@@ -409,24 +441,60 @@ export default function StudioPage() {
                           <span>Fonte do Prompt</span>
                         </div>
 
-                        <Select
-                          value={selectedDocumentId || ''}
-                          onValueChange={(value) => {
-                            setSelectedDocumentContent(null);
-                            setSelectedDocumentId(value || null);
-                          }}
-                        >
-                          <SelectTrigger className="w-full">
-                            <SelectValue placeholder="Selecione uma copy..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {(bootstrapData?.recent_copies || []).map((doc) => (
-                              <SelectItem key={doc.id} value={doc.id}>
-                                <span className="truncate">{doc.title || 'Sem título'}</span>
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <Popover open={openDocumentCombobox} onOpenChange={setOpenDocumentCombobox}>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              role="combobox"
+                              aria-expanded={openDocumentCombobox}
+                              className="w-full justify-between h-10 font-normal bg-background border-input"
+                            >
+                              <span className="truncate text-left flex-1">
+                                {selectedDocumentId
+                                  ? (bootstrapData?.recent_copies || []).find((d) => d.id === selectedDocumentId)?.title || 'Sem título'
+                                  : <span className="text-muted-foreground">Selecione uma copy...</span>
+                                }
+                              </span>
+                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+                            <Command>
+                              <CommandInput placeholder="Buscar copy..." />
+                              <CommandList className="max-h-[280px]">
+                                <CommandEmpty>Nenhuma copy encontrada.</CommandEmpty>
+                                <CommandGroup>
+                                  {(bootstrapData?.recent_copies || []).map((doc) => (
+                                    <CommandItem
+                                      key={doc.id}
+                                      value={doc.id}
+                                      keywords={[doc.title || '', doc.board_column_name || '']}
+                                      onSelect={() => {
+                                        setSelectedDocumentContent(null);
+                                        setSelectedDocumentId(doc.id === selectedDocumentId ? null : doc.id);
+                                        setOpenDocumentCombobox(false);
+                                      }}
+                                      className="gap-2 py-2.5"
+                                    >
+                                      <div className="flex flex-col min-w-0 flex-1">
+                                        <span className="truncate text-sm">{doc.title || 'Sem título'}</span>
+                                        {doc.board_column_name && (
+                                          <span className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-primary/50 shrink-0" />
+                                            {doc.board_column_name}
+                                          </span>
+                                        )}
+                                      </div>
+                                      {selectedDocumentId === doc.id && (
+                                        <Check className="h-4 w-4 shrink-0 text-primary" />
+                                      )}
+                                    </CommandItem>
+                                  ))}
+                                </CommandGroup>
+                              </CommandList>
+                            </Command>
+                          </PopoverContent>
+                        </Popover>
 
                         {selectedDocument && (
                           <div className="p-3 rounded-lg bg-muted/50 border border-border/60">
@@ -680,16 +748,76 @@ export default function StudioPage() {
                       {/* Divider */}
                       <div className="border-t border-border/60" />
 
-                      {/* 6. BOTÃO GERAR */}
+                      {/* 5.5 CONFIGURAÇÕES AVANÇADAS */}
+                      <Collapsible>
+                        <CollapsibleTrigger asChild>
+                          <Button variant="ghost" size="sm" className="w-full justify-between text-xs text-muted-foreground px-0">
+                            Configurações Avançadas
+                            <ChevronDown className="h-3 w-3" />
+                          </Button>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent className="space-y-2 pt-2">
+                          {/* Negative prompt */}
+                          <div className="space-y-1">
+                            <Label className="text-xs text-muted-foreground">
+                              Prompt Negativo
+                              <span className="ml-1 opacity-60">(o que evitar na imagem)</span>
+                            </Label>
+                            <Textarea
+                              placeholder="blurry, watermark, low quality, distorted..."
+                              value={studio.negativePrompt}
+                              onChange={(e) => studio.setNegativePrompt(e.target.value)}
+                              className="min-h-[60px] text-xs resize-none"
+                              maxLength={500}
+                            />
+                            {/* Inline warning when model may not support negative_prompt */}
+                            {studio.negativePrompt && (
+                              <p className="text-xs text-amber-500/80">
+                                ⚠️ Este modelo pode não suportar prompt negativo. O campo será ignorado se não suportado.
+                              </p>
+                            )}
+                          </div>
+
+                          {/* Ver prompt completo — shows enriched prompt after generation */}
+                          {studio.lastEnrichedPrompt && (
+                            <div className="space-y-1 pt-2 border-t border-border/40">
+                              <Label className="text-xs text-muted-foreground">Ver prompt completo</Label>
+                              <div className="rounded-md bg-muted/50 p-2 text-xs text-muted-foreground leading-relaxed max-h-32 overflow-y-auto whitespace-pre-wrap">
+                                {studio.lastEnrichedPrompt}
+                              </div>
+                            </div>
+                          )}
+                        </CollapsibleContent>
+                      </Collapsible>
+
+                      {/* Divider */}
+                      <div className="border-t border-border/60" />
+
+                      {/* 6. BOTÃO GERAR — hold L to preview prompt without generating */}
                       <Button
-                        onClick={studio.generate}
-                        disabled={!studio.prompt.trim() || studio.isGenerating}
+                        onClick={(e) => {
+                          if (e.getModifierState && e.getModifierState('CapsLock') === false && (e.nativeEvent as any).key === 'l') return;
+                          // Detect L key held via keyboard state on the event
+                          const isLHeld = (window as any).__studioLKeyHeld === true;
+                          if (isLHeld) {
+                            studio.previewPrompt();
+                          } else {
+                            studio.generate();
+                          }
+                        }}
+                        disabled={!studio.prompt.trim() || studio.isGenerating || studio.isPreviewingPrompt}
                         className="w-full h-12 gap-2 text-base font-semibold shadow-sm"
+                        title="Segure L e clique para ver o prompt sem gerar"
                       >
                         {studio.isGenerating ? (
                           <>
                             <Loader2 className="h-5 w-5 animate-spin" />
                             Gerando...
+                          </>
+                        ) : studio.isPreviewingPrompt ? (
+                          <>
+                            <Loader2 className="h-5 w-5 animate-spin" />
+                            Carregando prompt...
                           </>
                         ) : (
                           <>
@@ -698,6 +826,31 @@ export default function StudioPage() {
                           </>
                         )}
                       </Button>
+
+                      {/* L-key hint */}
+                      <p className="text-center text-xs text-muted-foreground/50 -mt-2">
+                        Segure <kbd className="px-1 py-0.5 rounded text-[10px] bg-muted border border-border/60 font-mono">L</kbd> + clique para inspecionar o prompt
+                      </p>
+
+                      {/* Ver prompt completo — collapsible below generate button */}
+                      {studio.lastEnrichedPrompt && (
+                        <Collapsible>
+                          <CollapsibleTrigger asChild>
+                            <Button variant="ghost" size="sm" className="w-full justify-between text-xs text-muted-foreground px-0">
+                              <span className="flex items-center gap-1">
+                                <FileText className="h-3 w-3" />
+                                Ver prompt completo
+                              </span>
+                              <ChevronDown className="h-3 w-3" />
+                            </Button>
+                          </CollapsibleTrigger>
+                          <CollapsibleContent>
+                            <div className="rounded-md bg-muted/50 border border-border/40 p-3 text-xs text-muted-foreground leading-relaxed max-h-48 overflow-y-auto whitespace-pre-wrap font-mono">
+                              {studio.lastEnrichedPrompt}
+                            </div>
+                          </CollapsibleContent>
+                        </Collapsible>
+                      )}
                     </motion.div>
                   )}
 
