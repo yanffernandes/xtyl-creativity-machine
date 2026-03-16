@@ -21,15 +21,6 @@ import ProjectSettingsPage from '@/app/workspace/[id]/project/[projectId]/settin
 import ProjectStudioPage from '@/app/workspace/[id]/project/[projectId]/studio/page'
 import ProjectVisualContextPage from '@/app/workspace/[id]/project/[projectId]/settings/visual-context/page'
 
-import AdminLayout from '@/app/admin/layout'
-import AdminDashboardPage from '@/app/admin/page'
-import AdminSettingsPage from '@/app/admin/settings/page'
-import AdminMessagesPage from '@/app/admin/messages/page'
-import AdminModelsPage from '@/app/admin/models/page'
-import AdminUsersPage from '@/app/admin/users/page'
-import AdminUserDetailPage from '@/app/admin/users/[id]/page'
-import AdminWorkspacesPage from '@/app/admin/workspaces/page'
-import AdminWorkspaceDetailPage from '@/app/admin/workspaces/[id]/page'
 
 import DesignSystemPage from '@/app/design-system/page'
 import DesignDemoPage from '@/app/design-demo/page'
@@ -43,7 +34,6 @@ export interface RouteMatch {
 interface AppRoute {
   path: string
   component: React.ComponentType<any>
-  wrapWithAdminLayout?: boolean
 }
 
 const routes: AppRoute[] = [
@@ -67,15 +57,6 @@ const routes: AppRoute[] = [
   { path: '/workspace/:id/project/:projectId/settings', component: ProjectSettingsPage },
   { path: '/workspace/:id/project/:projectId/studio', component: ProjectStudioPage },
   { path: '/workspace/:id/project/:projectId/settings/visual-context', component: ProjectVisualContextPage },
-
-  { path: '/admin', component: AdminDashboardPage, wrapWithAdminLayout: true },
-  { path: '/admin/settings', component: AdminSettingsPage, wrapWithAdminLayout: true },
-  { path: '/admin/messages', component: AdminMessagesPage, wrapWithAdminLayout: true },
-  { path: '/admin/models', component: AdminModelsPage, wrapWithAdminLayout: true },
-  { path: '/admin/users', component: AdminUsersPage, wrapWithAdminLayout: true },
-  { path: '/admin/users/:id', component: AdminUserDetailPage, wrapWithAdminLayout: true },
-  { path: '/admin/workspaces', component: AdminWorkspacesPage, wrapWithAdminLayout: true },
-  { path: '/admin/workspaces/:id', component: AdminWorkspaceDetailPage, wrapWithAdminLayout: true },
 
   { path: '/design-system', component: DesignSystemPage },
   { path: '/design-demo', component: DesignDemoPage },
@@ -144,11 +125,5 @@ export function renderMatchedRoute(match: RouteMatch | null): React.ReactNode {
   }
 
   const PageComponent = match.route.component
-  const content = <PageComponent />
-
-  if (match.route.wrapWithAdminLayout) {
-    return <AdminLayout>{content}</AdminLayout>
-  }
-
-  return content
+  return <PageComponent />
 }
